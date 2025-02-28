@@ -19,6 +19,8 @@ export interface UserInfo {
   realName?: string;
   idCard?: string;
   role: string;
+  verificationStatus?: string;
+  avatar?: string;
 }
 
 export interface AuthResponse {

@@ -1,15 +1,6 @@
 <template>
-  <el-container class="app-container">
-    <Header />
-    <el-main>
-      <router-view />
-    </el-main>
-  </el-container>
+  <router-view></router-view>
 </template>
-
-<script setup lang="ts">
-import Header from "@/components/Header.vue";
-</script>
 
 <style>
 html,
@@ -21,14 +12,5 @@ body {
 
 #app {
   height: 100%;
-}
-
-.app-container {
-  min-height: 100vh;
-}
-
-.el-main {
-  padding: 20px;
-  background-color: #f5f5f5;
 }
 </style>

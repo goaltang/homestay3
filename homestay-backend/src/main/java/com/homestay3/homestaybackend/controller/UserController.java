@@ -3,21 +3,22 @@ package com.homestay3.homestaybackend.controller;
 import com.homestay3.homestaybackend.dto.AuthResponse;
 import com.homestay3.homestaybackend.dto.PasswordChangeRequest;
 import com.homestay3.homestaybackend.dto.ProfileUpdateRequest;
+import com.homestay3.homestaybackend.service.FileService;
 import com.homestay3.homestaybackend.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Validated
 public class UserController {
     private final UserService userService;
+    private final FileService fileService;
 
     @PutMapping("/profile")
     public ResponseEntity<AuthResponse> updateProfile(
@@ -34,5 +35,15 @@ public class UserController {
     ) {
         userService.changePassword(request, userDetails.getUsername());
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/avatar")
+    public ResponseEntity<String> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        String avatarUrl = fileService.uploadFile(file);
+        userService.updateAvatar(userDetails.getUsername(), avatarUrl);
+        return ResponseEntity.ok(avatarUrl);
     }
 } 

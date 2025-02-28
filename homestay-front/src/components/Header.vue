@@ -1,118 +1,127 @@
 <template>
     <el-header class="header">
-        <div class="header-left">
-            <router-link to="/" class="logo">
-                <Logo class="logo-icon" />
-                <span class="logo-text">民宿预订平台</span>
-            </router-link>
+        <div class="logo">民宿预订系统</div>
+        <div class="nav">
+            <el-menu mode="horizontal" :router="true">
+                <el-menu-item index="/">首页</el-menu-item>
+                <el-menu-item index="/homestays">民宿列表</el-menu-item>
+            </el-menu>
         </div>
-
-        <div class="header-right">
-            <template v-if="userStore.isAuthenticated">
-                <el-dropdown>
-                    <span class="user-menu">
-                        {{ userStore.userInfo.username }}
-                        <el-icon>
-                            <ArrowDown />
-                        </el-icon>
+        <div class="user-area">
+            <template v-if="userStore.isAuthenticated && userStore.userInfo">
+                <el-dropdown @command="handleCommand">
+                    <span class="user-info">
+                        <el-avatar :size="32"
+                            :src="userStore.userInfo.avatar ? `${baseUrl}${userStore.userInfo.avatar}` : ''">
+                            {{ userStore.userInfo?.username?.charAt(0)?.toUpperCase() }}
+                        </el-avatar>
+                        <span class="username">{{ userStore.userInfo.username }}</span>
                     </span>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item>
-                                <router-link to="/profile">个人中心</router-link>
-                            </el-dropdown-item>
-                            <el-dropdown-item divided @click="handleLogout">
-                                退出登录
-                            </el-dropdown-item>
+                            <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                            <el-dropdown-item command="orders">我的订单</el-dropdown-item>
+                            <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
                 </el-dropdown>
             </template>
             <template v-else>
-                <router-link to="/login">登录</router-link>
-                <router-link to="/register" class="register-link">注册</router-link>
+                <el-button type="text" @click="$router.push('/login')">登录</el-button>
+                <el-button type="primary" @click="$router.push('/register')">注册</el-button>
             </template>
         </div>
     </el-header>
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from "@/stores/user";
-import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
-import { ArrowDown } from "@element-plus/icons-vue";
-import Logo from "./Logo.vue";
+import { useRouter } from 'vue-router';
+import { useUserStore } from '@/stores/user';
+import { onMounted } from 'vue';
 
-const userStore = useUserStore();
 const router = useRouter();
+const userStore = useUserStore();
+const baseUrl = 'http://localhost:8080';
 
-const handleLogout = () => {
-    userStore.logout();
-    ElMessage.success("已退出登录");
-    router.push({ name: "Login" });
+onMounted(async () => {
+    if (userStore.isAuthenticated && !userStore.userInfo) {
+        try {
+            await userStore.getUserInfo();
+        } catch (error) {
+            console.error('获取用户信息失败:', error);
+        }
+    }
+});
+
+const handleCommand = (command: string) => {
+    switch (command) {
+        case 'profile':
+            router.push('/profile');
+            break;
+        case 'orders':
+            router.push('/orders');
+            break;
+        case 'logout':
+            userStore.logout();
+            router.push('/login');
+            break;
+    }
 };
 </script>
 
 <style scoped>
 .header {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
     padding: 0 20px;
-    height: 60px;
     background-color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.header-left {
-    display: flex;
-    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
 }
 
 .logo {
-    display: flex;
-    align-items: center;
-    text-decoration: none;
-    color: #333;
-}
-
-.logo-icon {
-    width: 32px;
-    height: 32px;
-    margin-right: 8px;
-}
-
-.logo-text {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
+    color: var(--el-color-primary);
 }
 
-.header-right {
+.nav {
+    flex: 1;
+    margin: 0 40px;
+}
+
+.user-area {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
 }
 
-.header-right a {
-    text-decoration: none;
-    color: #333;
-}
-
-.register-link {
-    color: #409eff;
-}
-
-.user-menu {
+.user-info {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     cursor: pointer;
 }
 
-.el-dropdown-menu a {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-    width: 100%;
+.username {
+    font-size: 14px;
+    color: #333;
+}
+
+:deep(.el-menu) {
+    border-bottom: none;
+}
+
+:deep(.el-menu--horizontal) {
+    border-bottom: none;
+}
+
+:deep(.el-menu-item) {
+    font-size: 15px;
 }
 </style>

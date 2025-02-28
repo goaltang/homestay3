@@ -17,44 +17,34 @@
           <h3>欢迎回来</h3>
           <p class="login-subtitle">请登录您的账号</p>
 
-          <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form">
-            <el-form-item prop="username">
-              <el-input v-model="loginForm.username" placeholder="用户名/邮箱" prefix-icon="User" />
-            </el-form-item>
+          <el-card class="login-card">
+            <el-form ref="loginFormRef" :model="loginForm" :rules="rules" label-position="top"
+              @submit.prevent="handleLogin">
+              <el-form-item label="用户名" prop="username">
+                <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" :disabled="loading"
+                  @keyup.enter="handleLogin" />
+              </el-form-item>
 
-            <el-form-item prop="password">
-              <el-input v-model="loginForm.password" type="password" placeholder="密码" prefix-icon="Lock"
-                show-password />
-            </el-form-item>
+              <el-form-item label="密码" prop="password">
+                <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock"
+                  show-password :disabled="loading" @keyup.enter="handleLogin" />
+              </el-form-item>
 
-            <div class="login-options">
-              <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-              <el-button type="text" @click="goToForgotPassword">忘记密码？</el-button>
-            </div>
-
-            <el-button type="primary" class="login-button" :loading="loading" @click="handleLogin">
-              登录
-            </el-button>
-
-            <div class="register-link">
-              还没有账号？ <el-button type="text" @click="goToRegister">立即注册</el-button>
-            </div>
-
-            <div class="social-login">
-              <p>其他登录方式</p>
-              <div class="social-icons">
-                <el-button circle><el-icon>
-                    <ChatRound />
-                  </el-icon></el-button>
-                <el-button circle><el-icon>
-                    <Apple />
-                  </el-icon></el-button>
-                <el-button circle><el-icon>
-                    <Iphone />
-                  </el-icon></el-button>
+              <div class="remember-forgot">
+                <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
+                <el-button type="text" @click="goToForgotPassword">忘记密码？</el-button>
               </div>
-            </div>
-          </el-form>
+
+              <el-button type="primary" class="submit-btn" :loading="loading" @click="handleLogin">
+                {{ loading ? '登录中...' : '登录' }}
+              </el-button>
+
+              <div class="register-link">
+                还没有账号？
+                <el-button type="text" @click="goToRegister">立即注册</el-button>
+              </div>
+            </el-form>
+          </el-card>
         </div>
       </div>
     </div>
@@ -64,57 +54,56 @@
 <script setup lang="ts">
 import { ref, reactive } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
-import {
-  User,
-  Lock,
-  ChatRound,
-  Apple,
-  Iphone,
-} from "@element-plus/icons-vue";
 import { useUserStore } from "@/stores/user";
+import type { FormInstance } from "element-plus";
+import { ElMessage } from "element-plus";
 import Logo from "@/components/Logo.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
-const loginFormRef = ref();
+const loginFormRef = ref<FormInstance>();
 const loading = ref(false);
 
 const loginForm = reactive({
   username: "",
   password: "",
-  remember: false,
+  remember: false
 });
 
-const loginRules = {
+const rules = {
   username: [
-    { required: true, message: "请输入用户名或邮箱", trigger: "blur" },
-    { min: 3, message: "用户名长度不能小于3个字符", trigger: "blur" },
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    { min: 3, max: 20, message: "长度在 3 到 20 个字符", trigger: "blur" },
   ],
   password: [
     { required: true, message: "请输入密码", trigger: "blur" },
-    { min: 6, message: "密码长度不能小于6个字符", trigger: "blur" },
+    { min: 6, max: 20, message: "长度在 6 到 20 个字符", trigger: "blur" },
   ],
 };
 
 const handleLogin = async () => {
   if (!loginFormRef.value) return;
 
-  await loginFormRef.value.validate(async (valid: boolean) => {
-    if (valid) {
-      try {
-        loading.value = true;
-        await userStore.login(loginForm);
-        ElMessage.success("登录成功");
-        await router.push({ name: "Home" });
-      } catch (error: any) {
-        console.error("登录失败:", error);
-        ElMessage.error(error.message || "登录失败，请检查您的用户名和密码");
-      } finally {
-        loading.value = false;
-      }
+  try {
+    await loginFormRef.value.validate();
+    loading.value = true;
+
+    console.log("表单验证通过，正在尝试登录:", loginForm);
+
+    const success = await userStore.login(loginForm.username, loginForm.password);
+
+    if (success) {
+      ElMessage.success("登录成功");
+      router.push("/");
+    } else {
+      ElMessage.error("登录失败：用户名或密码错误");
     }
-  });
+  } catch (error: any) {
+    console.error("登录出错:", error);
+    ElMessage.error(error.message || "登录失败，请重试");
+  } finally {
+    loading.value = false;
+  }
 };
 
 const goToRegister = () => {
@@ -225,64 +214,38 @@ const goToForgotPassword = () => {
   margin-bottom: 30px;
 }
 
-.login-form {
-  margin-top: 20px;
+.login-card {
+  border: none;
+  box-shadow: none;
 }
 
-.login-options {
+.remember-forgot {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
-.login-button {
+.submit-btn {
   width: 100%;
-  height: 44px;
-  font-size: 16px;
-  border-radius: 8px;
   margin-bottom: 20px;
 }
 
 .register-link {
   text-align: center;
-  margin-bottom: 24px;
-  color: #666;
+  color: #606266;
 }
 
-.social-login {
-  margin-top: 30px;
-  text-align: center;
+:deep(.el-form-item__label) {
+  padding-bottom: 8px;
 }
 
-.social-login p {
-  color: #999;
-  margin-bottom: 16px;
-  position: relative;
+:deep(.el-input__wrapper) {
+  padding: 1px 15px;
 }
 
-.social-login p::before,
-.social-login p::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 25%;
-  height: 1px;
-  background-color: #eee;
-}
-
-.social-login p::before {
-  left: 0;
-}
-
-.social-login p::after {
-  right: 0;
-}
-
-.social-icons {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
+:deep(.el-input__prefix) {
+  margin-right: 8px;
 }
 
 @media (max-width: 768px) {
@@ -294,6 +257,10 @@ const goToForgotPassword = () => {
 
   .login-left {
     display: none;
+  }
+
+  .login-right {
+    padding: 20px;
   }
 }
 </style>
