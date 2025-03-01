@@ -1,14 +1,15 @@
 export interface LoginRequest {
   username: string;
   password: string;
-  remember: boolean;
+  remember?: boolean;
 }
 
 export interface RegisterRequest {
   username: string;
   email: string;
-  password: string;
   phone?: string;
+  password: string;
+  confirmPassword: string;
 }
 
 export interface UserInfo {
@@ -25,5 +26,6 @@ export interface UserInfo {
 
 export interface AuthResponse {
   token: string;
-  user: UserInfo;
+  refreshToken?: string;
+  expiresIn?: number;
 }

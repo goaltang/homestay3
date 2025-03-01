@@ -56,16 +56,11 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/api/auth/login",
-                    "/api/auth/register",
-                    "/api/auth/forgot-password",
-                    "/api/auth/reset-password",
-                    "/api/auth/verify-token",
-                    "/error",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**"
-                ).permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
+                .requestMatchers("/uploads/**", "/static/**").permitAll()
+                .requestMatchers("/api/files/**").permitAll()
+                .requestMatchers("/api/auth/avatar").permitAll()
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session
@@ -81,9 +76,13 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("Content-Type", "Content-Length", "Authorization", 
+                                                    "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", 
+                                                    "Access-Control-Allow-Methods"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

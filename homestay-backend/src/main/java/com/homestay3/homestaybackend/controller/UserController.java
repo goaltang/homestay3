@@ -36,14 +36,4 @@ public class UserController {
         userService.changePassword(request, userDetails.getUsername());
         return ResponseEntity.ok().build();
     }
-
-    @PostMapping("/avatar")
-    public ResponseEntity<String> uploadAvatar(
-            @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        String avatarUrl = fileService.uploadFile(file);
-        userService.updateAvatar(userDetails.getUsername(), avatarUrl);
-        return ResponseEntity.ok(avatarUrl);
-    }
 } 

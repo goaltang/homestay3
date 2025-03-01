@@ -173,38 +173,79 @@ public class AuthService {
     /**
      * 上传用户头像
      * @param file 头像文件
+     * @param username 用户名
      * @return 头像URL
      * @throws IOException 如果文件处理出错
      */
-    public String uploadAvatar(MultipartFile file) throws IOException {
-        // 获取当前认证用户
-        User user = getCurrentUser();
-        
-        // 确保上传目录存在
-        String uploadDir = System.getProperty("user.dir") + "/uploads/avatars";
+    public String uploadAvatar(MultipartFile file, String username) throws IOException {
+        log.info("开始处理头像上传: 用户={}, 文件名={}, 大小={}, 类型={}", 
+                username, file.getOriginalFilename(), file.getSize(), file.getContentType());
+
+        // 确保目录存在
+        String projectRoot = System.getProperty("user.dir");
+        String uploadDir = projectRoot + File.separator + "uploads" + File.separator + "avatars";
         File dir = new File(uploadDir);
+        
         if (!dir.exists()) {
-            dir.mkdirs();
+            boolean created = dir.mkdirs();
+            log.info("创建上传目录: {} - {}", uploadDir, created ? "成功" : "失败");
+            if (!created) {
+                throw new IOException("无法创建上传目录: " + uploadDir);
+            }
         }
         
-        // 生成唯一文件名
+        // 检查目录权限
+        if (!dir.canWrite() || !dir.canRead()) {
+            log.error("目录权限不足: {} - 读:{} 写:{}", 
+                    uploadDir, dir.canRead(), dir.canWrite());
+            throw new IOException("目录权限不足: " + uploadDir);
+        }
+        
+        // 生成文件名
         String originalFilename = file.getOriginalFilename();
-        String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        String filename = user.getId() + "_" + System.currentTimeMillis() + extension;
+        String extension = originalFilename != null && originalFilename.contains(".") 
+                ? originalFilename.substring(originalFilename.lastIndexOf(".")) 
+                : ".jpg";
+                
+        String filename = System.currentTimeMillis() + "_" + (int)(Math.random() * 1000) + extension;
+        File destFile = new File(dir, filename);
         
-        // 保存文件
-        File destFile = new File(dir.getAbsolutePath() + File.separator + filename);
-        file.transferTo(destFile);
+        log.info("准备保存文件: {}", destFile.getAbsolutePath());
         
-        // 更新用户头像URL（使用相对路径）
-        String avatarUrl = "/uploads/avatars/" + filename;
-        user.setAvatar(avatarUrl);
-        userRepository.save(user);
-        
-        log.info("头像上传成功 - 用户ID: {}, 文件名: {}, URL: {}", user.getId(), filename, avatarUrl);
-        log.info("文件保存路径: {}", destFile.getAbsolutePath());
-        
-        return avatarUrl;
+        try {
+            // 保存文件
+            file.transferTo(destFile);
+            
+            // 验证文件是否成功保存
+            if (!destFile.exists()) {
+                throw new IOException("文件保存失败: " + destFile.getAbsolutePath());
+            }
+            
+            // 验证文件是否可读
+            if (!destFile.canRead()) {
+                throw new IOException("无法读取保存的文件: " + destFile.getAbsolutePath());
+            }
+            
+            String avatarUrl = "/uploads/avatars/" + filename;
+            log.info("文件保存成功: {} -> {}", destFile.getAbsolutePath(), avatarUrl);
+            
+            // 更新用户头像路径
+            if (username != null && !username.startsWith("anonymous-")) {
+                User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + username));
+                user.setAvatar(avatarUrl);
+                userRepository.save(user);
+                log.info("用户头像路径已更新: {}", username);
+            } else {
+                log.info("匿名用户上传，不更新用户信息");
+            }
+            
+            return avatarUrl;
+            
+        } catch (IOException e) {
+            log.error("保存文件时出错: {}", e.getMessage(), e);
+            throw new IOException("保存头像文件失败: " + e.getMessage(), e);
+        }
     }
     
     /**
@@ -254,5 +295,17 @@ public class AuthService {
         } catch (Exception e) {
             throw new RuntimeException("发送重置密码邮件失败: " + e.getMessage());
         }
+    }
+
+    public void updateUserAvatar(String username, String avatarUrl) {
+        log.info("更新用户头像: username={}, avatarUrl={}", username, avatarUrl);
+        
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + username));
+        
+        user.setAvatar(avatarUrl);
+        userRepository.save(user);
+        
+        log.info("用户头像更新成功: userId={}", user.getId());
     }
 } 
