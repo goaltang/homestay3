@@ -8,13 +8,17 @@ import com.homestay3.homestaybackend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -69,12 +73,40 @@ public class AuthController {
         }
     }
     
-    @PostMapping("/upload-avatar")
-    public ResponseEntity<Map<String, String>> uploadAvatar(
-            @RequestParam("file") MultipartFile file) throws IOException {
-        String avatarUrl = authService.uploadAvatar(file);
-        Map<String, String> response = new HashMap<>();
-        response.put("url", avatarUrl);
-        return ResponseEntity.ok(response);
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/avatar")
+    public ResponseEntity<?> uploadAvatar(@RequestParam("avatar") MultipartFile file, Authentication authentication) {
+        try {
+            log.info("开始处理头像上传请求，文件大小: {}KB", file.getSize() / 1024);
+            
+            if (file.isEmpty()) {
+                log.warn("上传的头像文件为空");
+                return ResponseEntity.badRequest().body("上传的文件为空");
+            }
+            
+            // 检查文件大小
+            if (file.getSize() > 10 * 1024 * 1024) { // 10MB
+                log.warn("上传的头像文件过大: {}KB", file.getSize() / 1024);
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body("文件大小超过限制，最大允许10MB");
+            }
+            
+            // 获取当前用户
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            String username = userDetails.getUsername();
+            log.info("用户 {} 正在上传头像", username);
+            
+            // 上传头像
+            String avatarPath = authService.uploadAvatar(file, username);
+            log.info("头像上传成功，路径: {}", avatarPath);
+            
+            return ResponseEntity.ok(avatarPath);
+        } catch (Exception e) {
+            log.error("头像上传失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("头像上传失败: " + e.getMessage());
+        }
     }
 } 

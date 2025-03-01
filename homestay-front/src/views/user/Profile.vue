@@ -1,21 +1,22 @@
 <template>
     <div class="profile-container">
         <el-card class="profile-card">
-            <div class="profile-header">
-                <div class="avatar-section">
-                    <el-upload class="avatar-uploader" :show-file-list="false" :before-upload="beforeAvatarUpload"
-                        :http-request="customUpload">
-                        <el-avatar :size="100"
-                            :src="userStore.userInfo?.avatar ? `${baseUrl}${userStore.userInfo.avatar}` : ''">
-                            {{ userStore.userInfo?.username?.charAt(0)?.toUpperCase() }}
-                        </el-avatar>
-                        <div class="avatar-hover-text">点击更换头像</div>
-                    </el-upload>
-                    <h2>{{ userStore.userInfo?.username }}</h2>
-                    <div class="verification-status" :class="verificationStatusClass">
-                        <el-tag :type="verificationStatusType">
-                            {{ verificationStatusText }}
-                        </el-tag>
+            <template #header>
+                <div class="card-header">
+                    <h2>个人中心</h2>
+                </div>
+            </template>
+
+            <div class="avatar-container">
+                <div class="avatar-wrapper">
+                    <el-avatar :size="100" :src="avatarUrl" @error="handleAvatarError">
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=fallback" />
+                    </el-avatar>
+                    <div class="avatar-upload">
+                        <el-upload class="avatar-uploader" :show-file-list="false" :before-upload="beforeAvatarUpload"
+                            :http-request="customUpload" accept="image/jpeg,image/png,image/gif">
+                            <el-button size="small" type="primary">更换头像</el-button>
+                        </el-upload>
                     </div>
                 </div>
             </div>
@@ -25,13 +26,13 @@
                     <div class="info-section">
                         <el-descriptions :column="1" border>
                             <el-descriptions-item label="用户名">
-                                {{ userStore.userInfo?.username }}
+                                {{ userStore.user?.username }}
                             </el-descriptions-item>
                             <el-descriptions-item label="邮箱">
-                                {{ userStore.userInfo?.email }}
+                                {{ userStore.user?.email }}
                             </el-descriptions-item>
                             <el-descriptions-item label="手机号码">
-                                {{ userStore.userInfo?.phone || '未设置' }}
+                                {{ userStore.user?.phone || '未设置' }}
                             </el-descriptions-item>
                         </el-descriptions>
 
@@ -45,7 +46,7 @@
                             </div>
                             <el-descriptions :column="1" border>
                                 <el-descriptions-item label="真实姓名">
-                                    <template v-if="userStore.userInfo?.realName">
+                                    <template v-if="userStore.user?.realName">
                                         {{ maskedRealName }}
                                         <el-tag size="small" type="success" style="margin-left: 8px">已验证</el-tag>
                                     </template>
@@ -54,7 +55,7 @@
                                     </template>
                                 </el-descriptions-item>
                                 <el-descriptions-item label="身份证号">
-                                    <template v-if="userStore.userInfo?.idCard">
+                                    <template v-if="userStore.user?.idCard">
                                         {{ maskedIdCard }}
                                         <el-tag size="small" type="success" style="margin-left: 8px">已验证</el-tag>
                                     </template>
@@ -77,13 +78,13 @@
                                 </el-button>
                             </el-descriptions-item>
                             <el-descriptions-item label="手机绑定">
-                                <span>{{ userStore.userInfo?.phone || '未绑定' }}</span>
+                                <span>{{ userStore.user?.phone || '未绑定' }}</span>
                                 <el-button type="primary" link @click="handleChangePhone">
-                                    {{ userStore.userInfo?.phone ? '修改' : '绑定' }}
+                                    {{ userStore.user?.phone ? '修改' : '绑定' }}
                                 </el-button>
                             </el-descriptions-item>
                             <el-descriptions-item label="邮箱绑定">
-                                <span>{{ userStore.userInfo?.email }}</span>
+                                <span>{{ userStore.user?.email }}</span>
                                 <el-button type="primary" link @click="handleChangeEmail">
                                     修改
                                 </el-button>
@@ -123,27 +124,72 @@
 import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { ElMessage } from 'element-plus';
-import type { UploadProps } from 'element-plus';
+import type { UploadRequestOptions } from 'element-plus';
+import { Loading } from '@element-plus/icons-vue';
 
 const userStore = useUserStore();
-const baseUrl = 'http://localhost:8080';
 const activeTab = ref('basic');
+const loading = ref(false);
+const mode = ref(import.meta.env.MODE || 'development');
+const isDev = ref(mode.value === 'development');
+
+// 获取API基础URL
+const apiBaseUrl = computed(() => import.meta.env.VITE_API_BASE_URL || '');
+
+// 表单数据
+const form = ref({
+    username: userStore.user?.username || "",
+    email: userStore.user?.email || "",
+    phone: userStore.user?.phone || "",
+    realName: userStore.user?.realName || "",
+    idCard: userStore.user?.idCard || "",
+});
+
+// 计算属性：头像URL
+const avatarUrl = computed(() => {
+    if (!userStore.user?.avatar) {
+        // 如果没有头像，返回默认头像
+        const seed = userStore.user?.username || "default" + Date.now();
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    }
+
+    // 如果是完整URL，直接返回
+    if (userStore.user.avatar.startsWith("http")) {
+        return userStore.user.avatar;
+    }
+
+    // 获取基础URL
+    const baseUrl = apiBaseUrl.value;
+
+    // 提取文件名
+    const filename = userStore.user.avatar.split("/").pop();
+    if (filename) {
+        // 使用相对路径访问头像，避免CORS问题
+        const apiUrl = `/api/files/avatar/${filename}`;
+        console.log("使用相对路径访问头像:", apiUrl);
+        return apiUrl;
+    }
+
+    // 如果无法提取文件名，使用默认头像
+    const seed = userStore.user?.username || "fallback" + Date.now();
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+});
 
 // 认证状态相关
 const isVerified = computed(() => {
     // 如果有真实姓名和身份证号，则认为已认证
-    return !!(userStore.userInfo?.realName && userStore.userInfo?.idCard);
+    return !!(userStore.user?.realName && userStore.user?.idCard);
 });
 
 const verificationStatusType = computed(() => {
-    if (userStore.userInfo?.realName && userStore.userInfo?.idCard) {
+    if (userStore.user?.realName && userStore.user?.idCard) {
         return 'success';
     }
     return 'info';
 });
 
 const verificationStatusText = computed(() => {
-    if (userStore.userInfo?.realName && userStore.userInfo?.idCard) {
+    if (userStore.user?.realName && userStore.user?.idCard) {
         return '已认证';
     }
     return '未认证';
@@ -151,14 +197,14 @@ const verificationStatusText = computed(() => {
 
 const verificationStatusClass = computed(() => {
     return {
-        'verified': !!(userStore.userInfo?.realName && userStore.userInfo?.idCard),
-        'unverified': !(userStore.userInfo?.realName && userStore.userInfo?.idCard)
+        'verified': !!(userStore.user?.realName && userStore.user?.idCard),
+        'unverified': !(userStore.user?.realName && userStore.user?.idCard)
     };
 });
 
 // 信息脱敏处理
 const maskedRealName = computed(() => {
-    const realName = userStore.userInfo?.realName;
+    const realName = userStore.user?.realName;
     if (!realName) return '';
     if (realName.length <= 2) {
         return realName.charAt(0) + '*';
@@ -167,34 +213,80 @@ const maskedRealName = computed(() => {
 });
 
 const maskedIdCard = computed(() => {
-    const idCard = userStore.userInfo?.idCard;
+    const idCard = userStore.user?.idCard;
     if (!idCard) return '';
     return idCard.substring(0, 6) + '*'.repeat(8) + idCard.substring(14);
 });
 
-// 头像上传相关
-const beforeAvatarUpload: UploadProps['beforeUpload'] = (file) => {
-    const isImage = /^image\/(jpeg|png|gif)$/.test(file.type);
-    const isLt2M = file.size / 1024 / 1024 < 2;
-
+// 头像上传前的验证
+const beforeAvatarUpload = (file: File) => {
+    // 检查文件类型
+    const isImage = file.type.startsWith('image/');
     if (!isImage) {
-        ElMessage.error('头像必须是图片格式！');
+        ElMessage.error('只能上传图片文件!');
         return false;
     }
-    if (!isLt2M) {
-        ElMessage.error('头像大小不能超过 2MB！');
+
+    // 检查文件大小 (10MB)
+    const isLt10M = file.size / 1024 / 1024 < 10;
+    if (!isLt10M) {
+        ElMessage.error('图片大小不能超过10MB!');
         return false;
     }
+
     return true;
 };
 
-const customUpload = async (options: any) => {
+// 自定义上传方法
+const customUpload = async (options: UploadRequestOptions) => {
     try {
-        await userStore.uploadAvatar(options.file);
-        ElMessage.success('头像上传成功');
-    } catch (error) {
-        ElMessage.error('头像上传失败');
+        loading.value = true;
+        const file = options.file as File;
+        console.log("开始上传头像:", file.name);
+
+        const avatarPath = await userStore.uploadAvatar(file);
+        if (avatarPath) {
+            ElMessage.success('头像上传成功');
+            // 确保用户信息已保存到本地存储
+            if (userStore.user) {
+                localStorage.setItem("user", JSON.stringify(userStore.user));
+            }
+        }
+    } catch (error: any) {
+        console.error("头像上传失败:", error);
+        // 提供更详细的错误信息
+        if (error.response && error.response.status === 413) {
+            ElMessage.error('头像文件太大，超出服务器允许的上传大小限制');
+        } else if (error.message && error.message.includes('Maximum upload size exceeded')) {
+            ElMessage.error('头像文件太大，超出服务器允许的上传大小限制');
+        } else {
+            ElMessage.error(error.message || '头像上传失败，请稍后重试');
+        }
+        // 确保不会丢失用户状态
+        console.log("保持用户登录状态不变");
+    } finally {
+        loading.value = false;
     }
+};
+
+// 头像加载错误处理
+const handleAvatarError = (e: Event) => {
+    const target = e.target as HTMLImageElement;
+    const failedUrl = target.src;
+
+    console.error("头像加载失败:", failedUrl);
+    console.log("头像加载错误详情:", {
+        原始头像: userStore.user?.avatar,
+        计算URL: avatarUrl.value,
+        加载失败URL: failedUrl,
+        用户信息: userStore.user
+    });
+
+    // 直接使用默认头像
+    const seed = userStore.user?.username || "fallback" + Date.now();
+    const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    console.log("已切换到默认头像:", defaultAvatar);
+    target.src = defaultAvatar;
 };
 
 // 密码修改相关
@@ -273,14 +365,21 @@ const submitPasswordChange = async () => {
 
 // 初始化
 onMounted(async () => {
-    if (userStore.isAuthenticated && !userStore.userInfo) {
+    if (userStore.isLoggedIn && !userStore.user) {
         try {
-            await userStore.getUserInfo();
+            await userStore.fetchUserInfo();
         } catch (error) {
             console.error('获取用户信息失败:', error);
             ElMessage.error('获取用户信息失败，请刷新页面重试');
         }
     }
+
+    // 打印环境信息
+    console.log('环境信息:', {
+        模式: mode.value,
+        API基础URL: apiBaseUrl.value,
+        开发模式: isDev.value
+    });
 });
 </script>
 
@@ -302,57 +401,20 @@ onMounted(async () => {
     border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.avatar-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
+.avatar-container {
+    text-align: center;
+    margin-bottom: 20px;
 }
 
-.avatar-uploader {
+.avatar-wrapper {
     position: relative;
-    cursor: pointer;
+    display: inline-block;
 }
 
-.avatar-uploader:hover .avatar-hover-text {
-    opacity: 1;
-}
-
-.avatar-hover-text {
+.avatar-upload {
     position: absolute;
     bottom: 0;
-    left: 0;
     right: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 4px;
-    font-size: 12px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    border-bottom-left-radius: 50%;
-    border-bottom-right-radius: 50%;
-}
-
-.verification-status {
-    margin-top: -8px;
-}
-
-.verification-status.verified .el-tag {
-    background-color: var(--el-color-success-light-9);
-    border-color: var(--el-color-success-light-5);
-    color: var(--el-color-success);
-}
-
-.verification-status.pending .el-tag {
-    background-color: var(--el-color-warning-light-9);
-    border-color: var(--el-color-warning-light-5);
-    color: var(--el-color-warning);
-}
-
-.verification-status.unverified .el-tag {
-    background-color: var(--el-color-info-light-9);
-    border-color: var(--el-color-info-light-5);
-    color: var(--el-color-info);
 }
 
 .profile-tabs {
