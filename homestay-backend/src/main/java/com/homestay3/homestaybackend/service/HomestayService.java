@@ -1,86 +1,95 @@
 package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.HomestayDTO;
+import com.homestay3.homestaybackend.dto.HomestayRequest;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
-import com.homestay3.homestaybackend.model.Homestay;
-import com.homestay3.homestaybackend.repository.HomestayRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.math.BigDecimal;
 import java.util.List;
-import java.util.stream.Collectors;
 
-@Service
-@RequiredArgsConstructor
-@Slf4j
-public class HomestayService {
+public interface HomestayService {
     
-    private final HomestayRepository homestayRepository;
+    /**
+     * 获取所有房源
+     */
+    List<HomestayDTO> getAllHomestays();
     
-    public List<HomestayDTO> getAllHomestays() {
-        return homestayRepository.findAll().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
+    /**
+     * 获取推荐房源
+     */
+    List<HomestayDTO> getFeaturedHomestays();
     
-    public List<HomestayDTO> getFeaturedHomestays() {
-        return homestayRepository.findByFeaturedTrue().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
+    /**
+     * 根据ID获取房源详情
+     */
+    HomestayDTO getHomestayById(Long id);
     
-    public HomestayDTO getHomestayById(Long id) {
-        return homestayRepository.findById(id)
-                .map(this::convertToDTO)
-                .orElseThrow(() -> new RuntimeException("民宿不存在"));
-    }
+    /**
+     * 根据房源类型获取房源列表
+     */
+    List<HomestayDTO> getHomestaysByPropertyType(String propertyType);
     
-    public List<HomestayDTO> searchHomestays(HomestaySearchRequest request) {
-        log.info("搜索民宿: {}", request);
-        
-        return homestayRepository.searchHomestays(
-                request.getLocation(),
-                request.getMinPrice(),
-                request.getMaxPrice(),
-                request.getGuestCount(),
-                request.getPropertyType()
-        ).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
+    /**
+     * 搜索房源
+     */
+    List<HomestayDTO> searchHomestays(HomestaySearchRequest request);
     
-    public List<HomestayDTO> getHomestaysByPropertyType(String propertyType) {
-        return homestayRepository.findByPropertyType(propertyType).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
+    /**
+     * 上传民宿图片
+     */
+    String uploadHomestayImage(MultipartFile file);
     
-    private HomestayDTO convertToDTO(Homestay homestay) {
-        return HomestayDTO.builder()
-                .id(homestay.getId())
-                .title(homestay.getTitle())
-                .description(homestay.getDescription())
-                .location(homestay.getLocation())
-                .city(homestay.getCity())
-                .country(homestay.getCountry())
-                .pricePerNight(homestay.getPricePerNight())
-                .maxGuests(homestay.getMaxGuests())
-                .bedrooms(homestay.getBedrooms())
-                .beds(homestay.getBeds())
-                .bathrooms(homestay.getBathrooms())
-                .amenities(homestay.getAmenities())
-                .images(homestay.getImages())
-                .rating(homestay.getRating())
-                .reviewCount(homestay.getReviewCount())
-                .latitude(homestay.getLatitude())
-                .longitude(homestay.getLongitude())
-                .hostName(homestay.getHostName())
-                .hostId(homestay.getHost() != null ? homestay.getHost().getId() : null)
-                .featured(homestay.isFeatured())
-                .propertyType(homestay.getPropertyType())
-                .distanceFromCenter(homestay.getDistanceFromCenter())
-                .build();
-    }
+    /**
+     * 分页获取民宿
+     */
+    Page<HomestayDTO> getHomestaysByPage(Pageable pageable);
+    
+    /**
+     * 获取用户拥有的民宿
+     */
+    List<HomestayDTO> getHomestaysByOwner(String username);
+    
+    /**
+     * 创建民宿
+     */
+    HomestayDTO createHomestay(HomestayDTO homestayDTO, String ownerUsername);
+    
+    /**
+     * 更新民宿
+     */
+    HomestayDTO updateHomestay(Long id, HomestayDTO homestayDTO);
+    
+    /**
+     * 搜索民宿
+     */
+    List<HomestayDTO> searchHomestays(String keyword, String province, String city, 
+                                     Integer minPrice, Integer maxPrice, 
+                                     Integer guests, String type);
+    
+    /**
+     * 删除民宿
+     */
+    void deleteHomestay(Long id);
+    
+    /**
+     * 更新民宿状态
+     */
+    HomestayDTO updateHomestayStatus(Long id, String status, String ownerUsername);
+    
+    /**
+     * 管理员获取民宿列表（分页和筛选）
+     */
+    Page<HomestayDTO> getAdminHomestays(Pageable pageable, String title, String status, String type);
+    
+    /**
+     * 管理员创建民宿
+     */
+    HomestayDTO createHomestay(HomestayDTO homestayDTO);
+    
+    /**
+     * 管理员更新民宿状态
+     */
+    void updateHomestayStatus(Long id, String status);
 } 

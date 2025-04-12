@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.model;
 
 public enum UserRole {
-    USER,
-    ADMIN
+    ROLE_USER,
+    ROLE_ADMIN,
+    ROLE_LANDLORD
 } 

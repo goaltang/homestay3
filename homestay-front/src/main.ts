@@ -7,6 +7,7 @@ import * as ElementPlusIconsVue from "@element-plus/icons-vue";
 import App from "./App.vue";
 import router from "./router";
 import "./assets/main.css";
+import "./assets/input-styles.css";
 import { useUserStore } from "./stores/user";
 
 const app = createApp(App);
@@ -28,11 +29,11 @@ const initializeApp = async () => {
   const userStore = useUserStore();
 
   // 如果有token，尝试获取用户信息
-  if (userStore.isLoggedIn) {
+  if (userStore.token) {
     try {
       console.log("应用启动时获取用户信息");
       await userStore.fetchUserInfo();
-      console.log("用户信息获取成功:", userStore.user);
+      console.log("用户信息获取成功:", userStore.userInfo);
     } catch (error: any) {
       console.error("获取用户信息失败，可能需要重新登录:", error);
       // 如果获取用户信息失败，清除token

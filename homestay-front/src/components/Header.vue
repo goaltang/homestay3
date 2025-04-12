@@ -11,8 +11,7 @@
             <template v-if="userStore.isAuthenticated && userStore.userInfo">
                 <el-dropdown @command="handleCommand">
                     <span class="user-info">
-                        <el-avatar :size="32"
-                            :src="userStore.userInfo.avatar ? `${baseUrl}${userStore.userInfo.avatar}` : ''">
+                        <el-avatar :size="32" :src="getAvatarUrl()">
                             {{ userStore.userInfo?.username?.charAt(0)?.toUpperCase() }}
                         </el-avatar>
                         <span class="username">{{ userStore.userInfo.username }}</span>
@@ -21,6 +20,7 @@
                         <el-dropdown-menu>
                             <el-dropdown-item command="profile">个人中心</el-dropdown-item>
                             <el-dropdown-item command="orders">我的订单</el-dropdown-item>
+                            <el-dropdown-item command="favorites">我的收藏</el-dropdown-item>
                             <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
@@ -41,12 +41,55 @@ import { onMounted } from 'vue';
 
 const router = useRouter();
 const userStore = useUserStore();
-const baseUrl = 'http://localhost:8080';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+
+// 获取头像URL
+const getAvatarUrl = () => {
+    if (!userStore.userInfo?.avatar) {
+        // 如果没有头像，返回默认头像
+        const seed = userStore.userInfo?.username || "default" + Date.now();
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    }
+
+    const avatarPath = userStore.userInfo.avatar;
+
+    // 如果是完整URL，直接返回
+    if (avatarPath.startsWith("http")) {
+        return avatarPath;
+    }
+
+    // 如果已经包含/api/前缀，直接使用
+    if (avatarPath.startsWith("/api/")) {
+        return avatarPath;
+    }
+
+    // 如果是相对路径但没有前导斜杠，添加前导斜杠
+    const normalizedPath = avatarPath.startsWith("/") ? avatarPath : `/${avatarPath}`;
+
+    // 根据不同的路径格式返回不同的URL
+    if (normalizedPath.includes('/uploads/')) {
+        return `/api${normalizedPath}`;
+    }
+
+    if (normalizedPath.includes('/avatar/')) {
+        return `/api/files${normalizedPath}`;
+    }
+
+    // 尝试提取文件名
+    const filename = normalizedPath.split("/").pop();
+    if (filename) {
+        return `/api/files/avatar/${filename}`;
+    }
+
+    // 默认头像
+    const seed = userStore.userInfo?.username || "fallback" + Date.now();
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+};
 
 onMounted(async () => {
     if (userStore.isAuthenticated && !userStore.userInfo) {
         try {
-            await userStore.getUserInfo();
+            await userStore.fetchUserInfo();
         } catch (error) {
             console.error('获取用户信息失败:', error);
         }
@@ -56,10 +99,13 @@ onMounted(async () => {
 const handleCommand = (command: string) => {
     switch (command) {
         case 'profile':
-            router.push('/profile');
+            router.push('/user/profile');
             break;
         case 'orders':
-            router.push('/orders');
+            router.push('/user/bookings');
+            break;
+        case 'favorites':
+            router.push('/user/favorites');
             break;
         case 'logout':
             userStore.logout();

@@ -21,6 +21,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item v-if="isLoggedIn" command="profile">个人中心</el-dropdown-item>
+                <el-dropdown-item v-if="isLoggedIn" command="host">房东中心</el-dropdown-item>
                 <el-dropdown-item command="favorites">我的收藏</el-dropdown-item>
                 <el-dropdown-item command="bookings">我的预订</el-dropdown-item>
                 <el-dropdown-item divided v-if="isLoggedIn" command="logout">退出登录</el-dropdown-item>
@@ -86,13 +87,52 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Menu } from '@element-plus/icons-vue'
 import { useUserStore } from './stores/user'
+import { useAuthStore } from './stores/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
+const authStore = useAuthStore()
 
-const isLoggedIn = computed(() => userStore.token !== null)
+const isLoggedIn = computed(() => userStore.token !== null || authStore.isAuthenticated)
 const userAvatar = computed(() => {
-  return userStore.user?.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+  if (!userStore.userInfo?.avatar) {
+    // 如果没有头像，返回默认头像
+    const seed = userStore.userInfo?.username || "default" + Date.now();
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+  }
+
+  const avatarPath = userStore.userInfo.avatar;
+
+  // 如果是完整URL，直接返回
+  if (avatarPath.startsWith("http")) {
+    return avatarPath;
+  }
+
+  // 如果已经包含/api/前缀，直接使用
+  if (avatarPath.startsWith("/api/")) {
+    return avatarPath;
+  }
+
+  // 如果是相对路径但没有前导斜杠，添加前导斜杠
+  const normalizedPath = avatarPath.startsWith("/") ? avatarPath : `/${avatarPath}`;
+
+  // 根据不同的路径格式返回不同的URL
+  if (normalizedPath.includes('/uploads/')) {
+    return `/api${normalizedPath}`;
+  }
+
+  if (normalizedPath.includes('/avatar/')) {
+    return `/api/files${normalizedPath}`;
+  }
+
+  // 尝试提取文件名
+  const filename = normalizedPath.split("/").pop();
+  if (filename) {
+    return `/api/files/avatar/${filename}`;
+  }
+
+  // 无法解析路径时使用默认头像
+  return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 })
 
 const goToHome = () => {
@@ -100,9 +140,48 @@ const goToHome = () => {
 }
 
 const handleCommand = (command: string) => {
+  console.log('命令执行:', command)
+
   switch (command) {
     case 'profile':
       router.push('/user/profile')
+      break
+    case 'host':
+      console.log('尝试跳转到房东中心')
+      // 检查是否登录
+      if (!isLoggedIn.value) {
+        ElMessage.warning('请先登录')
+        console.warn('用户未登录，重定向到登录页')
+        router.push('/login')
+        return
+      }
+
+      // 首先检查 authStore 的角色
+      if (authStore.isLandlord) {
+        console.log('使用 authStore 确认用户是房东，角色:', authStore.userRole)
+        router.push('/host').catch(err => {
+          console.error('跳转到房东中心失败:', err)
+          ElMessage.error('跳转到房东中心失败，请联系管理员')
+        })
+        return
+      }
+
+      // 回退到使用 userStore 检查
+      if (userStore.userInfo?.role === 'ROLE_LANDLORD') {
+        console.log('使用 userStore 确认用户是房东，角色:', userStore.userInfo.role)
+        router.push('/host').catch(err => {
+          console.error('跳转到房东中心失败:', err)
+          ElMessage.error('跳转到房东中心失败，请联系管理员')
+        })
+        return
+      }
+
+      // 用户不是房东
+      ElMessage.warning('您不是房东，无法访问房东中心')
+      console.warn('用户角色不是房东:', {
+        authStoreRole: authStore.userRole,
+        userStoreRole: userStore.userInfo?.role
+      })
       break
     case 'favorites':
       router.push('/user/favorites')
@@ -143,6 +222,23 @@ body {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: var(--text-color);
   line-height: 1.5;
+}
+
+/* 全局数字输入框样式优化 */
+.el-input-number {
+  width: 100px !important;
+}
+
+.el-input-number .el-input__inner {
+  text-align: center !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+/* 隐藏筛选面板中的数字输入框控制按钮 */
+.filter-card .el-input-number__decrease,
+.filter-card .el-input-number__increase {
+  display: none !important;
 }
 
 .app-container {

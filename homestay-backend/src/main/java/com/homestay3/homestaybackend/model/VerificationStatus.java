@@ -1,8 +1,26 @@
 package com.homestay3.homestaybackend.model;
 
+/**
+ * 用户验证状态枚举
+ */
 public enum VerificationStatus {
-    UNVERIFIED,    // 未认证
-    PENDING,       // 审核中
-    VERIFIED,      // 已认证
-    REJECTED       // 已拒绝
+    /**
+     * 未验证
+     */
+    UNVERIFIED,
+    
+    /**
+     * 待验证
+     */
+    PENDING,
+    
+    /**
+     * 已验证
+     */
+    VERIFIED,
+    
+    /**
+     * 验证失败
+     */
+    REJECTED
 }

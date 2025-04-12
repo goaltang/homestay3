@@ -5,7 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -15,31 +16,28 @@ import java.util.List;
 public class HomestayDTO {
     private Long id;
     private String title;
-    private String description;
-    private String location;
-    private String city;
-    private String country;
-    
-    private BigDecimal pricePerNight;
+    private String type;
+    private String price;
+    private String status;
     private Integer maxGuests;
-    private Integer bedrooms;
-    private Integer beds;
-    private Integer bathrooms;
+    private Integer minNights;
+    private String province;
+    private String city;
+    private String district;
+    private String address;
     
-    private List<String> amenities;
-    private List<String> images;
+    @Builder.Default
+    private List<String> amenities = new ArrayList<>();
     
-    private Double rating;
-    private Integer reviewCount;
+    private String description;
+    private String coverImage;
     
-    private Double latitude;
-    private Double longitude;
+    @Builder.Default
+    private List<String> images = new ArrayList<>();
     
-    private String hostName;
-    private Long hostId;
-    
+    private String ownerUsername;
+    private String ownerName;
     private boolean featured;
-    private String propertyType;
-    
-    private Double distanceFromCenter;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 } 

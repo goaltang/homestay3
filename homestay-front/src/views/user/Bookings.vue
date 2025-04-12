@@ -19,54 +19,62 @@
         <div v-else>
             <el-tabs v-model="activeTab" class="booking-tabs">
                 <el-tab-pane label="全部预订" name="all"></el-tab-pane>
-                <el-tab-pane label="待支付" name="pending"></el-tab-pane>
-                <el-tab-pane label="待入住" name="upcoming"></el-tab-pane>
-                <el-tab-pane label="已完成" name="completed"></el-tab-pane>
-                <el-tab-pane label="已取消" name="cancelled"></el-tab-pane>
+                <el-tab-pane label="待支付" name="PENDING"></el-tab-pane>
+                <el-tab-pane label="待入住" name="CONFIRMED"></el-tab-pane>
+                <el-tab-pane label="已完成" name="COMPLETED"></el-tab-pane>
+                <el-tab-pane label="已取消" name="CANCELLED"></el-tab-pane>
             </el-tabs>
 
             <div class="booking-list">
-                <el-card v-for="booking in filteredBookings" :key="booking.id" class="booking-card">
+                <el-card v-for="booking in filteredBookings" :key="booking.id" class="booking-card"
+                    @click="viewOrderDetail(booking.id)">
                     <div class="booking-info">
                         <div class="booking-image">
-                            <img :src="booking.homestay.images[0]" :alt="booking.homestay.title" />
+                            <img :src="getImageUrl(booking.imageUrl)" :alt="booking.homestayTitle"
+                                @error="handleImageError">
                         </div>
                         <div class="booking-details">
-                            <h3 class="booking-title">{{ booking.homestay.title }}</h3>
-                            <div class="booking-location">{{ booking.homestay.city }}, {{ booking.homestay.country }}
-                            </div>
+                            <h3 class="booking-title" @click="viewOrderDetail(booking.id)" style="cursor: pointer;">
+                                {{ booking.homestayTitle || '未命名民宿' }}
+                            </h3>
+                            <div class="booking-location" v-if="booking.location">{{ booking.location }}</div>
                             <div class="booking-dates">
-                                {{ formatDate(booking.checkIn) }} 至 {{ formatDate(booking.checkOut) }}
+                                {{ formatDate(booking.checkInDate) }} 至 {{ formatDate(booking.checkOutDate) }}
                                 <span class="booking-nights">({{ booking.nights }}晚)</span>
                             </div>
-                            <div class="booking-guests">{{ booking.guests }}位房客</div>
-                            <div class="booking-status" :class="booking.status">
-                                {{ getStatusText(booking.status) }}
+                            <div class="booking-guests">{{ booking.guestCount }}位房客</div>
+                            <div :class="['booking-status', getStatusClass(booking.status)]">
+                                <span>{{ formatStatus(booking.status) }}</span>
+                                <span class="status-time" v-if="booking.createTime">
+                                    {{ formatTime(booking.createTime) }}
+                                </span>
                             </div>
                         </div>
                         <div class="booking-price">
-                            <div class="price-total">¥{{ booking.totalPrice }}</div>
-                            <div class="price-detail">
-                                <div>¥{{ booking.homestay.pricePerNight }} x {{ booking.nights }}晚</div>
-                                <div>清洁费: ¥{{ booking.cleaningFee }}</div>
-                                <div>服务费: ¥{{ booking.serviceFee }}</div>
+                            <div class="price-total">¥{{ booking.totalAmount }}</div>
+                            <div class="price-detail" v-if="booking.cleaningFee || booking.serviceFee">
+                                <div>¥{{ booking.price || 0 }} x {{ booking.nights }}晚</div>
+                                <div v-if="booking.cleaningFee">清洁费: ¥{{ booking.cleaningFee }}</div>
+                                <div v-if="booking.serviceFee">服务费: ¥{{ booking.serviceFee }}</div>
                             </div>
                         </div>
                     </div>
                     <div class="booking-actions">
-                        <el-button v-if="booking.status === 'pending'" type="primary" @click="payBooking(booking.id)">
+                        <el-button type="primary" size="small" @click="viewOrderDetail(booking.id)">
+                            查看详情
+                        </el-button>
+                        <el-button type="warning" size="small" v-if="canBeCancelled(booking.status)"
+                            @click="cancelBooking(booking.id)">
+                            取消订单
+                        </el-button>
+                        <el-button type="success" size="small"
+                            v-if="booking.status === 'CONFIRMED' || booking.status === 'PENDING_PAYMENT'"
+                            @click="payBooking(booking.id)">
                             去支付
                         </el-button>
-                        <el-button v-if="['pending', 'upcoming'].includes(booking.status)" type="danger"
-                            @click="cancelBooking(booking.id)">
-                            取消预订
-                        </el-button>
-                        <el-button v-if="booking.status === 'completed'" type="primary"
+                        <el-button size="small" v-if="booking.status === 'COMPLETED'"
                             @click="reviewBooking(booking.id)">
                             评价
-                        </el-button>
-                        <el-button @click="viewHomestayDetails(booking.homestay.id)">
-                            查看民宿
                         </el-button>
                     </div>
                 </el-card>
@@ -78,31 +86,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import request from '@/utils/request'
+import { ElMessage, ElMessageBox, ElEmpty, ElLoading } from 'element-plus'
+import dayjs from 'dayjs'
+import { getUserOrders, cancelOrder as apiCancelOrder } from '@/api/order'
 
 // 定义类型
-interface Homestay {
-    id: number;
-    title: string;
-    city: string;
-    country: string;
-    pricePerNight: number;
-    images: string[];
-}
-
 interface Booking {
     id: number;
-    homestay: Homestay;
-    checkIn: string;
-    checkOut: string;
+    orderNumber: string;
+    homestayId: number;
+    homestayTitle: string;
+    imageUrl?: string;
+    location?: string;
+    checkInDate: string;
+    checkOutDate: string;
     nights: number;
-    guests: number;
-    totalPrice: number;
-    cleaningFee: number;
-    serviceFee: number;
-    status: 'pending' | 'upcoming' | 'completed' | 'cancelled';
-    createdAt: string;
+    guestCount: number;
+    totalAmount: number;
+    price?: number;
+    cleaningFee?: number;
+    serviceFee?: number;
+    status: string;
+    createTime: string;
 }
 
 const router = useRouter()
@@ -124,128 +129,226 @@ onMounted(async () => {
 const fetchBookings = async () => {
     loading.value = true
     try {
-        // 尝试从后端获取预订记录
-        // 如果后端没有实现，使用模拟数据
-        try {
-            const response = await request.get('/api/bookings')
-            bookings.value = response.data
-        } catch (error) {
-            console.error('获取预订记录失败，使用模拟数据:', error)
+        // 从API获取订单数据
+        const response = await getUserOrders()
+        console.log('订单数据原始响应:', response.data)
 
-            // 使用模拟数据
-            bookings.value = [
-                {
-                    id: 1,
-                    homestay: {
-                        id: 1,
-                        title: '大理古城树屋',
-                        city: '大理',
-                        country: '中国',
-                        pricePerNight: 688,
-                        images: ['https://picsum.photos/800/600?random=1']
-                    },
-                    checkIn: '2023-07-15',
-                    checkOut: '2023-07-20',
-                    nights: 5,
-                    guests: 2,
-                    totalPrice: 3440,
-                    cleaningFee: 68,
-                    serviceFee: 516,
-                    status: 'completed',
-                    createdAt: '2023-06-20T10:30:00'
-                },
-                {
-                    id: 2,
-                    homestay: {
-                        id: 2,
-                        title: '杭州山顶树屋',
-                        city: '杭州',
-                        country: '中国',
-                        pricePerNight: 1288,
-                        images: ['https://picsum.photos/800/600?random=2']
-                    },
-                    checkIn: '2023-12-25',
-                    checkOut: '2023-12-30',
-                    nights: 5,
-                    guests: 4,
-                    totalPrice: 6440,
-                    cleaningFee: 128,
-                    serviceFee: 966,
-                    status: 'upcoming',
-                    createdAt: '2023-11-15T14:20:00'
-                },
-                {
-                    id: 3,
-                    homestay: {
-                        id: 3,
-                        title: '三亚海景房',
-                        city: '三亚',
-                        country: '中国',
-                        pricePerNight: 1688,
-                        images: ['https://picsum.photos/800/600?random=3']
-                    },
-                    checkIn: '2023-08-01',
-                    checkOut: '2023-08-05',
-                    nights: 4,
-                    guests: 6,
-                    totalPrice: 6752,
-                    cleaningFee: 168,
-                    serviceFee: 1012,
-                    status: 'cancelled',
-                    createdAt: '2023-07-01T09:15:00'
-                }
-            ]
+        // 处理数据格式转换
+        let ordersData = []
+
+        // 处理不同的响应格式
+        if (response.data && response.data.data && response.data.data.content) {
+            // 标准分页格式
+            ordersData = response.data.data.content
+        } else if (response.data && Array.isArray(response.data)) {
+            // 直接是数组的情况
+            ordersData = response.data
+        } else if (response.data && response.data.content) {
+            // 简化的分页格式
+            ordersData = response.data.content
+        } else if (Array.isArray(response.data.data)) {
+            // 数据嵌套在data字段中的情况
+            ordersData = response.data.data
         }
+
+        // 转换为前端需要的格式
+        bookings.value = ordersData.map((order: any) => {
+            // 计算入住晚数
+            const checkIn = new Date(order.checkInDate)
+            const checkOut = new Date(order.checkOutDate)
+            const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+
+            return {
+                id: order.id,
+                orderNumber: order.orderNumber || `ORDER-${order.id}`,
+                homestayId: order.homestayId,
+                homestayTitle: order.homestayTitle || '未命名民宿',
+                imageUrl: order.imageUrl || null,
+                location: order.location || order.address || '',
+                checkInDate: order.checkInDate,
+                checkOutDate: order.checkOutDate,
+                nights: nights || 1,
+                guestCount: order.guestCount || 1,
+                totalAmount: Number(order.totalAmount) || 0,
+                price: Number(order.price) || 0,
+                cleaningFee: Number(order.cleaningFee) || 0,
+                serviceFee: Number(order.serviceFee) || 0,
+                status: order.status || 'PENDING',
+                createTime: order.createTime || new Date().toISOString()
+            }
+        })
+
+        console.log('处理后的订单数据:', bookings.value)
     } catch (error) {
-        console.error('获取预订记录失败:', error)
-        ElMessage.error('获取预订记录失败')
+        console.error('获取订单数据失败:', error)
+        ElMessage.error('获取订单数据失败，请稍后重试')
+        bookings.value = []
     } finally {
         loading.value = false
     }
 }
 
+const getImageUrl = (imageUrl: string | undefined) => {
+    if (!imageUrl) {
+        return 'https://picsum.photos/400/300'
+    }
+
+    // 处理不同格式的图片URL
+    if (imageUrl.startsWith('http')) {
+        return imageUrl
+    } else if (imageUrl.startsWith('/uploads/')) {
+        return `/api${imageUrl}`
+    } else if (imageUrl.startsWith('/homestays/')) {
+        return `/api${imageUrl}`
+    } else if (!imageUrl.startsWith('/')) {
+        return `/api/uploads/homestays/${imageUrl}`
+    }
+
+    return `/api${imageUrl}`
+}
+
 const formatDate = (dateString: string) => {
+    if (!dateString) return ''
     const date = new Date(dateString)
     return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
 const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
-        pending: '待支付',
-        upcoming: '待入住',
-        completed: '已完成',
-        cancelled: '已取消'
+        PENDING: '待确认',
+        CONFIRMED: '已确认',
+        PAID: '已支付',
+        COMPLETED: '已完成',
+        CANCELLED: '已取消'
     }
     return statusMap[status] || status
 }
 
-const viewHomestayDetails = (id: number) => {
-    router.push(`/homestay/${id}`)
+const getStatusType = (status: string) => {
+    const statusTypes: Record<string, string> = {
+        'PENDING': 'warning',
+        'CONFIRMED': 'success',
+        'REJECTED': 'danger',
+        'CANCELLED': 'info',
+        'PAID': 'success',
+        'CHECKED_IN': 'success',
+        'COMPLETED': 'success'
+    }
+    return statusTypes[status] || 'info'
 }
 
-const payBooking = (id: number) => {
-    ElMessage.info('支付功能正在开发中')
-}
-
-const cancelBooking = (id: number) => {
-    ElMessageBox.confirm('确定要取消此预订吗？', '取消预订', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-    }).then(() => {
-        // 模拟取消预订
-        const index = bookings.value.findIndex(booking => booking.id === id)
-        if (index !== -1) {
-            bookings.value[index].status = 'cancelled'
-            ElMessage.success('预订已取消')
-        }
-    }).catch(() => {
-        // 用户取消操作
+const formatDateTime = (dateString: string) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
     })
 }
 
+const viewOrderDetail = (id: number) => {
+    router.push(`/orders/${id}`)
+}
+
+const payBooking = (id: number) => {
+    router.push(`/orders/${id}/pay`)
+}
+
+const cancelBooking = async (id: number) => {
+    try {
+        await ElMessageBox.confirm('确定要取消此预订吗？取消后不可恢复。', '取消预订', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+        })
+
+        // 使用PUT方法更新订单状态为取消，而不是使用特定的取消API
+        try {
+            const response = await fetch(`/api/orders/${id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ status: 'CANCELLED' })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                ElMessage.success('订单已成功取消');
+                // 刷新订单列表
+                await fetchBookings();
+            } else {
+                throw new Error(result.message || '取消订单失败');
+            }
+        } catch (error: any) {
+            console.error('API调用错误:', error);
+            ElMessage.error(`取消订单失败: ${error.message || '请稍后重试'}`);
+        }
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            console.error('取消订单失败:', error)
+            ElMessage.error('取消订单失败，请稍后重试')
+        }
+    }
+}
+
 const reviewBooking = (id: number) => {
-    ElMessage.info('评价功能正在开发中')
+    ElMessage.info('评价功能开发中')
+}
+
+const getStatusClass = (status: string) => {
+    const statusClasses: Record<string, string> = {
+        PENDING: 'booking-status pending',
+        CONFIRMED: 'booking-status confirmed',
+        PAID: 'booking-status paid',
+        COMPLETED: 'booking-status completed',
+        CANCELLED: 'booking-status cancelled',
+        REJECTED: 'booking-status rejected'
+    }
+    return statusClasses[status] || 'booking-status info'
+}
+
+const formatStatus = (status: string) => {
+    const statusText = getStatusText(status)
+    return statusText.charAt(0).toUpperCase() + statusText.slice(1)
+}
+
+const formatTime = (dateString: string) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
+    })
+}
+
+const calculateNights = (checkInDate: string, checkOutDate: string) => {
+    const checkIn = new Date(checkInDate)
+    const checkOut = new Date(checkOutDate)
+    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+    return nights > 0 ? nights : 1
+}
+
+const formatPrice = (amount: number) => {
+    return amount.toLocaleString('zh-CN', {
+        style: 'currency',
+        currency: 'CNY'
+    })
+}
+
+const handleImageError = (event: Event) => {
+    const target = event.target as HTMLImageElement
+    if (target) {
+        target.src = 'https://picsum.photos/400/300'
+    }
+}
+
+const canBeCancelled = (status: string) => {
+    return ['PENDING', 'CONFIRMED'].includes(status)
 }
 </script>
 
@@ -322,31 +425,34 @@ const reviewBooking = (id: number) => {
 }
 
 .booking-status {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 14px;
     margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
+.status-time {
+    font-size: 12px;
+    color: #909399;
+}
+
+/* 订单状态样式 */
 .booking-status.pending {
-    background-color: #e6a23c;
-    color: white;
+    color: #e6a23c;
 }
 
-.booking-status.upcoming {
-    background-color: #409eff;
-    color: white;
+.booking-status.confirmed,
+.booking-status.paid {
+    color: #67c23a;
+}
+
+.booking-status.cancelled,
+.booking-status.rejected {
+    color: #909399;
 }
 
 .booking-status.completed {
-    background-color: #67c23a;
-    color: white;
-}
-
-.booking-status.cancelled {
-    background-color: #f56c6c;
-    color: white;
+    color: #409eff;
 }
 
 .booking-price {

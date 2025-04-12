@@ -1,57 +1,99 @@
 package com.homestay3.homestaybackend.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
+@Table(name = "homestays")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Homestay {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+    
+    @Column(nullable = false)
     private String title;
-    private String description;
-    private String location;
-    private String city;
-    private String country;
     
-    private BigDecimal pricePerNight;
+    @Column(nullable = false)
+    private String type;
+    
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+    
+    @Column(nullable = false)
+    private String status;
+    
+    @Column(name = "max_guests", nullable = false)
     private Integer maxGuests;
-    private Integer bedrooms;
-    private Integer beds;
-    private Integer bathrooms;
+    
+    @Column(name = "min_nights", nullable = false)
+    private Integer minNights;
+    
+    @Column(nullable = false)
+    private String province;
+    
+    @Column(nullable = false)
+    private String city;
+    
+    @Column
+    private String district;
+    
+    @Column(nullable = false)
+    private String address;
     
     @ElementCollection
-    private List<String> amenities = new ArrayList<>();
+    @CollectionTable(name = "homestay_amenities", joinColumns = @JoinColumn(name = "homestay_id"))
+    @Column(name = "amenity")
+    @Builder.Default
+    private Set<String> amenities = new HashSet<>();
+    
+    @Column(columnDefinition = "TEXT")
+    private String description;
+    
+    @Column(name = "cover_image")
+    private String coverImage;
     
     @ElementCollection
+    @CollectionTable(name = "homestay_images", joinColumns = @JoinColumn(name = "homestay_id"))
+    @Column(name = "image_url")
+    @Builder.Default
     private List<String> images = new ArrayList<>();
     
-    private Double rating;
-    private Integer reviewCount;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private User owner;
     
-    private Double latitude;
-    private Double longitude;
+    @Column
+    @Builder.Default
+    private Boolean featured = false;
     
-    private String hostName;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
     
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User host;
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
     
-    private boolean featured;
-    private String propertyType; // 树屋、小木屋、海景房等
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
     
-    private Double distanceFromCenter; // 距离市中心的距离（公里）
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 } 

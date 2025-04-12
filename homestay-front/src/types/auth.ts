@@ -10,6 +10,7 @@ export interface RegisterRequest {
   phone?: string;
   password: string;
   confirmPassword: string;
+  role?: string;
 }
 
 export interface UserInfo {

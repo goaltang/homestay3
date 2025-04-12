@@ -93,8 +93,47 @@ const handleLogin = async () => {
     const success = await userStore.login(loginForm.username, loginForm.password);
 
     if (success) {
+      console.log("登录成功，用户信息:", userStore.userInfo);
+      console.log("用户角色:", userStore.userInfo?.role);
+      console.log("isLandlord:", userStore.isLandlord);
+
       ElMessage.success("登录成功");
-      router.push("/");
+
+      // 给页面一点时间更新用户状态
+      setTimeout(() => {
+        try {
+          // 获取最新的认证和角色状态
+          const userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
+          const isLandlord = userInfo?.role &&
+            ['ROLE_LANDLORD', 'ROLE_HOST', 'LANDLORD', 'HOST'].includes(userInfo.role.toUpperCase());
+
+          console.log("登录后导航检查:", {
+            role: userInfo?.role,
+            isLandlord,
+            redirectPath: router.currentRoute.value.query.redirect
+          });
+
+          // 检查用户角色并导航到相应页面
+          if (isLandlord) {
+            console.log("当前用户是房东，直接刷新页面并跳转到房东中心");
+            // 使用location.href确保完全刷新页面，解决状态同步问题
+            window.location.href = "/host";
+          } else {
+            // 检查是否有重定向参数
+            const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
+            if (redirectPath) {
+              window.location.href = redirectPath;
+            } else {
+              // 默认跳转到首页
+              window.location.href = "/";
+            }
+          }
+        } catch (navError) {
+          console.error("导航错误:", navError);
+          // 导航失败时回退到安全页面
+          window.location.href = "/";
+        }
+      }, 500); // 增加延迟，确保状态完全更新
     } else {
       ElMessage.error("登录失败：用户名或密码错误");
     }

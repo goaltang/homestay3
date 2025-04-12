@@ -6,59 +6,92 @@ import com.homestay3.homestaybackend.dto.ProfileUpdateRequest;
 import com.homestay3.homestaybackend.model.User;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.homestay3.homestaybackend.dto.UserDTO;
+import org.springframework.web.multipart.MultipartFile;
 
-@Service
-@RequiredArgsConstructor
-public class UserService {
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+import java.util.List;
+
+public interface UserService {
+    /**
+     * 获取所有用户
+     */
+    List<UserDTO> getAllUsers();
+    
+    /**
+     * 根据ID获取用户
+     */
+    UserDTO getUserById(Long id);
+    
+    /**
+     * 根据用户名获取用户
+     */
+    UserDTO getUserByUsername(String username);
+    
+    /**
+     * 更新用户信息
+     */
+    UserDTO updateUser(Long id, UserDTO userDTO);
+    
+    /**
+     * 删除用户
+     */
+    void deleteUser(Long id);
+    
+    /**
+     * 上传头像
+     */
+    String uploadAvatar(MultipartFile file, String username);
+    
+    /**
+     * 更新用户角色
+     */
+    UserDTO updateUserRole(Long id, String role);
+    
+    /**
+     * 启用/禁用用户
+     */
+    UserDTO toggleUserStatus(Long id, boolean enabled);
+    
+    /**
+     * 将User实体转换为UserDTO
+     */
+    UserDTO convertToDTO(User user);
+    
+    /**
+     * 更新用户头像
+     */
+    void updateAvatar(String username, String avatarUrl);
+    
+    /**
+     * 修改密码
+     */
+    void changePassword(PasswordChangeRequest request, String username);
 
     @Transactional
-    public AuthResponse updateProfile(ProfileUpdateRequest request, String currentUsername) {
-        User user = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
-
-        if (!user.getUsername().equals(request.getUsername()) &&
-                userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("用户名已被使用");
-        }
-
-        if (!user.getEmail().equals(request.getEmail()) &&
-                userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("邮箱已被使用");
-        }
-
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPhone(request.getPhone());
-        user.setRealName(request.getRealName());
-        user.setIdCard(request.getIdCard());
-
-        user = userRepository.save(user);
-        return new AuthResponse(user);
-    }
-
-    @Transactional
-    public void updateAvatar(String username, String avatarUrl) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
-        user.setAvatar(avatarUrl);
-        userRepository.save(user);
-    }
-
-    @Transactional
-    public void changePassword(PasswordChangeRequest request, String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
-
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("原密码不正确");
-        }
-
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
-    }
+    AuthResponse updateProfile(ProfileUpdateRequest request, String currentUsername);
+    
+    /**
+     * 管理员获取用户列表（分页和筛选）
+     */
+    Page<UserDTO> getAdminUsers(Pageable pageable, String username, String email, String role);
+    
+    /**
+     * 管理员创建用户
+     */
+    UserDTO createUser(UserDTO userDTO);
+    
+    /**
+     * 管理员更新用户状态
+     */
+    void updateUserStatus(Long id, boolean enabled);
+    
+    /**
+     * 管理员重置用户密码
+     */
+    String resetUserPassword(Long id);
 }

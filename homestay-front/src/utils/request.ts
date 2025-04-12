@@ -4,9 +4,9 @@ import type {
   AxiosRequestConfig,
   InternalAxiosRequestConfig,
 } from "axios";
-import router from "@/router";
+import router from "../router";
 import { ElMessage } from "element-plus";
-import { useUserStore } from "@/stores/user";
+import { useUserStore } from "../stores/user";
 
 // 扩展 AxiosRequestConfig 类型，添加 isWhitelisted 属性
 declare module "axios" {
@@ -34,9 +34,16 @@ const whiteList = [
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/auth/current", // 添加获取当前用户信息的路径
+  "/api/users/current", // 添加获取用户信息的备用路径
   "/api/homestays",
   "/api/homestays/featured",
   "/uploads/", // 静态资源路径
+  "/api/uploads/", // API静态资源路径
+  "/api/files/", // 文件资源路径
+  "/homestays/", // 房源图片路径
+  "/api/homestays/", // 房源图片路径
+  "/avatars/", // 头像路径
+  "/api/avatars/", // API头像路径
 ];
 
 // 请求拦截器

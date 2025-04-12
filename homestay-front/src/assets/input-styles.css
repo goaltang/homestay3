@@ -1,0 +1,32 @@
+/* 全局输入框样式优化 */
+.el-input-number {
+  width: 100px !important;
+}
+
+.el-input-number .el-input__inner {
+  text-align: center !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+/* 隐藏数字增减按钮 */
+.price-input .el-input-number__decrease,
+.price-input .el-input-number__increase,
+.filter-card .el-input-number__decrease,
+.filter-card .el-input-number__increase {
+  display: none !important;
+}
+
+/* 数字输入框容器样式 */
+.price-range-container {
+  display: flex;
+  align-items: center;
+}
+
+.price-input {
+  width: 100px;
+}
+
+.separator {
+  margin: 0 8px;
+} 

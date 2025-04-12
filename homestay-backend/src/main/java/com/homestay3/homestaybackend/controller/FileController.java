@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
@@ -15,47 +16,196 @@ import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/files")
+@CrossOrigin(
+    origins = {"http://localhost:5173", "http://127.0.0.1:5173"}, 
+    allowedHeaders = "*", 
+    methods = {
+        RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, 
+        RequestMethod.DELETE, RequestMethod.OPTIONS
+    },
+    exposedHeaders = {
+        "Content-Type", "Content-Length", "Authorization",
+        "Access-Control-Allow-Origin", "Access-Control-Allow-Headers"
+    },
+    allowCredentials = "true",
+    maxAge = 3600
+)
 public class FileController {
     private static final Logger log = LoggerFactory.getLogger(FileController.class);
     private final String projectRoot = System.getProperty("user.dir");
     private final String uploadDir = projectRoot + File.separator + "uploads";
     private final String avatarDir = uploadDir + File.separator + "avatars";
+    private final String homestayDir = uploadDir + File.separator + "homestays";
 
     /**
-     * 通过API访问头像文件
+     * 获取头像文件
      */
     @GetMapping("/avatar/{filename:.+}")
     public ResponseEntity<Resource> getAvatarFile(@PathVariable String filename) {
-        log.info("请求头像文件: {}", filename);
         try {
+            // 构建文件路径
             Path filePath = Paths.get(avatarDir).resolve(filename).normalize();
             Resource resource = new UrlResource(filePath.toUri());
             
+            // 检查文件是否存在
             if (resource.exists()) {
-                log.info("找到头像文件: {}", filePath);
-                
                 // 确定内容类型
-                String contentType = determineContentType(filename);
+                String contentType = determineContentType(filePath);
                 
+                log.info("Serving avatar file: {}, content type: {}", filename, contentType);
+                
+                // 返回文件
                 return ResponseEntity.ok()
-                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                         .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                         .body(resource);
             } else {
-                log.warn("头像文件不存在: {}", filePath);
+                log.warn("Avatar file not found: {}", filename);
                 return ResponseEntity.notFound().build();
             }
         } catch (MalformedURLException e) {
-            log.error("无法加载头像文件: {}", filename, e);
+            log.error("Error getting avatar file: {}", filename, e);
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
+    /**
+     * 获取房源图片文件
+     */
+    @GetMapping("/homestay/{filename:.+}")
+    public ResponseEntity<Resource> getHomestayFile(@PathVariable String filename) {
+        try {
+            // 构建文件路径
+            Path filePath = Paths.get(homestayDir).resolve(filename).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
+            
+            // 检查文件是否存在
+            if (resource.exists()) {
+                // 确定内容类型
+                String contentType = determineContentType(filePath);
+                
+                log.info("Serving homestay file: {}, content type: {}", filename, contentType);
+                
+                // 返回文件
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        .body(resource);
+            } else {
+                log.warn("Homestay file not found: {}", filename);
+                return ResponseEntity.notFound().build();
+            }
+        } catch (MalformedURLException e) {
+            log.error("Error getting homestay file: {}", filename, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * 上传文件通用接口
+     */
+    @PostMapping("/upload")
+    public ResponseEntity<Map<String, Object>> uploadFile(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "type", defaultValue = "homestay") String type) {
+        log.info("Receiving file upload request, type: {}, original filename: {}, size: {}", 
+                type, file.getOriginalFilename(), file.getSize());
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // 检查文件是否为空
+            if (file.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "请选择要上传的文件");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            // 获取文件名和扩展名
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            
+            // 生成唯一文件名
+            String newFilename = UUID.randomUUID().toString() + extension;
+            
+            // 确定上传目录
+            Path uploadPath;
+            String fileUrl;
+            if ("avatar".equals(type)) {
+                uploadPath = Paths.get(avatarDir);
+                fileUrl = "/api/files/avatar/" + newFilename;
+            } else {
+                uploadPath = Paths.get(homestayDir);
+                fileUrl = "/api/files/homestay/" + newFilename;
+            }
+            
+            // 确保目录存在
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+                log.info("Created directory: {}", uploadPath);
+            }
+            
+            // 保存文件
+            Path targetLocation = uploadPath.resolve(newFilename);
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            log.info("File saved to: {}", targetLocation);
+            
+            // 构建响应
+            response.put("success", true);
+            response.put("data", Map.of(
+                "url", fileUrl,
+                "filename", newFilename,
+                "originalFilename", originalFilename
+            ));
+            response.put("message", "文件上传成功");
+            
+            return ResponseEntity.ok(response);
+        } catch (IOException e) {
+            log.error("Failed to upload file", e);
+            response.put("success", false);
+            response.put("message", "文件上传失败: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /**
+     * 确定文件的内容类型
+     */
+    private String determineContentType(Path filePath) {
+        try {
+            return Files.probeContentType(filePath);
+        } catch (IOException e) {
+            log.warn("Could not determine content type for file: {}", filePath, e);
+            return "application/octet-stream";
+        }
+    }
+
+    /**
+     * 测试文件访问
+     */
+    @GetMapping("/test")
+    public ResponseEntity<String> testFileAccess() {
+        // 测试上传目录是否存在
+        Path avatarPath = Paths.get(avatarDir);
+        Path homestayPath = Paths.get(homestayDir);
+        
+        boolean avatarDirExists = Files.exists(avatarPath);
+        boolean homestayDirExists = Files.exists(homestayPath);
+        
+        return ResponseEntity.ok("File access test: Avatar directory exists: " + avatarDirExists + 
+                                ", Homestay directory exists: " + homestayDirExists);
+    }
+
     /**
      * 测试头像文件是否可访问
      */
@@ -95,32 +245,6 @@ public class FileController {
         return ResponseEntity.ok(result);
     }
     
-    /**
-     * 根据文件名确定内容类型
-     */
-    private String determineContentType(String filename) {
-        try {
-            Path filePath = Paths.get(avatarDir).resolve(filename);
-            String contentType = Files.probeContentType(filePath);
-            if (contentType != null) {
-                return contentType;
-            }
-        } catch (IOException e) {
-            log.warn("无法确定文件内容类型: {}", filename, e);
-        }
-        
-        // 根据文件扩展名判断
-        if (filename.toLowerCase().endsWith(".jpg") || filename.toLowerCase().endsWith(".jpeg")) {
-            return "image/jpeg";
-        } else if (filename.toLowerCase().endsWith(".png")) {
-            return "image/png";
-        } else if (filename.toLowerCase().endsWith(".gif")) {
-            return "image/gif";
-        } else {
-            return "application/octet-stream";
-        }
-    }
-
     /**
      * 测试权限配置
      */

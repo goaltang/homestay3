@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/homestay?useSSL=false&serverTimezone=UTC
+    username: root
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expiration: 86400000 # 24小时
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+server:
+  port: 8080

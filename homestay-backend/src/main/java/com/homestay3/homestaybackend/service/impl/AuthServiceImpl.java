@@ -85,9 +85,8 @@ public class AuthServiceImpl implements AuthService {
             user = userRepository.saveAndFlush(user);
             log.info("用户创建成功，ID: {}, 用户名: {}", user.getId(), user.getUsername());
 
-            // 生成token
-            UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-            String token = jwtTokenUtil.generateToken(userDetails);
+            // 生成token - 修改这部分，避免使用userDetailsService
+            String token = generateTokenForNewUser(user);
 
             // 返回认证响应
             AuthResponse response = new AuthResponse();
@@ -350,5 +349,28 @@ public class AuthServiceImpl implements AuthService {
             return false;
         }
         return userRepository.existsByEmail(email.trim().toLowerCase());
+    }
+
+    /**
+     * 为新注册用户生成JWT令牌，避免使用userDetailsService
+     * @param user 新创建的用户
+     * @return JWT令牌
+     */
+    private String generateTokenForNewUser(User user) {
+        log.info("为新注册用户生成令牌: {}", user.getUsername());
+        
+        // 手动创建认证对象，不依赖userDetailsService
+        org.springframework.security.core.userdetails.User userDetails = 
+            new org.springframework.security.core.userdetails.User(
+                user.getUsername(),
+                user.getPassword(),
+                user.isEnabled(),
+                true, // 账户未过期
+                true, // 凭证未过期
+                true, // 账户未锁定
+                org.springframework.security.core.authority.AuthorityUtils.createAuthorityList(user.getRole())
+            );
+            
+        return jwtTokenUtil.generateToken(userDetails);
     }
 } 

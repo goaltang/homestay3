@@ -1,58 +1,51 @@
 package com.homestay3.homestaybackend.dto;
 
 import com.homestay3.homestaybackend.model.User;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+
+import java.util.Collections;
+import java.util.List;
 
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class AuthResponse {
+    private String token;
     private Long id;
     private String username;
     private String email;
     private String phone;
     private String realName;
     private String idCard;
-    private String avatar;
     private String role;
+    private String avatar;
     private String verificationStatus;
-    private String token;
     private UserDTO user;
-
+    
+    private List<String> authorities;
+    
     public AuthResponse(User user) {
-        this.user = new UserDTO();
-        this.user.setId(user.getId());
-        this.user.setUsername(user.getUsername());
-        this.user.setEmail(user.getEmail());
-        this.user.setPhone(user.getPhone());
-        this.user.setRealName(user.getRealName());
-        this.user.setIdCard(user.getIdCard());
-        this.user.setRole(user.getRole().name());
-        this.user.setAvatar(user.getAvatar());
-        this.user.setVerificationStatus(user.getVerificationStatus() != null ? 
-            user.getVerificationStatus().name() : "UNVERIFIED");
-    }
-
-    public AuthResponse(String token, User user) {
-        this.token = token;
+        this.user = new UserDTO(user);
         this.id = user.getId();
         this.username = user.getUsername();
         this.email = user.getEmail();
         this.phone = user.getPhone();
         this.realName = user.getRealName();
         this.idCard = user.getIdCard();
-        this.role = user.getRole().name();
-        this.verificationStatus = user.getVerificationStatus() != null ? 
-                                 user.getVerificationStatus().name() : 
-                                 "UNVERIFIED";
+        this.role = user.getRole();
         this.avatar = user.getAvatar();
+        this.verificationStatus = user.getVerificationStatus() != null ? 
+                                  user.getVerificationStatus().toString() : null;
     }
-
-    public String getAvatar() {
-        return avatar;
-    }
-
-    public void setAvatar(String avatar) {
-        this.avatar = avatar;
+    
+    public AuthResponse(User user, String token) {
+        this(user);
+        this.token = token;
     }
 } 

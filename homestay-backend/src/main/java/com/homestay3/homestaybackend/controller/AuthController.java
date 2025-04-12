@@ -15,10 +15,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -139,6 +142,52 @@ public class AuthController {
         boolean exists = authService.isEmailExists(email);
         log.info("邮箱 {} 存在状态: {}", email, exists);
         return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    /**
+     * 获取当前认证用户信息
+     * @param authentication Spring Security认证对象
+     * @return 当前用户信息
+     */
+    @GetMapping("/current")
+    public ResponseEntity<AuthResponse> getCurrentUser(Authentication authentication) {
+        if (authentication == null) {
+            log.warn("获取当前用户信息失败: 未认证");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        log.info("获取当前用户信息: {}", authentication.getName());
+        try {
+            // 获取基本用户信息
+            AuthResponse response = authService.getUserInfo(authentication.getName());
+            
+            // 确保角色信息正确返回
+            if (response != null) {
+                log.info("用户 {} 的角色: {}", authentication.getName(), response.getRole());
+                
+                // 添加authorities信息到响应
+                if (authentication.getAuthorities() != null && !authentication.getAuthorities().isEmpty()) {
+                    List<String> authorities = authentication.getAuthorities().stream()
+                        .map(auth -> auth.getAuthority())
+                        .collect(Collectors.toList());
+                    response.setAuthorities(authorities);
+                    log.info("用户 {} 的authorities: {}", authentication.getName(), authorities);
+                }
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("获取当前用户信息失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(AuthResponse.builder()
+                            .username(null)
+                            .id(null) 
+                            .email(null)
+                            .phone(null)
+                            .realName(null)
+                            .avatar(null)
+                            .build());
+        }
     }
 
 } 

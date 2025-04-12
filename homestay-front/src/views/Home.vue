@@ -79,12 +79,12 @@
               <h4>设施</h4>
               <div class="amenities-list">
                 <el-checkbox-group v-model="searchParams.amenities">
-                  <el-checkbox label="WiFi">WiFi</el-checkbox>
-                  <el-checkbox label="空调">空调</el-checkbox>
-                  <el-checkbox label="厨房">厨房</el-checkbox>
-                  <el-checkbox label="洗衣机">洗衣机</el-checkbox>
-                  <el-checkbox label="停车位">停车位</el-checkbox>
-                  <el-checkbox label="游泳池">游泳池</el-checkbox>
+                  <el-checkbox label="WiFi" value="WiFi">WiFi</el-checkbox>
+                  <el-checkbox label="空调" value="空调">空调</el-checkbox>
+                  <el-checkbox label="厨房" value="厨房">厨房</el-checkbox>
+                  <el-checkbox label="洗衣机" value="洗衣机">洗衣机</el-checkbox>
+                  <el-checkbox label="停车位" value="停车位">停车位</el-checkbox>
+                  <el-checkbox label="游泳池" value="游泳池">游泳池</el-checkbox>
                 </el-checkbox-group>
               </div>
             </div>
@@ -94,12 +94,15 @@
             </div>
           </div>
         </el-popover>
-
-        <el-switch v-model="showPriceWithTax" active-text="显示税费后价格" inactive-text="显示原价" class="price-switch" />
       </div>
     </div>
 
-    <!-- 民宿列表 -->
+    <!-- 在民宿列表之前添加区域标题 -->
+    <div class="section-header">
+      <h2>推荐民宿</h2>
+      <el-button link @click="viewAllFeatured">查看全部</el-button>
+    </div>
+
     <div v-if="loading" class="loading-container">
       <el-skeleton :rows="3" animated />
       <el-skeleton :rows="3" animated />
@@ -111,28 +114,29 @@
     </div>
 
     <div v-else class="homestay-grid">
-      <div v-for="homestay in homestays" :key="homestay.id" class="homestay-card">
-        <div class="homestay-image-container">
+      <div v-for="homestay in homestays" :key="homestay.id" class="homestay-card"
+        @click="viewHomestayDetails(homestay.id)">
+        <div class="homestay-image-container" @click.stop="() => { }">
           <el-carousel height="220px" indicator-position="none" arrow="hover">
             <el-carousel-item v-for="(image, index) in getHomestayImages(homestay)" :key="index">
               <img :src="image" :alt="homestay.title" class="homestay-image" />
             </el-carousel-item>
           </el-carousel>
-          <div class="favorite-button" @click="toggleFavorite(homestay.id)">
+          <div class="favorite-button" @click.stop="toggleFavorite(homestay.id)">
             <el-icon :size="24" :color="isFavorite(homestay.id) ? '#ff385c' : '#fff'">
               <component :is="isFavorite(homestay.id) ? 'Star' : 'StarFilled'" />
             </el-icon>
           </div>
         </div>
 
-        <div class="homestay-info" @click="viewHomestayDetails(homestay.id)">
+        <div class="homestay-info">
           <div class="homestay-header">
             <h3 class="homestay-title">{{ homestay.title }}</h3>
-            <div class="homestay-rating">
+            <div class="homestay-rating" v-if="homestay.rating">
               <el-icon>
                 <Star />
               </el-icon>
-              <span>{{ homestay.rating.toFixed(1) }}</span>
+              <span>{{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }}</span>
             </div>
           </div>
 
@@ -140,7 +144,62 @@
           <div class="homestay-distance">距离市中心{{ homestay.distanceFromCenter }}公里</div>
           <div class="homestay-dates">可预订日期</div>
           <div class="homestay-price">
-            <span class="price">¥{{ calculatePrice(homestay.pricePerNight) }}</span>
+            <span class="price">¥{{ calculatePrice(homestay) }}</span>
+            <span class="night">/晚</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加已上架房源区域 -->
+    <div class="section-header">
+      <h2>最新上架</h2>
+      <el-button link @click="viewAllActive">查看全部</el-button>
+    </div>
+
+    <div v-if="loadingActive" class="loading-container">
+      <el-skeleton :rows="3" animated />
+      <el-skeleton :rows="3" animated />
+    </div>
+
+    <div v-else-if="activeHomestays.length === 0" class="empty-result">
+      <el-empty description="暂无最新上架的民宿" />
+    </div>
+
+    <div v-else class="homestay-grid">
+      <div v-for="homestay in activeHomestays" :key="homestay.id" class="homestay-card"
+        @click="viewHomestayDetails(homestay.id)">
+        <div class="homestay-image-container" @click.stop="() => { }">
+          <el-carousel height="220px" indicator-position="none" arrow="hover">
+            <el-carousel-item v-for="(image, index) in getHomestayImages(homestay)" :key="index">
+              <img :src="image" :alt="homestay.title" class="homestay-image" />
+            </el-carousel-item>
+          </el-carousel>
+          <div class="favorite-button" @click.stop="toggleFavorite(homestay.id)">
+            <el-icon :size="24" :color="isFavorite(homestay.id) ? '#ff385c' : '#fff'">
+              <component :is="isFavorite(homestay.id) ? 'Star' : 'StarFilled'" />
+            </el-icon>
+          </div>
+        </div>
+
+        <div class="homestay-info">
+          <div class="homestay-header">
+            <h3 class="homestay-title">{{ homestay.title }}</h3>
+            <div class="homestay-rating" v-if="homestay.rating">
+              <el-icon>
+                <Star />
+              </el-icon>
+              <span>{{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }}</span>
+            </div>
+          </div>
+
+          <div class="homestay-location">{{ getHomestayLocation(homestay) }}</div>
+          <div class="homestay-features">
+            <span>{{ homestay.maxGuests }}人</span>
+            <span>{{ homestay.type }}</span>
+          </div>
+          <div class="homestay-price">
+            <span class="price">¥{{ calculatePrice(homestay) }}</span>
             <span class="night">/晚</span>
           </div>
         </div>
@@ -155,38 +214,47 @@ import { useRouter } from 'vue-router'
 import { Search, Star, StarFilled, Filter, Location, House, Ship, Umbrella, Dessert, Bicycle, Sunrise } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { getActiveHomestays } from '@/api/homestay'
 
 // 定义类型
 interface Homestay {
-  id: number;
-  title: string;
-  description: string;
-  location: string;
-  city: string;
-  country: string;
-  pricePerNight: number;
-  maxGuests: number;
-  bedrooms: number;
-  beds: number;
-  bathrooms: number;
-  amenities: string[];
-  images: string[];
-  rating: number;
-  reviewCount: number;
-  latitude: number;
-  longitude: number;
-  hostName: string;
-  hostId?: number;
-  featured: boolean;
-  propertyType: string;
-  distanceFromCenter: number;
+  id: number
+  title: string
+  description: string
+  location: string
+  city: string
+  country: string
+  pricePerNight: number
+  price?: string  // 添加可选price字段
+  maxGuests: number
+  bedrooms: number
+  beds: number
+  bathrooms: number
+  amenities: string[]
+  images: string[]
+  rating?: number  // 修改为可选字段
+  reviewCount: number
+  type: string
+  province: string
+  district: string
+  address: string
+  status: string
+  featured: boolean
+  propertyType: string
+  distanceFromCenter: number
+  latitude?: number
+  longitude?: number
+  hostName?: string
+  hostId?: number
+  coverImage?: string
 }
 
 const router = useRouter()
 const loading = ref(false)
 const homestays = ref<Homestay[]>([])
 const favorites = ref<number[]>([])
-const showPriceWithTax = ref(false)
+const activeHomestays = ref<Homestay[]>([])
+const loadingActive = ref(false)
 
 const propertyTypes = [
   { label: '全部', value: '', icon: 'House' },
@@ -219,7 +287,10 @@ const searchParams = reactive({
 })
 
 onMounted(async () => {
-  await fetchFeaturedHomestays()
+  await Promise.all([
+    fetchFeaturedHomestays(),
+    fetchActiveHomestays()
+  ])
   loadFavorites()
 })
 
@@ -238,77 +309,124 @@ const fetchFeaturedHomestays = async () => {
       homestays.value = [
         {
           id: 1,
-          title: '大理古城树屋',
-          description: '位于大理古城的特色树屋，俯瞰洱海美景',
-          location: '云南大理',
-          city: '大理',
+          title: '湖畔小屋',
+          description: '美丽的湖畔小屋，宁静舒适',
+          location: '杭州西湖',
+          city: '杭州',
           country: '中国',
-          pricePerNight: 688,
+          pricePerNight: 488,
+          price: '488',
           maxGuests: 2,
           bedrooms: 1,
           beds: 1,
           bathrooms: 1,
-          amenities: ['WiFi', '空调', '厨房', '洗衣机'],
+          amenities: ['WiFi', '空调', '厨房', '停车位'],
           images: ['https://picsum.photos/800/600?random=1'],
           rating: 4.9,
           reviewCount: 128,
-          latitude: 25.606486,
-          longitude: 100.267638,
-          hostName: '李明',
+          type: 'SHARED',
+          province: '浙江省',
+          district: '西湖区',
+          address: '西湖区某街道',
+          status: 'ACTIVE',
           featured: true,
-          propertyType: '树屋',
-          distanceFromCenter: 2.5
+          propertyType: '小屋',
+          distanceFromCenter: 1.5,
+          latitude: 30.2636,
+          longitude: 120.1686,
+          hostName: '张三',
+          hostId: 1001,
+          coverImage: 'https://picsum.photos/800/600?random=1'
         },
         {
           id: 2,
-          title: '杭州山顶树屋',
-          description: '杭州山顶的豪华树屋，可以俯瞰西湖全景',
-          location: '浙江杭州',
-          city: '杭州',
+          title: '海景公寓',
+          description: '一线海景，舒适公寓',
+          location: '厦门鼓浪屿',
+          city: '厦门',
           country: '中国',
-          pricePerNight: 1288,
+          pricePerNight: 688,
+          price: '688',
           maxGuests: 4,
           bedrooms: 2,
           beds: 2,
-          bathrooms: 2,
+          bathrooms: 1,
           amenities: ['WiFi', '空调', '厨房', '停车位', '游泳池'],
           images: ['https://picsum.photos/800/600?random=2'],
           rating: 4.8,
-          reviewCount: 96,
-          latitude: 30.259924,
-          longitude: 120.130742,
-          hostName: '张伟',
+          reviewCount: 92,
+          type: 'ENTIRE',
+          province: '福建省',
+          district: '思明区',
+          address: '思明区某街道',
+          status: 'ACTIVE',
           featured: true,
-          propertyType: '树屋',
-          distanceFromCenter: 5.2
+          propertyType: '公寓',
+          distanceFromCenter: 2.0,
+          latitude: 24.4459,
+          longitude: 118.0657,
+          hostName: '李四',
+          hostId: 1002,
+          coverImage: 'https://picsum.photos/800/600?random=2'
         },
         {
           id: 3,
-          title: '三亚海景房',
-          description: '三亚湾一线海景房，步行5分钟到海滩',
-          location: '海南三亚',
-          city: '三亚',
+          title: '山间小木屋',
+          description: '清新的山间小木屋，远离城市喧嚣',
+          location: '莫干山',
+          city: '湖州',
           country: '中国',
-          pricePerNight: 1688,
-          maxGuests: 6,
-          bedrooms: 3,
-          beds: 3,
-          bathrooms: 2,
-          amenities: ['WiFi', '空调', '厨房', '洗衣机', '停车位', '游泳池'],
+          pricePerNight: 588,
+          price: '588',
+          maxGuests: 3,
+          bedrooms: 1,
+          beds: 2,
+          bathrooms: 1,
+          amenities: ['WiFi', '空调', '厨房', '停车位', '烧烤架'],
           images: ['https://picsum.photos/800/600?random=3'],
           rating: 4.7,
-          reviewCount: 215,
-          latitude: 18.252847,
-          longitude: 109.511909,
-          hostName: '王芳',
+          reviewCount: 78,
+          type: 'PRIVATE',
+          province: '浙江省',
+          district: '德清县',
+          address: '德清县某街道',
+          status: 'ACTIVE',
           featured: true,
-          propertyType: '海景房',
-          distanceFromCenter: 1.8
+          propertyType: '木屋',
+          distanceFromCenter: 5.0,
+          latitude: 30.5603,
+          longitude: 119.8808,
+          hostName: '王五',
+          hostId: 1003,
+          coverImage: 'https://picsum.photos/800/600?random=3'
         }
       ]
     }
   } finally {
     loading.value = false
+  }
+}
+
+const fetchActiveHomestays = async () => {
+  loadingActive.value = true
+  try {
+    const response = await getActiveHomestays({ size: 6 })
+    if (response.data?.data) {
+      // 确保不显示重复房源
+      const activeHomestayData = response.data.data;
+      const featuredIds = homestays.value.map(h => h.id);
+      activeHomestays.value = activeHomestayData.filter((home: Homestay) => !featuredIds.includes(home.id));
+    } else if (response.data) {
+      const activeHomestayData = response.data;
+      const featuredIds = homestays.value.map(h => h.id);
+      activeHomestays.value = activeHomestayData.filter((home: Homestay) => !featuredIds.includes(home.id));
+    } else {
+      activeHomestays.value = []
+    }
+  } catch (error) {
+    console.error('获取已上架房源失败:', error)
+  } finally {
+    loadingActive.value = false
   }
 }
 
@@ -328,7 +446,7 @@ const searchHomestays = async () => {
     if (process.env.NODE_ENV === 'development') {
       console.log('使用模拟数据进行搜索')
       // 模拟搜索结果
-      const mockData = [
+      const mockData: Homestay[] = [
         {
           id: 1,
           title: '大理古城树屋',
@@ -345,12 +463,19 @@ const searchHomestays = async () => {
           images: ['https://picsum.photos/800/600?random=1'],
           rating: 4.9,
           reviewCount: 128,
+          type: 'SHARED',
+          province: '云南省',
+          district: '大理市',
+          address: '大理古城某街道',
+          status: 'ACTIVE',
+          featured: true,
+          propertyType: '树屋',
+          distanceFromCenter: 2.5,
           latitude: 25.606486,
           longitude: 100.267638,
           hostName: '李明',
-          featured: true,
-          propertyType: '树屋',
-          distanceFromCenter: 2.5
+          hostId: 1001,
+          coverImage: 'https://picsum.photos/800/600?random=1'
         },
         {
           id: 2,
@@ -368,12 +493,19 @@ const searchHomestays = async () => {
           images: ['https://picsum.photos/800/600?random=2'],
           rating: 4.8,
           reviewCount: 96,
+          type: 'ENTIRE',
+          province: '浙江省',
+          district: '西湖区',
+          address: '西湖区某街道',
+          status: 'ACTIVE',
+          featured: true,
+          propertyType: '树屋',
+          distanceFromCenter: 5.2,
           latitude: 30.259924,
           longitude: 120.130742,
           hostName: '张伟',
-          featured: true,
-          propertyType: '树屋',
-          distanceFromCenter: 5.2
+          hostId: 1002,
+          coverImage: 'https://picsum.photos/800/600?random=2'
         },
         {
           id: 3,
@@ -391,12 +523,19 @@ const searchHomestays = async () => {
           images: ['https://picsum.photos/800/600?random=3'],
           rating: 4.7,
           reviewCount: 215,
+          type: 'ENTIRE',
+          province: '海南省',
+          district: '三亚市',
+          address: '三亚湾某街道',
+          status: 'ACTIVE',
+          featured: true,
+          propertyType: '海景房',
+          distanceFromCenter: 1.8,
           latitude: 18.252847,
           longitude: 109.511909,
           hostName: '王芳',
-          featured: true,
-          propertyType: '海景房',
-          distanceFromCenter: 1.8
+          hostId: 1003,
+          coverImage: 'https://picsum.photos/800/600?random=3'
         },
         {
           id: 4,
@@ -414,12 +553,19 @@ const searchHomestays = async () => {
           images: ['https://picsum.photos/800/600?random=4'],
           rating: 4.6,
           reviewCount: 78,
+          type: 'PRIVATE',
+          province: '吉林省',
+          district: '长白山市',
+          address: '长白山区某街道',
+          status: 'ACTIVE',
+          featured: true,
+          propertyType: '小木屋',
+          distanceFromCenter: 15.0,
           latitude: 42.032758,
           longitude: 127.505062,
           hostName: '赵强',
-          featured: true,
-          propertyType: '小木屋',
-          distanceFromCenter: 15.0
+          hostId: 1004,
+          coverImage: 'https://picsum.photos/800/600?random=4'
         }
       ]
 
@@ -502,33 +648,96 @@ const applyFilters = () => {
   searchHomestays()
 }
 
-const calculatePrice = (price: number) => {
-  if (showPriceWithTax.value) {
-    // 假设税费是10%
-    return Math.round(price * 1.1)
-  }
-  return price
+const calculatePrice = (homestay: any) => {
+  // 添加适配逻辑处理不同的价格字段
+  return homestay.price || homestay.pricePerNight || 0;
 }
 
 const getHomestayImages = (homestay: Homestay) => {
-  // 如果没有图片，使用默认图片
-  if (!homestay.images || homestay.images.length === 0) {
-    return ['/images/default-homestay.jpg']
+  const defaultImage = 'https://picsum.photos/800/600?random=' + homestay.id;
+
+  // 首页应该始终优先使用封面图片
+  if (homestay.coverImage) {
+    //console.log(`房源ID ${homestay.id} 使用封面图片作为首页展示:`, homestay.coverImage);
+    return [processImageUrl(homestay.coverImage, homestay.id)];
   }
 
-  // 处理图片路径
-  return homestay.images.map((image: string) => {
-    // 如果图片路径已经是完整URL，直接返回
-    if (image.startsWith('http')) {
-      return image
+  // 仅在没有封面图片时才使用图片集
+  if (homestay.images && homestay.images.length > 0) {
+    console.log(`房源ID ${homestay.id} 没有封面图片，使用图片集:`, homestay.images);
+    const validImages = homestay.images.filter(image => image !== null && image !== undefined && image !== '');
+    if (validImages.length > 0) {
+      return [processImageUrl(validImages[0], homestay.id)];
     }
-    // 否则使用占位图片
-    return `https://picsum.photos/800/600?random=${homestay.id}-${homestay.images.indexOf(image)}`
-  })
+  }
+
+  // 都没有时使用默认图片
+  console.log(`房源ID ${homestay.id} 没有任何有效图片，使用默认图片`);
+  return [defaultImage];
+}
+
+// 处理图片URL的辅助函数
+const processImageUrl = (image: string, homestayId: number) => {
+  if (!image) {
+    console.warn(`房源ID ${homestayId} 的图片路径为空，使用默认图片`);
+    return 'https://picsum.photos/800/600?random=' + homestayId;
+  }
+
+  try {
+    // 处理不同类型的图片路径
+    if (typeof image === 'string') {
+      // 如果已经是完整URL则直接返回
+      if (image.startsWith('http')) {
+        return image;
+      }
+
+      // 防止路径重复
+      if (image.includes('/api/api/')) {
+        // 修复重复的/api/前缀
+        image = image.replace('/api/api/', '/api/');
+      }
+
+      // 处理相对于后端的路径
+      if (image.startsWith('/uploads/')) {
+        return `/api${image}`;
+      }
+      // 处理avatars目录的图片
+      else if (image.startsWith('/avatars/')) {
+        return `/api/uploads${image}`;
+      }
+      // 处理homestays目录下的图片
+      else if (image.startsWith('/homestays/')) {
+        return `/api${image}`;
+      }
+      // 处理直接是文件名的情况
+      else if (!image.startsWith('/')) {
+        // 确保文件名有效
+        const filename = image.split('/').pop();
+        if (!filename || filename.trim() === '') {
+          return 'https://picsum.photos/800/600?random=' + homestayId;
+        }
+
+        if (image.includes('avatars')) {
+          return `/api/uploads/avatars/${filename}`;
+        } else {
+          return `/api/uploads/homestays/${filename}`;
+        }
+      }
+      // 其他以/开头的路径
+      else {
+        return `/api${image}`;
+      }
+    }
+  } catch (error) {
+    console.error(`处理图片URL时出错:`, error);
+  }
+
+  // 最后的默认情况
+  return 'https://picsum.photos/800/600?random=' + homestayId;
 }
 
 const viewHomestayDetails = (id: number) => {
-  router.push(`/homestay/${id}`)
+  router.push(`/homestays/${id}`)
 }
 
 const toggleFavorite = (id: number) => {
@@ -554,6 +763,29 @@ const loadFavorites = () => {
 const saveFavorites = () => {
   localStorage.setItem('favorites', JSON.stringify(favorites.value))
 }
+
+const viewAllFeatured = () => {
+  router.push('/homestay/list?featured=true')
+}
+
+const viewAllActive = () => {
+  router.push('/homestay/list?status=ACTIVE')
+}
+
+const getHomestayLocation = (homestay: any) => {
+  const parts = []
+  if (homestay.province) parts.push(homestay.province)
+  if (homestay.city) parts.push(homestay.city)
+  if (homestay.district) parts.push(homestay.district)
+
+  if (parts.length > 0) return parts.join(' · ')
+
+  // 兼容旧数据结构
+  if (homestay.location) return homestay.location
+  if (homestay.city && homestay.country) return `${homestay.city}, ${homestay.country}`
+
+  return '未知位置'
+}
 </script>
 
 <style scoped>
@@ -568,6 +800,10 @@ const saveFavorites = () => {
   border-radius: 40px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   background-color: white;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 10px 0;
 }
 
 .search-bar {
@@ -831,5 +1067,19 @@ const saveFavorites = () => {
   .homestay-grid {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
+}
+
+/* 数字输入框样式 */
+:deep(.el-input-number) {
+  width: 100px;
+}
+
+:deep(.el-input-number .el-input__inner) {
+  text-align: center;
+}
+
+:deep(.el-input-number__decrease),
+:deep(.el-input-number__increase) {
+  display: none;
 }
 </style>
