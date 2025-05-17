@@ -4,6 +4,7 @@ import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.model.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
+import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -13,9 +14,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.homestay3.homestaybackend.exception.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderController {
     
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
     private final OrderService orderService;
     private final OrderRepository orderRepository;
     
@@ -56,7 +62,7 @@ public class OrderController {
             
             // 根据用户角色返回不同的订单列表
             String role = authentication.getAuthorities().iterator().next().getAuthority();
-            if (role.equals("ROLE_HOST")) {
+            if (role.equals("ROLE_HOST") || role.equals("ROLE_LANDLORD")) {
                 String username = authentication.getName();
                 orders = orderService.getOwnerOrders(username, params, pageable);
             } else {
@@ -90,7 +96,7 @@ public class OrderController {
     }
     
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('HOST')")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> updateOrderStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> statusMap) {
@@ -108,27 +114,70 @@ public class OrderController {
     }
     
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelOrder(@PathVariable Long id) {
+    public ResponseEntity<?> cancelOrder(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> requestBody,
+            Authentication authentication) {
         try {
-            OrderDTO cancelledOrder = orderService.cancelOrder(id);
+            String reason = requestBody != null ? requestBody.get("reason") : null;
+            
+            // 获取用户角色，以确定是用户取消还是房东取消
+            String role = authentication.getAuthorities().iterator().next().getAuthority();
+            String cancelType;
+            
+            if (role.equals("ROLE_HOST")) {
+                cancelType = OrderStatus.CANCELLED_BY_HOST.name();
+            } else {
+                cancelType = OrderStatus.CANCELLED_BY_USER.name();
+            }
+            
+            OrderDTO cancelledOrder = orderService.cancelOrderWithReason(id, cancelType, reason);
             return ResponseEntity.ok(cancelledOrder);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "errorCode", e instanceof IllegalArgumentException ? "ORDER_CANCELLATION_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR"
+            ));
         }
     }
     
     @PutMapping("/{id}/pay")
-    public ResponseEntity<?> payOrder(@PathVariable Long id) {
+    public ResponseEntity<?> payOrder(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> requestBody) {
+        log.info("收到订单 ID: {} 的支付请求，请求体: {}", id, requestBody);
         try {
-            OrderDTO paidOrder = orderService.payOrder(id);
+            String paymentMethod = requestBody.getOrDefault("paymentMethod", "default");
+            log.debug("提取支付方式: {}", paymentMethod);
+            
+            // 首先将订单状态设置为支付中 (这一步在业务逻辑中可能不是必需的，取决于具体流程)
+            // OrderDTO paymentPendingOrder = orderService.updateOrderStatus(id, OrderStatus.PAYMENT_PENDING.name());
+            // log.debug("订单 {} 状态更新为 PENDING_PAYMENT (临时)", id);
+            
+            // 然后处理支付
+            log.info("准备调用 OrderService 处理订单 ID: {} 的支付...", id);
+            OrderDTO paidOrder = orderService.payOrder(id, paymentMethod);
+            log.info("OrderService 支付处理完成，订单 ID: {}, 返回结果: {}", id, paidOrder);
             return ResponseEntity.ok(paidOrder);
+        } catch (IllegalArgumentException | AccessDeniedException e) {
+            // 处理业务逻辑或权限错误
+            log.warn("处理订单 {} 支付失败 (业务/权限错误): {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "errorCode", "PAYMENT_VALIDATION_ERROR"
+            ));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            // 处理其他意外错误
+            log.error("处理订单 {} 支付时发生意外错误: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "error", "支付处理失败，请稍后重试",
+                "errorCode", "INTERNAL_SERVER_ERROR"
+            ));
         }
     }
     
     @GetMapping("/pending/count")
-    @PreAuthorize("hasRole('HOST')")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> getPendingOrderCount(Authentication authentication) {
         try {
             String username = authentication.getName();
@@ -166,6 +215,7 @@ public class OrderController {
                     .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
             
             order.setStatus(OrderStatus.PAID.name());
+            order.setPaymentStatus(PaymentStatus.PAID);
             Order updatedOrder = orderRepository.save(order);
             
             OrderDTO orderDTO = convertToDTO(updatedOrder);
@@ -187,11 +237,25 @@ public class OrderController {
     public ResponseEntity<?> generatePaymentQRCode(
             @PathVariable Long orderId,
             @RequestBody Map<String, String> paymentInfo) {
+        log.info("收到为订单 ID: {} 生成支付二维码的请求，支付方式: {}", orderId, paymentInfo.get("method"));
         try {
             String method = paymentInfo.get("method");
             if (method == null) {
+                log.warn("订单 {} 生成二维码请求缺少支付方式", orderId);
                 return ResponseEntity.badRequest().body(Map.of("error", "支付方式不能为空"));
             }
+            
+            // --- 新增：将订单状态更新为待支付 ---
+            try {
+                log.info("准备将订单 ID: {} 状态更新为 PAYMENT_PENDING...", orderId);
+                orderService.updateOrderStatus(orderId, OrderStatus.PAYMENT_PENDING.name());
+                log.info("订单 ID: {} 状态已更新为 PAYMENT_PENDING", orderId);
+            } catch (Exception e) {
+                // 如果更新状态失败，记录错误但仍尝试生成二维码，让用户有机会重试支付
+                log.error("更新订单 {} 状态为 PAYMENT_PENDING 时失败: {}，将继续生成二维码", orderId, e.getMessage(), e);
+                // 不在此处中断流程，允许用户获取二维码
+            }
+            // --- 状态更新结束 ---
             
             // 生成支付ID
             String paymentId = UUID.randomUUID().toString();
@@ -205,29 +269,56 @@ public class OrderController {
             } else {
                 qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=unknown:pay:" + orderId + ":" + paymentId + "&size=200x200";
             }
+            log.info("为订单 ID: {} 生成二维码 URL 成功: {}", orderId, qrCodeUrl);
             
             return ResponseEntity.ok(Map.of("qrCode", qrCodeUrl));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            log.error("为订单 {} 生成支付二维码时发生意外错误: {}", orderId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "error", "生成支付二维码失败，请稍后重试",
+                "errorCode", "QRCODE_GENERATION_ERROR"
+            ));
         }
     }
     
     /**
-     * 检查支付状态
+     * 检查支付状态 (改造为确认支付)
      */
     @GetMapping("/{orderId}/payment/status")
     public ResponseEntity<?> checkPaymentStatus(@PathVariable Long orderId) {
+        log.info("收到检查订单 ID: {} 支付状态的请求", orderId);
         try {
-            OrderDTO order = orderService.getOrderById(orderId);
-            boolean isPaid = OrderStatus.PAID.name().equals(order.getStatus());
-            return ResponseEntity.ok(Map.of("paid", isPaid));
+            OrderDTO order = orderService.getOrderById(orderId); // 获取最新订单信息
+            log.debug("获取到订单 {} 的当前状态: status={}, paymentStatus={}", orderId, order.getStatus(), order.getPaymentStatus());
+
+            // --- 修改核心逻辑：只检查状态，不触发支付 ---
+            boolean isPaid = OrderStatus.PAID.name().equals(order.getStatus()) ||
+                             (order.getPaymentStatus() != null && PaymentStatus.PAID.name().equals(order.getPaymentStatus())); // 检查 status 或 paymentStatus (添加 null 检查)
+
+            if (isPaid) {
+                log.info("订单 {} 状态已为 PAID，返回支付成功", orderId);
+                return ResponseEntity.ok(Map.of("paid", true));
+            } else {
+                // 对于其他所有状态 (PENDING, CONFIRMED, PAYMENT_PENDING, FAILED, UNPAID, CANCELLED 等)
+                log.info("订单 {} 状态为 status={}, paymentStatus={}，返回支付未完成", orderId, order.getStatus(), order.getPaymentStatus());
+                return ResponseEntity.ok(Map.of("paid", false));
+            }
+            // --- 移除原先处理 PAYMENT_PENDING 并调用 orderService.payOrder() 的逻辑 ---
+
+        } catch (ResourceNotFoundException e) {
+             log.warn("检查支付状态失败，未找到订单 ID: {}", orderId);
+             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("paid", false, "error", "订单不存在"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            log.error("检查订单 {} 支付状态时发生意外错误: {}", orderId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "paid", false,
+                "error", "检查支付状态失败，请稍后重试"
+            ));
         }
     }
     
     @GetMapping("/host")
-    @PreAuthorize("hasRole('HOST')")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> getHostOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -265,13 +356,32 @@ public class OrderController {
      * 确认订单
      */
     @PutMapping("/{id}/confirm")
-    @PreAuthorize("hasRole('HOST')")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> confirmOrder(@PathVariable Long id) {
         try {
+            System.out.println("开始确认订单，订单ID: " + id);
+            // 获取当前用户信息用于日志
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+            System.out.println("当前用户: " + username + ", 角色: " + authentication.getAuthorities());
+            
             OrderDTO confirmedOrder = orderService.updateOrderStatus(id, OrderStatus.CONFIRMED.name());
+            System.out.println("订单确认成功，订单ID: " + id);
             return ResponseEntity.ok(confirmedOrder);
-        } catch (Exception e) {
+        } catch (ResourceNotFoundException e) {
+            System.err.println("订单确认失败，订单不存在: " + id);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            System.err.println("订单确认失败，权限不足: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            System.err.println("订单确认失败，参数错误: " + e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("订单确认失败，未知错误: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "确认订单时发生错误: " + e.getMessage()));
         }
     }
     
@@ -279,7 +389,7 @@ public class OrderController {
      * 拒绝订单
      */
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasRole('HOST')")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> rejectOrder(
             @PathVariable Long id, 
             @RequestBody Map<String, String> reasonMap) {
@@ -300,7 +410,7 @@ public class OrderController {
      * 获取房东订单统计信息
      */
     @GetMapping("/host/stats")
-    @PreAuthorize("hasRole('HOST')")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> getHostOrderStats(Authentication authentication) {
         try {
             String username = authentication.getName();
@@ -330,6 +440,40 @@ public class OrderController {
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+    
+    /**
+     * 办理入住
+     */
+    @PutMapping("/{id}/check-in")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
+    public ResponseEntity<?> checkIn(@PathVariable Long id) {
+        try {
+            OrderDTO checkedInOrder = orderService.updateOrderStatus(id, OrderStatus.CHECKED_IN.name());
+            return ResponseEntity.ok(checkedInOrder);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "errorCode", e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"
+            ));
+        }
+    }
+    
+    /**
+     * 办理退房
+     */
+    @PutMapping("/{id}/check-out")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
+    public ResponseEntity<?> checkOut(@PathVariable Long id) {
+        try {
+            OrderDTO completedOrder = orderService.updateOrderStatus(id, OrderStatus.COMPLETED.name());
+            return ResponseEntity.ok(completedOrder);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", e.getMessage(),
+                "errorCode", e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"
+            ));
         }
     }
     
