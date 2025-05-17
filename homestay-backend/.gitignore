@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### 自定义忽略目录 ###
+/uploads/
+/draw/

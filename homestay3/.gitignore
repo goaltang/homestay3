@@ -28,4 +28,9 @@ homestay-backend/*.ipr
 
 # 系统文件
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# 上传文件和绘图目录
+homestay-backend/uploads/
+draw/
+new_draw/ 
