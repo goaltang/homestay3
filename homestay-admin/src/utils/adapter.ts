@@ -2,14 +2,15 @@
  * 数据适配器 - 处理前后端数据格式转换
  */
 import { HOMESTAY_STATUS, ORDER_STATUS, USER_STATUS } from "./constants";
+import type { Homestay } from "@/types";
 
-// 分页参数转换 - 前端从1开始，后端从0开始
+// 分页参数转换 - 前端从1开始，后端也从1开始，后端控制器会自行处理
 export function adaptPageParams(params: any) {
   const adaptedParams = { ...params };
 
-  // 调整页码
+  // 确保页码始终为正整数
   if ("page" in adaptedParams) {
-    adaptedParams.page = (adaptedParams.page || 1) - 1;
+    adaptedParams.page = Math.max(1, adaptedParams.page || 1);
   }
 
   // 重命名pageSize为size
@@ -42,6 +43,7 @@ export function adaptPageResponse<T>(
 }
 
 // 状态值转换 - 用于房源状态
+/*
 export function adaptHomestayStatus(
   status: string | undefined,
   toFrontend = true
@@ -68,6 +70,7 @@ export function adaptHomestayStatus(
     }
   }
 }
+*/
 
 // 订单状态转换
 export function adaptOrderStatus(
@@ -105,7 +108,8 @@ export function adaptOrderStatus(
   }
 }
 
-// 用户状态转换
+// Comment out adaptUserStatus as we'll use boolean directly
+/*
 export function adaptUserStatus(
   status: string | boolean | undefined,
   toFrontend = true
@@ -124,21 +128,59 @@ export function adaptUserStatus(
     );
   }
 }
+*/
 
 // 房源数据适配器
-export function adaptHomestayItem(item: any) {
-  if (!item) return null;
+export function adaptHomestayItem(item: any): Homestay {
+  if (!item) {
+    console.warn(
+      "adaptHomestayItem received invalid item, returning default object."
+    );
+    return {
+      id: 0,
+      title: "无效房源",
+      status: "UNKNOWN",
+    } as Homestay;
+  }
+
+  const originalImages = Array.isArray(item.images)
+    ? item.images.filter(
+        (img: any) =>
+          typeof img === "string" &&
+          img.trim() !== "" &&
+          img !== item.coverImage
+      )
+    : [];
 
   return {
     id: item.id,
-    name: item.title || "",
+    title: item.title || "",
     price: item.price,
-    address:
-      item.province && item.city
-        ? `${item.province}${item.city}${item.district || ""}`
-        : item.address || "",
-    status: adaptHomestayStatus(item.status, true),
-    createTime: item.createdAt || "",
+    pricePerNight: item.pricePerNight,
+    status: item.status,
+    createTime: item.createdAt || item.createTime || "",
+    type: item.type,
+    maxGuests: item.maxGuests,
+    bedrooms: item.bedrooms,
+    beds: item.beds,
+    bathrooms: item.bathrooms,
+    amenities: Array.isArray(item.amenities) ? item.amenities : [],
+    images: originalImages,
+    coverImage: item.coverImage || "",
+    description: item.description,
+    featured: !!item.featured,
+    rating: item.rating,
+    reviewCount: item.reviewCount,
+    hostId: item.hostId || item.owner?.id,
+    hostName: item.hostName || item.owner?.username,
+    updatedAt: item.updatedAt || "",
+    minNights: item.minNights,
+    ownerName: item.ownerName,
+    ownerUsername: item.ownerUsername,
+    provinceCode: item.provinceCode,
+    cityCode: item.cityCode,
+    districtCode: item.districtCode,
+    addressDetail: item.addressDetail,
   };
 }
 
@@ -161,13 +203,21 @@ export function adaptOrderItem(item: any) {
 export function adaptUserItem(item: any) {
   if (!item) return null;
 
+  // Directly use the boolean `enabled` status from the backend item
+  const backendEnabled = item.enabled;
+  console.log(`Adapting user ${item.id}, backend enabled: ${backendEnabled}`);
+
   return {
     id: item.id,
     username: item.username || "",
     nickname: item.nickname || "",
     phone: item.phoneNumber || "",
     email: item.email || "",
-    status: adaptUserStatus(item.enabled, true),
+    // Use the boolean value directly, potentially rename for clarity
+    enabled: backendEnabled,
     createTime: item.createdAt || "",
+    // Include other fields if needed
+    role: item.role,
+    avatar: item.avatar,
   };
 }

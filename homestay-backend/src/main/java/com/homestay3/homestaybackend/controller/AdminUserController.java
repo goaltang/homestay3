@@ -39,7 +39,10 @@ public class AdminUserController {
         logger.info("管理员获取用户列表，页码: {}, 每页数量: {}, 用户名: {}, 邮箱: {}, 角色: {}", 
                 page, size, username, email, role);
         
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        // 确保页码是 0-based for Spring Data JPA
+        int pageNumber = page > 0 ? page - 1 : 0;
+        
+        Pageable pageable = PageRequest.of(pageNumber, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<UserDTO> users = userService.getAdminUsers(pageable, username, email, role);
         
         Map<String, Object> response = new HashMap<>();

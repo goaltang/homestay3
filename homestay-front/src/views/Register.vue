@@ -52,9 +52,9 @@
               <el-form-item label="注册身份" prop="role">
                 <el-radio-group v-model="form.role">
                   <el-radio label="ROLE_USER">普通用户</el-radio>
-                  <el-radio label="ROLE_LANDLORD">房东</el-radio>
+                  <el-radio label="ROLE_HOST">房东</el-radio>
                 </el-radio-group>
-                <div class="role-tip" v-if="form.role === 'ROLE_LANDLORD'">
+                <div class="role-tip" v-if="form.role === 'ROLE_HOST'">
                   <el-alert title="提示：注册为房东后，您将可以发布和管理房源，接收订单并获得收益。" type="info" :closable="false" show-icon />
                 </div>
                 <div class="role-debug">
@@ -261,10 +261,10 @@ const handleRegister = async () => {
 
       if (registerSuccess) {
         // 注册成功，根据角色提供不同的成功提示
-        if (form.role === 'ROLE_LANDLORD') {
-          ElMessage.success('恭喜您！已成功注册为房东。正在为您跳转...');
-          // 直接跳转到房东中心
-          router.push('/host');
+        if (form.role === 'ROLE_HOST') {
+          ElMessage.success('恭喜您！已成功注册为房东。即将跳转到信息完善页面...');
+          // 跳转到房东信息完善引导页面
+          router.push('/host/onboarding');
         } else {
           ElMessage.success('注册成功！正在为您跳转到首页...');
           // 普通用户跳转到首页

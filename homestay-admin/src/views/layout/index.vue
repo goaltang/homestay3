@@ -10,24 +10,68 @@
               </el-icon>
               <template #title>系统首页</template>
             </el-menu-item>
-            <el-menu-item index="/homestays">
-              <el-icon>
-                <House />
-              </el-icon>
-              <template #title>房源管理</template>
-            </el-menu-item>
+
+            <!-- 房源管理 Sub Menu -->
+            <el-sub-menu index="/homestay-management">
+              <template #title>
+                <el-icon>
+                  <House />
+                </el-icon>
+                <span>房源管理</span>
+              </template>
+              <el-menu-item index="/homestays">房源列表</el-menu-item>
+              <el-menu-item index="/types">房源类型管理</el-menu-item>
+              <!-- 设施管理 Sub Menu (Nested) -->
+              <el-sub-menu index="/amenities">
+                <template #title>
+                  <el-icon>
+                    <SetUp />
+                  </el-icon>
+                  <span>设施管理</span>
+                </template>
+                <el-menu-item index="/amenities/manage">设施列表</el-menu-item>
+                <el-menu-item index="/amenities/categories">设施分类</el-menu-item>
+              </el-sub-menu>
+            </el-sub-menu>
+
             <el-menu-item index="/orders">
               <el-icon>
                 <List />
               </el-icon>
               <template #title>订单管理</template>
             </el-menu-item>
-            <el-menu-item index="/users">
+
+            <!-- 用户管理 Sub Menu -->
+            <el-sub-menu index="/user-management">
+              <template #title>
+                <el-icon>
+                  <User />
+                </el-icon>
+                <span>用户管理</span>
+              </template>
+              <el-menu-item index="/users">用户列表</el-menu-item>
+              <el-menu-item index="/verifications">身份认证审核</el-menu-item>
+            </el-sub-menu>
+
+            <!-- Add Review Management Menu Item -->
+            <el-menu-item index="/reviews">
               <el-icon>
-                <User />
+                <ChatDotSquare />
               </el-icon>
-              <template #title>用户管理</template>
+              <template #title>评价管理</template>
             </el-menu-item>
+
+            <!-- Keep other top-level items if needed, e.g., Reviews, Statistics -->
+            <!-- Example:
+            <el-menu-item index="/reviews">
+              <el-icon>...</el-icon>
+              <template #title>评价管理</template>
+            </el-menu-item>
+            <el-menu-item index="/statistics">
+              <el-icon>...</el-icon>
+              <template #title>统计分析</template>
+            </el-menu-item>
+            -->
           </el-menu>
         </div>
       </el-aside>
@@ -78,7 +122,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, House, List, User, Fold, Expand, CaretBottom } from '@element-plus/icons-vue'
+import { DataLine, House, List, User, Fold, Expand, CaretBottom, Tickets, Collection, SetUp, ChatDotSquare } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 

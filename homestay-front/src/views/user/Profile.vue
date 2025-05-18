@@ -12,9 +12,20 @@
                     <el-avatar :size="100" :src="avatarUrl" @error="handleAvatarError">
                         <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=fallback" />
                     </el-avatar>
+
+                    <!-- 增加图片调试信息 -->
+                    <div class="avatar-debug" v-if="isDev">
+                        <small>{{ userStore.userInfo?.avatar }}</small>
+                    </div>
+
                     <div class="avatar-upload">
-                        <el-upload class="avatar-uploader" :show-file-list="false" :before-upload="beforeAvatarUpload"
-                            :http-request="customUpload" accept="image/jpeg,image/png,image/gif">
+                        <el-upload class="avatar-uploader" :action="`${apiBaseUrl}/api/files/upload`" :headers="{
+                            ...uploadHeaders,
+                            'Accept': '*/*',
+                        }" :data="{ type: 'avatar' }" :on-success="handleAvatarSuccess"
+                            :before-upload="beforeAvatarUpload" :show-file-list="false" :on-error="handleAvatarError"
+                            :with-credentials="true" :multiple="false" accept="image/jpeg,image/png,image/gif"
+                            name="file">
                             <el-button size="small" type="primary">更换头像</el-button>
                         </el-upload>
                     </div>
@@ -128,6 +139,8 @@ import type { UploadRequestOptions } from 'element-plus';
 import { Loading } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
 import request from '@/utils/request';
+import { getAvatarUrl, handleImageError } from '@/utils/image';
+import axios from 'axios';
 
 const userStore = useUserStore();
 const router = useRouter();
@@ -151,49 +164,11 @@ const form = ref({
 // 计算属性：头像URL
 const avatarUrl = computed(() => {
     if (!userStore.userInfo?.avatar) {
-        // 如果没有头像，返回默认头像
-        const seed = userStore.userInfo?.username || "default" + Date.now();
-        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+        return getAvatarUrl('');
     }
-
-    // 处理不同类型的头像路径
-    const avatarPath = userStore.userInfo.avatar;
-    console.log("原始头像路径:", avatarPath);
-
-    // 如果是完整URL，直接返回
-    if (avatarPath.startsWith("http")) {
-        return avatarPath;
-    }
-
-    // 去除可能重复的/api前缀
-    let normalizedPath = avatarPath;
-    if (normalizedPath.startsWith("/api/")) {
-        // 如果已经包含/api/前缀，则直接使用
-        return normalizedPath;
-    }
-
-    // 如果是相对路径但没有前导斜杠，添加前导斜杠
-    normalizedPath = normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
-
-    // 根据不同的路径格式返回不同的URL
-    if (normalizedPath.includes('/uploads/')) {
-        return `/api${normalizedPath}`;
-    }
-
-    if (normalizedPath.includes('/avatar/')) {
-        return `/api/files${normalizedPath}`;
-    }
-
-    // 尝试提取文件名
-    const filename = normalizedPath.split("/").pop();
-    if (filename) {
-        // 使用相对路径访问头像
-        return `/api/files/avatar/${filename}`;
-    }
-
-    // 无法解析的情况，使用默认头像
-    const seed = userStore.userInfo?.username || "fallback" + Date.now();
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    // 添加时间戳参数确保浏览器不使用缓存
+    const baseUrl = getAvatarUrl(userStore.userInfo.avatar);
+    return `${baseUrl}?t=${new Date().getTime()}`;
 });
 
 // 认证状态相关
@@ -241,6 +216,8 @@ const maskedIdCard = computed(() => {
 
 // 头像上传前的验证
 const beforeAvatarUpload = (file: File) => {
+    console.log('开始前置验证: 文件名=', file.name, '大小=', Math.round(file.size / 1024) + 'KB', '类型=', file.type);
+
     // 检查文件类型
     const isImage = file.type.startsWith('image/');
     if (!isImage) {
@@ -255,148 +232,206 @@ const beforeAvatarUpload = (file: File) => {
         return false;
     }
 
+    console.log('文件验证通过，准备上传...');
+    ElMessage.info({
+        message: '正在上传头像，请稍候...',
+        duration: 2000
+    });
+
     return true;
 };
 
-// 自定义上传方法
-const customUpload = async (options: UploadRequestOptions) => {
+// 上传参数头部
+const uploadHeaders = computed(() => {
+    return {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+    };
+});
+
+// 头像上传成功处理
+const handleAvatarSuccess = (response: any, file: File) => {
+    console.log('头像上传响应数据:', response);
+    console.log('头像文件信息:', file);
+
     try {
-        loading.value = true;
-        const file = options.file as File;
-        console.log("开始上传头像:", file.name);
-
-        // 创建FormData
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", "avatar");
-
-        // 直接使用request发送请求
-        const response = await request({
-            url: "/api/files/upload",
-            method: "post",
-            data: formData,
-            headers: {
-                // 不设置Content-Type，让浏览器自动处理
-            }
-        });
-
-        console.log("头像上传API响应:", response);
-
-        // 处理响应
-        let avatarPath = '';
-        if (response.data) {
-            // 处理成功响应
-            if (response.data.success && response.data.data) {
-                avatarPath = response.data.data.url;
-            }
-            // 直接从响应中获取头像路径
-            else if (typeof response.data === 'string') {
-                avatarPath = response.data;
-            } else if (response.data.path) {
-                avatarPath = response.data.path;
-            } else if (response.data.data) {
-                avatarPath = response.data.data;
-            }
+        if (!response) {
+            console.error('服务器响应为空');
+            ElMessage.error('头像上传失败：服务器未返回数据');
+            setTimeout(() => window.location.reload(), 2000);
+            return;
         }
 
-        console.log("解析到的头像路径:", avatarPath);
-
-        if (avatarPath) {
-            // 确保avatarPath是标准格式
-            // 如果已经包含/api/前缀，则不需要进一步处理
-            if (!avatarPath.startsWith('/api/') && !avatarPath.startsWith('http')) {
-                // 如果以/开头但不是/api/开头，添加/api前缀
-                if (avatarPath.startsWith('/')) {
-                    avatarPath = `/api${avatarPath}`;
-                } else {
-                    // 没有前导斜杠，添加完整路径
-                    avatarPath = `/api/files/avatar/${avatarPath}`;
-                }
-            }
-
-            console.log("标准化后的头像路径:", avatarPath);
-
-            // 更新用户头像
-            if (userStore.userInfo) {
-                userStore.userInfo.avatar = avatarPath;
-                console.log("用户头像已更新:", avatarPath);
-                // 保存到本地存储
-                localStorage.setItem("userInfo", JSON.stringify(userStore.userInfo));
-            }
-
-            ElMessage.success('头像上传成功');
-        } else {
-            throw new Error("上传成功但未返回有效的头像路径");
+        // 根据响应结构获取文件名
+        let fileName = '';
+        
+        if (response.fileName) {
+            // 直接使用返回的文件名
+            fileName = response.fileName;
+            console.log('使用服务器返回的fileName:', fileName);
+        } else if (response.status === 'success' && response.downloadUrl) {
+            // 从URL中提取文件名
+            const urlParts = response.downloadUrl.split('/');
+            fileName = urlParts[urlParts.length - 1];
+            console.log('从downloadUrl提取的fileName:', fileName);
+        } else if (typeof response === 'string') {
+            // 如果响应是字符串，可能就是文件名
+            fileName = response;
+            console.log('将字符串响应作为fileName:', fileName);
+        } else if (response.data && response.data.fileName) {
+            // 如果响应中有data.fileName
+            fileName = response.data.fileName;
+            console.log('使用response.data.fileName:', fileName);
         }
 
-        return avatarPath;
-    } catch (error: any) {
-        console.error("头像上传失败:", error);
-        // 提供更详细的错误信息
-        if (error.response && error.response.status === 413) {
-            ElMessage.error('头像文件太大，超出服务器允许的上传大小限制');
-        } else if (error.message && error.message.includes('Maximum upload size exceeded')) {
-            ElMessage.error('头像文件太大，超出服务器允许的上传大小限制');
-        } else {
-            ElMessage.error(error.message || '头像上传失败，请稍后重试');
+        if (!fileName) {
+            console.error('无法从响应中提取文件名:', response);
+            throw new Error('无法获取有效的头像文件名');
         }
-    } finally {
-        loading.value = false;
+
+        // 使用工具函数构建头像URL
+        const avatarUrl = getAvatarUrl(fileName);
+        console.log('构建的头像URL:', avatarUrl);
+        
+        // 更新用户信息
+        updateUserAvatar(avatarUrl);
+    } catch (error) {
+        console.error('处理头像上传响应时出错:', error);
+        ElMessage.error('头像更新失败，请重试');
+        // 如果出错，2秒后刷新页面
+        setTimeout(() => window.location.reload(), 2000);
     }
 };
 
-// 头像加载错误处理
-const handleAvatarError = (e: Event) => {
-    const target = e.target as HTMLImageElement;
-    const failedUrl = target.src;
-
-    console.error("头像加载失败:", failedUrl);
-    console.log("头像加载错误详情:", {
-        原始头像: userStore.userInfo?.avatar,
-        计算URL: avatarUrl.value,
-        加载失败URL: failedUrl,
-        用户信息: userStore.userInfo
-    });
-
-    // 防止进入死循环
-    if (failedUrl.includes('/api/api/')) {
-        console.error("检测到重复的/api/前缀，使用默认头像");
-        const seed = userStore.userInfo?.username || "fallback" + Date.now();
-        const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-        target.src = defaultAvatar;
-        return;
+// 更新用户头像URL
+const updateUserAvatar = (avatarUrl: string) => {
+    // 先确保URL不包含时间戳参数，清除可能已有的时间戳
+    let cleanUrl = avatarUrl;
+    if (cleanUrl.includes('?')) {
+        cleanUrl = cleanUrl.split('?')[0];
     }
+    
+    // 为URL添加时间戳参数
+    const urlWithTimestamp = `${cleanUrl}?t=${new Date().getTime()}`;
+    
+    // 更新用户信息中的头像URL
+    if (userStore.userInfo) {
+        // 使用不带时间戳的URL存储，避免累积参数
+        userStore.userInfo.avatar = cleanUrl;
 
-    // 尝试不同的头像格式
-    if (failedUrl.includes('/api/files/avatar/')) {
-        try {
-            // 尝试直接访问原始路径
-            const originalPath = userStore.userInfo?.avatar;
-            if (originalPath) {
-                // 确保不重复添加/api前缀
-                if (originalPath.startsWith('/api/')) {
-                    console.log("使用原始API路径:", originalPath);
-                    target.src = originalPath;
-                } else if (originalPath.startsWith('/')) {
-                    console.log("添加API前缀:", `/api${originalPath}`);
-                    target.src = `/api${originalPath}`;
-                } else {
-                    // 如果没有前导斜杠，添加完整路径
-                    console.log("添加完整路径:", `/api/files/avatar/${originalPath}`);
-                    target.src = `/api/files/avatar/${originalPath}`;
-                }
-                return;
-            }
-        } catch (e) {
-            console.error("尝试修复头像URL失败:", e);
+        // 更新本地存储的用户信息
+        const userInfo = localStorage.getItem('userInfo');
+        if (userInfo) {
+            const parsedUserInfo = JSON.parse(userInfo);
+            parsedUserInfo.avatar = cleanUrl;
+            localStorage.setItem('userInfo', JSON.stringify(parsedUserInfo));
         }
     }
 
-    // 直接使用默认头像
-    const seed = userStore.userInfo?.username || "fallback" + Date.now();
-    const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-    console.log("已切换到默认头像:", defaultAvatar);
-    target.src = defaultAvatar;
+    // 通知用户
+    ElMessage.success('头像更新成功');
+
+    // 强制刷新页面上显示的头像
+    refreshAvatar();
+    
+    // 延迟500ms后刷新整个页面，确保所有组件都能看到新头像
+    setTimeout(() => {
+        window.location.reload();
+    }, 500);
+};
+
+// 刷新头像显示
+const refreshAvatar = () => {
+    // 生成唯一的时间戳，确保缓存失效
+    const timestamp = new Date().getTime();
+    
+    // 更新本地头像URL以强制刷新
+    if (userStore.userInfo && userStore.userInfo.avatar) {
+        const baseUrl = userStore.userInfo.avatar.split('?')[0];
+        userStore.userInfo.avatar = `${baseUrl}?t=${timestamp}&nocache=true`;
+    }
+    
+    // 查找并更新所有头像图片元素
+    const avatarElements = document.querySelectorAll('.el-avatar img');
+    avatarElements.forEach(element => {
+        const img = element as HTMLImageElement;
+        if (img.src) {
+            // 移除旧的时间戳参数(如果有)
+            const baseUrl = img.src.split('?')[0];
+            img.src = `${baseUrl}?t=${timestamp}&nocache=true`;
+            
+            // 添加图片加载完成监听，确保图片已更新
+            img.onload = () => console.log('头像图片已成功重新加载');
+        }
+    });
+};
+
+// 头像加载/上传错误处理
+const handleAvatarError = (e: Event | any, file?: any, fileList?: any) => {
+    if (e instanceof Event) {
+        // 头像加载错误
+        console.error('头像加载错误:', e);
+        handleImageError(e, 'avatar');
+    } else {
+        // 头像上传错误
+        console.error('头像上传错误:', e);
+        console.error('上传的文件:', file);
+
+        // 检查是否是服务器返回了200但无法解析JSON
+        if (e.name === 'SyntaxError' && e.message?.includes('JSON')) {
+            console.warn('服务器返回了非JSON响应，但请求可能成功。尝试刷新页面获取最新头像');
+            ElMessage.warning('上传可能已成功，将刷新页面获取最新头像');
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+        }
+
+        // 检查是否网络错误或CORS问题
+        if (e.name === 'UploadAjaxError' || e.status === 0) {
+            console.error('上传网络错误或CORS问题:', e);
+            ElMessage.error('网络错误：请检查网络连接或CORS配置');
+
+            // 尝试查看后端日志，如果服务器实际上处理了请求，我们可以尝试刷新页面
+            ElMessage.warning('正在检查上传是否实际成功...');
+            setTimeout(() => window.location.reload(), 2000);
+            return;
+        }
+
+        // 记录详细的错误信息
+        if (e.response) {
+            console.error('错误响应数据:', e.response);
+        }
+
+        // 解析错误消息
+        let errorMsg = '头像上传失败';
+
+        if (e.status === 401) {
+            errorMsg = '登录已过期，请重新登录';
+        } else if (e.status === 413) {
+            errorMsg = '文件太大，无法上传';
+        } else if (e.message) {
+            errorMsg = e.message;
+        } else if (e.response) {
+            if (typeof e.response === 'string') {
+                try {
+                    const resp = JSON.parse(e.response);
+                    errorMsg = resp.message || resp.error || '上传失败';
+                } catch (_) {
+                    errorMsg = e.response;
+                }
+            } else if (e.response.data) {
+                errorMsg = e.response.data.message || e.response.data.error || `服务器错误 (${e.response.status})`;
+            }
+        }
+
+        // 显示错误消息
+        ElMessage.error(errorMsg);
+
+        // 调试日志
+        console.log('上传组件配置:', {
+            action: `${apiBaseUrl.value}/api/files/upload`,
+            headers: uploadHeaders.value,
+            data: { type: 'avatar' }
+        });
+    }
 };
 
 // 密码修改相关
@@ -488,6 +523,78 @@ const checkUserInfo = async () => {
                 router.push("/login");
             }
         }
+    }
+};
+
+// 自定义上传处理
+const handleCustomUpload = (options: any) => {
+    const { file, headers, data, action, onSuccess, onError } = options;
+
+    // 检查文件
+    if (!beforeAvatarUpload(file)) {
+        return;
+    }
+
+    console.log('开始自定义上传，参数:', {
+        file: file.name,
+        size: file.size,
+        type: file.type,
+        action
+    });
+
+    // 创建FormData
+    const formData = new FormData();
+    formData.append('file', file); // 确保字段名为"file"，与后端接收参数一致
+    formData.append('type', 'avatar');
+
+    // 添加其他数据
+    if (data) {
+        Object.keys(data).forEach(key => {
+            formData.append(key, data[key]);
+        });
+    }
+
+    // 构建完整URL
+    let fullUrl = "";
+    if (action.startsWith('http')) {
+        fullUrl = action;
+    } else {
+        // 移除可能的重复路径
+        const cleanAction = action.startsWith('/api') ? action : `/api${action}`;
+        fullUrl = `${apiBaseUrl.value}${cleanAction}`;
+    }
+
+    console.log('上传完整URL:', fullUrl);
+
+    // 使用 request 工具而不是直接使用 axios，确保正确应用拦截器和共享配置
+    try {
+        // 使用本地 fetch 而不是 axios，避免 CORS 问题
+        fetch(fullUrl, {
+            method: 'POST',
+            headers: {
+                ...headers
+                // 不要手动设置 Content-Type，让浏览器自动设置 multipart/form-data 和 boundary
+            },
+            body: formData,
+            credentials: 'include'  // 包含凭证
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('上传成功:', data);
+                onSuccess(data);
+            })
+            .catch(error => {
+                console.error('上传失败:', error);
+                onError(error);
+            });
+    } catch (error) {
+        console.error('上传请求创建失败:', error);
+        onError(error);
     }
 };
 

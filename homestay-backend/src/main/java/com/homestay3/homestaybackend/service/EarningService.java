@@ -31,5 +31,8 @@ public interface EarningService {
     BigDecimal getPendingEarnings(String hostUsername);
     
     // 根据订单创建收益记录（通常在订单完成时调用）
-    EarningDTO createEarningFromOrder(Long orderId);
+    EarningDTO generatePendingEarningForOrder(Long orderId);
+    
+    // 结算指定房东的合格收益
+    int settleHostEarnings(String hostUsername); // 返回结算的记录条数
 } 

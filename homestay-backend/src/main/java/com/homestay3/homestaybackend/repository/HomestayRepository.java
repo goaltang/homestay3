@@ -1,7 +1,7 @@
 package com.homestay3.homestaybackend.repository;
 
 import com.homestay3.homestaybackend.model.Homestay;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,9 +13,18 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSpecificationExecutor<Homestay> {
+    
+    /**
+     * 根据ID查找房源并加载设施
+     * @param id 房源ID
+     * @return 房源（带设施）
+     */
+    @Query("SELECT h FROM Homestay h LEFT JOIN FETCH h.amenities WHERE h.id = :id")
+    Optional<Homestay> findByIdWithAmenities(@Param("id") Long id);
     
     /**
      * 根据状态查找房源
@@ -53,13 +62,6 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
     List<Homestay> findByFeaturedTrue();
     
     /**
-     * 根据城市查找房源
-     * @param city 城市
-     * @return 房源列表
-     */
-    List<Homestay> findByCity(String city);
-    
-    /**
      * 根据类型查找房源
      * @param type 类型
      * @return 房源列表
@@ -93,7 +95,7 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
      * @return 房源列表
      */
     @Query("SELECT h FROM Homestay h WHERE " +
-           "(:location IS NULL OR h.city = :location OR h.province = :location) AND " +
+           "(:location IS NULL OR h.provinceText LIKE %:location% OR h.cityText LIKE %:location% OR h.districtText LIKE %:location% OR h.addressDetail LIKE %:location%) AND " +
            "(:minPrice IS NULL OR h.price >= :minPrice) AND " +
            "(:maxPrice IS NULL OR h.price <= :maxPrice) AND " +
            "(:guestCount IS NULL OR h.maxGuests >= :guestCount) AND " +
@@ -153,6 +155,10 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
     @Query("SELECT COUNT(h) FROM Homestay h WHERE h.owner.id = :ownerId")
     Long countByOwnerId(@Param("ownerId") Long ownerId);
     
+    // 添加统计房东房源数量的方法
+    @Query("SELECT COUNT(h) FROM Homestay h WHERE h.owner.id = :hostId")
+    Long countByHostId(@Param("hostId") Long hostId);
+    
     // 获取房东的所有房源
     @Query("SELECT h FROM Homestay h WHERE h.owner.id = :ownerId")
     Page<Homestay> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
@@ -173,6 +179,6 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
     
     Long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
     
-    @Query("SELECT h.province, COUNT(h) FROM Homestay h GROUP BY h.province")
+    @Query("SELECT h.provinceCode, COUNT(h) FROM Homestay h GROUP BY h.provinceCode")
     List<Object[]> countByProvince();
 } 

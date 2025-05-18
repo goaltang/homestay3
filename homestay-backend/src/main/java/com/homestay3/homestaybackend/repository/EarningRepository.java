@@ -1,9 +1,10 @@
 package com.homestay3.homestaybackend.repository;
 
 import com.homestay3.homestaybackend.model.Earning;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.dto.DailyEarningDTO;
 import com.homestay3.homestaybackend.dto.MonthlyEarningDTO;
+import com.homestay3.homestaybackend.model.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EarningRepository extends JpaRepository<Earning, Long>, JpaSpecificationExecutor<Earning> {
@@ -119,4 +121,13 @@ public interface EarningRepository extends JpaRepository<Earning, Long>, JpaSpec
             @Param("hostId") Long hostId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+    
+    // 检查是否存在与订单关联的收益记录
+    boolean existsByOrder(Order order);
+    
+    // 根据订单查找收益记录
+    Optional<Earning> findByOrder(Order order);
+    
+    // 查找指定房东的可结算收益（状态为PENDING且退房日期早于指定日期）
+    List<Earning> findByHostAndStatusAndCheckOutDateBefore(User host, String status, LocalDate date);
 } 

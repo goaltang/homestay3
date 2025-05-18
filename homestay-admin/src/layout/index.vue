@@ -16,8 +16,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import vHeader from '@/components/header.vue'
-import vSidebar from '@/components/sidebar.vue'
+import vHeader from '../components/header.vue'
+import vSidebar from '../components/sidebar.vue'
 
 const isCollapse = ref(false)
 const handleCollapse = (val: boolean) => {

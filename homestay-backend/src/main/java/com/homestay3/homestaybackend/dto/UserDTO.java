@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.dto;
 
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.VerificationStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

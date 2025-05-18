@@ -4,6 +4,9 @@ import { useAuthStore } from "../stores/auth";
 import { useUserStore } from "../stores/user";
 import OrderSubmitSuccess from "../views/order/OrderSubmitSuccess.vue";
 import MyOrders from "../views/order/MyOrders.vue";
+import AppLayout from "@/layouts/AppLayout.vue";
+import UserLayout from "@/layouts/UserLayout.vue";
+import HostLayout from "../views/host/HostLayout.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -89,11 +92,11 @@ const router = createRouter({
     // 房东中心路由
     {
       path: "/host",
-      component: () => import("../views/host/HostLayout.vue"),
+      component: HostLayout,
       meta: {
         requiresAuth: true,
         title: "房东中心",
-        roles: ["ROLE_LANDLORD"],
+        roles: ["ROLE_HOST", "ROLE_LANDLORD"],
       },
       children: [
         {
@@ -103,6 +106,15 @@ const router = createRouter({
           meta: {
             title: "房东控制台",
             icon: "dashboard",
+          },
+        },
+        {
+          path: "onboarding",
+          name: "HostOnboarding",
+          component: () => import("../views/host/HostOnboarding.vue"),
+          meta: {
+            title: "房东信息完善",
+            icon: "guide",
           },
         },
         {
@@ -179,6 +191,16 @@ const router = createRouter({
             icon: "user",
           },
         },
+        {
+          path: "notifications",
+          name: "HostNotifications",
+          component: () => import("@/views/host/NotificationManage.vue"),
+          meta: {
+            title: "通知管理",
+            icon: "bell",
+            activeMenu: "/host/notifications",
+          },
+        },
       ],
     },
     {
@@ -192,12 +214,6 @@ const router = createRouter({
       name: "OrderConfirm",
       component: () => import("../views/order/OrderConfirm.vue"),
       meta: { title: "确认订单", requiresAuth: true },
-    },
-    {
-      path: "/orders",
-      name: "MyOrders",
-      component: MyOrders,
-      meta: { requiresAuth: true },
     },
     {
       path: "/orders/:id",
@@ -221,7 +237,7 @@ const router = createRouter({
     // 用户中心路由
     {
       path: "/user",
-      component: () => import("../layouts/DefaultLayout.vue"),
+      component: UserLayout,
       meta: { requiresAuth: true },
       children: [
         {
@@ -237,10 +253,22 @@ const router = createRouter({
           meta: { title: "我的收藏" },
         },
         {
+          path: "reviews",
+          name: "UserReviews",
+          component: () => import("../views/user/MyReviews.vue"),
+          meta: { title: "我的评价" },
+        },
+        {
           path: "bookings",
           name: "UserBookings",
-          component: () => import("../views/user/Bookings.vue"),
-          meta: { title: "我的预订" },
+          component: MyOrders,
+          meta: { title: "我的订单" },
+        },
+        {
+          path: "notifications",
+          name: "UserNotifications",
+          component: () => import("@/views/user/NotificationCenter.vue"),
+          meta: { title: "通知中心" },
         },
       ],
     },
@@ -297,12 +325,41 @@ router.beforeEach((to, from, next) => {
     to.meta.roles &&
     Array.isArray(to.meta.roles) &&
     userRole && // 确保有角色信息
-    !to.meta.roles.some(
-      (role) =>
-        userRole.toUpperCase() === role.toUpperCase() ||
-        userRole.toUpperCase() === role.replace("ROLE_", "").toUpperCase() ||
-        `ROLE_${userRole.toUpperCase()}` === role.toUpperCase()
-    )
+    !to.meta.roles.some((role) => {
+      // 完全匹配
+      if (userRole.toUpperCase() === role.toUpperCase()) {
+        return true;
+      }
+
+      // 不带前缀匹配
+      if (userRole.toUpperCase() === role.replace("ROLE_", "").toUpperCase()) {
+        return true;
+      }
+
+      // 添加前缀匹配
+      if (`ROLE_${userRole.toUpperCase()}` === role.toUpperCase()) {
+        return true;
+      }
+
+      // 特殊情况：ROLE_LANDLORD 和 ROLE_HOST 互相兼容
+      if (
+        (userRole.toUpperCase() === "ROLE_LANDLORD" &&
+          role.toUpperCase() === "ROLE_HOST") ||
+        (userRole.toUpperCase() === "ROLE_HOST" &&
+          role.toUpperCase() === "ROLE_LANDLORD")
+      ) {
+        console.log(
+          "房东角色兼容处理: ",
+          userRole,
+          "可以访问需要",
+          role,
+          "的路由"
+        );
+        return true;
+      }
+
+      return false;
+    })
   ) {
     console.warn("用户角色不符合要求:", {
       userRole: userRole,

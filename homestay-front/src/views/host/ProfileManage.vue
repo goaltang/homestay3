@@ -12,11 +12,13 @@
                 <el-card class="avatar-card">
                     <div class="avatar-wrapper">
                         <div class="avatar-container">
-                            <img :src="formData.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
-                                class="avatar-image" alt="用户头像" />
+                            <img :src="formatAvatar(formData.avatar)" class="avatar-image" alt="用户头像"
+                                @error="handleAvatarError" />
                             <div class="avatar-overlay">
-                                <el-upload class="avatar-uploader" action="/api/host/avatar" :show-file-list="false"
-                                    :on-success="handleAvatarSuccess" :before-upload="beforeAvatarUpload">
+                                <el-upload class="avatar-uploader" :action="'/api/files/upload'"
+                                    :headers="uploadHeaders" :data="{ type: 'avatar' }"
+                                    :on-success="handleAvatarSuccess" :before-upload="beforeAvatarUpload"
+                                    :show-file-list="false">
                                     <el-button class="upload-btn" type="primary" circle>
                                         <el-icon>
                                             <Upload />
@@ -28,12 +30,17 @@
                     </div>
 
                     <div class="host-info">
-                        <h2>{{ formData.nickname || formData.username }}</h2>
+                        <h2 class="host-name">{{ formData.nickname || formData.username }}</h2>
                         <div class="host-since">
                             <el-icon>
                                 <Calendar />
                             </el-icon>
                             <span>加入时间: {{ hostSince }}</span>
+                        </div>
+                        <div class="verification-status" v-if="formData.verificationStatus">
+                            <el-tag :type="getVerificationStatusType" size="small">
+                                {{ getVerificationStatusText }}
+                            </el-tag>
                         </div>
                     </div>
                 </el-card>
@@ -97,8 +104,8 @@
 
             <!-- 右侧列 - 表单和密码 -->
             <div class="profile-right-column">
-                <el-tabs type="border-card" class="profile-tabs">
-                    <el-tab-pane label="基本信息">
+                <el-tabs type="border-card" class="profile-tabs" v-model="activeTab">
+                    <el-tab-pane label="基本信息" name="basic">
                         <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px"
                             class="profile-form">
                             <el-row :gutter="20">
@@ -134,19 +141,24 @@
                                     </el-form-item>
                                 </el-col>
                                 <el-col :span="12">
-                                    <el-form-item label="身份证号" prop="idCard">
-                                        <el-input v-model="formData.idCard" />
+                                    <el-form-item label="性别" prop="gender">
+                                        <el-select v-model="formData.gender" placeholder="请选择性别" style="width: 100%">
+                                            <el-option label="男" value="MALE" />
+                                            <el-option label="女" value="FEMALE" />
+                                            <el-option label="保密" value="OTHER" />
+                                        </el-select>
                                     </el-form-item>
                                 </el-col>
                             </el-row>
                         </el-form>
                     </el-tab-pane>
 
-                    <el-tab-pane label="房东信息">
+                    <el-tab-pane label="房东信息" name="host">
                         <el-form ref="hostFormRef" :model="formData" label-width="100px" class="profile-form">
                             <el-form-item label="个人介绍" prop="introduction">
                                 <el-input v-model="formData.introduction" type="textarea" :rows="4"
                                     placeholder="介绍一下自己，让房客更了解您..." />
+                                <div class="form-tip">优质的自我介绍能提高客人的信任感，增加预订率</div>
                             </el-form-item>
 
                             <el-row :gutter="20">
@@ -159,15 +171,15 @@
                                     <el-form-item label="语言能力" prop="languages">
                                         <el-select v-model="formData.languages" multiple placeholder="您会说的语言"
                                             style="width: 100%">
-                                            <el-option label="中文" value="中文" />
-                                            <el-option label="英语" value="英语" />
-                                            <el-option label="日语" value="日语" />
-                                            <el-option label="韩语" value="韩语" />
-                                            <el-option label="法语" value="法语" />
-                                            <el-option label="德语" value="德语" />
-                                            <el-option label="西班牙语" value="西班牙语" />
-                                            <el-option label="俄语" value="俄语" />
-                                            <el-option label="阿拉伯语" value="阿拉伯语" />
+                                            <el-option label="中文" value="CHINESE" />
+                                            <el-option label="英语" value="ENGLISH" />
+                                            <el-option label="日语" value="JAPANESE" />
+                                            <el-option label="韩语" value="KOREAN" />
+                                            <el-option label="法语" value="FRENCH" />
+                                            <el-option label="德语" value="GERMAN" />
+                                            <el-option label="西班牙语" value="SPANISH" />
+                                            <el-option label="俄语" value="RUSSIAN" />
+                                            <el-option label="阿拉伯语" value="ARABIC" />
                                         </el-select>
                                     </el-form-item>
                                 </el-col>
@@ -202,7 +214,100 @@
                         </el-form>
                     </el-tab-pane>
 
-                    <el-tab-pane label="密码设置">
+                    <el-tab-pane label="身份认证" name="identity">
+                        <div v-if="needVerification" class="verification-alert">
+                            <el-alert title="您尚未完成身份认证" type="warning" description="完成身份认证可以增加您的可信度，提高预订率"
+                                :closable="false" show-icon />
+                        </div>
+
+                        <el-form ref="verifyFormRef" :model="verifyForm" :rules="verifyRules" label-width="120px"
+                            class="profile-form">
+                            <el-form-item label="身份证号码" prop="idCard">
+                                <el-input v-model="verifyForm.idCard" placeholder="请输入您的身份证号码"
+                                    :disabled="formData.verificationStatus === 'VERIFIED'">
+                                </el-input>
+                                <div v-if="verifyForm.idCard && formData.verificationStatus" class="id-card-masked">
+                                    <el-tag type="info">您的身份证号: {{ maskedIdCard }}</el-tag>
+                                </div>
+                            </el-form-item>
+
+                            <el-form-item label="身份证正面照片" prop="idCardFront">
+                                <el-upload :http-request="handleCustomUpload('idCardFront')"
+                                    :file-list="idCardFrontFileList" list-type="picture-card" :limit="1"
+                                    :disabled="formData.verificationStatus === 'VERIFIED'">
+                                    <el-icon v-if="formData.verificationStatus !== 'VERIFIED'">
+                                        <Plus />
+                                    </el-icon>
+                                    <template #tip>
+                                        <div class="upload-tip">请上传清晰的身份证人像面照片</div>
+                                    </template>
+                                </el-upload>
+                                <!-- 预览已上传图片 -->
+                                <div v-if="verifyForm.idCardFront" class="uploaded-preview privacy-protected">
+                                    <div class="image-blur-container">
+                                        <el-image :src="formatAvatar(verifyForm.idCardFront)" fit="cover"
+                                            class="blurred-image" @error="(e: Event) => handleImageError(e, '身份证正面')" />
+                                        <div class="privacy-overlay">
+                                            <el-button type="primary" size="small" @click="previewIdCard('front')">
+                                                点击查看
+                                            </el-button>
+                                            <div class="privacy-text">为保护您的隐私，图片已模糊处理</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-form-item>
+
+                            <el-form-item label="身份证背面照片" prop="idCardBack">
+                                <el-upload :http-request="handleCustomUpload('idCardBack')"
+                                    :file-list="idCardBackFileList" list-type="picture-card" :limit="1"
+                                    :disabled="formData.verificationStatus === 'VERIFIED'">
+                                    <el-icon v-if="formData.verificationStatus !== 'VERIFIED'">
+                                        <Plus />
+                                    </el-icon>
+                                    <template #tip>
+                                        <div class="upload-tip">请上传清晰的身份证国徽面照片</div>
+                                    </template>
+                                </el-upload>
+                                <!-- 预览已上传图片 -->
+                                <div v-if="verifyForm.idCardBack" class="uploaded-preview privacy-protected">
+                                    <div class="image-blur-container">
+                                        <el-image :src="formatAvatar(verifyForm.idCardBack)" fit="cover"
+                                            class="blurred-image" @error="(e: Event) => handleImageError(e, '身份证背面')" />
+                                        <div class="privacy-overlay">
+                                            <el-button type="primary" size="small" @click="previewIdCard('back')">
+                                                点击查看
+                                            </el-button>
+                                            <div class="privacy-text">为保护您的隐私，图片已模糊处理</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </el-form-item>
+
+                            <div class="id-verify-note">
+                                <el-alert title="您的信息安全将受到严格保护" type="info"
+                                    description="您上传的身份证信息将被加密存储，仅用于身份验证，平台不会将您的身份信息透露给任何第三方。您的照片在页面上已进行模糊处理，只有您点击查看时才会显示原图。"
+                                    :closable="false" show-icon />
+                                <div class="privacy-tips">
+                                    <h4>身份信息保护提示:</h4>
+                                    <ul>
+                                        <li>您的身份证号码仅会显示前6位和后4位，中间8位以*号替代</li>
+                                        <li>身份证照片采用模糊处理技术，保护您的个人隐私</li>
+                                        <li>查看原图时会有二次确认，防止他人窥视</li>
+                                        <li>我们采用高强度加密技术存储您的身份信息</li>
+                                        <li>身份认证通过后，您将无法再编辑身份证信息，以确保安全</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <el-form-item v-if="formData.verificationStatus !== 'VERIFIED'">
+                                <el-button type="primary" @click="submitVerification" :loading="verifyLoading">
+                                    {{ getVerificationButtonText }}
+                                </el-button>
+                            </el-form-item>
+                        </el-form>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="密码设置" name="password">
                         <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
                             <el-form-item label="当前密码" prop="oldPassword">
                                 <el-input v-model="passwordForm.oldPassword" type="password" show-password />
@@ -236,19 +341,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import { Delete, Upload, Calendar, House, Document, ChatDotRound, Star, Plus } from '@element-plus/icons-vue'
-import { getHostInfo, updateHostInfo } from '@/api/host'
-import { useUserStore } from '@/stores/user'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox, FormInstance, FormRules } from 'element-plus'
+import { Upload, House, Calendar, Document, ChatDotRound, Star, Delete, Plus } from '@element-plus/icons-vue'
+import { getHostInfo, updateHostInfo, getHostProfile, updateHostProfile, uploadHostAvatar } from '@/api/host'
+import { useUserStore, UserInfo } from '@/stores/user'
+import { getAvatarUrl, addTimestampToUrl } from '@/utils/image'
 
 const userStore = useUserStore()
 const formRef = ref<FormInstance>()
+const hostFormRef = ref<FormInstance>()
+const verifyFormRef = ref<FormInstance>()
 const passwordFormRef = ref<FormInstance>()
 const loading = ref(false)
 const passwordLoading = ref(false)
+const verifyLoading = ref(false)
 const hostSince = ref('')
+const activeTab = ref('basic')
+
+// 获取API服务器基础URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 // 统计数据
 const statistics = reactive({
@@ -271,12 +384,87 @@ const formData = reactive({
     phone: '',
     realName: '',
     idCard: '',
+    gender: '',
     avatar: '',
     introduction: '',
     occupation: '',
     languages: [] as string[],
-    companions: [] as Companion[]
+    companions: [] as Companion[],
+    verificationStatus: ''
 })
+
+// 验证信息表单
+const verifyForm = reactive({
+    idCard: '',
+    idCardFront: '',
+    idCardBack: '',
+})
+
+// 上传文件列表
+const idCardFrontFileList = ref<any[]>([]);
+const idCardBackFileList = ref<any[]>([]);
+
+// 验证身份是否需要补录
+const needVerification = computed(() => {
+    return !formData.verificationStatus || formData.verificationStatus === 'UNVERIFIED';
+})
+
+// 获取验证状态文本
+const getVerificationStatusText = computed(() => {
+    switch (formData.verificationStatus) {
+        case 'VERIFIED':
+            return '已认证';
+        case 'PENDING':
+            return '审核中';
+        case 'REJECTED':
+            return '认证失败';
+        default:
+            return '未认证';
+    }
+})
+
+// 获取验证状态类型
+const getVerificationStatusType = computed(() => {
+    switch (formData.verificationStatus) {
+        case 'VERIFIED':
+            return 'success';
+        case 'PENDING':
+            return 'warning';
+        case 'REJECTED':
+            return 'danger';
+        default:
+            return 'info';
+    }
+})
+
+// 获取验证按钮文本
+const getVerificationButtonText = computed(() => {
+    switch (formData.verificationStatus) {
+        case 'PENDING':
+            return '更新认证信息';
+        case 'REJECTED':
+            return '重新提交认证';
+        default:
+            return '提交认证';
+    }
+})
+
+// 显示脱敏的身份证号
+const maskedIdCard = computed(() => {
+    const idCard = verifyForm.idCard;
+    if (!idCard) return '';
+    return idCard.substring(0, 6) + '*'.repeat(8) + idCard.substring(14);
+});
+
+// 上传路径
+const uploadAction = `${API_BASE_URL}/api/host/upload-document`;
+
+// 上传头像相关header
+const uploadHeaders = computed(() => {
+    return {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+    };
+});
 
 // 表单验证规则
 const rules = reactive<FormRules>({
@@ -291,14 +479,27 @@ const rules = reactive<FormRules>({
     realName: [
         { required: true, message: '请输入真实姓名', trigger: 'blur' }
     ],
-    idCard: [
-        { required: true, message: '请输入身份证号', trigger: 'blur' },
-        { pattern: /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/, message: '请输入有效的身份证号', trigger: 'blur' }
-    ],
     nickname: [
         { required: true, message: '请输入昵称', trigger: 'blur' }
+    ],
+    gender: [
+        { required: true, message: '请选择性别', trigger: 'change' }
     ]
 })
+
+// 身份验证规则
+const verifyRules = {
+    idCard: [
+        { required: true, message: '请输入身份证号码', trigger: 'blur' },
+        { pattern: /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/, message: '请输入有效的身份证号码', trigger: 'blur' }
+    ],
+    idCardFront: [
+        { required: true, message: '请上传身份证正面照片', trigger: 'change' }
+    ],
+    idCardBack: [
+        { required: true, message: '请上传身份证背面照片', trigger: 'change' }
+    ]
+};
 
 // 密码表单数据
 const passwordForm = reactive({
@@ -331,135 +532,512 @@ const passwordRules = reactive<FormRules>({
     ]
 })
 
+// 改用普通函数替代computed函数
+const formatAvatar = (url: string) => {
+    if (!url) {
+        return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+    }
+    // 使用来自utils/image的头像URL处理函数，添加时间戳防缓存
+    return getAvatarUrl(url, true);
+};
+
+// 自定义处理图片错误函数，避免与import冲突
+const handleImageError = (e: Event, type: string = 'avatar') => {
+    const img = e.target as HTMLImageElement;
+    console.error(`图片加载错误: ${img.src}`);
+    img.src = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+}
+
+// 处理头像加载错误
+const handleAvatarError = (e: Event) => {
+    handleImageError(e, 'avatar');
+}
+
 // 获取房东信息
 const fetchHostInfo = async () => {
     try {
-        const response = await getHostInfo()
-        if (response.data) {
-            const hostData = response.data
-            formData.username = hostData.username || ''
-            formData.nickname = hostData.nickname || ''
-            formData.email = hostData.email || ''
-            formData.phone = hostData.phone || ''
-            formData.realName = hostData.realName || ''
-            formData.idCard = hostData.idCard || ''
-            formData.avatar = hostData.avatar || ''
-            formData.introduction = hostData.introduction || ''
-            formData.occupation = hostData.occupation || ''
-            formData.languages = hostData.languages || []
-            formData.companions = hostData.companions || []
+        // 使用getHostProfile获取更完整的用户信息
+        const profileData = await getHostProfile();
+        console.log('获取到的用户资料:', profileData);
 
-            hostSince.value = hostData.hostSince || '未知'
+        if (profileData) {
+            // 填充基本表单数据
+            formData.username = profileData.username || '';
+            formData.nickname = profileData.nickname || '';
+            formData.email = profileData.email || '';
+            formData.phone = profileData.phone || '';
+            formData.realName = profileData.realName || '';
+            formData.idCard = profileData.idCard || '';
+            formData.avatar = profileData.avatar || '';
+            formData.introduction = profileData.introduction || '';
+            formData.occupation = profileData.occupation || '';
+            formData.gender = profileData.gender || '';
+            formData.languages = profileData.languages || [];
+            formData.companions = profileData.companions || [];
+            formData.verificationStatus = profileData.verificationStatus || 'UNVERIFIED';
+
+            // 填充验证表单数据
+            verifyForm.idCard = profileData.idCard || '';
+            verifyForm.idCardFront = profileData.idCardFront || '';
+            verifyForm.idCardBack = profileData.idCardBack || '';
+
+            // 如果有身份证照片，填充文件列表
+            if (profileData.idCardFront) {
+                idCardFrontFileList.value = [{ url: profileData.idCardFront, name: '身份证正面' }];
+            }
+
+            if (profileData.idCardBack) {
+                idCardBackFileList.value = [{ url: profileData.idCardBack, name: '身份证背面' }];
+            }
+
+            hostSince.value = profileData.hostSince || '未知';
 
             // 统计数据
-            statistics.homestayCount = hostData.homestayCount || 0
-            statistics.orderCount = hostData.orderCount || 0
-            statistics.reviewCount = hostData.reviewCount || 0
-            statistics.rating = hostData.rating || 0
+            statistics.homestayCount = profileData.homestayCount || 0;
+            statistics.orderCount = profileData.orderCount || 0;
+            statistics.reviewCount = profileData.reviewCount || 0;
+            statistics.rating = profileData.rating || 0;
+
+            // 如果未完成身份认证，自动切换到身份认证标签页
+            if (needVerification.value) {
+                ElMessage.warning('您尚未完成身份认证，请完善身份认证信息');
+                activeTab.value = 'identity';
+            }
         }
     } catch (error) {
-        console.error('获取房东信息失败:', error)
-        ElMessage.error('获取房东信息失败')
+        console.error('获取房东信息失败:', error);
+        ElMessage.error('获取房东信息失败');
     }
 }
 
 // 提交表单
 const handleSubmit = async () => {
-    if (!formRef.value) return
+    if (!formRef.value) return;
 
-    await formRef.value.validate(async (valid) => {
+    await formRef.value.validate(async (valid: boolean): Promise<void> => {
         if (valid) {
-            loading.value = true
+            loading.value = true;
             try {
-                await updateHostInfo(formData)
-                ElMessage.success('资料更新成功')
+                // 使用新的API提交更新
+                await updateHostProfile({
+                    nickname: formData.nickname,
+                    email: formData.email,
+                    phone: formData.phone,
+                    realName: formData.realName,
+                    gender: formData.gender,
+                    introduction: formData.introduction,
+                    occupation: formData.occupation,
+                    languages: formData.languages,
+                    companions: formData.companions
+                });
+                ElMessage.success('资料更新成功');
+
                 // 更新用户存储中的用户信息
                 if (userStore.userInfo) {
-                    userStore.userInfo.nickname = formData.nickname
-                    userStore.userInfo.avatar = formData.avatar
+                    const userInfo = userStore.userInfo as Record<string, any>;
+                    userInfo.nickname = formData.nickname;
+                    userInfo.avatar = formData.avatar;
                 }
             } catch (error) {
-                console.error('更新资料失败:', error)
-                ElMessage.error('更新资料失败')
+                console.error('更新资料失败:', error);
+                ElMessage.error('更新资料失败');
             } finally {
-                loading.value = false
+                loading.value = false;
             }
         } else {
-            ElMessage.warning('请正确填写表单')
-            return false
+            ElMessage.warning('请正确填写表单');
         }
-    })
+    });
+}
+
+// 提交身份验证
+const submitVerification = async () => {
+    if (!verifyFormRef.value) return;
+
+    // 提交前检查身份证照片是否已上传
+    console.log('提交前检查表单数据:', {
+        idCard: verifyForm.idCard,
+        idCardFront: verifyForm.idCardFront,
+        idCardBack: verifyForm.idCardBack,
+        前端文件列表_正面: idCardFrontFileList.value,
+        前端文件列表_背面: idCardBackFileList.value
+    });
+
+    await verifyFormRef.value.validate(async (valid: boolean): Promise<void> => {
+        console.log('表单验证结果:', valid);
+
+        if (valid) {
+            verifyLoading.value = true;
+            try {
+                // 再次确认身份证照片是否存在
+                if (!verifyForm.idCardFront || !verifyForm.idCardBack) {
+                    console.error('身份证照片缺失:', {
+                        idCardFront: verifyForm.idCardFront,
+                        idCardBack: verifyForm.idCardBack
+                    });
+                    throw new Error('请确保已成功上传身份证正反面照片');
+                }
+
+                // 提交身份验证信息
+                const updateData = {
+                    idCard: verifyForm.idCard,
+                    idCardFront: verifyForm.idCardFront,
+                    idCardBack: verifyForm.idCardBack,
+                    verificationStatus: 'PENDING' // 设置为待审核状态
+                };
+
+                console.log('准备提交的数据:', updateData);
+
+                await updateHostProfile(updateData);
+                ElMessage.success('身份信息已提交，等待审核');
+                // 更新本地状态
+                formData.verificationStatus = 'PENDING';
+                formData.idCard = verifyForm.idCard;
+            } catch (error) {
+                console.error('提交身份验证失败:', error);
+                ElMessage.error('提交验证失败: ' + (error instanceof Error ? error.message : '请重试'));
+            } finally {
+                verifyLoading.value = false;
+            }
+        } else {
+            ElMessage.warning('请正确填写身份信息');
+        }
+    });
 }
 
 // 修改密码
 const handleChangePassword = async () => {
-    if (!passwordFormRef.value) return
+    if (!passwordFormRef.value) return;
 
-    await passwordFormRef.value.validate(async (valid) => {
+    await passwordFormRef.value.validate(async (valid: boolean): Promise<void> => {
         if (valid) {
-            passwordLoading.value = true
+            passwordLoading.value = true;
             try {
                 await userStore.changePassword({
                     oldPassword: passwordForm.oldPassword,
                     newPassword: passwordForm.newPassword
-                })
-                ElMessage.success('密码修改成功')
+                });
+                ElMessage.success('密码修改成功');
                 // 清空密码表单
-                passwordForm.oldPassword = ''
-                passwordForm.newPassword = ''
-                passwordForm.confirmPassword = ''
+                passwordForm.oldPassword = '';
+                passwordForm.newPassword = '';
+                passwordForm.confirmPassword = '';
             } catch (error) {
-                console.error('修改密码失败:', error)
-                ElMessage.error('修改密码失败')
+                console.error('修改密码失败:', error);
+                ElMessage.error('修改密码失败');
             } finally {
-                passwordLoading.value = false
+                passwordLoading.value = false;
             }
         } else {
-            ElMessage.warning('请正确填写表单')
-            return false
+            ElMessage.warning('请正确填写表单');
         }
-    })
+    });
 }
 
 // 添加接待伙伴
 const addCompanion = () => {
-    formData.companions.push({ name: '' })
+    formData.companions.push({ name: '' });
 }
 
 // 移除接待伙伴
 const removeCompanion = (index: number) => {
-    formData.companions.splice(index, 1)
+    formData.companions.splice(index, 1);
 }
 
-// 头像上传相关
+// 头像上传成功处理
 const handleAvatarSuccess = (response: any) => {
-    formData.avatar = response.data.url
-    ElMessage.success('头像上传成功')
-}
+    console.log('头像上传响应:', response);
+    let avatarUrl = '';
+
+    if (response.data && response.data.url) {
+        avatarUrl = response.data.url;
+    } else if (response.url) {
+        avatarUrl = response.url;
+    } else if (typeof response === 'string') {
+        avatarUrl = response;
+    } else if (response.code === 200 && response.data) {
+        avatarUrl = typeof response.data === 'string' ? response.data : (response.data.url || '');
+    }
+
+    if (avatarUrl) {
+        console.log('解析到的头像URL:', avatarUrl);
+
+        // 不需要额外处理URL，存储原始URL
+        formData.avatar = avatarUrl;
+        ElMessage.success('头像上传成功');
+
+        // 立即更新头像信息到服务器
+        updateHostProfile({ avatar: avatarUrl }).then(() => {
+            // 更新用户存储中的用户信息，确保全局状态同步
+            if (userStore.userInfo) {
+                userStore.userInfo.avatar = avatarUrl;
+                // 保存到localStorage确保刷新页面后仍能显示
+                localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo));
+            }
+
+            // 强制刷新头像显示
+            setTimeout(() => {
+                // 替换头像src为新的URL（带时间戳）
+                const avatarElement = document.querySelector('.avatar-image') as HTMLImageElement;
+                if (avatarElement) {
+                    avatarElement.src = formatAvatar(avatarUrl);
+                }
+            }, 500);
+        }).catch(error => {
+            console.error('更新头像信息失败:', error);
+        });
+    } else {
+        ElMessage.error('头像上传失败，返回格式不正确');
+        console.error('无法解析头像URL:', response);
+    }
+};
 
 const beforeAvatarUpload = (file: File) => {
-    const isImage = file.type.startsWith('image/')
-    const isLt2M = file.size / 1024 / 1024 < 2
+    const isImage = file.type.startsWith('image/');
+    const isLt10M = file.size / 1024 / 1024 < 10;
 
     if (!isImage) {
-        ElMessage.error('上传头像图片只能是图片格式!')
+        ElMessage.error('上传头像图片只能是图片格式!');
+        return false;
     }
-    if (!isLt2M) {
-        ElMessage.error('上传头像图片大小不能超过 2MB!')
+    if (!isLt10M) {
+        ElMessage.error('上传头像图片大小不能超过 10MB!');
+        return false;
     }
-    return isImage && isLt2M
+
+    // 记录调试信息
+    console.log('准备上传头像文件:', {
+        文件名: file.name,
+        类型: file.type,
+        大小: (file.size / 1024).toFixed(2) + 'KB'
+    });
+
+    // 使用API函数直接上传文件，而不通过el-upload的action属性
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // 显示加载状态
+    ElMessage.info('正在上传头像，请稍候...');
+
+    uploadHostAvatar(formData)
+        .then(response => {
+            handleAvatarSuccess(response);
+        })
+        .catch(error => {
+            console.error('头像上传失败:', error);
+            ElMessage.error('头像上传失败，请重试');
+        });
+
+    // 阻止el-upload默认上传行为
+    return false;
 }
 
-// 组件挂载时获取房东信息
-onMounted(() => {
-    fetchHostInfo()
-})
+// 验证身份证照片上传前的检查
+const beforeIdCardUpload = (file: File) => {
+    const isJPG = file.type === 'image/jpeg';
+    const isPNG = file.type === 'image/png';
+    const isLt10M = file.size / 1024 / 1024 < 10;
+
+    if (!isJPG && !isPNG) {
+        ElMessage.error('上传身份证照片只能是 JPG 或 PNG 格式!');
+        return false;
+    }
+    if (!isLt10M) {
+        ElMessage.error('上传身份证照片大小不能超过 10MB!');
+        return false;
+    }
+    return true;
+};
+
+// 自定义处理上传，以支持中文文件名并确保传递type参数
+const handleCustomUpload = (type: 'idCardFront' | 'idCardBack') => {
+    return (options: any) => {
+        const { file, onSuccess, onError } = options;
+
+        // 验证文件
+        if (!beforeIdCardUpload(file)) {
+            return;
+        }
+
+        console.log(`开始上传${type === 'idCardFront' ? '身份证正面' : '身份证背面'}图片:`, {
+            文件名: file.name,
+            大小: (file.size / 1024).toFixed(2) + 'KB',
+            类型: file.type
+        });
+
+        // 创建FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        // 显示加载状态
+        ElMessage.info(`正在上传${type === 'idCardFront' ? '身份证正面' : '身份证背面'}图片，请稍候...`);
+
+        // 使用完整URL
+        const fullUrl = `${API_BASE_URL}/api/host/upload-document`;
+
+        // 发送请求
+        fetch(fullUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                console.log('上传成功，原始响应:', result); // 增加日志，看原始响应
+
+                let photoUrl = '';
+                
+                // 优先检查 result.url 是否存在且为非空字符串 (根据用户提供的响应)
+                if (result && typeof result.url === 'string' && result.url.trim() !== '') {
+                    photoUrl = result.url;
+                    console.log('成功提取 URL (方式1: result.url):', photoUrl);
+                } 
+                // 可选：添加一个备用检查，以防万一后端有时会嵌套在 data 里
+                else if (result && result.data && typeof result.data.url === 'string' && result.data.url.trim() !== '') {
+                    photoUrl = result.data.url;
+                    console.log('成功提取 URL (方式2: result.data.url):', photoUrl);
+                }
+                // 可以移除对 fileName 和直接字符串的检查，因为响应格式已知
+                // else if (result.data && result.data.fileName) { ... }
+                // else if (typeof result === 'string') { ... }
+
+                if (photoUrl) {
+                    console.log('最终解析到的照片URL:', photoUrl);
+                    ElMessage.success(`${type === 'idCardFront' ? '身份证正面' : '身份证背面'}上传成功`);
+                    
+                    // 创建符合 el-upload 要求的 file 对象
+                    const fileData = {
+                        name: `${type === 'idCardFront' ? '身份证正面' : '身份证背面'}.jpg`, // 可以设置一个默认名字
+                        url: photoUrl,
+                        status: 'success', // 添加 status
+                        uid: Date.now() // 添加一个简单的唯一 ID
+                    };
+
+                    // 更新表单数据和 fileList
+                    if (type === 'idCardFront') {
+                        verifyForm.idCardFront = photoUrl;
+                        idCardFrontFileList.value = [fileData]; // 使用新的 fileData 更新
+                    } else {
+                        verifyForm.idCardBack = photoUrl;
+                        idCardBackFileList.value = [fileData]; // 使用新的 fileData 更新
+                    }
+                    
+                    // 可以在这里尝试不调用 onSuccess(result) 看是否解决问题
+                    // 如果 el-upload 在 :http-request 模式下不需要这个回调来更新UI
+                    // onSuccess(result); 
+                    
+                    // 或者确保 onSuccess 被调用，让 el-upload 内部处理
+                    onSuccess(fileData); // 尝试传递我们构造的 fileData 给 onSuccess
+
+                } else {
+                    console.error('无法从响应中获取照片URL，检查上面的原始响应日志。响应:', result);
+                    // 抛出更具体的错误，或者只显示消息
+                    ElMessage.error('上传失败: 无法从服务器响应中解析图片地址');
+                    // onError(new Error('无法从响应中获取照片URL')); // 或者调用 onError
+                    // throw new Error('无法从响应中获取照片URL'); // 或者不抛出错误，避免未捕获
+                }
+            })
+            .catch(error => {
+                console.error('上传失败:', error);
+                ElMessage.error(`上传失败: ${error.message || '未知错误'}`);
+
+                // 调用el-upload的onError回调
+                onError(error);
+            });
+
+        // 阻止el-upload默认上传
+        return false;
+    };
+};
+
+// 修改预览身份证照片的函数，添加加载状态和水印
+const previewIdCard = (type: 'front' | 'back') => {
+    const url = type === 'front' ? formatAvatar(verifyForm.idCardFront) : formatAvatar(verifyForm.idCardBack);
+    if (!url) return;
+
+    ElMessageBox.confirm(
+        '确定要查看身份证照片吗？请确保您处于私密环境，周围没有其他人。',
+        '隐私提醒',
+        {
+            confirmButtonText: '继续查看',
+            cancelButtonText: '取消',
+            type: 'warning'
+        }
+    ).then(() => {
+        // 创建一个全屏遮罩并显示图片
+        const imgPreview = document.createElement('div');
+        imgPreview.className = 'id-card-fullscreen-preview';
+
+        // 添加水印和加载状态
+        imgPreview.innerHTML = `
+            <div class="preview-container">
+                <div class="preview-loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">加载中...</div>
+                </div>
+                <img src="${url}" alt="身份证${type === 'front' ? '正面' : '背面'}" class="preview-image" />
+                <div class="preview-watermark">
+                    <div class="watermark-text">仅用于身份验证 · ${new Date().toLocaleDateString()} · ${userStore.userInfo?.username || '用户'}</div>
+                </div>
+                <div class="close-preview">点击任意位置关闭</div>
+            </div>
+        `;
+        document.body.appendChild(imgPreview);
+
+        // 监听图片加载完成
+        const previewImage = imgPreview.querySelector('.preview-image') as HTMLImageElement;
+        const loadingElement = imgPreview.querySelector('.preview-loading') as HTMLDivElement;
+
+        if (previewImage) {
+            previewImage.style.display = 'none'; // 先隐藏图片
+
+            previewImage.onload = () => {
+                // 图片加载完成，显示图片，隐藏加载状态
+                if (loadingElement) loadingElement.style.display = 'none';
+                previewImage.style.display = 'block';
+            };
+
+            previewImage.onerror = () => {
+                // 图片加载失败
+                if (loadingElement) {
+                    loadingElement.innerHTML = '<div class="loading-error">图片加载失败</div>';
+                }
+            };
+        }
+
+        // 点击关闭预览
+        imgPreview.addEventListener('click', () => {
+            document.body.removeChild(imgPreview);
+        });
+    }).catch(() => {
+        // 用户取消查看
+    });
+};
+
+// 初始化
+onMounted(async () => {
+    console.log('房东个人资料页面初始化...');
+    try {
+        // 获取房东信息
+        await fetchHostInfo();
+        console.log('初始化完成: 用户信息已加载', formData);
+    } catch (error) {
+        console.error('初始化失败:', error);
+        ElMessage.error('加载用户信息失败，请刷新页面重试');
+    }
+});
 </script>
 
 <style scoped>
 .profile-container {
-    max-width: 1200px;
-    margin: 0 auto;
     padding: 24px;
 }
 
@@ -470,35 +1048,39 @@ onMounted(() => {
     margin-bottom: 24px;
 }
 
-.profile-header h1 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 600;
-    color: #303133;
-}
-
 .profile-layout {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 1fr 3fr;
     gap: 24px;
 }
 
-/* 左侧列样式 */
 .profile-left-column {
     display: flex;
     flex-direction: column;
     gap: 24px;
 }
 
+.profile-right-column {
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.avatar-container {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+/* 头像相关样式 */
 .avatar-card {
     text-align: center;
-    padding: 16px;
+    padding: 20px;
 }
 
 .avatar-wrapper {
     position: relative;
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
     margin: 0 auto 16px;
 }
 
@@ -507,7 +1089,7 @@ onMounted(() => {
     height: 100%;
     border-radius: 50%;
     overflow: hidden;
-    border: 4px solid #f2f6fc;
+    border: 3px solid #f2f6fc;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     position: relative;
 }
@@ -539,112 +1121,161 @@ onMounted(() => {
 }
 
 .upload-btn {
-    font-size: 18px;
+    font-size: 14px;
+    padding: 4px;
 }
 
 .host-info {
-    margin-top: 8px;
+    text-align: center;
+    margin-bottom: 20px;
 }
 
-.host-info h2 {
-    margin: 0 0 8px;
+.host-name {
     font-size: 18px;
     font-weight: 600;
-    color: #303133;
+    margin: 10px 0 5px;
 }
 
 .host-since {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     font-size: 13px;
+    color: #606266;
+    margin-bottom: 8px;
+}
+
+.verification-alert {
+    margin-bottom: 24px;
+}
+
+.verification-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.id-verify-note {
+    margin: 20px 0;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-left: 4px solid #409EFF;
+}
+
+.privacy-tips {
+    margin-top: 15px;
+    font-size: 14px;
     color: #606266;
 }
 
-/* 统计卡片样式 */
-.statistics-card {
-    background-color: #fff;
+.privacy-tips h4 {
+    margin-bottom: 10px;
+    color: #409EFF;
 }
 
-.card-header h2 {
-    font-size: 16px;
-    font-weight: 600;
-    margin: 0;
-    color: #303133;
+.privacy-tips ul {
+    padding-left: 20px;
 }
 
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+.privacy-tips li {
+    margin-bottom: 5px;
+    line-height: 1.5;
 }
 
-.stat-item {
+.id-card-masked {
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+.privacy-protected {
+    position: relative;
+    width: 200px;
+}
+
+.image-blur-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    width: 100%;
+}
+
+.blurred-image {
+    width: 100%;
+    height: 120px;
+    filter: blur(10px);
+    transition: filter 0.3s;
+}
+
+.privacy-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
-    align-items: center;
-    padding: 12px;
-    border-radius: 8px;
-    background-color: #f8f9fa;
-    transition: all 0.3s;
-}
-
-.stat-item:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.stat-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    margin-right: 12px;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.4);
     color: white;
-    font-size: 18px;
+    z-index: 1;
 }
 
-.homestay-icon {
-    background-color: #67c23a;
+.privacy-text {
+    margin-top: 8px;
+    font-size: 12px;
 }
 
-.order-icon {
-    background-color: #409eff;
+.id-card-fullscreen-preview {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.review-icon {
-    background-color: #e6a23c;
+.preview-container {
+    position: relative;
+    max-width: 80%;
+    max-height: 80%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-.rating-icon {
-    background-color: #f56c6c;
+.preview-container img {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
 }
 
-.stat-content {
-    flex: 1;
+.close-preview {
+    color: white;
+    margin-top: 20px;
+    font-size: 14px;
+    cursor: pointer;
 }
 
-.stat-value {
-    font-size: 20px;
-    font-weight: 600;
-    line-height: 1.2;
-    color: #303133;
-}
-
-.stat-label {
+.upload-tip {
     font-size: 12px;
     color: #909399;
+    margin-top: 5px;
 }
 
-/* 右侧列样式 */
-.profile-tabs {
-    height: 100%;
-}
-
-.profile-form {
-    padding: 16px 8px;
+.form-tip {
+    font-size: 13px;
+    color: #409EFF;
+    margin-top: 8px;
+    font-style: italic;
 }
 
 /* 伙伴列表样式 */
@@ -691,5 +1322,158 @@ onMounted(() => {
     .companions-list {
         grid-template-columns: 1fr;
     }
+}
+
+.preview-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    position: relative;
+    border: 2px solid white;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.preview-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    color: white;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.loading-error {
+    color: #f56c6c;
+    font-size: 16px;
+}
+
+.preview-watermark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.watermark-text {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 16px;
+    transform: rotate(-30deg);
+    white-space: nowrap;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* 统计卡片样式 */
+.statistics-card {
+    background-color: #fff;
+}
+
+.card-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: #303133;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    transition: all 0.3s;
+}
+
+.stat-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    color: white;
+    font-size: 16px;
+}
+
+.homestay-icon {
+    background-color: #67c23a;
+}
+
+.order-icon {
+    background-color: #409eff;
+}
+
+.review-icon {
+    background-color: #e6a23c;
+}
+
+.rating-icon {
+    background-color: #f56c6c;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #303133;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #909399;
+}
+
+/* 表单样式 */
+.profile-form {
+    padding: 16px 8px;
+    max-width: 800px;
 }
 </style>

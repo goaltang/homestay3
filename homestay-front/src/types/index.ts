@@ -2,7 +2,24 @@
 export type HomestayStatus = "ACTIVE" | "PENDING" | "INACTIVE" | "REJECTED";
 
 // 订单状态
-export type OrderStatus = "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED";
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PAID"
+  | "PAYMENT_FAILED"
+  | "CHECKED_IN"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "CANCELLED_BY_USER"
+  | "CANCELLED_BY_HOST"
+  | "CANCELLED_SYSTEM"
+  | "REJECTED";
+
+// 支付状态 (新增)
+export type PaymentStatus = "UNPAID" | "PAID" | "REFUNDED" | "FAILED"; // 根据实际情况调整
+
+// 支付方式 (新增)
+export type PaymentMethod = "ALIPAY" | "WECHAT_PAY" | "OTHER"; // 根据实际情况调整
 
 // 房源类型
 export type HomestayType = "ENTIRE" | "PRIVATE";
@@ -38,5 +55,6 @@ export interface OrderBasic {
   nights: number;
   totalAmount: number;
   status: OrderStatus;
+  paymentStatus: PaymentStatus; // 新增
   createTime: string;
 }

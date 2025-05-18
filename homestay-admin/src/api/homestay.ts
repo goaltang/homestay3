@@ -1,30 +1,56 @@
 import request from "@/utils/request";
-import type { Homestay, HomestaySearchParams } from "@/types";
+import type {
+  Homestay,
+  HomestaySearchParams,
+  PageResult, // 导入 PageResult 以获得更强的类型检查
+} from "@/types";
 import {
   adaptPageParams,
   adaptPageResponse,
-  adaptHomestayStatus,
   adaptHomestayItem,
 } from "@/utils/adapter";
 
+// Temporary type definition if not available in @/types
+interface HomestayTypeDTO {
+  code: string;
+  name: string;
+  // Add other fields from backend DTO if needed (icon, description etc.)
+}
+
+interface HomestayTypeApiResponse {
+  success: boolean;
+  data: HomestayTypeDTO[];
+  message?: string;
+}
+
 // 获取房源列表
-export function getHomestayList(params: HomestaySearchParams) {
-  // 调整前端参数为后端格式
+export function getHomestayList(
+  params: HomestaySearchParams
+): Promise<PageResult<Homestay>> {
   const adaptedParams = adaptPageParams(params);
 
-  // 处理特殊参数
-  if ("name" in adaptedParams) {
+  // 使用 title 字段进行搜索 (如果存在)
+  if ("title" in params && params.title) {
+    // 直接检查原始 params
+    adaptedParams.title = params.title;
+    // 移除旧的 name (如果 HomestaySearchParams 中还存在)
+    if ("name" in adaptedParams) {
+      delete adaptedParams.name;
+    }
+  } else if ("name" in adaptedParams) {
+    // 如果仍然是 name, 做兼容转换，但建议前端统一用 title
     adaptedParams.title = adaptedParams.name;
     delete adaptedParams.name;
   }
 
-  // 状态转换
+  // 状态转换 (保持不变)
   if (adaptedParams.status) {
-    adaptedParams.status = adaptHomestayStatus(adaptedParams.status, false);
+    adaptedParams.status = adaptedParams.status;
   }
 
+  // 明确返回类型
   return request<{
-    content: any[];
+    content: any[]; // 后端原始数据
     totalElements: number;
     totalPages: number;
     page: number;
@@ -34,59 +60,67 @@ export function getHomestayList(params: HomestaySearchParams) {
     method: "get",
     params: adaptedParams,
   }).then((response) => {
-    // 将后端响应格式转换为前端期望的格式
-    return adaptPageResponse(response, adaptHomestayItem);
+    // adaptPageResponse 应该返回 PageResult<Homestay>
+    return adaptPageResponse<Homestay>(response, adaptHomestayItem);
   });
 }
 
 // 获取房源详情
-export function getHomestayDetail(id: number) {
+export function getHomestayDetail(id: number): Promise<Homestay> {
   return request<any>({
     url: `/api/admin/homestays/${id}`,
     method: "get",
   }).then((response) => {
-    return adaptHomestayItem(response);
+    // adaptHomestayItem 应该返回 Homestay 类型
+    return adaptHomestayItem(response.data || response); // 处理可能的包装
   });
 }
 
 // 创建房源
-export function createHomestay(data: Omit<Homestay, "id">) {
-  // 转换前端数据为后端格式
+export function createHomestay(data: Omit<Homestay, "id">): Promise<Homestay> {
+  // 直接使用传入的 data (假设已包含 title 和新的地址字段)
+  // 移除旧的 name -> title 转换
   const adaptedData = {
-    ...data,
-    title: data.name,
-    status: adaptHomestayStatus(data.status, false),
+    ...data, // 包含 title, provinceCode, cityCode, districtCode, addressDetail 等
+    // status: data.status, // status 应该已包含在 data 中
   };
+  // 显式移除旧的 address (如果存在于 data)
+  delete (adaptedData as any).address;
 
   return request<any>({
     url: "/api/admin/homestays",
     method: "post",
     data: adaptedData,
   }).then((response) => {
-    return adaptHomestayItem(response);
+    return adaptHomestayItem(response.data || response);
   });
 }
 
 // 更新房源
-export function updateHomestay(id: number, data: Partial<Homestay>) {
-  // 转换前端数据为后端格式
-  const adaptedData: any = { ...data };
+export function updateHomestay(
+  id: number,
+  data: Partial<Homestay>
+): Promise<Homestay> {
+  // 直接使用传入的 data (假设已包含 title 和新的地址字段)
+  const adaptedData: Partial<Homestay> = { ...data };
 
+  // 移除旧的 name -> title 转换
   if ("name" in adaptedData) {
-    adaptedData.title = adaptedData.name;
-    delete adaptedData.name;
+    delete (adaptedData as any).name;
+  }
+  // 移除旧的 address
+  if ("address" in adaptedData) {
+    delete (adaptedData as any).address;
   }
 
-  if ("status" in adaptedData) {
-    adaptedData.status = adaptHomestayStatus(adaptedData.status, false);
-  }
+  // 确保传递了所有需要的字段，包括新的地址字段
 
   return request<any>({
     url: `/api/admin/homestays/${id}`,
     method: "put",
     data: adaptedData,
   }).then((response) => {
-    return adaptHomestayItem(response);
+    return adaptHomestayItem(response.data || response);
   });
 }
 
@@ -100,12 +134,12 @@ export function deleteHomestay(id: number) {
 
 // 更新房源状态
 export function updateHomestayStatus(id: number, status: string) {
-  const backendStatus = adaptHomestayStatus(status, false);
+  console.log(`Updating status for homestay ${id} to: ${status}`);
 
   return request({
     url: `/api/admin/homestays/${id}/status`,
     method: "put",
-    data: { status: backendStatus },
+    data: { status: status },
   });
 }
 
@@ -120,14 +154,34 @@ export function batchDeleteHomestays(ids: number[]) {
 
 // 新增: 批量更新房源状态
 export function batchUpdateHomestayStatus(ids: number[], status: string) {
-  const backendStatus = adaptHomestayStatus(status, false);
+  console.log(`Batch updating status for ids ${ids} to: ${status}`);
 
   return request({
     url: `/api/admin/homestays/batch/status`,
     method: "put",
     data: {
       ids,
-      status: backendStatus,
+      status: status,
     },
+  });
+}
+
+/**
+ * 获取所有激活的房源类型列表
+ */
+export function getActiveHomestayTypes(): Promise<HomestayTypeDTO[]> {
+  return request<HomestayTypeDTO[]>({
+    url: "/api/homestay-types",
+    method: "get",
+  }).then((response) => {
+    if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.error(
+        "Invalid response received for active homestay types (expected array):",
+        response
+      );
+      return [];
+    }
   });
 }

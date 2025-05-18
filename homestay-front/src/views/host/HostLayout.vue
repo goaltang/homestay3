@@ -42,11 +42,25 @@
                         <span>评价管理</span>
                     </el-menu-item>
 
+                    <el-menu-item index="/host/notifications">
+                        <el-icon>
+                            <Bell />
+                        </el-icon>
+                        <span>通知管理</span>
+                    </el-menu-item>
+
                     <el-menu-item index="/host/profile">
                         <el-icon>
                             <User />
                         </el-icon>
                         <span>个人资料</span>
+                    </el-menu-item>
+
+                    <el-menu-item index="/" class="home-link">
+                        <el-icon>
+                            <HomeFilled />
+                        </el-icon>
+                        <span>返回首页</span>
                     </el-menu-item>
                 </el-menu>
             </el-aside>
@@ -55,15 +69,20 @@
                 <el-header class="header">
                     <div class="header-left">
                         <el-breadcrumb separator="/">
-                            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
-                            <el-breadcrumb-item>房东中心</el-breadcrumb-item>
+                            <el-breadcrumb-item :to="{ path: '/host' }">房东中心</el-breadcrumb-item>
                             <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
                         </el-breadcrumb>
                     </div>
                     <div class="header-right">
+                        <NotificationBell class="mr-4" />
                         <el-dropdown>
                             <span class="user-dropdown">
-                                {{ userName }} <el-icon>
+                                <el-avatar :size="32" :src="getAvatarUrl(userStore.userInfo?.avatar)"
+                                    @error="handleAvatarError">
+                                    {{ userName.charAt(0)?.toUpperCase() }}
+                                </el-avatar>
+                                <span class="username">{{ userName }}</span>
+                                <el-icon>
                                     <ArrowDown />
                                 </el-icon>
                             </span>
@@ -96,11 +115,14 @@ import {
     Money,
     StarFilled,
     User,
-    ArrowDown
+    ArrowDown,
+    HomeFilled,
+    Bell
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElMessageBox, ElMessage, ElContainer, ElAside, ElMenu, ElMenuItem, ElIcon, ElHeader, ElBreadcrumb, ElBreadcrumbItem, ElDropdown, ElDropdownMenu, ElDropdownItem, ElAvatar, ElMain } from 'element-plus'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,6 +145,47 @@ const activeMenu = computed(() => {
 const currentPageTitle = computed(() => {
     return route.meta.title || '房东中心'
 })
+
+// 获取API服务器基础URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+// 获取头像URL
+const getAvatarUrl = (url?: string) => {
+    if (!url) {
+        // 如果没有头像，返回默认头像
+        const seed = userName.value || "default" + Date.now();
+        return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    }
+
+    // 如果是完整URL则直接返回
+    if (url.startsWith('http')) {
+        return url;
+    }
+
+    // 处理基于/uploads/路径的图片
+    if (url.includes('/uploads/')) {
+        // 确保URL没有+1后缀
+        const cleanUrl = url.replace(/\+\d+$/, '');
+        return `${API_BASE_URL}${cleanUrl}`;
+    }
+
+    // 如果是相对路径但不带/api前缀，添加前缀
+    if (!url.startsWith('/api/') && url.startsWith('/')) {
+        return `${API_BASE_URL}${url}`;
+    }
+
+    // 如果不带任何前缀，添加完整前缀
+    if (!url.startsWith('/')) {
+        return `${API_BASE_URL}/api/${url}`;
+    }
+
+    return `${API_BASE_URL}${url}`;
+};
+
+// 处理头像加载错误
+const handleAvatarError = () => {
+    console.error('房东中心头像加载失败:', userStore.userInfo?.avatar);
+};
 
 // 前往个人资料页
 const goToProfile = () => {
@@ -161,7 +224,9 @@ onMounted(() => {
 
     // 如果用户不是房东，重定向到首页
     const isUserAuthenticated = userStore.token !== null || authStore.isAuthenticated
-    const isLandlord = authStore.isLandlord || userStore.userInfo?.role === 'ROLE_LANDLORD'
+    const isLandlord = authStore.isLandlord ||
+        userStore.userInfo?.role === 'ROLE_LANDLORD' ||
+        userStore.userInfo?.role === 'ROLE_HOST'
 
     if (!isUserAuthenticated) {
         console.error('用户未登录，重定向至登录页')
@@ -212,6 +277,9 @@ onMounted(() => {
     justify-content: space-between;
     padding: 0 20px;
     box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .header-right {
@@ -223,6 +291,13 @@ onMounted(() => {
     cursor: pointer;
     display: flex;
     align-items: center;
+    gap: 8px;
+}
+
+.username {
+    font-size: 14px;
+    color: #333;
+    margin: 0 4px;
 }
 
 .main {
@@ -230,8 +305,17 @@ onMounted(() => {
     padding: 20px;
 }
 
+.home-link {
+    margin-top: auto;
+    border-top: 1px solid #1f2d3d;
+    margin-top: 20px;
+}
+
 .el-menu-vertical {
     border-right: none;
+    height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
 }
 
 .el-menu-item {
@@ -241,5 +325,10 @@ onMounted(() => {
 
 .el-icon {
     margin-right: 5px;
+}
+
+.mr-4 {
+    margin-right: 1rem;
+    /* 16px */
 }
 </style>

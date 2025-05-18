@@ -1,13 +1,17 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.*;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.VerificationStatus;
+import com.homestay3.homestaybackend.model.UserRole;
 import com.homestay3.homestaybackend.repository.UserRepository;
-import com.homestay3.homestaybackend.security.JwtTokenUtil;
+import com.homestay3.homestaybackend.security.JwtTokenProvider;
 import com.homestay3.homestaybackend.service.AuthService;
 import com.homestay3.homestaybackend.service.CustomUserDetailsService;
 import com.homestay3.homestaybackend.service.EmailService;
+import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.enums.EntityType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -35,10 +39,10 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenUtil jwtTokenUtil;
+    private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
-    private final CustomUserDetailsService userDetailsService;
     private final EmailService emailService;
+    private final NotificationService notificationService;
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -75,23 +79,56 @@ public class AuthServiceImpl implements AuthService {
             user.setEmail(request.getEmail());
             user.setPassword(passwordEncoder.encode(request.getPassword()));
             user.setPhone(request.getPhone());
-            user.setRole(request.getRole() != null ? request.getRole() : "ROLE_USER");
+            
+            // 确保角色值有效
+            String role = request.getRole();
+            if (role == null || role.isEmpty()) {
+                role = UserRole.ROLE_USER.name();
+            } else if (!role.startsWith("ROLE_")) {
+                role = "ROLE_" + role;
+            }
+            
+            // 验证角色是否为有效的枚举值
+            try {
+                UserRole.valueOf(role);
+            } catch (IllegalArgumentException e) {
+                log.warn("无效的角色值: {}，使用默认角色ROLE_USER", role);
+                role = UserRole.ROLE_USER.name();
+            }
+            
+            user.setRole(role);
             user.setEnabled(true);
             user.setVerificationStatus(VerificationStatus.UNVERIFIED);
             user.setCreatedAt(LocalDateTime.now());
             user.setUpdatedAt(LocalDateTime.now());
             
             // 保存用户并立即刷新
-            user = userRepository.saveAndFlush(user);
-            log.info("用户创建成功，ID: {}, 用户名: {}", user.getId(), user.getUsername());
+            User savedUser = userRepository.saveAndFlush(user);
+            log.info("用户创建成功，ID: {}, 用户名: {}", savedUser.getId(), savedUser.getUsername());
+
+            // 发送欢迎通知
+            try {
+                notificationService.createNotification(
+                        savedUser.getId(),       // 接收者: 新用户
+                        null,                   // 触发者: 系统 (null)
+                        NotificationType.WELCOME_MESSAGE, // 类型: 欢迎消息
+                        EntityType.USER,        // 关联实体类型: 用户
+                        String.valueOf(savedUser.getId()), // 关联实体ID: 新用户ID
+                        "欢迎加入民宿预订平台！开始探索精彩的住宿吧。" // 内容
+                );
+                log.info("已为新用户 {} 发送欢迎通知", savedUser.getUsername());
+            } catch (Exception e) {
+                log.error("为新用户 {} 发送欢迎通知失败: {}", savedUser.getUsername(), e.getMessage(), e);
+                // 发送通知失败不应中断注册流程
+            }
 
             // 生成token - 修改这部分，避免使用userDetailsService
-            String token = generateTokenForNewUser(user);
+            String token = generateTokenForNewUser(savedUser);
 
             // 返回认证响应
             AuthResponse response = new AuthResponse();
             response.setToken(token);
-            response.setUser(convertToDTO(user));
+            response.setUser(convertToDTO(savedUser));
             
             log.info("注册完成，返回响应");
             return response;
@@ -104,26 +141,30 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse login(AuthRequest request) {
         log.info("用户登录: {}", request.getUsername());
-        
-        // 验证用户名和密码
-        authenticationManager.authenticate(
+
+        // 验证用户名和密码，获取认证成功的 Authentication 对象
+        Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
+        // 将认证信息存入 SecurityContext (虽然登录通常是无状态的，但有时后续操作可能需要)
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 获取用户信息
+        // 从 Authentication 对象中获取用户信息 (更推荐)
+        // UserDetails principal = (UserDetails) authentication.getPrincipal();
+        // 或者继续从数据库获取完整的 User 实体用于DTO和更新时间
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
+                .orElseThrow(() -> new RuntimeException("用户不存在")); // 理论上不会触发
 
-        log.info("用户信息: id={}, username={}, realName={}", 
+        log.info("用户信息: id={}, username={}, realName={}",
             user.getId(), user.getUsername(), user.getRealName());
 
         // 更新最后登录时间
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
-        // 生成token
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-        String token = jwtTokenUtil.generateToken(userDetails);
+        // 生成 token，直接使用 Authentication 对象
+        // UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername()); // 不再需要这行
+        String token = jwtTokenProvider.generateToken(authentication); // <-- 使用 Provider 和 Authentication
 
         // 返回认证响应
         AuthResponse response = new AuthResponse();
@@ -160,7 +201,7 @@ public class AuthServiceImpl implements AuthService {
         
         try {
             // 验证JWT token并获取用户名
-            String username = jwtTokenUtil.extractUsername(request.getToken());
+            String username = jwtTokenProvider.getUsernameFromToken(request.getToken());
             if (username == null) {
                 throw new RuntimeException("无效的重置令牌");
             }
@@ -277,7 +318,6 @@ public class AuthServiceImpl implements AuthService {
         dto.setRole(user.getRole());
         dto.setAvatar(user.getAvatar());
         dto.setVerificationStatus(user.getVerificationStatus());
-        dto.setFullName(user.getFullName());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
         dto.setLastLogin(user.getLastLogin());
@@ -301,8 +341,13 @@ public class AuthServiceImpl implements AuthService {
         var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-        String token = jwtTokenUtil.generateToken(userDetails);
+        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
+                .username(user.getUsername())
+                .password(user.getPassword())
+                .disabled(!user.isEnabled())
+                .build();
+        Authentication tempAuth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        String token = jwtTokenProvider.generateToken(tempAuth);
         String resetLink = frontendUrl + "/reset-password?token=" + token;
 
         try {
@@ -357,20 +402,19 @@ public class AuthServiceImpl implements AuthService {
      * @return JWT令牌
      */
     private String generateTokenForNewUser(User user) {
-        log.info("为新注册用户生成令牌: {}", user.getUsername());
-        
-        // 手动创建认证对象，不依赖userDetailsService
-        org.springframework.security.core.userdetails.User userDetails = 
-            new org.springframework.security.core.userdetails.User(
-                user.getUsername(),
-                user.getPassword(),
-                user.isEnabled(),
-                true, // 账户未过期
-                true, // 凭证未过期
-                true, // 账户未锁定
-                org.springframework.security.core.authority.AuthorityUtils.createAuthorityList(user.getRole())
-            );
-            
-        return jwtTokenUtil.generateToken(userDetails);
+        log.info("为新注册用户 {} 生成令牌", user.getUsername());
+        // 手动创建 Authentication 对象或直接生成
+        // 这里我们直接调用 Provider 的另一个 generateToken 方法 (如果存在并合适)
+        // 假设 JwtTokenProvider 有一个接受 username 和 role 的方法
+        // 注意：这里可能需要调整，取决于 JwtTokenProvider 的具体实现
+        // 最好的方式是创建一个临时的 Authentication 对象
+        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
+                .username(user.getUsername())
+                .password(user.getPassword()) // 密码虽然不需要验证，但构建 UserDetails 可能需要
+                .authorities(user.getRole())
+                .disabled(!user.isEnabled())
+                .build();
+        Authentication tempAuth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        return jwtTokenProvider.generateToken(tempAuth); // 使用 Provider
     }
 } 

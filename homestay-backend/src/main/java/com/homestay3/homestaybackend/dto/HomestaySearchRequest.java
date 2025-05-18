@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -15,6 +16,9 @@ import java.time.LocalDate;
 public class HomestaySearchRequest {
     private String keyword;
     private String location;
+    private String provinceCode;
+    private String cityCode;
+    private String districtCode;
     private String propertyType;
     private Integer minGuests;
     private Integer maxGuests;
@@ -22,12 +26,7 @@ public class HomestaySearchRequest {
     private BigDecimal maxPrice;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
-    private Boolean hasWifi;
-    private Boolean hasAirConditioning;
-    private Boolean hasKitchen;
-    private Boolean hasWasher;
-    private Boolean hasParking;
-    private Boolean hasPool;
+    private List<String> requiredAmenities;
     private Integer page;
     private Integer size;
     private String sortBy;

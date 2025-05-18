@@ -2,7 +2,12 @@
     <div class="homestay-manage">
         <div class="header">
             <h2>我的房源管理</h2>
-            <el-button type="primary" @click="handleCreateHomestay">添加新房源</el-button>
+            <div class="header-buttons">
+                <el-button v-if="isDev" type="success" @click="handleQuickAddHomestay" :loading="quickAddLoading">
+                    一键添加测试房源
+                </el-button>
+                <el-button type="primary" @click="handleCreateHomestay">添加新房源</el-button>
+            </div>
         </div>
 
         <el-card shadow="never" class="filter-card">
@@ -17,8 +22,8 @@
                 </el-form-item>
                 <el-form-item label="房源类型">
                     <el-select v-model="filterForm.type" placeholder="全部类型" clearable>
-                        <el-option label="整套" value="ENTIRE" />
-                        <el-option label="独立房间" value="PRIVATE" />
+                        <el-option v-for="item in homestayTypeOptions" :key="item.value" :label="item.label"
+                            :value="item.value" />
                     </el-select>
                 </el-form-item>
                 <el-form-item>
@@ -54,7 +59,7 @@
             <el-table-column prop="title" label="房源名称" min-width="180" />
             <el-table-column prop="type" label="类型" width="100">
                 <template #default="{ row }">
-                    <el-tag>{{ row.type === 'ENTIRE' ? '整套' : '独立房间' }}</el-tag>
+                    <el-tag>{{ getHomestayTypeLabel(row.type) }}</el-tag>
                 </template>
             </el-table-column>
             <el-table-column prop="price" label="价格" width="120">
@@ -129,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     getOwnerHomestays,
@@ -138,7 +143,9 @@ import {
     deleteHomestay,
     batchActivateHomestays,
     batchDeactivateHomestays,
-    batchDeleteHomestays
+    batchDeleteHomestays,
+    createHomestay,
+    getHomestayTypesForFilter
 } from '@/api/homestay';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { HomestayStatus } from '@/types';
@@ -167,6 +174,25 @@ const filterForm = ref({
     status: '',
     type: '',
 });
+
+const homestayTypeOptions = ref<{ label: string; value: string }[]>([]);
+
+const fetchHomestayTypes = async () => {
+    try {
+        const response = await getHomestayTypesForFilter();
+        if (response && response.data && response.data.success && Array.isArray(response.data.data)) {
+            homestayTypeOptions.value = response.data.data;
+        } else {
+            console.error('获取房源类型数据格式错误:', response);
+            homestayTypeOptions.value = [];
+            ElMessage.warning('加载房源类型选项失败，请检查接口返回');
+        }
+    } catch (error) {
+        console.error('获取房源类型接口请求失败:', error);
+        homestayTypeOptions.value = [];
+        ElMessage.error('加载房源类型选项时出错');
+    }
+};
 
 // 获取房源列表
 const fetchHomestays = async () => {
@@ -249,7 +275,13 @@ const handleCreateHomestay = () => {
 
 // 编辑房源
 const handleEdit = (id: number) => {
-    router.push(`/host/homestay/edit/${id}`);
+    try {
+        console.log(`准备编辑房源，ID: ${id}`);
+        router.push(`/host/homestay/edit/${id}`);
+    } catch (error) {
+        console.error('编辑房源导航失败', error);
+        ElMessage.error('无法跳转到编辑页面，请重试');
+    }
 };
 
 // 上线房源
@@ -296,17 +328,80 @@ const handleDelete = async (id: number) => {
             }
         );
 
+        // 显示加载状态
+        loading.value = true;
+
         // 用户确认后执行删除
         const res = await deleteHomestay(id);
-        ElMessage.success('房源已删除');
-        fetchHomestays();
+
+        // 检查返回结果
+        if (res && (res.data?.success || res.status === 200 || res.status === 204)) {
+            ElMessage.success('房源已成功删除');
+            fetchHomestays();
+        } else {
+            throw new Error('删除请求未返回成功状态');
+        }
     } catch (error: any) {
         // 用户取消不显示错误
         if (error === 'cancel' || error.toString().includes('cancel')) {
             return;
         }
+
+        let errorMessage = '未知错误';
+
+        if (error.response) {
+            // 根据HTTP状态码提供具体错误信息
+            const status = error.response.status;
+
+            if (status === 403) {
+                errorMessage = '您没有权限删除此房源';
+            } else if (status === 404) {
+                errorMessage = '房源不存在或已被删除';
+            } else if (status === 400) {
+                errorMessage = '请求参数有误';
+            } else if (status === 500) {
+                errorMessage = '服务器内部错误，请稍后重试';
+            } else {
+                errorMessage = `服务器返回错误(${status})`;
+            }
+
+            // 如果有详细错误信息，优先使用
+            if (error.response.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response.data?.error) {
+                errorMessage = error.response.data.error;
+            }
+        } else if (error.request) {
+            // 请求发出但没有收到响应
+            errorMessage = '服务器无响应，请检查网络连接';
+        } else {
+            // 请求设置触发的错误
+            errorMessage = error.message || '删除请求发送失败';
+        }
+
         console.error('删除房源失败', error);
-        ElMessage.error('删除房源失败: ' + (error.message || '未知错误'));
+        ElMessage.error('删除房源失败: ' + errorMessage);
+
+        // 可选：询问用户是否重试
+        try {
+            const shouldRetry = await ElMessageBox.confirm(
+                '删除操作失败，是否重试？',
+                '重试确认',
+                {
+                    confirmButtonText: '重试',
+                    cancelButtonText: '取消',
+                    type: 'info'
+                }
+            );
+
+            if (shouldRetry) {
+                handleDelete(id);
+            }
+        } catch {
+            // 用户取消重试，不做处理
+        }
+    } finally {
+        loading.value = false;
     }
 };
 
@@ -406,8 +501,174 @@ const handleBatchDelete = async () => {
     }
 };
 
+// 检查是否为开发环境
+const isDev = computed(() => {
+    return import.meta.env.MODE === 'development' || window.location.hostname === 'localhost';
+});
+
+// 一键添加测试房源
+const quickAddLoading = ref(false);
+const handleQuickAddHomestay = async () => {
+    if (!isDev.value) {
+        ElMessage.warning('此功能仅在开发环境可用');
+        return;
+    }
+
+    try {
+        quickAddLoading.value = true;
+
+        // 随机数，用于避免标题重复
+        const randomNum = Math.floor(Math.random() * 10000);
+
+        // 随机房源标题
+        const titles = [
+            '湖景豪华套房',
+            '城市中心温馨公寓',
+            '西湖边的家',
+            '市中心江景公寓',
+            '古城墙附近的民宿',
+            '梦幻花园独栋别墅',
+            '山景舒适度假屋',
+            '现代loft公寓',
+            '运河边的小屋',
+            '临湖浪漫套房'
+        ];
+
+        // 随机设施列表
+        const allAmenities = [
+            'WIFI', 'AIR_CONDITIONING', 'KITCHEN', 'WASHER', 'PARKING', 'POOL',
+            'TV', 'WORKSPACE', 'DRYER', 'HEATING', 'BREAKFAST',
+            'GYM', 'HOT_TUB', 'BBQ', 'FIRST_AID', 'SMOKE_ALARM'
+        ];
+
+        // 随机选择3-8个设施
+        const selectedAmenities: string[] = [];
+        const amenityCount = Math.floor(Math.random() * 6) + 3; // 3-8个设施
+        while (selectedAmenities.length < amenityCount) {
+            const randomIndex = Math.floor(Math.random() * allAmenities.length);
+            const amenity = allAmenities[randomIndex];
+            if (!selectedAmenities.includes(amenity)) {
+                selectedAmenities.push(amenity);
+            }
+        }
+
+        // 随机地址
+        const streets = ['翠苑路', '文三路', '莫干山路', '西湖大道', '教工路', '余杭塘路', '湖墅南路', '凤起路'];
+        const randomStreet = streets[Math.floor(Math.random() * streets.length)];
+        const randomNum1 = Math.floor(Math.random() * 500) + 1;
+        const randomNum2 = Math.floor(Math.random() * 20) + 1;
+        const randomAddress = `${randomStreet}${randomNum1}号${randomNum2}单元`;
+
+        // 构建测试房源数据
+        const testHomestay = {
+            title: Math.random() > 0.5 ? `${titles[Math.floor(Math.random() * titles.length)]} #${randomNum}` : `测试房源 #${randomNum}`,
+            type: Math.random() > 0.5 ? 'ENTIRE' : 'PRIVATE',
+            price: String(Math.floor(Math.random() * 500) + 100), // 100-600元随机价格
+            status: 'INACTIVE', // 默认不上线，避免干扰
+            maxGuests: Math.floor(Math.random() * 6) + 1, // 1-6人
+            minNights: Math.floor(Math.random() * 3) + 1, // 1-3晚
+            province: 'zhejiang',
+            city: 'hangzhou',
+            district: 'xihu',
+            address: randomAddress,
+            amenities: [], // 设置为空数组，稍后通过API添加
+            description: `这是一个自动生成的测试房源(#${randomNum})。位于美丽的西湖附近，交通便利，周边设施齐全。\n\n房源亮点：\n- 位置优越，靠近景点\n- 设施齐全，温馨舒适\n- 适合商务和休闲旅行\n\n温馨提示：此房源仅用于开发和测试目的。`,
+            // 使用空字符串或相对路径代替外部URL
+            coverImage: '',
+            images: [],
+            featured: false
+        };
+
+        // 调用创建API
+        const response = await createHomestay(testHomestay);
+
+        if (response && response.data) {
+            const newHomestayId = response.data.id;
+
+            // 添加设施
+            if (selectedAmenities.length > 0) {
+                try {
+                    // 引入设施API
+                    import('@/api/amenities').then(async ({ addAmenityToHomestayApi }) => {
+                        let addedCount = 0;
+                        for (const amenity of selectedAmenities) {
+                            try {
+                                const result = await addAmenityToHomestayApi(newHomestayId, amenity);
+                                if (result.data && result.data.success) {
+                                    addedCount++;
+                                    console.log(`成功添加设施: ${amenity}`);
+                                }
+                            } catch (error) {
+                                console.error(`添加设施${amenity}失败:`, error);
+                            }
+                        }
+                        console.log(`设施添加成功，共添加${addedCount}个设施`);
+                    });
+                } catch (amenityError) {
+                    console.error('设施添加失败:', amenityError);
+                }
+            }
+
+            ElMessage.success(`测试房源"${testHomestay.title}"创建成功，请添加图片`);
+
+            // 询问用户是否立即编辑添加图片
+            ElMessageBox.confirm(
+                '房源创建成功！是否立即前往编辑页面添加图片？',
+                '添加图片',
+                {
+                    confirmButtonText: '立即添加图片',
+                    cancelButtonText: '稍后再说',
+                    type: 'info'
+                }
+            ).then(() => {
+                // 跳转到编辑页面
+                router.push(`/host/homestay/edit/${newHomestayId}`);
+            }).catch(() => {
+                // 用户选择稍后添加图片，只刷新列表
+                fetchHomestays();
+            });
+        } else {
+            throw new Error('创建失败，服务器未返回期望的响应');
+        }
+    } catch (error: any) {
+        console.error('创建测试房源失败', error);
+
+        // 添加详细的错误处理逻辑
+        let errorMessage = '未知错误';
+        if (error.response) {
+            // 服务器返回了错误响应
+            console.error('服务器响应错误：', error.response.status, error.response.data);
+            if (error.response.data && error.response.data.error) {
+                errorMessage = error.response.data.error;
+            } else if (error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message;
+            } else {
+                errorMessage = `服务器错误 (${error.response.status})`;
+            }
+        } else if (error.request) {
+            // 请求已发出，但没有收到响应
+            console.error('没有收到服务器响应');
+            errorMessage = '服务器无响应，请检查网络连接';
+        } else {
+            // 请求配置出错
+            errorMessage = error.message || '请求错误';
+        }
+
+        ElMessage.error('创建测试房源失败: ' + errorMessage);
+    } finally {
+        quickAddLoading.value = false;
+    }
+};
+
+// --- 新增：根据类型代码获取显示标签 ---
+const getHomestayTypeLabel = (typeCode: string): string => {
+    const foundType = homestayTypeOptions.value.find(option => option.value === typeCode);
+    return foundType ? foundType.label : typeCode; // 找不到时返回原始代码
+};
+
 onMounted(() => {
     fetchHomestays();
+    fetchHomestayTypes();
 });
 </script>
 
@@ -421,6 +682,11 @@ onMounted(() => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 10px;
 }
 
 .filter-card {

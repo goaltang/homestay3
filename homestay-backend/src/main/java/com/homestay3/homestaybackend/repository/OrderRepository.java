@@ -1,7 +1,7 @@
 package com.homestay3.homestaybackend.repository;
 
 import com.homestay3.homestaybackend.model.Order;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -116,4 +116,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         @Param("end") LocalDateTime end,
         @Param("status") String status
     );
+
+    // 查找超时的待确认订单（创建时间早于指定时间）
+    List<Order> findByStatusAndCreatedAtBefore(String status, LocalDateTime createdAt);
+
+    // 查找超时的已确认未支付订单（更新时间早于指定时间）
+    List<Order> findByStatusAndUpdatedAtBefore(String status, LocalDateTime updatedAt);
 } 

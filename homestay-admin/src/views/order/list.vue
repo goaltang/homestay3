@@ -1,22 +1,47 @@
 <template>
-    <div class="order-list">
+    <div class="order-list app-container">
+        <!-- 搜索区域 -->
         <div class="search-box">
-            <el-form :inline="true" :model="searchForm">
-                <el-form-item label="订单号">
-                    <el-input v-model="searchForm.orderNo" placeholder="请输入订单号" clearable />
+            <el-form :inline="true" :model="searchForm" ref="searchFormRef">
+                <el-form-item label="订单号" prop="orderNumber">
+                    <el-input v-model="searchForm.orderNumber" placeholder="请输入订单号" clearable />
                 </el-form-item>
-                <el-form-item label="状态">
-                    <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
-                        <el-option label="待支付" value="0" />
-                        <el-option label="已支付" value="1" />
-                        <el-option label="已取消" value="2" />
-                        <el-option label="已完成" value="3" />
+                <el-form-item label="住客名称" prop="guestName">
+                    <el-input v-model="searchForm.guestName" placeholder="请输入住客名称" clearable />
+                </el-form-item>
+                <el-form-item label="房源标题" prop="homestayTitle">
+                    <el-input v-model="searchForm.homestayTitle" placeholder="请输入房源标题" clearable />
+                </el-form-item>
+                <el-form-item label="房东名称" prop="hostName">
+                    <el-input v-model="searchForm.hostName" placeholder="请输入房东名称" clearable />
+                </el-form-item>
+                <el-form-item label="订单状态" prop="status">
+                    <el-select v-model="searchForm.status" placeholder="订单状态" clearable>
+                        <el-option v-for="(item, key) in orderStatusMap" :key="key" :label="item.text" :value="key" />
                     </el-select>
                 </el-form-item>
+                <el-form-item label="支付状态" prop="paymentStatus">
+                    <el-select v-model="searchForm.paymentStatus" placeholder="支付状态" clearable>
+                        <el-option v-for="(item, key) in paymentStatusMap" :key="key" :label="item.text" :value="key" />
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="支付方式" prop="paymentMethod">
+                    <el-input v-model="searchForm.paymentMethod" placeholder="支付方式 (e.g., alipay)" clearable />
+                    <!-- 或者使用 Select，如果支付方式固定 -->
+                    <!-- <el-select v-model="searchForm.paymentMethod" placeholder="支付方式" clearable> ... </el-select> -->
+                </el-form-item>
+                <el-form-item label="入住日期" prop="checkInDateRange">
+                    <el-date-picker v-model="searchForm.checkInDateRange" type="daterange" range-separator="至"
+                        start-placeholder="开始日期" end-placeholder="结束日期" clearable />
+                </el-form-item>
+                <el-form-item label="创建日期" prop="createTimeRange">
+                    <el-date-picker v-model="searchForm.createTimeRange" type="daterange" range-separator="至"
+                        start-placeholder="开始日期" end-placeholder="结束日期" clearable />
+                </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="handleSearch">搜索</el-button>
-                    <el-button @click="resetSearch">重置</el-button>
-                    <el-button type="success" @click="handleExport">导出订单</el-button>
+                    <el-button type="primary" @click="handleSearch" :icon="Search">搜索</el-button>
+                    <el-button @click="resetSearch" :icon="Refresh">重置</el-button>
+                    <el-button type="success" @click="handleExport" :icon="Download">导出订单</el-button>
                 </el-form-item>
             </el-form>
         </div>
@@ -36,31 +61,58 @@
         </div>
 
         <el-table :data="tableData" border style="width: 100%" v-loading="loading"
-            @selection-change="handleSelectionChange">
-            <el-table-column type="selection" width="55" />
-            <el-table-column prop="orderNo" label="订单号" width="180" />
-            <el-table-column prop="homestayName" label="房源名称" />
-            <el-table-column prop="userName" label="用户名" width="120" />
-            <el-table-column prop="amount" label="金额" width="120">
+            @selection-change="handleSelectionChange" @sort-change="handleSortChange"
+            :default-sort="{ prop: 'createTime', order: 'descending' }">
+            <el-table-column type="selection" width="50" align="center" />
+            <el-table-column prop="orderNumber" label="订单号" width="190" sortable="custom" />
+            <el-table-column prop="homestayTitle" label="房源名称" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="hostName" label="房东名称" width="120" sortable="custom" show-overflow-tooltip />
+            <el-table-column prop="guestName" label="住客名称" width="120" sortable="custom" show-overflow-tooltip />
+            <el-table-column prop="totalAmount" label="总金额" width="110" sortable="custom">
                 <template #default="scope">
-                    ¥{{ scope.row.amount }}
+                    ¥{{ scope.row.totalAmount?.toFixed(2) }}
                 </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
+            <el-table-column prop="status" label="订单状态" width="110" sortable="custom">
                 <template #default="scope">
-                    <el-tag :type="getStatusType(scope.row.status)">
-                        {{ getStatusText(scope.row.status) }}
+                    <el-tag :type="getOrderStatusType(scope.row.status)" size="small">
+                        {{ getOrderStatusText(scope.row.status) }}
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column prop="createTime" label="创建时间" width="180" />
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column prop="paymentStatus" label="支付状态" width="110" sortable="custom">
                 <template #default="scope">
-                    <el-button type="primary" link @click="handleDetail(scope.row)">详情</el-button>
-                    <el-button type="success" link @click="handleComplete(scope.row)" v-if="scope.row.status === '1'">
+                    <el-tag :type="getPaymentStatusType(scope.row.paymentStatus)" size="small">
+                        {{ getPaymentStatusText(scope.row.paymentStatus) }}
+                    </el-tag>
+                </template>
+            </el-table-column>
+            <el-table-column prop="paymentMethod" label="支付方式" width="120" sortable="custom" show-overflow-tooltip />
+            <el-table-column prop="checkInDate" label="入住日期" width="120" sortable="custom" />
+            <el-table-column prop="checkOutDate" label="退房日期" width="120" sortable="custom" />
+            <el-table-column prop="createTime" label="创建时间" width="170" sortable="custom">
+                <template #default="scope">
+                    {{ format(new Date(scope.row.createTime), 'yyyy-MM-dd HH:mm:ss') }}
+                </template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+            <el-table-column label="操作" width="180" fixed="right" align="center">
+                <template #default="scope">
+                    <el-button type="primary" link size="small" @click="handleDetail(scope.row)">详情</el-button>
+                    <el-button type="success" link size="small" @click="handleConfirmPayment(scope.row)"
+                        v-if="scope.row.paymentStatus === 'UNPAID'">
+                        确认支付
+                    </el-button>
+                    <el-button type="warning" link size="small" @click="handleRefund(scope.row)"
+                        v-if="scope.row.paymentStatus === 'PAID'">
+                        发起退款
+                    </el-button>
+                    <el-button type="primary" link size="small" @click="handleComplete(scope.row)"
+                        v-if="scope.row.status === 'PAID' || scope.row.status === 'CHECKED_IN'">
                         完成
                     </el-button>
-                    <el-button type="danger" link @click="handleCancel(scope.row)" v-if="scope.row.status === '0'">
+                    <el-button type="danger" link size="small" @click="handleCancel(scope.row)"
+                        v-if="['PENDING', 'CONFIRMED', 'PAID'].includes(scope.row.status) && scope.row.paymentStatus !== 'REFUNDED'">
                         取消
                     </el-button>
                 </template>
@@ -76,60 +128,168 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { Order, OrderSearchParams, StatusMap } from '@/types'
+import { format } from 'date-fns'
+import { Search, Refresh, Download } from '@element-plus/icons-vue'
 import {
-    getOrderList,
+    getAdminOrders,
     updateOrderStatus,
     exportOrders,
     batchUpdateOrderStatus,
     batchExportOrders,
     deleteOrder,
-    batchDeleteOrders
+    batchDeleteOrders,
+    confirmPayment,
+    initiateRefund
 } from '@/api/order'
 
-// 接口扩展，确保Order类型包含id字段
-interface OrderWithId extends Order {
+// 定义后端返回的 Order 数据类型 (需要与 OrderDTO.java 对应)
+interface AdminOrder {
     id: number;
+    orderNumber: string;
+    homestayId: number;
+    homestayTitle: string;
+    guestId: number;
+    guestName: string;
+    guestPhone: string;
+    hostId: number;
+    hostName: string;
+    checkInDate: string; // LocalDate -> string
+    checkOutDate: string; // LocalDate -> string
+    nights: number;
+    guestCount: number;
+    price: number;
+    totalAmount: number;
+    status: string; // 订单状态 (e.g., PENDING, PAID, CANCELLED)
+    paymentStatus: string | null; // 支付状态 (e.g., UNPAID, PAID, REFUNDED)
+    paymentMethod: string | null; // 支付方式
+    remark: string | null;
+    createTime: string; // LocalDateTime -> string
+    updateTime: string; // LocalDateTime -> string
+}
+
+// 搜索表单的类型 (根据后端 AdminOrderController 的 getOrders 参数调整)
+interface OrderSearchForm {
+    orderNumber: string;
+    guestName: string;
+    homestayTitle: string;
+    status: string;
+    paymentStatus: string;
+    paymentMethod: string;
+    hostName: string;
+    checkInDateRange: [string, string] | null; // [start, end]
+    createTimeRange: [string, string] | null; // [start, end]
 }
 
 // 搜索表单
-const searchForm = reactive<OrderSearchParams>({
-    page: 1,
-    pageSize: 10,
-    orderNo: '',
-    status: ''
+const searchForm = reactive<OrderSearchForm>({
+    orderNumber: '',
+    guestName: '',
+    homestayTitle: '',
+    status: '',
+    paymentStatus: '',
+    paymentMethod: '',
+    hostName: '',
+    checkInDateRange: null,
+    createTimeRange: null
 })
 
 // 表格数据
-const tableData = ref<OrderWithId[]>([])
+const tableData = ref<AdminOrder[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
-const selectedRows = ref<OrderWithId[]>([])
-
-// 处理表格选择变化
-const handleSelectionChange = (selection: OrderWithId[]) => {
-    selectedRows.value = selection
-}
+const selectedRows = ref<AdminOrder[]>([])
+const sortInfo = ref({ prop: 'createTime', order: 'descending' }) // 默认排序
 
 // 状态映射
-const statusMap: StatusMap = {
-    '0': { text: '待支付', type: 'warning' },
-    '1': { text: '已支付', type: 'success' },
-    '2': { text: '已取消', type: 'info' },
-    '3': { text: '已完成', type: 'primary' }
+const orderStatusMap = {
+    PENDING: { text: '待确认', type: 'warning' },
+    CONFIRMED: { text: '已确认', type: 'primary' },
+    PAID: { text: '已支付', type: 'success' },
+    CHECKED_IN: { text: '已入住', type: '' },
+    COMPLETED: { text: '已完成', type: 'info' },
+    CANCELLED: { text: '已取消', type: 'info' },
+    CANCELLED_BY_USER: { text: '用户取消', type: 'info' },
+    CANCELLED_BY_HOST: { text: '房东取消', type: 'info' },
+    CANCELLED_SYSTEM: { text: '系统取消', type: 'info' },
+    PAYMENT_PENDING: { text: '支付中', type: 'warning' }, // 可能不需要，PAID更常用
+    PAYMENT_FAILED: { text: '支付失败', type: 'danger' },
+    REFUND_PENDING: { text: '退款中', type: 'warning' },
+    REFUNDED: { text: '已退款', type: 'info' },
+    REFUND_FAILED: { text: '退款失败', type: 'danger' },
+    READY_FOR_CHECKIN: { text: '待入住', type: '' },
+    REJECTED: { text: '已拒绝', type: 'danger' }
 }
 
-const getStatusText = (status: string) => {
-    return statusMap[status]?.text || '未知状态'
+const paymentStatusMap = {
+    UNPAID: { text: '未支付', type: 'warning' },
+    PAID: { text: '已支付', type: 'success' },
+    PAYMENT_FAILED: { text: '支付失败', type: 'danger' },
+    REFUND_PENDING: { text: '退款中', type: 'warning' },
+    REFUNDED: { text: '已退款', type: 'info' },
+    PARTIALLY_REFUNDED: { text: '部分退款', type: 'primary' },
+    REFUND_FAILED: { text: '退款失败', type: 'danger' }
 }
 
-const getStatusType = (status: string) => {
-    return statusMap[status]?.type || ''
+const getOrderStatusText = (status: string) => {
+    return orderStatusMap[status as keyof typeof orderStatusMap]?.text || status || '未知'
 }
+
+const getOrderStatusType = (status: string) => {
+    return orderStatusMap[status as keyof typeof orderStatusMap]?.type || ''
+}
+
+const getPaymentStatusText = (status: string | null) => {
+    if (!status) return 'N/A';
+    return paymentStatusMap[status as keyof typeof paymentStatusMap]?.text || status || '未知'
+}
+
+const getPaymentStatusType = (status: string | null) => {
+    if (!status) return 'info';
+    return paymentStatusMap[status as keyof typeof paymentStatusMap]?.type || ''
+}
+
+// 获取数据 - 重写以适配新API和筛选
+const fetchData = async () => {
+    loading.value = true
+    const params = {
+        page: currentPage.value - 1, // 后端需要 0-based page
+        size: pageSize.value,
+        orderNumber: searchForm.orderNumber || undefined,
+        guestName: searchForm.guestName || undefined,
+        homestayTitle: searchForm.homestayTitle || undefined,
+        status: searchForm.status || undefined,
+        paymentStatus: searchForm.paymentStatus || undefined,
+        paymentMethod: searchForm.paymentMethod || undefined,
+        hostName: searchForm.hostName || undefined,
+        checkInDateStart: searchForm.checkInDateRange?.[0] ? format(new Date(searchForm.checkInDateRange[0]), 'yyyy-MM-dd') : undefined,
+        checkInDateEnd: searchForm.checkInDateRange?.[1] ? format(new Date(searchForm.checkInDateRange[1]), 'yyyy-MM-dd') : undefined,
+        createTimeStart: searchForm.createTimeRange?.[0] ? format(new Date(searchForm.createTimeRange[0]), 'yyyy-MM-dd') : undefined,
+        createTimeEnd: searchForm.createTimeRange?.[1] ? format(new Date(searchForm.createTimeRange[1]), 'yyyy-MM-dd') : undefined,
+        sort: `${sortInfo.value.prop},${sortInfo.value.order === 'ascending' ? 'asc' : 'desc'}`
+    }
+    console.log('Fetching orders with params:', params);
+    try {
+        const res = await getAdminOrders(params) // 调用新的API函数
+        tableData.value = res.content
+        total.value = res.totalElements
+    } catch (error) {
+        console.error('获取订单列表失败:', error)
+        ElMessage.error('获取订单列表失败')
+    } finally {
+        loading.value = false
+    }
+}
+
+// 表格排序变化
+const handleSortChange = ({ prop, order }: { prop: string; order: string | null }) => {
+    sortInfo.value.prop = prop;
+    sortInfo.value.order = order || 'descending'; // 默认为降序
+    fetchData();
+};
 
 // 搜索方法
 const handleSearch = () => {
@@ -139,29 +299,16 @@ const handleSearch = () => {
 
 // 重置搜索
 const resetSearch = () => {
-    searchForm.orderNo = ''
+    searchForm.orderNumber = ''
+    searchForm.guestName = ''
+    searchForm.homestayTitle = ''
     searchForm.status = ''
+    searchForm.paymentStatus = ''
+    searchForm.paymentMethod = ''
+    searchForm.hostName = ''
+    searchForm.checkInDateRange = null
+    searchForm.createTimeRange = null
     handleSearch()
-}
-
-// 获取数据
-const fetchData = async () => {
-    loading.value = true
-    try {
-        const res = await getOrderList({
-            page: currentPage.value,
-            pageSize: pageSize.value,
-            orderNo: searchForm.orderNo,
-            status: searchForm.status
-        })
-        tableData.value = res.list
-        total.value = res.total
-    } catch (error) {
-        console.error('获取订单列表失败:', error)
-        ElMessage.error('获取订单列表失败')
-    } finally {
-        loading.value = false
-    }
 }
 
 // 分页方法
@@ -182,18 +329,36 @@ const handleDetail = (row: any) => {
 }
 
 // 完成订单
-const handleComplete = async (row: any) => {
+const handleComplete = async (row: AdminOrder) => {
     try {
-        await ElMessageBox.confirm('确认要完成该订单吗？', '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        })
-        await updateOrderStatus(row.id || parseInt(row.orderNo.substring(1)), '3')
-        ElMessage.success('操作成功')
-        row.status = '3'
-    } catch (error) {
-        console.error('操作失败:', error)
+        await ElMessageBox.confirm(
+            `确认要完成订单 ${row.orderNumber} 吗？`,
+            '完成订单',
+            {
+                confirmButtonText: '确定完成',
+                cancelButtonText: '取消',
+                type: 'success'
+            }
+        );
+        loading.value = true; // 开始加载
+        await updateOrderStatus(row.id, 'COMPLETED'); // 使用后端状态 'COMPLETED'
+        ElMessage.success('订单已成功标记为完成');
+        // 更新本地数据或重新获取
+        // fetchData(); // 简单起见，重新获取数据
+        // 或者更精细地更新本地数据
+        const index = tableData.value.findIndex(item => item.id === row.id);
+        if (index !== -1) {
+            tableData.value[index].status = 'COMPLETED';
+        }
+    } catch (error) { // 捕获包括取消在内的所有错误
+        if (error !== 'cancel') { // 如果不是用户取消操作
+            console.error('完成订单失败:', error);
+            // 尝试从 error 对象获取后端返回的错误信息
+            const message = (error as any)?.response?.data?.message || (error as Error)?.message || '操作失败，请重试';
+            ElMessage.error(`完成订单失败: ${message}`);
+        }
+    } finally {
+        loading.value = false; // 结束加载
     }
 }
 
@@ -205,7 +370,7 @@ const handleCancel = async (row: any) => {
             cancelButtonText: '取消',
             type: 'warning'
         })
-        await updateOrderStatus(row.id || parseInt(row.orderNo.substring(1)), '2')
+        await updateOrderStatus(row.id || parseInt(row.orderNumber.substring(1)), '2')
         ElMessage.success('操作成功')
         row.status = '2'
     } catch (error) {
@@ -333,32 +498,96 @@ const handleBatchExport = async () => {
     }
 }
 
+// 确认支付
+const handleConfirmPayment = async (row: AdminOrder) => {
+    try {
+        await ElMessageBox.confirm(
+            `确认要将订单 ${row.orderNumber} 标记为已支付吗？`,
+            '确认支付',
+            { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+        )
+        loading.value = true;
+        await confirmPayment(row.id);
+        ElMessage.success('订单支付状态已确认');
+        fetchData(); // 重新加载数据以更新状态
+    } catch (error) {
+        if (error !== 'cancel') { // 用户取消操作时通常返回 'cancel'
+            console.error('确认支付失败:', error);
+            // 尝试从 error 对象获取后端返回的错误信息
+            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+            ElMessage.error(`确认支付失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
+// 发起退款
+const handleRefund = async (row: AdminOrder) => {
+    try {
+        await ElMessageBox.confirm(
+            `确认要为订单 ${row.orderNumber} 发起退款吗？<br/><small>(此操作仅标记状态为退款中，实际退款需后续处理)</small>`,
+            '发起退款',
+            {
+                confirmButtonText: '确定发起',
+                cancelButtonText: '取消',
+                type: 'warning',
+                dangerouslyUseHTMLString: true // 允许 HTML 字符串
+            }
+        )
+        loading.value = true;
+        await initiateRefund(row.id);
+        ElMessage.success('已发起退款流程，订单状态更新为退款中');
+        fetchData(); // 重新加载数据
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('发起退款失败:', error);
+            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+            ElMessage.error(`发起退款失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
+// 处理表格选择变化
+const handleSelectionChange = (selection: AdminOrder[]) => {
+    selectedRows.value = selection
+}
+
 // 初始化
-fetchData()
+onMounted(() => {
+    fetchData()
+})
 </script>
 
 <style scoped lang="scss">
 .order-list {
+    padding: 20px;
+
     .search-box {
         margin-bottom: 20px;
-        padding: 20px;
-        background-color: #fff;
-        border-radius: 4px;
-    }
-
-    .batch-operation {
-        margin-bottom: 20px;
-
-        .batch-buttons {
-            display: inline-block;
-            margin-left: 15px;
-        }
     }
 
     .pagination {
         margin-top: 20px;
         display: flex;
         justify-content: flex-end;
+    }
+
+    .batch-operation {
+        margin-bottom: 15px;
+    }
+
+    .batch-buttons {
+        margin-top: 8px;
+        display: flex;
+        gap: 10px;
+    }
+
+    /* 确保 tooltip 生效 */
+    .el-table .el-table__cell .cell {
+        white-space: nowrap;
     }
 }
 </style>

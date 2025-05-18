@@ -56,6 +56,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/user/list.vue"),
       },
       {
+        path: "/verifications",
+        name: "verifications",
+        meta: {
+          title: "身份认证审核",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/user/verification.vue"),
+      },
+      {
         path: "/reviews",
         name: "reviews",
         meta: {
@@ -72,6 +81,68 @@ const routes: RouteRecordRaw[] = [
           requiresAuth: true,
         },
         component: () => import("@/views/statistics/index.vue"),
+      },
+      {
+        path: "/types",
+        name: "types",
+        meta: {
+          title: "房源类型管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/TypeManage.vue"),
+      },
+      {
+        path: "/amenities",
+        name: "amenities",
+        redirect: "/amenities/manage",
+        meta: {
+          title: "设施管理",
+          requiresAuth: true,
+        },
+      },
+      {
+        path: "/amenities/manage",
+        name: "amenitiesManage",
+        meta: {
+          title: "设施列表",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/amenities/AmenitiesManage.vue"),
+      },
+      {
+        path: "/amenities/categories",
+        name: "amenitiesCategories",
+        meta: {
+          title: "设施分类",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/amenities/CategoryManage.vue"),
+      },
+      {
+        path: "/homestays/edit/:id",
+        name: "homestaysEdit",
+        meta: {
+          title: "编辑房源",
+          requiresAuth: true,
+        },
+        component: () =>
+          import("@/views/homestay/edit.vue").catch((error) => {
+            console.error("加载 edit.vue 组件失败:", error);
+            return import("@/views/error/404.vue");
+          }),
+      },
+      {
+        path: "/homestays/add",
+        name: "homestaysAdd",
+        meta: {
+          title: "新增房源",
+          requiresAuth: true,
+        },
+        component: () =>
+          import("@/views/homestay/edit.vue").catch((error) => {
+            console.error("加载 add (edit.vue) 组件失败:", error);
+            return import("@/views/error/404.vue");
+          }),
       },
     ],
   },

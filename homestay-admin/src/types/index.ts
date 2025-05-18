@@ -13,11 +13,33 @@ export interface PageResult<T> {
 // 房源
 export interface Homestay {
   id: number;
-  name: string;
-  price: number;
-  address: string;
+  title: string;
+  price?: number;
+  pricePerNight?: number;
   status: string;
   createTime?: string;
+  type?: string;
+  maxGuests?: number;
+  minNights?: number;
+  bedrooms?: number;
+  beds?: number;
+  bathrooms?: number;
+  amenities?: string[];
+  images?: string[];
+  coverImage?: string;
+  description?: string;
+  featured?: boolean;
+  rating?: number;
+  reviewCount?: number;
+  hostId?: number;
+  hostName?: string;
+  ownerName?: string;
+  ownerUsername?: string;
+  provinceCode?: string;
+  cityCode?: string;
+  districtCode?: string;
+  addressDetail?: string;
+  updatedAt?: string;
 }
 
 // 订单
@@ -39,6 +61,8 @@ export interface User {
   email: string;
   status: string;
   createTime: string;
+  userType?: string;
+  verificationStatus?: string;
 }
 
 // 房源搜索参数
@@ -66,4 +90,25 @@ export interface StatusMap {
     text: string;
     type: string;
   };
+}
+
+// 身份验证
+export interface IdentityVerification {
+  id: number;
+  userId: number;
+  username: string;
+  realName: string;
+  idCard: string;
+  idCardFront: string;
+  idCardBack: string;
+  status: string; // 'PENDING', 'VERIFIED', 'REJECTED'
+  submitTime: string;
+  reviewTime?: string;
+  reviewNote?: string;
+}
+
+// 身份验证搜索参数
+export interface VerificationSearchParams extends PageParams {
+  username?: string;
+  status?: string;
 }

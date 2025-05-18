@@ -38,16 +38,17 @@ public class HomestayRequest {
     @Positive(message = "最少入住晚数必须大于0")
     private Integer minNights;
     
-    @NotBlank(message = "省份不能为空")
-    private String province;
+    @NotBlank(message = "省份编码不能为空")
+    private String provinceCode;
     
-    @NotBlank(message = "城市不能为空")
-    private String city;
+    @NotBlank(message = "城市编码不能为空")
+    private String cityCode;
     
-    private String district;
+    private String districtCode;
     
     @NotBlank(message = "详细地址不能为空")
-    private String address;
+    @Size(max = 255, message = "详细地址长度不能超过255个字符")
+    private String addressDetail;
     
     @Builder.Default
     private List<String> amenities = new ArrayList<>();

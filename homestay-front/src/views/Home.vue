@@ -4,8 +4,13 @@
     <div class="search-container">
       <div class="search-bar">
         <div class="search-item location">
-          <div class="label">地点</div>
-          <el-input v-model="searchParams.location" placeholder="搜索目的地" prefix-icon="Location" clearable />
+          <div class="label">地区</div>
+          <el-cascader v-model="searchParams.selectedRegion" :options="regionOptions" placeholder="选择地区"
+            :props="cascaderProps" clearable style="width: 100%;" />
+        </div>
+        <div class="search-item keyword">
+          <div class="label">关键词</div>
+          <el-input v-model="searchParams.keyword" placeholder="小区、地标、民宿名…" prefix-icon="Search" clearable />
         </div>
         <div class="search-item check-in">
           <div class="label">入住</div>
@@ -30,12 +35,17 @@
     <!-- 筛选栏 -->
     <div class="filter-container">
       <div class="filter-scroll">
-        <div v-for="(type, index) in propertyTypes" :key="index" class="filter-item"
-          :class="{ active: searchParams.propertyType === type.value }" @click="selectPropertyType(type.value)">
-          <el-icon>
-            <component :is="type.icon" />
-          </el-icon>
-          <span>{{ type.label }}</span>
+        <!-- "全部" 按钮 - 移除图标 -->
+        <div class="filter-item" :class="{ active: !searchParams.propertyType }" @click="selectPropertyType(null)">
+          <!-- <el-icon><House /></el-icon> -->
+          <span>全部</span>
+        </div>
+        <!-- 动态类型按钮 - 移除图标 -->
+        <div v-for="type in fetchedTypes" :key="type.id" class="filter-item"
+          :class="{ active: searchParams.propertyType === type.name }" @click="selectPropertyType(type.name)">
+          <!-- <img v-if="type.icon" :src="type.icon" :alt="type.name" class="filter-icon-img" /> -->
+          <!-- <el-icon v-else><Menu /></el-icon> -->
+          <span>{{ type.name }}</span>
         </div>
       </div>
 
@@ -53,42 +63,30 @@
             <div class="filter-section">
               <h4>价格范围</h4>
               <div class="price-range">
-                <el-input-number v-model="searchParams.minPrice" :min="0" :step="100" placeholder="最低价" />
+                <el-input-number v-model="searchParams.minPrice" :min="0" :step="100" placeholder="最低价"
+                  controls-position="right" style="width: 110px;" />
                 <span class="separator">-</span>
-                <el-input-number v-model="searchParams.maxPrice" :min="0" :step="100" placeholder="最高价" />
-              </div>
-            </div>
-            <div class="filter-section">
-              <h4>房间和床铺</h4>
-              <div class="room-filters">
-                <div class="room-filter-item">
-                  <span>卧室</span>
-                  <el-input-number v-model="searchParams.bedrooms" :min="1" :max="10" :step="1" />
-                </div>
-                <div class="room-filter-item">
-                  <span>床铺</span>
-                  <el-input-number v-model="searchParams.beds" :min="1" :max="20" :step="1" />
-                </div>
-                <div class="room-filter-item">
-                  <span>卫生间</span>
-                  <el-input-number v-model="searchParams.bathrooms" :min="1" :max="10" :step="1" />
-                </div>
+                <el-input-number v-model="searchParams.maxPrice" :min="0" :step="100" placeholder="最高价"
+                  controls-position="right" style="width: 110px;" />
               </div>
             </div>
             <div class="filter-section">
               <h4>设施</h4>
-              <div class="amenities-list">
-                <el-checkbox-group v-model="searchParams.amenities">
-                  <el-checkbox label="WiFi" value="WiFi">WiFi</el-checkbox>
-                  <el-checkbox label="空调" value="空调">空调</el-checkbox>
-                  <el-checkbox label="厨房" value="厨房">厨房</el-checkbox>
-                  <el-checkbox label="洗衣机" value="洗衣机">洗衣机</el-checkbox>
-                  <el-checkbox label="停车位" value="停车位">停车位</el-checkbox>
-                  <el-checkbox label="游泳池" value="游泳池">游泳池</el-checkbox>
-                </el-checkbox-group>
-              </div>
+              <div v-if="amenitiesLoading" class="amenities-loading">加载设施中...</div>
+              <el-collapse v-else-if="groupedAmenities.length > 0" class="amenities-collapse">
+                <el-collapse-item v-for="category in groupedAmenities" :key="category.code || category.name"
+                  :title="category.name" :name="category.code || category.name">
+                  <el-checkbox-group v-model="searchParams.amenities" class="amenities-checkbox-group">
+                    <el-checkbox v-for="amenity in category.amenities" :key="amenity.value" :label="amenity.value"
+                      :value="amenity.value">
+                      {{ amenity.label }}
+                    </el-checkbox>
+                  </el-checkbox-group>
+                </el-collapse-item>
+              </el-collapse>
+              <div v-else class="amenities-empty">暂无设施选项</div>
             </div>
-            <div class="filter-actions">
+            <div class="filter-actions-footer">
               <el-button @click="resetFilters">重置</el-button>
               <el-button type="primary" @click="applyFilters">应用</el-button>
             </div>
@@ -140,8 +138,11 @@
             </div>
           </div>
 
-          <div class="homestay-location">{{ homestay.city }}, {{ homestay.country }}</div>
-          <div class="homestay-distance">距离市中心{{ homestay.distanceFromCenter }}公里</div>
+          <div class="homestay-location">{{ getHomestayLocation(homestay) }}</div>
+          <div class="homestay-distance" v-if="homestay.distanceFromCenter">
+            距离市中心 {{ homestay.distanceFromCenter }} 公里
+          </div>
+          <div class="homestay-type">{{ getHomestayTypeText(homestay.type) }}</div>
           <div class="homestay-dates">可预订日期</div>
           <div class="homestay-price">
             <span class="price">¥{{ calculatePrice(homestay) }}</span>
@@ -196,7 +197,7 @@
           <div class="homestay-location">{{ getHomestayLocation(homestay) }}</div>
           <div class="homestay-features">
             <span>{{ homestay.maxGuests }}人</span>
-            <span>{{ homestay.type }}</span>
+            <span>{{ getHomestayTypeText(homestay.type) }}</span>
           </div>
           <div class="homestay-price">
             <span class="price">¥{{ calculatePrice(homestay) }}</span>
@@ -211,42 +212,48 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Star, StarFilled, Filter, Location, House, Ship, Umbrella, Dessert, Bicycle, Sunrise } from '@element-plus/icons-vue'
+import { Search, Star, StarFilled, Filter, Location, House, Ship, Umbrella, Dessert, Bicycle, Sunrise, Menu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { regionData, codeToText } from 'element-china-area-data'
 import request from '@/utils/request'
-import { getActiveHomestays } from '@/api/homestay'
+import {
+  getActiveHomestays,
+  getHomestayTypes,
+  type HomestayType,
+  getAvailableAmenitiesGrouped,
+  type AmenityOption,
+  type AmenityCategoryOption
+} from '@/api/homestay'
 
 // 定义类型
 interface Homestay {
   id: number
   title: string
   description: string
-  location: string
-  city: string
-  country: string
   pricePerNight: number
-  price?: string  // 添加可选price字段
+  price?: string
   maxGuests: number
-  bedrooms: number
-  beds: number
-  bathrooms: number
+  bedrooms?: number
+  beds?: number
+  bathrooms?: number
   amenities: string[]
   images: string[]
-  rating?: number  // 修改为可选字段
-  reviewCount: number
+  rating?: number
+  reviewCount?: number
   type: string
-  province: string
-  district: string
-  address: string
   status: string
   featured: boolean
-  propertyType: string
-  distanceFromCenter: number
+  propertyType?: string
+  distanceFromCenter?: number
   latitude?: number
   longitude?: number
   hostName?: string
   hostId?: number
   coverImage?: string
+  provinceCode?: string
+  cityCode?: string
+  districtCode?: string
+  addressDetail?: string
 }
 
 const router = useRouter()
@@ -256,40 +263,42 @@ const favorites = ref<number[]>([])
 const activeHomestays = ref<Homestay[]>([])
 const loadingActive = ref(false)
 
-const propertyTypes = [
-  { label: '全部', value: '', icon: 'House' },
-  { label: '树屋', value: '树屋', icon: 'Umbrella' },
-  { label: '海景房', value: '海景房', icon: 'Ship' },
-  { label: '小木屋', value: '小木屋', icon: 'House' },
-  { label: '湖景房', value: '湖景房', icon: 'Sunrise' },
-  { label: '公寓', value: '公寓', icon: 'House' },
-  { label: '别墅', value: '别墅', icon: 'House' },
-  { label: '城堡', value: '城堡', icon: 'House' },
-  { label: '农场', value: '农场', icon: 'Bicycle' },
-  { label: '豪宅', value: '豪宅', icon: 'House' },
-  { label: '岛屿', value: '岛屿', icon: 'Ship' },
-  { label: '露营', value: '露营', icon: 'Umbrella' }
-]
+const fetchedTypes = ref<HomestayType[]>([])
+const typesLoading = ref(false)
+const availableAmenities = ref<AmenityOption[]>([])
+const groupedAmenities = ref<AmenityCategoryOption[]>([])
+const amenitiesLoading = ref(false)
 
 const searchParams = reactive({
-  location: '',
+  selectedRegion: [] as string[],
+  keyword: '',
   checkIn: null,
   checkOut: null,
   guestCount: 1,
   minPrice: null,
   maxPrice: null,
-  propertyType: '',
-  amenities: [],
-  bedrooms: null,
-  beds: null,
-  bathrooms: null,
+  propertyType: null as string | null,
+  amenities: [] as string[],
   minRating: null
 })
+
+// 地区选择器选项
+const regionOptions = regionData
+
+// 地区选择器配置
+const cascaderProps = {
+  value: 'value',
+  label: 'label',
+  children: 'children',
+  checkStrictly: true
+}
 
 onMounted(async () => {
   await Promise.all([
     fetchFeaturedHomestays(),
-    fetchActiveHomestays()
+    fetchActiveHomestays(),
+    fetchHomestayTypes(),
+    fetchGroupedAmenities()
   ])
   loadFavorites()
 })
@@ -311,9 +320,6 @@ const fetchFeaturedHomestays = async () => {
           id: 1,
           title: '湖畔小屋',
           description: '美丽的湖畔小屋，宁静舒适',
-          location: '杭州西湖',
-          city: '杭州',
-          country: '中国',
           pricePerNight: 488,
           price: '488',
           maxGuests: 2,
@@ -325,9 +331,6 @@ const fetchFeaturedHomestays = async () => {
           rating: 4.9,
           reviewCount: 128,
           type: 'SHARED',
-          province: '浙江省',
-          district: '西湖区',
-          address: '西湖区某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '小屋',
@@ -336,15 +339,16 @@ const fetchFeaturedHomestays = async () => {
           longitude: 120.1686,
           hostName: '张三',
           hostId: 1001,
-          coverImage: 'https://picsum.photos/800/600?random=1'
+          coverImage: 'https://picsum.photos/800/600?random=1',
+          provinceCode: '330000',
+          cityCode: '330100',
+          districtCode: '330106',
+          addressDetail: '西湖区某街道'
         },
         {
           id: 2,
           title: '海景公寓',
           description: '一线海景，舒适公寓',
-          location: '厦门鼓浪屿',
-          city: '厦门',
-          country: '中国',
           pricePerNight: 688,
           price: '688',
           maxGuests: 4,
@@ -356,9 +360,6 @@ const fetchFeaturedHomestays = async () => {
           rating: 4.8,
           reviewCount: 92,
           type: 'ENTIRE',
-          province: '福建省',
-          district: '思明区',
-          address: '思明区某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '公寓',
@@ -367,15 +368,16 @@ const fetchFeaturedHomestays = async () => {
           longitude: 118.0657,
           hostName: '李四',
           hostId: 1002,
-          coverImage: 'https://picsum.photos/800/600?random=2'
+          coverImage: 'https://picsum.photos/800/600?random=2',
+          provinceCode: '350000',
+          cityCode: '350200',
+          districtCode: '350203',
+          addressDetail: '思明区某街道'
         },
         {
           id: 3,
           title: '山间小木屋',
           description: '清新的山间小木屋，远离城市喧嚣',
-          location: '莫干山',
-          city: '湖州',
-          country: '中国',
           pricePerNight: 588,
           price: '588',
           maxGuests: 3,
@@ -387,9 +389,6 @@ const fetchFeaturedHomestays = async () => {
           rating: 4.7,
           reviewCount: 78,
           type: 'PRIVATE',
-          province: '浙江省',
-          district: '德清县',
-          address: '德清县某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '木屋',
@@ -398,7 +397,11 @@ const fetchFeaturedHomestays = async () => {
           longitude: 119.8808,
           hostName: '王五',
           hostId: 1003,
-          coverImage: 'https://picsum.photos/800/600?random=3'
+          coverImage: 'https://picsum.photos/800/600?random=3',
+          provinceCode: '330000',
+          cityCode: '330500',
+          districtCode: '330523',
+          addressDetail: '德清县某街道'
         }
       ]
     }
@@ -430,11 +433,68 @@ const fetchActiveHomestays = async () => {
   }
 }
 
+const fetchHomestayTypes = async () => {
+  typesLoading.value = true
+  try {
+    const response = await getHomestayTypes()
+    fetchedTypes.value = response || []
+    console.log("Fetched homestay types:", fetchedTypes.value)
+  } catch (error) {
+    console.error("获取房源类型失败:", error)
+    ElMessage.error("加载房源类型失败")
+    fetchedTypes.value = []
+  } finally {
+    typesLoading.value = false
+  }
+}
+
+const fetchGroupedAmenities = async () => {
+  amenitiesLoading.value = true;
+  try {
+    groupedAmenities.value = await getAvailableAmenitiesGrouped();
+  } catch (error) {
+    groupedAmenities.value = [];
+  } finally {
+    amenitiesLoading.value = false;
+  }
+}
+
 const searchHomestays = async () => {
   loading.value = true
   try {
-    const response = await request.post('/api/homestays/search', searchParams)
-    homestays.value = response.data
+    // 1. 从 selectedRegion 提取地区编码
+    const regionCodes = searchParams.selectedRegion
+    const provinceCode = regionCodes && regionCodes.length > 0 ? regionCodes[0] : null
+    const cityCode = regionCodes && regionCodes.length > 1 ? regionCodes[1] : null
+    const districtCode = regionCodes && regionCodes.length > 2 ? regionCodes[2] : null
+
+    // 2. 创建后端期望的数据结构
+    const backendRequestData: Record<string, any> = {
+      provinceCode: provinceCode,
+      cityCode: cityCode,
+      districtCode: districtCode,
+      keyword: searchParams.keyword || null,
+      propertyType: searchParams.propertyType || null,
+      minPrice: searchParams.minPrice,
+      maxPrice: searchParams.maxPrice,
+      checkInDate: searchParams.checkIn,
+      checkOutDate: searchParams.checkOut,
+      minGuests: searchParams.guestCount > 0 ? searchParams.guestCount : null,
+      requiredAmenities: searchParams.amenities && searchParams.amenities.length > 0 ? searchParams.amenities : null,
+    };
+
+    console.log("准备发送的搜索参数 (地区选择器+关键词):", backendRequestData)
+
+    // 3. 发送请求
+    const response = await request.post('/api/homestays/search', backendRequestData)
+
+    // 4. 处理响应 (保持不变，确保能处理后端返回的 DTO)
+    const backendHomestays = response.data as any[];
+    homestays.value = backendHomestays.map(dto => ({
+      ...dto,
+      amenities: dto.amenities ? dto.amenities.map((a: any) => a.label || a.value || a) : []
+    })) as Homestay[];
+
     if (homestays.value.length === 0) {
       ElMessage.info('没有找到符合条件的民宿')
     }
@@ -451,9 +511,6 @@ const searchHomestays = async () => {
           id: 1,
           title: '大理古城树屋',
           description: '位于大理古城的特色树屋，俯瞰洱海美景',
-          location: '云南大理',
-          city: '大理',
-          country: '中国',
           pricePerNight: 688,
           maxGuests: 2,
           bedrooms: 1,
@@ -464,9 +521,6 @@ const searchHomestays = async () => {
           rating: 4.9,
           reviewCount: 128,
           type: 'SHARED',
-          province: '云南省',
-          district: '大理市',
-          address: '大理古城某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '树屋',
@@ -475,15 +529,16 @@ const searchHomestays = async () => {
           longitude: 100.267638,
           hostName: '李明',
           hostId: 1001,
-          coverImage: 'https://picsum.photos/800/600?random=1'
+          coverImage: 'https://picsum.photos/800/600?random=1',
+          provinceCode: '530000',
+          cityCode: '532900',
+          districtCode: '532922',
+          addressDetail: '大理古城某街道'
         },
         {
           id: 2,
           title: '杭州山顶树屋',
           description: '杭州山顶的豪华树屋，可以俯瞰西湖全景',
-          location: '浙江杭州',
-          city: '杭州',
-          country: '中国',
           pricePerNight: 1288,
           maxGuests: 4,
           bedrooms: 2,
@@ -494,9 +549,6 @@ const searchHomestays = async () => {
           rating: 4.8,
           reviewCount: 96,
           type: 'ENTIRE',
-          province: '浙江省',
-          district: '西湖区',
-          address: '西湖区某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '树屋',
@@ -505,15 +557,16 @@ const searchHomestays = async () => {
           longitude: 120.130742,
           hostName: '张伟',
           hostId: 1002,
-          coverImage: 'https://picsum.photos/800/600?random=2'
+          coverImage: 'https://picsum.photos/800/600?random=2',
+          provinceCode: '330000',
+          cityCode: '330100',
+          districtCode: '330106',
+          addressDetail: '西湖区某街道'
         },
         {
           id: 3,
           title: '三亚海景房',
           description: '三亚湾一线海景房，步行5分钟到海滩',
-          location: '海南三亚',
-          city: '三亚',
-          country: '中国',
           pricePerNight: 1688,
           maxGuests: 6,
           bedrooms: 3,
@@ -524,9 +577,6 @@ const searchHomestays = async () => {
           rating: 4.7,
           reviewCount: 215,
           type: 'ENTIRE',
-          province: '海南省',
-          district: '三亚市',
-          address: '三亚湾某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '海景房',
@@ -535,15 +585,16 @@ const searchHomestays = async () => {
           longitude: 109.511909,
           hostName: '王芳',
           hostId: 1003,
-          coverImage: 'https://picsum.photos/800/600?random=3'
+          coverImage: 'https://picsum.photos/800/600?random=3',
+          provinceCode: '460000',
+          cityCode: '460200',
+          districtCode: '460202',
+          addressDetail: '三亚湾某街道'
         },
         {
           id: 4,
           title: '吉林雪山脚下的小木屋',
           description: '位于吉林雪山脚下的温馨小木屋，冬季可滑雪',
-          location: '吉林长白山',
-          city: '吉林',
-          country: '中国',
           pricePerNight: 888,
           maxGuests: 4,
           bedrooms: 2,
@@ -554,9 +605,6 @@ const searchHomestays = async () => {
           rating: 4.6,
           reviewCount: 78,
           type: 'PRIVATE',
-          province: '吉林省',
-          district: '长白山市',
-          address: '长白山区某街道',
           status: 'ACTIVE',
           featured: true,
           propertyType: '小木屋',
@@ -565,14 +613,29 @@ const searchHomestays = async () => {
           longitude: 127.505062,
           hostName: '赵强',
           hostId: 1004,
-          coverImage: 'https://picsum.photos/800/600?random=4'
+          coverImage: 'https://picsum.photos/800/600?random=4',
+          provinceCode: '220000',
+          cityCode: '220200',
+          districtCode: '220202',
+          addressDetail: '长白山区某街道'
         }
       ]
 
       // 根据搜索条件过滤模拟数据
       homestays.value = mockData.filter(homestay => {
-        // 按位置筛选
-        if (searchParams.location && !homestay.location.includes(searchParams.location)) {
+        // 按地区编码筛选
+        const regionCodes = searchParams.selectedRegion
+        if (regionCodes && regionCodes.length > 0) {
+          if (regionCodes[0] && homestay.provinceCode !== regionCodes[0]) return false;
+          if (regionCodes[1] && homestay.cityCode !== regionCodes[1]) return false;
+          if (regionCodes[2] && homestay.districtCode !== regionCodes[2]) return false;
+        }
+
+        // 按关键词筛选 (标题、描述、详细地址)
+        if (searchParams.keyword &&
+          !(homestay.title?.includes(searchParams.keyword) ||
+            homestay.description?.includes(searchParams.keyword) ||
+            homestay.addressDetail?.includes(searchParams.keyword))) {
           return false
         }
 
@@ -591,21 +654,6 @@ const searchHomestays = async () => {
 
         // 按房型筛选
         if (searchParams.propertyType && homestay.propertyType !== searchParams.propertyType) {
-          return false
-        }
-
-        // 按卧室数筛选
-        if (searchParams.bedrooms && homestay.bedrooms < searchParams.bedrooms) {
-          return false
-        }
-
-        // 按床数筛选
-        if (searchParams.beds && homestay.beds < searchParams.beds) {
-          return false
-        }
-
-        // 按卫生间数筛选
-        if (searchParams.bathrooms && homestay.bathrooms < searchParams.bathrooms) {
           return false
         }
 
@@ -630,17 +678,15 @@ const searchHomestays = async () => {
   }
 }
 
-const selectPropertyType = (type: string) => {
-  searchParams.propertyType = type
+const selectPropertyType = (typeName: string | null) => {
+  console.log('[Home.vue] selectPropertyType - typeName:', typeName);
+  searchParams.propertyType = typeName
   searchHomestays()
 }
 
 const resetFilters = () => {
   searchParams.minPrice = null
   searchParams.maxPrice = null
-  searchParams.bedrooms = null
-  searchParams.beds = null
-  searchParams.bathrooms = null
   searchParams.amenities = []
 }
 
@@ -772,20 +818,51 @@ const viewAllActive = () => {
   router.push('/homestay/list?status=ACTIVE')
 }
 
-const getHomestayLocation = (homestay: any) => {
-  const parts = []
-  if (homestay.province) parts.push(homestay.province)
-  if (homestay.city) parts.push(homestay.city)
-  if (homestay.district) parts.push(homestay.district)
+const getHomestayTypeText = (typeCode: string | undefined): string => {
+  if (!typeCode) return '未知类型';
 
-  if (parts.length > 0) return parts.join(' · ')
+  // 从已获取的 fetchedTypes 列表中查找
+  // fetchedTypes 列表包含 code 和 name, 房源数据中的 type 字段是 code
+  // 因此，应该使用 code 进行匹配
+  const foundType = fetchedTypes.value.find(t => t.code === typeCode);
 
-  // 兼容旧数据结构
-  if (homestay.location) return homestay.location
-  if (homestay.city && homestay.country) return `${homestay.city}, ${homestay.country}`
+  if (foundType) {
+    // 如果找到匹配的 code，返回对应的 name (中文名称)
+    return foundType.name || typeCode; // Fallback to code if name is somehow missing
+  }
 
-  return '未知位置'
-}
+  // 如果在列表中找不到匹配的 code
+  console.warn(`[Home.vue] 未能在 fetchedTypes 列表中找到类型代码: ${typeCode}`);
+  // 返回原始代码，以便调试
+  return typeCode;
+};
+
+const getHomestayLocation = (homestay: Homestay): string => {
+  const parts = [];
+  if (homestay.provinceCode && codeToText[homestay.provinceCode]) {
+    parts.push(codeToText[homestay.provinceCode]);
+  }
+  if (homestay.cityCode && codeToText[homestay.cityCode]) {
+    // 避免重复省份（如直辖市）
+    if (!parts.includes(codeToText[homestay.cityCode])) {
+      parts.push(codeToText[homestay.cityCode]);
+    }
+  }
+  // 区县信息通常不需要在首页卡片显示，保持简洁
+  // if (homestay.districtCode && codeToText[homestay.districtCode]) {
+  //     parts.push(codeToText[homestay.districtCode]);
+  // }
+
+  if (parts.length > 0) {
+    return parts.join(' · ');
+  }
+
+  // // 兼容旧数据 (如果需要)
+  // if (homestay.city && homestay.country) return `${homestay.city}, ${homestay.country}`;
+  // if (homestay.location) return homestay.location;
+
+  return '位置待更新';
+};
 </script>
 
 <style scoped>
@@ -865,20 +942,17 @@ const getHomestayLocation = (homestay: any) => {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   cursor: pointer;
   opacity: 0.7;
   transition: opacity 0.2s;
   min-width: 56px;
+  padding: 8px 0;
 }
 
 .filter-item:hover,
 .filter-item.active {
   opacity: 1;
-}
-
-.filter-item .el-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
 }
 
 .filter-actions {
@@ -898,12 +972,15 @@ const getHomestayLocation = (homestay: any) => {
 }
 
 .filter-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .filter-section h4 {
   margin-top: 0;
   margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
 }
 
 .price-range {
@@ -912,33 +989,69 @@ const getHomestayLocation = (homestay: any) => {
   gap: 8px;
 }
 
+.price-range .el-input-number {
+  width: 110px;
+}
+
 .separator {
   color: #909399;
+  margin: 0 5px;
 }
 
-.room-filters {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+.amenities-collapse {
+  border-top: none;
+  border-bottom: none;
 }
 
-.room-filter-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.amenities-collapse .el-collapse-item__header {
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid #ebebeb;
+  height: 40px;
+  line-height: 40px;
 }
 
-.amenities-list {
+.amenities-collapse .el-collapse-item__wrap {
+  border-bottom: none;
+}
+
+.amenities-collapse .el-collapse-item__content {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.amenities-checkbox-group {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 8px 16px;
 }
 
-.filter-actions {
+.amenities-checkbox-group .el-checkbox {
+  margin-right: 0;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.amenities-checkbox-group .el-checkbox__label {
+  font-size: 14px;
+}
+
+.amenities-loading,
+.amenities-empty {
+  color: #909399;
+  font-size: 14px;
+  padding: 15px 0;
+  text-align: center;
+}
+
+.filter-actions-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #ebebeb;
 }
 
 .homestay-grid {
@@ -1014,7 +1127,8 @@ const getHomestayLocation = (homestay: any) => {
 
 .homestay-location,
 .homestay-distance,
-.homestay-dates {
+.homestay-dates,
+.homestay-type {
   color: #717171;
   font-size: 14px;
   margin-bottom: 4px;
@@ -1031,6 +1145,17 @@ const getHomestayLocation = (homestay: any) => {
 
 .homestay-price .night {
   font-weight: normal;
+}
+
+.homestay-features {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.homestay-features span {
+  margin-bottom: 0;
+  display: inline;
 }
 
 .loading-container {
@@ -1069,17 +1194,10 @@ const getHomestayLocation = (homestay: any) => {
   }
 }
 
-/* 数字输入框样式 */
-:deep(.el-input-number) {
-  width: 100px;
-}
-
-:deep(.el-input-number .el-input__inner) {
-  text-align: center;
-}
-
+/* 确保 el-input-number 的按钮可见 */
 :deep(.el-input-number__decrease),
 :deep(.el-input-number__increase) {
-  display: none;
+  display: inline-flex;
+  /* 或者 block, 根据需要调整，确保不是 none */
 }
 </style>

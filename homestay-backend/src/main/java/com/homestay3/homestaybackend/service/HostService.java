@@ -5,6 +5,11 @@ import com.homestay3.homestaybackend.dto.HostStatisticsDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.List;
+import com.homestay3.homestaybackend.dto.HomestayOptionDTO;
+
 public interface HostService {
     /**
      * 获取房东信息
@@ -65,9 +70,40 @@ public interface HostService {
     Page<?> getHostReviews(String username, int page, int size);
     
     /**
+     * 获取房东的房源选项列表 (用于下拉菜单)
+     * @param username 房东用户名
+     * @return 只包含 id 和 title 的房源列表
+     */
+    List<HomestayOptionDTO> getHostHomestayOptions(String username);
+    
+    /**
      * 获取房源的房东信息
      * @param homestayId 房源ID
      * @return 房东信息DTO
      */
     HostDTO getHomestayHostInfo(Long homestayId);
+
+    /**
+     * 更新房东个人资料
+     * @param username 用户名
+     * @param profileData 个人资料数据
+     * @return 更新后的个人资料
+     */
+    Map<String, Object> updateHostProfile(String username, Map<String, Object> profileData);
+
+    /**
+     * 获取房东个人资料
+     * @param username 用户名
+     * @return 房东个人资料
+     */
+    Map<String, Object> getHostProfile(String username);
+
+    /**
+     * 上传房东证件照片
+     * @param username 用户名
+     * @param file 文件
+     * @param type 文件类型
+     * @return 上传后的文件URL
+     */
+    String uploadHostDocument(String username, MultipartFile file, String type) throws IOException;
 } 

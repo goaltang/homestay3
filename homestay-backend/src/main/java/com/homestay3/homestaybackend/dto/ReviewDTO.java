@@ -17,6 +17,7 @@ public class ReviewDTO {
     private String userName;
     private String userAvatar;
     private Long homestayId;
+    private Long orderId;
     private String homestayTitle;
     private Integer rating;
     private String content;

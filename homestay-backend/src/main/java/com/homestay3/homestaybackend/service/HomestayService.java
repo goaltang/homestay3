@@ -64,8 +64,8 @@ public interface HomestayService {
     /**
      * 搜索民宿
      */
-    List<HomestayDTO> searchHomestays(String keyword, String province, String city, 
-                                     Integer minPrice, Integer maxPrice, 
+    List<HomestayDTO> searchHomestays(String keyword, String provinceCode, String cityCode,
+                                     Integer minPrice, Integer maxPrice,
                                      Integer guests, String type);
     
     /**

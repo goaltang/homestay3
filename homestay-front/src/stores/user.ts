@@ -2,6 +2,8 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import api from "@/api";
 import { LoginRequest, RegisterRequest, AuthResponse } from "@/types/auth";
+import { ElMessage } from "element-plus";
+import router from "@/router";
 
 export interface UserInfo {
   id: number;
@@ -30,6 +32,15 @@ interface PasswordChangeRequest {
   newPassword: string;
 }
 
+interface UserState {
+  token: string | null;
+  userInfo: UserInfo | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isLandlord: boolean;
+  unreadNotificationCount: number;
+}
+
 export const useUserStore = defineStore("user", () => {
   const token = ref<string | null>(localStorage.getItem("token"));
   const userInfo = ref<UserInfo | null>(
@@ -44,8 +55,8 @@ export const useUserStore = defineStore("user", () => {
     // 支持多种可能的房东角色名称
     const role = userInfo.value.role.toUpperCase();
     const isLandlordResult =
-      role === "ROLE_LANDLORD" ||
       role === "ROLE_HOST" ||
+      role === "ROLE_LANDLORD" || // 保留兼容旧数据
       role === "LANDLORD" ||
       role === "HOST";
 
@@ -57,6 +68,8 @@ export const useUserStore = defineStore("user", () => {
 
     return isLandlordResult;
   });
+
+  const unreadNotificationCount = ref<number>(0);
 
   const setToken = (newToken: string | null) => {
     token.value = newToken;
@@ -74,7 +87,7 @@ export const useUserStore = defineStore("user", () => {
     localStorage.setItem("userInfo", JSON.stringify(user));
     // 输出调试信息
     console.log("用户角色:", user.role);
-    console.log("isLandlord计算值:", user.role === "ROLE_LANDLORD");
+    console.log("isLandlord计算值:", user.role === "ROLE_HOST");
   };
 
   const login = async (username: string, password: string) => {
@@ -149,6 +162,34 @@ export const useUserStore = defineStore("user", () => {
             (response.data.user ? response.data.user.verificationStatus : ""),
         };
 
+        // 处理头像URL，确保如果是完整URL带域名的，转换为相对路径
+        if (
+          userData.avatar &&
+          (userData.avatar.startsWith("http://") ||
+            userData.avatar.startsWith("https://"))
+        ) {
+          try {
+            const url = new URL(userData.avatar);
+            // 如果包含/uploads/avatars/或/uploads/avatar/路径，转换为/api/files/avatar/格式
+            if (
+              url.pathname.includes("/uploads/avatars/") ||
+              url.pathname.includes("/uploads/avatar/")
+            ) {
+              const filename = url.pathname.split("/").pop();
+              userData.avatar = `/api/files/avatar/${filename}`;
+              console.log("头像URL已转换为API路径:", userData.avatar);
+            }
+            // 如果是其他/uploads/路径
+            else if (url.pathname.includes("/uploads/")) {
+              // 将完整URL转换为API路径
+              userData.avatar = `/api${url.pathname}`;
+              console.log("头像URL已转换为相对路径:", userData.avatar);
+            }
+          } catch (e) {
+            console.error("头像URL解析错误:", e);
+          }
+        }
+
         console.log("准备保存的用户数据:", userData);
         setUser(userData);
 
@@ -157,39 +198,31 @@ export const useUserStore = defineStore("user", () => {
         console.log("用户信息已保存到localStorage", userData);
         console.log("检查isLandlord:", isLandlord.value);
 
+        await fetchUnreadCount();
+
         return true;
       }
       return false;
     } catch (error: any) {
       console.error("登录失败:", error);
+      // 检查是否是 Axios 错误并且有响应
       if (error.response) {
         console.error("错误响应:", error.response.data);
+        // 如果是登录接口返回的 401 (或其他特定错误码)，抛出特定错误
+        if (error.response.status === 401) {
+          // 可以从 error.response.data 中提取更具体的后端错误信息
+          const message = error.response.data?.message || "用户名或密码错误";
+          throw new Error(message); // 抛出错误，让组件处理
+        }
+        // 可以为其他状态码抛出不同的错误
+        // else if (error.response.status === 500) {
+        //    throw new Error("服务器内部错误，请稍后重试");
+        // }
       }
-
-      // 检查是否有开发模式模拟数据
-      if (
-        process.env.NODE_ENV === "development" &&
-        import.meta.env.VITE_USE_MOCK === "true"
-      ) {
-        console.warn("使用模拟登录数据（仅用于开发测试）");
-        // 仅在开发环境且配置了使用模拟数据时才使用模拟数据
-        setToken("mock-token-" + Date.now());
-
-        const mockUser = {
-          id: 1,
-          username: username,
-          email: username + "@example.com",
-          phone: "13800138000",
-          role: username.includes("landlord") ? "ROLE_LANDLORD" : "ROLE_USER",
-          avatar: "",
-        };
-
-        setUser(mockUser);
-        console.log("模拟登录用户:", mockUser);
-        return true;
-      }
-
-      return false;
+      // 对于非 Axios 错误或没有响应的错误 (如网络错误)，抛出通用错误
+      // 或者直接返回 false，让组件显示通用错误
+      // throw new Error("登录过程中发生错误，请检查网络或稍后重试");
+      return false; // 保持原有逻辑，让 Login.vue 的 else 分支处理通用失败
     }
   };
 
@@ -254,6 +287,8 @@ export const useUserStore = defineStore("user", () => {
 
         // 不再强制刷新页面，让调用方处理导航
         // window.location.reload();
+
+        await fetchUnreadCount();
 
         return true;
       }
@@ -329,6 +364,8 @@ export const useUserStore = defineStore("user", () => {
 
     // 导航到登录页
     window.location.href = "/login";
+
+    unreadNotificationCount.value = 0;
   };
 
   const updateProfile = async (data: ProfileUpdateRequest) => {
@@ -344,8 +381,12 @@ export const useUserStore = defineStore("user", () => {
   const changePassword = async (data: PasswordChangeRequest) => {
     try {
       await api.post("/api/users/change-password", data);
+      ElMessage.success("密码修改成功");
+      return true;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || "修改密码失败");
+      console.error("修改密码失败:", error);
+      ElMessage.error("修改密码失败，请检查原密码是否正确");
+      return false;
     }
   };
 
@@ -413,7 +454,37 @@ export const useUserStore = defineStore("user", () => {
 
       if (userData) {
         console.log("解析到的用户数据:", userData);
+
+        // 处理头像URL，确保如果是完整URL带域名的，转换为相对路径
+        if (
+          userData.avatar &&
+          (userData.avatar.startsWith("http://") ||
+            userData.avatar.startsWith("https://"))
+        ) {
+          try {
+            const url = new URL(userData.avatar);
+            // 如果包含/uploads/avatars/或/uploads/avatar/路径，转换为/api/files/avatar/格式
+            if (
+              url.pathname.includes("/uploads/avatars/") ||
+              url.pathname.includes("/uploads/avatar/")
+            ) {
+              const filename = url.pathname.split("/").pop();
+              userData.avatar = `/api/files/avatar/${filename}`;
+              console.log("头像URL已转换为API路径:", userData.avatar);
+            }
+            // 如果是其他/uploads/路径
+            else if (url.pathname.includes("/uploads/")) {
+              // 将完整URL转换为API路径
+              userData.avatar = `/api${url.pathname}`;
+              console.log("头像URL已转换为相对路径:", userData.avatar);
+            }
+          } catch (e) {
+            console.error("头像URL解析错误:", e);
+          }
+        }
+
         setUser(userData);
+        await fetchUnreadCount();
         return userData;
       } else {
         console.warn("未能从响应中解析出用户数据");
@@ -460,7 +531,42 @@ export const useUserStore = defineStore("user", () => {
             verificationStatus: backupResponse.data.verificationStatus || "",
           };
 
+          // 处理头像URL，确保如果是完整URL带域名的，转换为相对路径
+          if (
+            userData.avatar &&
+            (userData.avatar.startsWith("http://") ||
+              userData.avatar.startsWith("https://"))
+          ) {
+            try {
+              const url = new URL(userData.avatar);
+              // 如果包含/uploads/avatars/或/uploads/avatar/路径，转换为/api/files/avatar/格式
+              if (
+                url.pathname.includes("/uploads/avatars/") ||
+                url.pathname.includes("/uploads/avatar/")
+              ) {
+                const filename = url.pathname.split("/").pop();
+                userData.avatar = `/api/files/avatar/${filename}`;
+                console.log(
+                  "备用API: 头像URL已转换为API路径:",
+                  userData.avatar
+                );
+              }
+              // 如果是其他/uploads/路径
+              else if (url.pathname.includes("/uploads/")) {
+                // 将完整URL转换为API路径
+                userData.avatar = `/api${url.pathname}`;
+                console.log(
+                  "备用API: 头像URL已转换为相对路径:",
+                  userData.avatar
+                );
+              }
+            } catch (e) {
+              console.error("头像URL解析错误:", e);
+            }
+          }
+
           setUser(userData);
+          await fetchUnreadCount();
           return userData;
         }
       } catch (backupError) {
@@ -572,6 +678,8 @@ export const useUserStore = defineStore("user", () => {
         console.log("用户信息已保存到本地存储");
       }
 
+      await fetchUnreadCount();
+
       return avatarPath;
     } catch (error: any) {
       console.error("上传头像失败:", error);
@@ -647,6 +755,19 @@ export const useUserStore = defineStore("user", () => {
     syncUserRole();
   }
 
+  const fetchUnreadCount = async () => {
+    if (!isAuthenticated.value) {
+      unreadNotificationCount.value = 0;
+      return;
+    }
+    try {
+      const response = await api.get("/api/notifications/unread-count");
+      unreadNotificationCount.value = response.data.unreadCount;
+    } catch (error) {
+      console.error("获取未读通知数失败:", error);
+    }
+  };
+
   return {
     token,
     userInfo,
@@ -663,5 +784,7 @@ export const useUserStore = defineStore("user", () => {
     resetPassword,
     forgotPassword,
     syncUserRole,
+    unreadNotificationCount,
+    fetchUnreadCount,
   };
 });

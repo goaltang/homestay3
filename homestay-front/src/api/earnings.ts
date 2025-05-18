@@ -210,3 +210,15 @@ export const exportEarningsData = (
     responseType: "blob",
   });
 };
+
+/**
+ * 手动触发结算房东收益
+ */
+export function settleHostEarnings(): Promise<any> {
+  return request({
+    url: "/api/host/earnings/settle",
+    method: "post",
+    // 根据后端接口的实际需要，可能需要发送空的 data: {}
+    // data: {}
+  });
+}

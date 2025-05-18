@@ -181,6 +181,7 @@ export function getUserReviews(params?: { page?: number; size?: number }) {
  * @param data 评价数据
  */
 export function submitReview(data: {
+  orderId: number;
   homestayId: number;
   rating: number;
   content: string;
@@ -191,6 +192,7 @@ export function submitReview(data: {
   checkInRating?: number;
   valueRating?: number;
 }) {
+  console.log("Submitting review with data:", data);
   return request({
     url: "/api/reviews",
     method: "post",
@@ -198,15 +200,58 @@ export function submitReview(data: {
   });
 }
 
-/**
- * 回复评价
- * @param reviewId 评价ID
- * @param response 回复内容
- */
+// 房东回复评价
 export function respondToReview(reviewId: number, response: string) {
   return request({
     url: `/api/reviews/${reviewId}/response`,
     method: "post",
     data: { response },
+  });
+}
+
+// --- 新增：删除房东回复 ---
+/**
+ * 删除房东对评价的回复
+ * @param reviewId 评价ID
+ */
+export function deleteReviewResponse(reviewId: number) {
+  return request<void>({
+    url: `/api/reviews/${reviewId}/response`,
+    method: "delete",
+  });
+}
+// --- 结束新增 ---
+
+/**
+ * 获取房东的评价列表（带筛选和分页）
+ * @param params 筛选和分页参数
+ */
+export function getHostReviews(params?: {
+  homestayId?: number | null;
+  rating?: number | null;
+  replyStatus?: string | null;
+  page?: number; // 0-based
+  size?: number;
+  sort?: string; // <-- 新增: 允许传递 sort 参数 (e.g., "createTime,desc")
+}) {
+  // 过滤掉 null 或 undefined 的参数
+  const filteredParams = Object.entries(params || {})
+    .filter(([_, value]) => value !== null && value !== undefined)
+    .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+  return request({
+    url: "/api/reviews/host",
+    method: "get",
+    params: filteredParams,
+  });
+}
+
+/**
+ * 获取房东的评价统计数据
+ */
+export function getHostReviewStats() {
+  return request({
+    url: "/api/reviews/host/stats",
+    method: "get",
   });
 }

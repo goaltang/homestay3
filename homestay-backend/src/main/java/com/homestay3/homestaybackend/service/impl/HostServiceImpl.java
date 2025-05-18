@@ -12,7 +12,9 @@ import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.model.Homestay;
 import com.homestay3.homestaybackend.model.Order;
 import com.homestay3.homestaybackend.model.Review;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.model.VerificationStatus;
+import com.homestay3.homestaybackend.model.UserRole;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
@@ -30,11 +32,38 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.format.DateTimeFormatter;
+import com.homestay3.homestaybackend.dto.HomestayOptionDTO;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -164,13 +193,18 @@ public class HostServiceImpl implements HostService {
                 .orElseThrow(() -> new ResourceNotFoundException("用户不存在: " + username));
         
         // 使用FileService上传文件
-        String fileUrl = fileService.uploadFile(file);
-        
-        // 更新用户头像
-        user.setAvatar(fileUrl);
-        userRepository.save(user);
-        
-        return fileUrl;
+        try {
+            Map<String, Object> result = fileService.uploadFile(file, FileService.TYPE_AVATAR);
+            String fileUrl = (String) result.get("fileUrl");
+            
+            // 更新用户头像
+            user.setAvatar(fileUrl);
+            userRepository.save(user);
+            
+            return fileUrl;
+        } catch (IOException e) {
+            throw new RuntimeException("上传头像失败: " + e.getMessage(), e);
+        }
     }
 
     @Override
@@ -256,7 +290,7 @@ public class HostServiceImpl implements HostService {
                 .title(homestay.getTitle())
                 .description(homestay.getDescription())
                 .price(homestay.getPrice().toString())
-                .address(homestay.getAddress())
+                .addressDetail(homestay.getAddressDetail())
                 .type(homestay.getType())
                 .status(homestay.getStatus())
                 .build();
@@ -345,5 +379,176 @@ public class HostServiceImpl implements HostService {
         
         // 返回结果
         return hostDTO;
+    }
+
+    @Override
+    public Map<String, Object> updateHostProfile(String username, Map<String, Object> profileData) {
+        logger.info("更新房东个人资料: username={}, data={}", username, profileData);
+        
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+        
+        // 确保用户是房东
+        if (!user.getRole().equals(UserRole.ROLE_HOST.name())) {
+            throw new RuntimeException("只有房东才能更新房东资料");
+        }
+        
+        // 更新用户基本信息
+        if (profileData.containsKey("realName")) {
+            user.setRealName((String) profileData.get("realName"));
+        }
+        
+        if (profileData.containsKey("phone")) {
+            user.setPhone((String) profileData.get("phone"));
+        }
+        
+        if (profileData.containsKey("gender")) {
+            user.setGender((String) profileData.get("gender"));
+        }
+        
+        if (profileData.containsKey("birthday")) {
+            user.setBirthday((String) profileData.get("birthday"));
+        }
+        
+        if (profileData.containsKey("occupation")) {
+            user.setOccupation((String) profileData.get("occupation"));
+        }
+        
+        if (profileData.containsKey("languages")) {
+            @SuppressWarnings("unchecked")
+            List<String> languages = (List<String>) profileData.get("languages");
+            user.setLanguages(String.join(",", languages));
+        }
+        
+        if (profileData.containsKey("introduction")) {
+            user.setIntroduction((String) profileData.get("introduction"));
+        }
+        
+        if (profileData.containsKey("idCard")) {
+            user.setIdCard((String) profileData.get("idCard"));
+        }
+        
+        if (profileData.containsKey("idCardFront")) {
+            user.setIdCardFront((String) profileData.get("idCardFront"));
+        }
+        
+        if (profileData.containsKey("idCardBack")) {
+            user.setIdCardBack((String) profileData.get("idCardBack"));
+        }
+        
+        if (profileData.containsKey("verificationStatus")) {
+            String status = (String) profileData.get("verificationStatus");
+            try {
+                VerificationStatus verificationStatus = VerificationStatus.valueOf(status);
+                user.setVerificationStatus(verificationStatus);
+            } catch (IllegalArgumentException e) {
+                logger.warn("无效的验证状态: {}", status);
+            }
+        }
+        
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        
+        return getHostProfile(username);
+    }
+
+    @Override
+    public Map<String, Object> getHostProfile(String username) {
+        logger.info("获取房东个人资料: username={}", username);
+        
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+        
+        // 确保用户是房东
+        if (!user.getRole().equals(UserRole.ROLE_HOST.name())) {
+            throw new RuntimeException("只有房东才能查看房东资料");
+        }
+        
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("id", user.getId());
+        profile.put("username", user.getUsername());
+        profile.put("email", user.getEmail());
+        profile.put("phone", user.getPhone());
+        profile.put("realName", user.getRealName());
+        profile.put("idCard", user.getIdCard());
+        profile.put("gender", user.getGender());
+        profile.put("birthday", user.getBirthday());
+        profile.put("occupation", user.getOccupation());
+        
+        // 处理语言列表
+        if (user.getLanguages() != null && !user.getLanguages().isEmpty()) {
+            profile.put("languages", Arrays.asList(user.getLanguages().split(",")));
+        } else {
+            profile.put("languages", new ArrayList<>());
+        }
+        
+        profile.put("introduction", user.getIntroduction());
+        profile.put("avatar", user.getAvatar());
+        profile.put("verificationStatus", user.getVerificationStatus() != null ? 
+                user.getVerificationStatus().name() : VerificationStatus.UNVERIFIED.name());
+        profile.put("idCardFront", user.getIdCardFront());
+        profile.put("idCardBack", user.getIdCardBack());
+        
+        // 获取房源数量
+        Long homestayCount = homestayRepository.countByHostId(user.getId());
+        profile.put("homestayCount", homestayCount);
+        
+        // 获取订单数量
+        Long orderCount = orderRepository.countByHostId(user.getId());
+        profile.put("orderCount", orderCount);
+        
+        // 获取评价数量
+        Long reviewCount = reviewRepository.countByHostId(user.getId());
+        profile.put("reviewCount", reviewCount);
+        
+        // 添加成为房东时间
+        profile.put("hostSince", user.getCreatedAt() != null ? 
+                user.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : "");
+        
+        return profile;
+    }
+
+    @Override
+    public String uploadHostDocument(String username, MultipartFile file, String type) throws IOException {
+        logger.info("上传房东证件照片: username={}, type={}", username, type);
+        
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("用户不存在"));
+        
+        // 确保用户是房东
+        if (!user.getRole().equals(UserRole.ROLE_HOST.name())) {
+            throw new RuntimeException("只有房东才能上传证件照片");
+        }
+        
+        // 使用FileService上传文件
+        Map<String, Object> result = fileService.uploadFile(file, FileService.TYPE_COMMON);
+        String fileUrl = (String) result.get("fileUrl");
+        
+        // 更新用户资料
+        if ("idCardFront".equals(type)) {
+            user.setIdCardFront(fileUrl);
+        } else if ("idCardBack".equals(type)) {
+            user.setIdCardBack(fileUrl);
+        }
+        
+        userRepository.save(user);
+        
+        return fileUrl;
+    }
+
+    @Override
+    public List<HomestayOptionDTO> getHostHomestayOptions(String username) {
+        // 1. 获取房东用户实体
+        User host = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("房东用户不存在: " + username));
+
+        // 2. 查询该房东的所有房源 (只查询 ID 和 Title，如果 HomestayRepository 有优化方法更好，否则查询完整实体)
+        // 假设 HomestayRepository 没有只查询 ID 和 Title 的方法，先获取完整列表
+        List<Homestay> homestays = homestayRepository.findByOwnerId(host.getId());
+        
+        // 3. 映射为 HomestayOptionDTO 列表
+        return homestays.stream()
+                .map(homestay -> new HomestayOptionDTO(homestay.getId(), homestay.getTitle()))
+                .collect(Collectors.toList());
     }
 } 

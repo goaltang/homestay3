@@ -69,11 +69,6 @@ const errorMessages: Record<number, string> = {
   504: "网关超时",
 };
 
-// 响应数据检查
-function checkResponseData(data: any): boolean {
-  return data !== null && data !== undefined;
-}
-
 // 格式化错误消息
 function formatErrorMessage(error: any): string {
   if (!error.response) {
@@ -95,22 +90,59 @@ function formatErrorMessage(error: any): string {
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
-    // 开发环境下记录响应日志
+    // response interceptor handles successful HTTP statuses (2xx)
+    const res = response.data;
+    const httpStatus = response.status; // Get HTTP status code
+
     if (currentLogLevel >= logLevels.debug) {
-      console.log("Response:", response.config.url, response.data);
+      console.log(
+        "Response:",
+        response.config.url,
+        "HTTP Status:",
+        httpStatus,
+        "Data:",
+        res
+      );
     }
 
-    // 检查响应数据
-    if (!checkResponseData(response.data)) {
-      if (currentLogLevel >= logLevels.warn) {
-        console.warn("响应数据为空或格式不正确:", response.config.url);
+    // 1. Check for the specific {status: 'success', data: ...} structure first
+    if (res && res.status === "success" && res.data !== undefined) {
+      if (currentLogLevel >= logLevels.debug) {
+        console.log(
+          "Extracting response.data based on {status: 'success'}:",
+          res.data
+        );
       }
+      return res.data; // Return extracted data
     }
-
-    // 直接返回响应数据
-    return response.data;
+    // 2. If the structure doesn't match, but HTTP status is OK (implicitly 2xx here),
+    //    return the raw data. This handles APIs returning data directly or different structures.
+    else {
+      // Log a warning if the structure is unexpected but potentially okay
+      if (
+        currentLogLevel >= logLevels.warn &&
+        res &&
+        res.status !== undefined &&
+        res.status !== "success"
+      ) {
+        console.warn(
+          `Response status is '${res.status}' (not 'success') for ${response.config.url}. Returning raw data.`,
+          res
+        );
+      } else if (
+        currentLogLevel >= logLevels.warn &&
+        (!res || res.status === undefined)
+      ) {
+        console.warn(
+          `Response data structure does not match {status, data} for ${response.config.url}. Returning raw data.`,
+          res
+        );
+      }
+      return res; // Return raw data for other successful responses (like list API)
+    }
   },
   (error) => {
+    // Error interceptor handles non-2xx HTTP statuses or network errors
     // 记录错误日志
     if (currentLogLevel >= logLevels.error) {
       console.error("响应错误:", error);
@@ -145,7 +177,10 @@ request.interceptors.response.use(
           ElNotification({
             title: "输入验证错误",
             message: Object.entries(validationErrors)
-              .map(([field, msgs]) => `${field}: ${msgs}`)
+              .map(
+                ([field, msgs]: [string, any]) =>
+                  `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`
+              )
               .join("<br>"),
             type: "error",
             dangerouslyUseHTMLString: true,

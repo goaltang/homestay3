@@ -1,5 +1,7 @@
-package com.homestay3.homestaybackend.model;
+package com.homestay3.homestaybackend.entity;
 
+import com.homestay3.homestaybackend.model.VerificationStatus;
+import com.homestay3.homestaybackend.model.Homestay;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -43,13 +45,24 @@ public class User {
     @Column(name = "id_card", length = 18)
     private String idCard;
     
+    @Column(name = "gender", length = 10)
+    private String gender;
+    
+    @Column(name = "birthday", length = 10)
+    private String birthday;
+    
+    @Column(name = "id_card_front")
+    private String idCardFront;
+    
+    @Column(name = "id_card_back")
+    private String idCardBack;
+    
     @Column(nullable = false)
     private String role;
     
     @Column
     private String avatar;
     
-    // 房东专属字段
     @Column(name = "nickname", length = 50)
     private String nickname;
     
@@ -60,7 +73,7 @@ public class User {
     private String introduction;
     
     @Column(name = "languages")
-    private String languages; // 存储为JSON字符串
+    private String languages;
     
     @Column(name = "host_since")
     private LocalDateTime hostSince;
@@ -81,7 +94,7 @@ public class User {
     private String hostResponseTime;
     
     @Column(name = "companions", columnDefinition = "TEXT")
-    private String companions; // 存储为JSON字符串
+    private String companions;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status")
@@ -126,7 +139,6 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // 显式添加 getter 和 setter 方法，以防 Lombok 注解未生效
     public Long getId() {
         return id;
     }
@@ -262,4 +274,44 @@ public class User {
     public void setFullName(String fullName) {
         this.fullName = fullName;
     }
-}
+
+    public String getIdCard() {
+        return idCard;
+    }
+
+    public void setIdCard(String idCard) {
+        this.idCard = idCard;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getBirthday() {
+        return birthday;
+    }
+
+    public void setBirthday(String birthday) {
+        this.birthday = birthday;
+    }
+
+    public String getIdCardFront() {
+        return idCardFront;
+    }
+
+    public void setIdCardFront(String idCardFront) {
+        this.idCardFront = idCardFront;
+    }
+
+    public String getIdCardBack() {
+        return idCardBack;
+    }
+
+    public void setIdCardBack(String idCardBack) {
+        this.idCardBack = idCardBack;
+    }
+} 

@@ -78,7 +78,7 @@ export const useAuthStore = defineStore("auth", () => {
     return user.value?.role || "";
   });
   const isLandlord = computed(() => {
-    const isLandlordValue = userRole.value === "ROLE_LANDLORD";
+    const isLandlordValue = userRole.value === "ROLE_HOST";
     console.log("检查是否是房东:", {
       role: userRole.value,
       isLandlord: isLandlordValue,
@@ -147,7 +147,7 @@ export const useAuthStore = defineStore("auth", () => {
       "用户认证完成，角色:",
       data.user.role,
       "是否房东:",
-      data.user.role === "ROLE_LANDLORD"
+      data.user.role === "ROLE_HOST"
     );
   }
 

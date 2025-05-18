@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.homestay3.homestaybackend.dto.AmenityDTO;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,13 +23,16 @@ public class HomestayDTO {
     private String status;
     private Integer maxGuests;
     private Integer minNights;
-    private String province;
-    private String city;
-    private String district;
-    private String address;
+    private String provinceText;
+    private String cityText;
+    private String districtText;
+    private String addressDetail;
+    private String provinceCode;
+    private String cityCode;
+    private String districtCode;
     
     @Builder.Default
-    private List<String> amenities = new ArrayList<>();
+    private List<AmenityDTO> amenities = new ArrayList<>();
     
     private String description;
     private String coverImage;
@@ -37,7 +42,9 @@ public class HomestayDTO {
     
     private String ownerUsername;
     private String ownerName;
-    private boolean featured;
+    private String ownerAvatar;
+    private Double ownerRating;
+    private Boolean featured;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 

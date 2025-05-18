@@ -48,9 +48,12 @@ export function confirmOrder(id: number) {
  */
 export function rejectOrder(id: number, reason: string) {
   return request({
-    url: `/api/orders/${id}/reject`,
+    url: `/api/orders/${id}/status`,
     method: "put",
-    data: { reason },
+    data: {
+      status: "REJECTED",
+      reason,
+    },
   });
 }
 
@@ -91,5 +94,21 @@ export function getHostOrderStats() {
   return request({
     url: "/api/orders/host/stats",
     method: "get",
+  });
+}
+
+/**
+ * 取消订单
+ * @param id 订单ID
+ * @param reason 取消原因
+ */
+export function cancelOrder(id: number, reason: string) {
+  return request({
+    url: `/api/orders/${id}/status`,
+    method: "put",
+    data: {
+      status: "CANCELLED",
+      reason,
+    },
   });
 }

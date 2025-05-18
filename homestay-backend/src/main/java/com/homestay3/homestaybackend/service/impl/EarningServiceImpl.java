@@ -8,7 +8,7 @@ import com.homestay3.homestaybackend.model.Earning;
 import com.homestay3.homestaybackend.model.Homestay;
 import com.homestay3.homestaybackend.model.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.repository.EarningRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
@@ -45,6 +46,9 @@ public class EarningServiceImpl implements EarningService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final HomestayRepository homestayRepository;
+    
+    @Value("${app.earnings.host-share-rate:0.8}")
+    private BigDecimal hostShareRate;
     
     @Override
     @Transactional(readOnly = true)
@@ -242,54 +246,136 @@ public class EarningServiceImpl implements EarningService {
     
     @Override
     @Transactional
-    public EarningDTO createEarningFromOrder(Long orderId) {
+    public EarningDTO generatePendingEarningForOrder(Long orderId) {
+        log.info("开始为订单 ID: {} 生成待结算收益记录...", orderId);
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-        
-        // 只有已完成的订单才能创建收益记录
-        if (!order.getStatus().equals(OrderStatus.COMPLETED.name())) {
-            throw new IllegalArgumentException("只有已完成的订单才能创建收益记录");
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + orderId));
+        log.debug("找到订单: {}, 状态: {}, 金额: {}", order.getOrderNumber(), order.getStatus(), order.getTotalAmount());
+
+        log.debug("检查订单 {} 是否已存在收益记录...", order.getOrderNumber());
+        boolean exists = earningRepository.existsByOrder(order);
+        log.debug("检查结果，订单 {} {} 存在收益记录。", order.getOrderNumber(), exists ? "已" : "不");
+
+        if (exists) {
+             log.warn("订单 {} ({}) 已存在收益记录，跳过创建。", order.getOrderNumber(), orderId);
+             Earning existingEarning = earningRepository.findByOrder(order)
+                     .orElse(null);
+             if (existingEarning != null) {
+                 log.debug("找到已存在的收益记录 ID: {}", existingEarning.getId());
+                 return convertToDTO(existingEarning);
+             } else {
+                 // This case should ideally not happen if exists is true, but log it if it does
+                 log.error("数据不一致：订单 {} ({}) 标记为存在收益记录，但无法查询到具体记录。", order.getOrderNumber(), orderId);
+                 return null; // Indicate failure or inconsistency
+             }
         }
-        
-        // 检查是否已经存在该订单的收益记录
-        Specification<Earning> spec = (root, query, cb) -> 
-            cb.equal(root.get("order").get("id"), orderId);
-        
-        boolean earningExists = earningRepository.findAll(spec).size() > 0;
-        if (earningExists) {
-            throw new IllegalArgumentException("该订单的收益记录已存在");
+
+        log.debug("计算收益金额，房东分成比例: {}", hostShareRate);
+        BigDecimal earningAmount = order.getTotalAmount().multiply(hostShareRate)
+                .setScale(2, RoundingMode.HALF_UP);
+        log.info("计算得出订单 {} 的收益金额为: {}", order.getOrderNumber(), earningAmount);
+
+        // Check if amount is zero or negative, though saving should still work
+        if (earningAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("订单 {} 计算出的收益金额为零或负数: {}，仍将尝试创建记录。", order.getOrderNumber(), earningAmount);
         }
-        
-        // 创建收益记录
+
         Earning earning = Earning.builder()
                 .host(order.getHomestay().getOwner())
                 .homestay(order.getHomestay())
                 .order(order)
-                .amount(order.getTotalAmount())
+                .amount(earningAmount)
                 .checkInDate(order.getCheckInDate())
                 .checkOutDate(order.getCheckOutDate())
                 .nights(order.getNights())
-                .status("SETTLED")
+                .status("PENDING") // 初始状态为 PENDING
+                // isTest 字段默认应为 false 或 null，除非是测试数据
                 .build();
-        
-        Earning savedEarning = earningRepository.save(earning);
-        return convertToDTO(savedEarning);
+        log.debug("准备保存的 Earning 对象: {}", earning);
+
+        try {
+            Earning savedEarning = earningRepository.save(earning);
+            log.info("成功为订单 {} 创建待结算收益记录 ID: {}",
+                    order.getOrderNumber(), savedEarning.getId());
+            return convertToDTO(savedEarning);
+        } catch (Exception e) {
+            // Log the full stack trace for better debugging
+            log.error("保存订单 {} 的收益记录时发生严重错误: {}", order.getOrderNumber(), e.getMessage(), e);
+             // Consider re-throwing a specific exception or returning an error indicator
+             // For now, returning null as before, but the detailed log is crucial
+            return null;
+        }
     }
     
-    // 工具方法：将 Earning 实体转换为 EarningDTO
+    @Override
+    @Transactional // 添加事务注解
+    public int settleHostEarnings(String hostUsername) {
+        log.info("开始为用户 {} 结算收益...", hostUsername);
+        User host = userRepository.findByUsername(hostUsername)
+                .orElseThrow(() -> {
+                     log.error("结算收益失败：找不到用户 {}", hostUsername);
+                     return new ResourceNotFoundException("用户不存在: " + hostUsername);
+                 });
+
+        // 移除日期检查: LocalDate today = LocalDate.now();
+        log.debug("查找用户 {} 所有状态为 PENDING 的收益记录", host.getUsername());
+
+        // 使用 Specification 查询，不再检查退房日期
+        Specification<Earning> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("host"), host));
+            predicates.add(cb.equal(root.get("status"), "PENDING"));
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        List<Earning> eligibleEarnings = earningRepository.findAll(spec);
+
+        if (eligibleEarnings.isEmpty()) {
+            log.info("用户 {} 没有需要结算的收益记录。", hostUsername);
+            return 0;
+        }
+
+        log.info("找到 {} 条符合结算条件的收益记录，准备更新状态为 SETTLED...", eligibleEarnings.size());
+
+        for (Earning earning : eligibleEarnings) {
+            earning.setStatus("SETTLED");
+            // updatedAt 字段应该由 @UpdateTimestamp 自动更新
+        }
+
+        try {
+            earningRepository.saveAll(eligibleEarnings);
+            log.info("成功结算了 {} 条用户 {} 的收益记录。", eligibleEarnings.size(), hostUsername);
+            return eligibleEarnings.size();
+        } catch (Exception e) {
+            log.error("批量保存结算后的收益记录时出错 (用户: {}): {}", hostUsername, e.getMessage(), e);
+            // 这里可以考虑抛出异常让 Controller 层捕获并返回错误信息
+            // 或者根据业务需求决定是否部分成功也算成功
+            throw new RuntimeException("结算收益时数据库更新失败", e); // 抛出运行时异常
+        }
+    }
+    
     private EarningDTO convertToDTO(Earning earning) {
+        if (earning == null) {
+            return null;
+        }
+        // Safely access guest information
+        User guest = earning.getOrder() != null ? earning.getOrder().getGuest() : null;
+        String guestName = guest != null ? (guest.getNickname() != null ? guest.getNickname() : guest.getUsername()) : "未知"; // Use nickname if available, else username
+        
         return EarningDTO.builder()
                 .id(earning.getId())
-                .orderNumber(earning.getOrder().getOrderNumber())
+                .hostId(earning.getHost().getId())
                 .homestayId(earning.getHomestay().getId())
                 .homestayTitle(earning.getHomestay().getTitle())
-                .guestName(earning.getOrder().getGuest().getUsername())
+                .orderId(earning.getOrder().getId())
+                .orderNumber(earning.getOrder().getOrderNumber())
+                .guestName(guestName) // Populate guestName
+                .amount(earning.getAmount())
                 .checkInDate(earning.getCheckInDate())
                 .checkOutDate(earning.getCheckOutDate())
                 .nights(earning.getNights())
-                .amount(earning.getAmount())
                 .status(earning.getStatus())
-                .createTime(earning.getCreatedAt())
+                .createdAt(earning.getCreatedAt())
                 .build();
     }
 } 

@@ -14,8 +14,8 @@
                     </el-select>
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="handleFilter">筛选</el-button>
-                    <el-button @click="resetFilter">重置</el-button>
+                    <el-button type="primary" @click="handleFilter" :icon="Search">筛选</el-button>
+                    <el-button @click="resetFilter" :icon="Refresh">重置</el-button>
                 </el-form-item>
             </el-form>
         </div>
@@ -26,19 +26,27 @@
                 <template #default="scope">
                     <div class="user-info">
                         <el-avatar :size="30" :src="scope.row.userAvatar" />
-                        <span>{{ scope.row.userName }}</span>
+                        <span style="margin-left: 5px;">{{ scope.row.userName }}</span>
                     </div>
                 </template>
             </el-table-column>
-            <el-table-column prop="homestayTitle" label="民宿" width="180" />
+            <el-table-column prop="homestayTitle" label="民宿" width="180" show-overflow-tooltip />
             <el-table-column prop="rating" label="评分" width="100">
                 <template #default="scope">
-                    <el-rate v-model="scope.row.rating" disabled />
+                    <el-rate :model-value="scope.row.rating" disabled size="small" />
                 </template>
             </el-table-column>
             <el-table-column prop="content" label="评价内容" show-overflow-tooltip />
-            <el-table-column prop="createTime" label="评价时间" width="180" />
-            <el-table-column label="操作" width="180">
+            <el-table-column prop="createTime" label="评价时间" width="160">
+                <template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template>
+            </el-table-column>
+            <el-table-column label="可见性" width="100" align="center">
+                <template #default="scope">
+                    <el-switch v-model="scope.row.isPublic" :active-value="true" :inactive-value="false"
+                        :loading="scope.row.visibilityLoading" @change="handleVisibilityChange(scope.row)" />
+                </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right" align="center">
                 <template #default="scope">
                     <el-button size="small" @click="handleDetail(scope.row)">查看</el-button>
                     <el-button size="small" type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
@@ -46,9 +54,11 @@
             </el-table-column>
         </el-table>
 
-        <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]"
-            layout="total, sizes, prev, pager, next, jumper" :total="total" @size-change="handleSizeChange"
-            @current-change="handleCurrentChange" />
+        <div class="pagination-container">
+            <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize"
+                :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" :total="total"
+                @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+        </div>
 
         <!-- 评价详情弹窗 -->
         <el-dialog title="评价详情" v-model="dialogVisible" width="600px">
@@ -85,112 +95,152 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { getReviewList, deleteReview } from '@/api/review'
+import { getAdminReviewList, deleteReview, setReviewVisibility } from '@/api/review'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Refresh } from '@element-plus/icons-vue'
+import dayjs from 'dayjs'
 
 interface ReviewFilterForm {
-    rating: string | number;
-    status: string;
-    [key: string]: string | number;
+    rating: number | null;
+    status: string | null;
 }
 
-interface Review {
+interface ReviewItem {
     id: number;
     userName: string;
-    userAvatar: string;
+    userAvatar?: string;
     homestayTitle: string;
     rating: number;
     content: string;
     createTime: string;
+    response?: string | null;
+    responseTime?: string | null;
+    isPublic: boolean;
+    visibilityLoading?: boolean;
     images?: string[];
-    response?: string;
-    responseTime?: string;
 }
 
-// 筛选表单
 const filterForm = reactive<ReviewFilterForm>({
-    rating: '',
-    status: ''
+    rating: null,
+    status: null,
 })
 
-// 分页参数
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
-const loading = ref(false)
+const loading = ref(true)
 
-// 评价列表
-const reviewList = ref<Review[]>([])
+const reviewList = ref<ReviewItem[]>([])
 
-// 详情弹窗
 const dialogVisible = ref(false)
-const currentReview = ref<Review | null>(null)
+const currentReview = ref<ReviewItem | null>(null)
 
-// 获取评价列表
 const fetchReviews = async () => {
     loading.value = true
     try {
         const params = {
             page: currentPage.value - 1,
             size: pageSize.value,
-            ...filterForm
+            rating: filterForm.rating,
+            status: filterForm.status,
+            sort: 'createTime,desc'
         }
-        const { data } = await getReviewList(params)
-        reviewList.value = data.content || []
-        total.value = data.totalElements || 0
+        const response = await getAdminReviewList(params)
+
+        console.log("[DEBUG] Received Data (response variable):", response);
+        console.log("[DEBUG] Type of response:", typeof response);
+
+        if (response && response.content) {
+            reviewList.value = response.content.map((r: ReviewItem) => ({ ...r, visibilityLoading: false }))
+            total.value = response.totalElements || 0
+        } else {
+            reviewList.value = []
+            total.value = 0
+            console.warn("获取管理员评价列表数据无效或为空")
+        }
     } catch (error) {
         console.error('获取评价列表失败:', error)
         ElMessage.error('获取评价列表失败')
+        reviewList.value = []
+        total.value = 0
     } finally {
         loading.value = false
     }
 }
 
-// 筛选处理
+const handleVisibilityChange = async (review: ReviewItem) => {
+    const newVisibility = review.isPublic
+    const actionText = newVisibility ? '显示' : '隐藏'
+    review.visibilityLoading = true
+
+    try {
+        await setReviewVisibility(review.id, newVisibility)
+        ElMessage.success(`评价 ${actionText} 成功`)
+    } catch (error: any) {
+        console.error(`设置评价可见性失败 (ID: ${review.id}):`, error)
+        ElMessage.error(`设置评价可见性失败: ${error?.response?.data?.message || error.message}`)
+        review.isPublic = !newVisibility
+    } finally {
+        review.visibilityLoading = false
+    }
+}
+
 const handleFilter = () => {
     currentPage.value = 1
     fetchReviews()
 }
 
-// 重置筛选
 const resetFilter = () => {
-    filterForm.rating = ''
-    filterForm.status = ''
+    filterForm.rating = null
+    filterForm.status = null
     handleFilter()
 }
 
-// 页码变化
 const handleCurrentChange = (val: number) => {
+    currentPage.value = val
     fetchReviews()
 }
 
-// 每页条数变化
 const handleSizeChange = (val: number) => {
+    pageSize.value = val
+    currentPage.value = 1
     fetchReviews()
 }
 
-// 查看详情
-const handleDetail = (row: Review) => {
+const handleDetail = (row: ReviewItem) => {
     currentReview.value = row
     dialogVisible.value = true
 }
 
-// 删除评价
 const handleDelete = (id: number) => {
-    ElMessageBox.confirm('确定要删除该评价吗？', '提示', {
-        confirmButtonText: '确定',
+    ElMessageBox.confirm('确定要删除该评价吗？删除后不可恢复。', '警告', {
+        confirmButtonText: '确定删除',
         cancelButtonText: '取消',
         type: 'warning'
     }).then(async () => {
+        loading.value = true
         try {
             await deleteReview(id)
             ElMessage.success('删除成功')
+            const remainingItems = reviewList.value.length - 1
+            if (remainingItems === 0 && currentPage.value > 1) {
+                currentPage.value -= 1
+            }
             fetchReviews()
-        } catch (error) {
+        } catch (error: any) {
             console.error('删除评价失败:', error)
-            ElMessage.error('删除评价失败')
+            ElMessage.error(`删除评价失败: ${error?.response?.data?.message || error.message}`)
+        } finally {
+            loading.value = false
         }
-    }).catch(() => { })
+    }).catch(() => {
+        ElMessage.info('已取消删除')
+    })
+}
+
+const formatDateTime = (dateString?: string | null) => {
+    if (!dateString) return ''
+    return dayjs(dateString).format('YYYY-MM-DD HH:mm')
 }
 
 onMounted(() => {
@@ -203,16 +253,26 @@ onMounted(() => {
     padding: 20px;
 
     .filter-container {
+        background-color: #f5f7fa;
+        padding: 15px;
+        border-radius: 4px;
         margin-bottom: 20px;
     }
 
     .user-info {
         display: flex;
         align-items: center;
+    }
 
-        .el-avatar {
-            margin-right: 10px;
-        }
+    .el-pagination {
+        margin-top: 20px;
+        justify-content: flex-end;
+    }
+
+    .pagination-container {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
     }
 
     .review-detail {
@@ -221,9 +281,13 @@ onMounted(() => {
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
 
             .user-info {
                 display: flex;
+                align-items: center;
+                gap: 10px;
 
                 .username {
                     font-weight: bold;
@@ -234,40 +298,55 @@ onMounted(() => {
                     color: #999;
                 }
             }
+
+            .rating .el-rate {
+                height: auto;
+            }
         }
 
         .review-content {
             margin-bottom: 15px;
             white-space: pre-wrap;
+            line-height: 1.6;
         }
 
         .review-images {
             display: flex;
             flex-wrap: wrap;
+            gap: 10px;
             margin-bottom: 15px;
 
             .review-image {
                 width: 100px;
                 height: 100px;
-                margin-right: 10px;
-                margin-bottom: 10px;
+                border-radius: 4px;
+                cursor: pointer;
             }
         }
 
         .review-reply {
-            background: #f5f7fa;
-            padding: 15px;
+            background-color: #f8f8f8;
             border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
 
             .reply-header {
                 font-weight: bold;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
+                color: #333;
+            }
+
+            .reply-content {
+                white-space: pre-wrap;
+                line-height: 1.6;
+                color: #555;
+                margin-bottom: 8px;
             }
 
             .reply-time {
                 font-size: 12px;
                 color: #999;
-                margin-top: 5px;
+                text-align: right;
             }
         }
     }

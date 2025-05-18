@@ -5,7 +5,7 @@ import com.homestay3.homestaybackend.dto.PasswordChangeRequest;
 import com.homestay3.homestaybackend.dto.ProfileUpdateRequest;
 import com.homestay3.homestaybackend.dto.UserDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.VerificationStatus;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.UserService;

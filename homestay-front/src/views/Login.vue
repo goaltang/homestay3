@@ -56,7 +56,7 @@ import { ref, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import type { FormInstance } from "element-plus";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElLoading } from "element-plus";
 import Logo from "@/components/Logo.vue";
 
 const router = useRouter();
@@ -84,64 +84,80 @@ const rules = {
 const handleLogin = async () => {
   if (!loginFormRef.value) return;
 
+  let loadingInstance: any = null;
+
   try {
     await loginFormRef.value.validate();
-    loading.value = true;
+    loadingInstance = ElLoading.service({
+        lock: true,
+        text: '正在登录...',
+        background: 'rgba(0, 0, 0, 0.7)',
+    });
 
     console.log("表单验证通过，正在尝试登录:", loginForm);
 
     const success = await userStore.login(loginForm.username, loginForm.password);
 
     if (success) {
-      console.log("登录成功，用户信息:", userStore.userInfo);
-      console.log("用户角色:", userStore.userInfo?.role);
-      console.log("isLandlord:", userStore.isLandlord);
+      console.log("登录成功，准备获取用户信息:", userStore.userInfo);
 
-      ElMessage.success("登录成功");
+      try {
+        // 登录成功后立即获取完整的用户信息
+        await userStore.fetchUserInfo();
+        console.log("已成功获取完整用户信息:", userStore.userInfo);
+        loadingInstance?.close();
+        ElMessage.success("登录成功");
 
-      // 给页面一点时间更新用户状态
-      setTimeout(() => {
-        try {
-          // 获取最新的认证和角色状态
-          const userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
-          const isLandlord = userInfo?.role &&
-            ['ROLE_LANDLORD', 'ROLE_HOST', 'LANDLORD', 'HOST'].includes(userInfo.role.toUpperCase());
+        // 获取最新的用户角色信息 (从 store 获取更可靠)
+        const role = userStore.userInfo?.role || ''; // 使用 userStore 的最新数据
+        const isLandlord = ['ROLE_LANDLORD', 'ROLE_HOST', 'LANDLORD', 'HOST'].includes(role.toUpperCase());
 
-          console.log("登录后导航检查:", {
-            role: userInfo?.role,
-            isLandlord,
-            redirectPath: router.currentRoute.value.query.redirect
-          });
+        console.log("登录后导航检查:", {
+          role: role,
+          isLandlord,
+          redirectPath: router.currentRoute.value.query.redirect
+        });
 
-          // 检查用户角色并导航到相应页面
-          if (isLandlord) {
-            console.log("当前用户是房东，直接刷新页面并跳转到房东中心");
-            // 使用location.href确保完全刷新页面，解决状态同步问题
-            window.location.href = "/host";
+        // 使用 Vue Router 进行导航
+        if (isLandlord) {
+          console.log("导航到房东中心: /host");
+          router.push('/host');
+        } else {
+          const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
+          if (redirectPath) {
+            console.log("导航到重定向路径:", redirectPath);
+            router.push(redirectPath);
           } else {
-            // 检查是否有重定向参数
-            const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
-            if (redirectPath) {
-              window.location.href = redirectPath;
-            } else {
-              // 默认跳转到首页
-              window.location.href = "/";
-            }
+            console.log("导航到首页: /");
+            router.push('/');
           }
-        } catch (navError) {
-          console.error("导航错误:", navError);
-          // 导航失败时回退到安全页面
-          window.location.href = "/";
         }
-      }, 500); // 增加延迟，确保状态完全更新
+
+      } catch (fetchError) {
+        // 获取用户信息失败，很可能是 token 问题
+        console.error("登录后获取用户信息失败:", fetchError);
+        loadingInstance?.close();
+        ElMessage.error("获取用户信息失败，请重新登录");
+        userStore.logout();
+      }
+
     } else {
-      ElMessage.error("登录失败：用户名或密码错误");
+      // userStore.login 本身返回 false (例如后端返回 401 或其他错误)
+      loadingInstance?.close();
+      ElMessage.error("登录失败：无法连接到服务器或发生未知错误");
     }
   } catch (error: any) {
+    loadingInstance?.close();
     console.error("登录出错:", error);
-    ElMessage.error(error.message || "登录失败，请重试");
+    if (error.message && error.message.includes("用户名或密码错误")) {
+        ElMessage.error(error.message);
+    } else {
+        ElMessage.error(error.message || "登录失败，请检查输入或稍后重试");
+    }
   } finally {
-    loading.value = false;
+    if (loadingInstance) {
+        loadingInstance.close();
+    }
   }
 };
 

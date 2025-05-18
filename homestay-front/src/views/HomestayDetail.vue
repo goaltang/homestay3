@@ -20,13 +20,13 @@
                             <Star />
                         </el-icon>
                         <span>{{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }}</span>
-                        <span class="review-count">({{ homestay.reviewCount }}条评价)</span>
+                        <span class="review-count">({{ homestay.reviewCount ?? 0 }}条评价)</span>
                     </div>
                     <div class="location">
                         <el-icon>
                             <Location />
                         </el-icon>
-                        <span>{{ homestay.location }}</span>
+                        <span>{{ homestay.location || homestay.address || '未知地点' }}</span>
                     </div>
                 </div>
                 <div class="actions">
@@ -45,40 +45,68 @@
                 </div>
             </div>
 
-            <!-- 图片区域 -->
-            <div class="image-gallery">
-                <div class="gallery-container">
-                    <div class="main-image" @click="showAllPhotos">
-                        <img :src="getMainImage()" :alt="homestay.title" />
-                        <div class="image-overlay">
-                            <div class="overlay-content">
-                                <el-icon>
-                                    <ZoomIn />
-                                </el-icon>
-                            </div>
-                        </div>
+            <!-- 图片区域 - 重构 -->
+            <div class="image-gallery-new" v-if="allProcessedImages.length > 0">
+                <!-- 5+ images -->
+                <div class="gallery-layout-5plus" v-if="allProcessedImages.length >= 5">
+                    <div class="main-image-wrapper" @click="showAllPhotos">
+                        <img :src="mainImageUrl" :alt="homestay.title" class="main-img" />
+                        <div class="image-overlay"></div>
                     </div>
-                    <div class="image-grid">
-                        <div v-for="(image, index) in getSubImages()" :key="index" class="sub-image"
+                    <div class="grid-image-wrapper">
+                        <div v-for="(image, index) in gridImageUrls.slice(0, 4)" :key="index" class="grid-img-item"
                             @click="showAllPhotos">
-                            <img :src="image" :alt="`${homestay.title} - 图片 ${index + 1}`" />
-                            <div class="image-overlay">
-                                <div class="overlay-content">
-                                    <el-icon>
-                                        <ZoomIn />
-                                    </el-icon>
-                                </div>
-                            </div>
+                            <img :src="image" :alt="`${homestay.title} - 图片 ${index + 2}`" class="grid-img" />
+                            <div class="image-overlay"></div>
                         </div>
                     </div>
                 </div>
-                <el-button class="view-all-photos" @click="showAllPhotos">
+
+                <!-- 4 images -->
+                <div v-else-if="allProcessedImages.length === 4" class="gallery-layout-4" @click="showAllPhotos">
+                    <div v-for="(image, index) in allProcessedImages" :key="index" class="grid-img-item-4">
+                        <img :src="image" :alt="`${homestay.title} - 图片 ${index + 1}`" class="grid-img-4" />
+                        <div class="image-overlay"></div>
+                    </div>
+                </div>
+
+                <!-- 3 images -->
+                <div v-else-if="allProcessedImages.length === 3" class="gallery-layout-3" @click="showAllPhotos">
+                    <div v-for="(image, index) in allProcessedImages" :key="index" class="grid-img-item-3">
+                        <img :src="image" :alt="`${homestay.title} - 图片 ${index + 1}`" class="grid-img-3" />
+                        <div class="image-overlay"></div>
+                    </div>
+                </div>
+
+                <!-- 2 images -->
+                <div v-else-if="allProcessedImages.length === 2" class="gallery-layout-2" @click="showAllPhotos">
+                    <div v-for="(image, index) in allProcessedImages" :key="index" class="grid-img-item-2">
+                        <img :src="image" :alt="`${homestay.title} - 图片 ${index + 1}`" class="grid-img-2" />
+                        <div class="image-overlay"></div>
+                    </div>
+                </div>
+
+                <!-- 1 image -->
+                <div v-else-if="allProcessedImages.length === 1" class="gallery-layout-1" @click="showAllPhotos">
+                    <div class="main-image-wrapper-single">
+                        <img :src="mainImageUrl" :alt="homestay.title" class="main-img-single" />
+                        <div class="image-overlay"></div>
+                    </div>
+                </div>
+
+                <!-- '查看全部照片' 按钮 - 仅在多于一张图片时显示 -->
+                <el-button class="view-all-photos" @click="showAllPhotos" v-if="allProcessedImages.length > 1">
                     <el-icon>
                         <Camera />
                     </el-icon>
                     查看全部 {{ homestay.images ? homestay.images.length : 0 }} 张照片
                 </el-button>
             </div>
+            <!-- Fallback if no images processed (should generally not happen if homestay exists) -->
+            <div v-else class="no-images-placeholder">
+                <el-empty description="暂无房源图片"></el-empty>
+            </div>
+            <!-- End of Image Gallery -->
 
             <!-- 内容区域 -->
             <div class="detail-content">
@@ -90,7 +118,7 @@
                                 :alt="homestay.hostName">
                         </div>
                         <div class="host-brief-info">
-                            <h3>{{ homestay.hostName || '房东' }}是星级旅居主人</h3>
+                            <h3>{{ homestay.hostName || '暂无房东信息' }}是星级旅居主人</h3>
                             <p>星级旅居主人接待经验丰富、深获旅人好评，他们致力为旅人提供优质的住宿体验。</p>
                         </div>
                     </div>
@@ -104,7 +132,7 @@
                                 <House />
                             </el-icon>
                             <div class="feature-text">
-                                <h3>整套{{ homestay.propertyType }}</h3>
+                                <h3>整套房源</h3>
                                 <p>您将拥有整个空间，享受私密住宿体验。</p>
                             </div>
                         </div>
@@ -114,7 +142,8 @@
                             </el-icon>
                             <div class="feature-text">
                                 <h3>绝佳位置</h3>
-                                <p>距离市中心仅{{ homestay.distanceFromCenter }}公里。</p>
+                                <p v-if="homestay.distanceFromCenter">距离市中心仅{{ homestay.distanceFromCenter }}公里。</p>
+                                <p v-else>地理位置优越。</p>
                             </div>
                         </div>
                         <div class="feature-item">
@@ -146,7 +175,7 @@
                                 <el-icon>
                                     <Check />
                                 </el-icon>
-                                <span>{{ formatAmenity(amenity) }}</span>
+                                <span>{{ amenity.label }}</span>
                             </div>
                         </div>
                     </div>
@@ -158,13 +187,13 @@
                 <div class="booking-card">
                     <div class="booking-card-header">
                         <div class="price-info">
-                            <span class="price">¥{{ homestay.pricePerNight }}</span>
+                            <span class="price">¥{{ parsedPricePerNight }}</span>
                             <span class="night">/晚</span>
                         </div>
                         <div class="rating-info">
                             <el-rate v-model="homestay.rating" disabled text-color="#FF9900"
                                 disabled-void-color="#C6D1DE" />
-                            <span class="review-link">{{ homestay.reviewCount }}条评价</span>
+                            <span class="review-link">{{ homestay.reviewCount ?? 0 }}条评价</span>
                         </div>
                     </div>
 
@@ -182,8 +211,8 @@
 
                         <div class="guest-selector-container">
                             <div class="guest-selector-label">房客</div>
-                            <el-select v-model="bookingDates.guests" placeholder="1位房客" @change="calculateTotalPrice"
-                                :size="'large'" class="guest-dropdown">
+                            <el-select v-model="bookingDates.guests" placeholder="1位房客" :size="'large'"
+                                class="guest-dropdown">
                                 <el-option v-for="i in homestay.maxGuests" :key="i" :label="`${i}位房客`" :value="i" />
                             </el-select>
                         </div>
@@ -196,7 +225,7 @@
 
                     <div class="price-breakdown" v-if="totalNights > 0">
                         <div class="price-row">
-                            <div class="price-item">¥{{ homestay.pricePerNight }} x {{ totalNights }}晚</div>
+                            <div class="price-item">¥{{ parsedPricePerNight }} x {{ totalNights }}晚</div>
                             <div class="price-value">¥{{ basePrice }}</div>
                         </div>
                         <div class="price-row">
@@ -229,8 +258,8 @@
                 <div class="map-container">
                     <img src="https://picsum.photos/800/400" alt="地图" class="map-placeholder" />
                 </div>
-                <p>{{ homestay.location }}</p>
-                <p>距离市中心{{ homestay.distanceFromCenter }}公里</p>
+                <p>{{ homestay.location || homestay.address || '具体位置请参考地图' }}</p>
+                <p v-if="homestay.distanceFromCenter">距离市中心{{ homestay.distanceFromCenter }}公里</p>
             </div>
 
             <el-divider />
@@ -238,106 +267,116 @@
             <!-- 房东详细信息（靠下）- 调整为全宽度 -->
             <div class="full-width-section host-section">
                 <h2>旅居主人简介</h2>
-                <div class="host-detail-layout">
+                <!-- 添加 v-if="hostDetailInfo" 确保数据加载后再渲染 -->
+                <div v-if="hostDetailInfo" class="host-detail-layout">
+                    <!-- 左侧卡片: 头像, 姓名, 统计数据 -->
                     <div class="host-left-card">
                         <div class="host-profile-card">
                             <div class="host-profile-avatar">
-                                <img :src="homestay.hostAvatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
-                                    :alt="homestay.hostName">
-                                <div class="host-badge" v-if="true">
-                                    <el-icon>
-                                        <Star />
-                                    </el-icon>
-                                </div>
+                                <!-- 优先使用 hostDetailInfo 的头像 -->
+                                <img :src="hostDetailInfo.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
+                                    :alt="hostDetailInfo.nickname || hostDetailInfo.username || '房东'">
                             </div>
-                            <div class="host-name">{{ homestay.hostName || 'Chandra Datt' }}</div>
-                            <div class="host-badge-text">
-                                <el-icon>
-                                    <Trophy />
-                                </el-icon>
-                                <span>星级旅居主人</span>
+                            <!-- 优先用 nickname，其次 username -->
+                            <div class="host-name">{{ hostDetailInfo.nickname || hostDetailInfo.username || '房东' }}
+                            </div>
+                            <!-- Optional: Display verification status if available -->
+                            <div class="host-verification" v-if="hostDetailInfo.verification_status === 'VERIFIED'">
+                                <el-tag type="success" size="small"><el-icon>
+                                        <Check />
+                                    </el-icon> 已认证</el-tag>
+                            </div>
+                            <div class="host-verification" v-else-if="hostDetailInfo.verification_status">
+                                <!-- Can customize display based on other statuses -->
+                                <el-tag type="warning" size="small">{{ hostDetailInfo.verification_status }}</el-tag>
                             </div>
                         </div>
 
+                        <!-- 调整统计数据项 -->
                         <div class="host-stats">
+                            <!-- 评价数 -->
                             <div class="host-stat-item">
-                                <div class="stat-label">评分</div>
-                                <div class="stat-value">{{ homestay.hostRating || '4.82' }}★</div>
+                                <div class="stat-label">评价</div>
+                                <!-- Use reviewCount from hostDetailInfo -->
+                                <div class="stat-value">{{ hostDetailInfo.reviewCount ?? 0 }} 条</div>
                             </div>
+                            <!-- 房源数 -->
                             <div class="host-stat-item">
-                                <div class="stat-label">接待</div>
-                                <div class="stat-value">{{ homestay.hostAccommodations || '435' }}间</div>
+                                <div class="stat-label">房源</div>
+                                <div class="stat-value">{{ hostDetailInfo.homestayCount ?? '-' }} 间</div>
                             </div>
-                            <div class="host-stat-item">
-                                <div class="stat-label">接待经验</div>
-                                <div class="stat-value">{{ homestay.hostYears || '3' }}年</div>
+                            <!-- 订单数 (可选展示) -->
+                            <div class="host-stat-item"
+                                v-if="hostDetailInfo.orderCount !== null && hostDetailInfo.orderCount !== undefined">
+                                <div class="stat-label">订单</div>
+                                <div class="stat-value">{{ hostDetailInfo.orderCount }} 单</div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- 右侧信息: 简介, 伙伴, 详情, 联系按钮 -->
                     <div class="host-right-info">
+                        <!-- 简介 (使用 introduction 字段) -->
                         <div class="host-intro">
-                            <h3>{{ homestay.hostName || 'Chandra Datt' }}是星级旅居主人</h3>
-                            <p>星级旅居主人接待经验丰富、深获旅人好评，他们致力为旅人提供优质的住宿体验。</p>
+                            <!-- 使用与左侧卡片一致的名称逻辑 -->
+                            <h3>关于 {{ hostDetailInfo.nickname || hostDetailInfo.username || '房东' }}</h3>
+                            <p>{{ hostDetailInfo.introduction || '这位房东比较内向，还没有填写简介哦~' }}</p>
                         </div>
 
-                        <div class="host-companions">
+                        <!-- 接待伙伴 (使用计算属性 parsedCompanions) - v-if 会处理空数组 -->
+                        <div class="host-companions" v-if="parsedCompanions.length > 0">
                             <h4>接待伙伴</h4>
                             <div class="companions-list">
-                                <div class="companion-item" v-for="(companion, index) in hostCompanions" :key="index">
+                                <div class="companion-item" v-for="(companion, index) in parsedCompanions" :key="index">
                                     <div class="companion-avatar">
-                                        <img :src="companion.avatar" :alt="companion.name">
+                                        <img :src="companion.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
+                                            :alt="companion.name">
                                     </div>
                                     <div class="companion-name">{{ companion.name }}</div>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- 房东详情 - 移除回复率/时间，保留加入时间和语言 -->
                         <div class="host-details">
-                            <h4>旅居主人详情</h4>
-                            <div class="host-detail-info">
-                                <div class="detail-item">
-                                    <div class="detail-label">回复率:</div>
-                                    <div class="detail-value">{{ homestay.hostResponseRate || '98%' }}</div>
+                            <h4>房东信息</h4>
+                            <!-- 添加 v-if 判断是否有任何有效信息 -->
+                            <div class="host-detail-info"
+                                v-if="hostDetailInfo.hostSince || (parsedLanguages && parsedLanguages.length > 0)">
+                                <!-- 加入时间 (格式化) -->
+                                <div class="detail-item" v-if="hostDetailInfo.hostSince">
+                                    <div class="detail-label">加入时间:</div>
+                                    <div class="detail-value">{{ formatDisplayDate(hostDetailInfo.hostSince) }}</div>
                                 </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">回复时间:</div>
-                                    <div class="detail-value">{{ homestay.hostResponseTime || '几小时内' }}</div>
+                                <!-- 语言 (使用计算属性) - v-if 处理空数组 -->
+                                <div class="detail-item" v-if="parsedLanguages.length > 0">
+                                    <div class="detail-label">语言:</div>
+                                    <div class="detail-value">{{ parsedLanguages.join(', ') }}</div>
                                 </div>
                             </div>
+                            <!-- 如果没有详细信息，可以显示提示 -->
+                            <p v-else>暂无更多详细信息。</p>
                         </div>
 
+                        <!-- 联系按钮 -->
                         <div class="host-contact">
                             <el-button type="primary" class="contact-button" @click="contactHost">
-                                发送讯息给旅居主人
+                                发送讯息给房东
                             </el-button>
                         </div>
 
+                        <!-- 安全提示 -->
                         <div class="host-safety-note">
                             <el-icon>
                                 <InfoFilled />
                             </el-icon>
-                            <p>为保障您的安全，发话前请通过平台，请勿透露旅客或旅居主人连络资料。</p>
+                            <p>为保障您的安全，请始终通过平台沟通，切勿在线下分享联系方式或付款。</p>
                         </div>
                     </div>
                 </div>
-
-                <div class="host-footer">
-                    <div class="host-footer-left">
-                        <div class="host-small-avatar">
-                            <img :src="homestay.hostAvatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
-                                :alt="homestay.hostName">
-                            <div class="verified-badge" v-if="true">
-                                <el-icon>
-                                    <Check />
-                                </el-icon>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="host-footer-right">
-                        <div class="host-title">旅居主人：{{ homestay.hostName || 'Chandra Datt' }}</div>
-                        <div class="host-subtitle">星级旅居主人・{{ homestay.hostYears || '3' }}年接待经验</div>
-                    </div>
+                <!-- 如果 hostDetailInfo 加载失败或不存在，可以显示提示 -->
+                <div v-else-if="!loading && homestay">
+                    <p>暂无详细房东信息。</p> <!-- Or a loading spinner specifically for host info -->
                 </div>
             </div>
 
@@ -350,7 +389,7 @@
                         <el-icon>
                             <Star />
                         </el-icon>
-                        {{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }} · {{ homestay.reviewCount }}条评价
+                        {{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }} · {{ homestay.reviewCount ?? 0 }}条评价
                     </h2>
                 </div>
 
@@ -378,7 +417,7 @@
                                 </div>
                                 <div class="reviewer-details">
                                     <div class="reviewer-name">{{ review.userName }}</div>
-                                    <div class="review-date">{{ formatDateString(review.createTime) }}</div>
+                                    <div class="review-date">{{ formatDisplayDate(review.createTime) }}</div>
                                 </div>
                             </div>
                             <div class="review-rating">
@@ -406,7 +445,8 @@
                 </div>
 
                 <!-- 加载更多按钮 -->
-                <div class="load-more" v-if="reviews.length > 0 && reviews.length < homestay.reviewCount">
+                <div class="load-more"
+                    v-if="homestay && reviews.length > 0 && reviews.length < (homestay.reviewCount ?? 0)">
                     <el-button @click="loadMoreReviews">加载更多评价</el-button>
                 </div>
             </div>
@@ -419,7 +459,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled, Location, Share, Picture, House, Key, Check, InfoFilled, Trophy, ZoomIn, Camera } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import request from '@/utils/request' // Assuming default request instance is okay
 import { getHomestayById } from '@/api/homestay'
 import { getHomestayReviews, getHomestayReviewStats } from '@/api/review'
 import { createOrder } from '@/api/order'
@@ -427,50 +467,48 @@ import { getHomestayHostInfo } from '@/api/host'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 
-// 定义类型
+// --- Start Local Type Definitions (Recommend exporting from API files later) ---
+
+// Simplified Homestay Type (Add ownerUsername)
 interface Homestay {
     id: number;
     title: string;
-    description: string;
-    location: string;
-    city: string;
-    country: string;
-    pricePerNight: number;
+    price: number;
     maxGuests: number;
-    bedrooms: number;
-    beds: number;
-    bathrooms: number;
-    amenities: string[];
-    images: string[];
+    images?: (string | { url: string })[];
     coverImage?: string;
-    rating: number;
-    reviewCount: number;
-    type: string;
-    province: string;
-    district: string;
-    address: string;
-    status: string;
-    featured: boolean;
-    propertyType: string;
-    distanceFromCenter: number;
-    latitude?: number;
-    longitude?: number;
-    hostName?: string;
+    reviewCount?: number;
     hostId?: number;
+    ownerId?: number;
+    hostName?: string;
+    ownerName?: string | null; // API shows it can be null
+    ownerUsername?: string | null; // Add this field based on API response
     hostAvatar?: string;
-    hostResponseRate?: number;
-    hostResponseTime?: string;
+    ownerAvatar?: string;
+    amenities?: any[];
+    description?: string;
+    location?: string;
+    rating?: number | null;
+    propertyType?: string;
+    distanceFromCenter?: number;
+    bedrooms?: number;
+    beds?: number;
+    bathrooms?: number;
+    type?: string;
+    status?: string;
+    minNights?: number;
+    province?: string;
+    city?: string;
+    district?: string;
+    address?: string;
+    featured?: boolean;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
 }
 
-interface BookingDates {
-    checkIn: Date | null;
-    checkOut: Date | null;
-    guests: number;
-}
-
+// Simplified Review Type
 interface Review {
     id: number;
-    userId: number;
     userName: string;
     avatarUrl?: string;
     rating: number;
@@ -479,695 +517,429 @@ interface Review {
     response?: string;
 }
 
-interface RatingStat {
+// Simplified Review Stat Item Type
+interface ReviewStatItem {
     name: string;
     score: number;
 }
 
-// 定义房东类型
-interface Host {
-    id: number;
-    name: string;
-    avatar: string;
-    rating: number;
-    accommodations: number;
-    years: number;
-    responseRate: string;
-    responseTime: string;
-    companions: Array<{ name: string, avatar: string }>;
+// Simplified Booking Dates Type
+interface BookingDates {
+    checkIn: Date | null;
+    checkOut: Date | null;
+    guests: number;
 }
 
+// --- FINAL Host Detail Info Type based on API response ---
+interface HostDetailInfoData {
+    id: number; // Keep for internal use if needed, but don't display
+    username?: string; // Use as fallback name
+    nickname?: string | null; // Preferred name
+    avatar?: string | null; // Host avatar
+    introduction?: string | null; // Host introduction
+    languages?: string[] | null; // Languages spoken (might be empty or null)
+    companions?: Array<{ name: string, avatar?: string }> | null; // Companions (might be empty or null)
+    hostSince?: string | Date | null; // Date joined
+    // hostRating?: number | null; // API returns null, maybe rely on homestay rating or review stats
+    homestayCount?: number | null; // Number of listings
+    reviewCount?: number | null; // Number of reviews received by host
+    // hostYears?: number | null; // API returns null
+    // hostResponseRate?: string | null; // API returns null
+    // hostResponseTime?: string | null; // API returns null
+    orderCount?: number | null; // Number of orders
+    verification_status?: string | null; // Optional: Verification status
+    // Omit sensitive fields: email, phone, realName, idCard, occupation
+    // Omit fields that are null and less critical: hostAccommodations, rating (use reviewCount/homestay rating)
+}
+
+// Type for createOrder payload (match API expectation)
+interface CreateOrderPayload {
+    homestayId: number;
+    checkInDate: string;
+    checkOutDate: string;
+    guestCount: number;
+    totalPrice: number;
+    guestName: string;
+    guestPhone: string;
+}
+
+
+// --- End Local Type Definitions ---
+
+// --- Local Utility Functions ---
+// Date Formatter for API (YYYY-MM-DD)
+const formatDateString = (date: Date | string | null): string => {
+    if (!date) return '';
+    try {
+        const d = typeof date === 'string' ? new Date(date) : date;
+        if (!(d instanceof Date) || isNaN(d.getTime())) {
+            console.error("Invalid date object for formatting:", date);
+            return '';
+        }
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0'); // Ensure 2 digits for month
+        const day = String(d.getDate()).padStart(2, '0');   // Ensure 2 digits for day
+        return `${year}-${month}-${day}`; // Use YYYY-MM-DD format
+    } catch (e) {
+        console.error("Error formatting date:", date, e);
+        return '';
+    }
+};
+// Optional: Create a separate function for display format if needed elsewhere
+const formatDisplayDate = (date: Date | string | null): string => {
+    if (!date) return '日期无效';
+    try {
+        const d = typeof date === 'string' ? new Date(date) : date;
+        if (!(d instanceof Date) || isNaN(d.getTime())) return '日期无效';
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        return `${year}年${month}月${day}日`;
+    } catch (e) {
+        return '日期格式错误';
+    }
+}
+// --- End Local Utility Functions ---
+
+
+// Refs and Stores
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore() // Initialize store
+const userStore = useUserStore() // Initialize store
+
 const loading = ref(true)
 const homestay = ref<Homestay | null>(null)
+const hostDetailInfo = ref<HostDetailInfoData | null>(null) // Use FINAL type
 const isFavorite = ref(false)
-const hostInfo = ref<Host | null>(null) // 新增房东信息状态
+const reviews = ref<Review[]>([])
+const reviewStats = ref<ReviewStatItem[]>([])
+const reviewsPage = ref(1)
+const reviewsPageSize = 5
+const allProcessedImages = ref<string[]>([])
 
+// Booking related refs
 const bookingDates = reactive<BookingDates>({
     checkIn: null,
     checkOut: null,
     guests: 1
-})
-
-const totalNights = ref(0)
-const basePrice = ref(0)
-const cleaningFee = ref(0)
-const serviceFee = ref(0)
-const totalPrice = ref(0)
-
-const reviews = ref<Review[]>([])
-const reviewStats = ref<RatingStat[]>([])
-const reviewPage = ref(0)
-const reviewSize = ref(5)
-const loadingReviews = ref(false)
-
-// 房东伙伴数据
-const hostCompanions = ref([
-    {
-        name: 'Kamal',
-        avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-    },
-    {
-        name: 'Gaurav',
-        avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-    }
-]);
-
+});
 const bookingDateRange = ref<[Date, Date] | null>(null)
 
-onMounted(async () => {
-    console.log('===== 房源详情页面已挂载 =====');
-    const id = route.params.id;
-    console.log('从路由获取的房源ID:', id);
-    if (id) {
-        try {
-            console.log('开始获取房源详情...');
-            await fetchHomestayDetails(Number(id));
+// Computed properties
+const mainImageUrl = computed(() => allProcessedImages.value.length > 0 ? allProcessedImages.value[0] : 'https://via.placeholder.com/800x600?text=No+Image');
+const gridImageUrls = computed(() => allProcessedImages.value.slice(1));
 
-            if (homestay.value?.id) {
-                console.log('准备获取房东信息...');
-                await fetchHostInfo(homestay.value.id);
-            } else {
-                console.warn('未获取到有效房源ID，跳过房东信息获取');
-            }
+// Computed property for parsed price per night
+const parsedPricePerNight = computed(() => {
+    // Ensure homestay and price exist and are valid numbers
+    // Use the 'price' field from the API response
+    if (homestay.value && typeof homestay.value.price !== 'undefined' && homestay.value.price !== null) {
+        const priceValue = Number(homestay.value.price);
+        return isNaN(priceValue) ? 0 : priceValue; // Return 0 if parsing fails
+    }
+    return 0; // Default to 0 if no valid price
+});
 
-            console.log('检查收藏状态...');
-            checkFavoriteStatus();
+// Computed property for total nights
+const totalNights = computed(() => {
+    if (bookingDates.checkIn && bookingDates.checkOut) {
+        const checkInTime = bookingDates.checkIn.getTime();
+        const checkOutTime = bookingDates.checkOut.getTime();
+        if (checkOutTime > checkInTime) {
+            const diffTime = checkOutTime - checkInTime;
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+    }
+    return 0;
+});
 
-            console.log('开始获取评价...');
-            await fetchReviews(Number(id));
+// Computed property for base price
+const basePrice = computed(() => {
+    return parsedPricePerNight.value * totalNights.value;
+});
 
-            console.log('===== 房源详情页面数据加载完成 =====');
-        } catch (error) {
-            console.error('房源详情页数据加载出错:', error);
-            ElMessage.error('加载数据时出错，请刷新页面重试');
+// Computed property for cleaning fee
+const cleaningFee = computed(() => {
+    // Calculate only if there are nights booked and a valid price
+    if (totalNights.value > 0 && parsedPricePerNight.value > 0) {
+        // Use Math.round for rounding, adjust if needed
+        return Math.round(parsedPricePerNight.value * 0.1);
+    }
+    return 0;
+});
+
+// Computed property for service fee
+const serviceFee = computed(() => {
+    // Calculate only if base price is positive
+    if (basePrice.value > 0) {
+        // Use Math.round, adjust if needed
+        return Math.round(basePrice.value * 0.05);
+    }
+    return 0;
+});
+
+// Computed property for total price
+const totalPrice = computed(() => {
+    // Ensure all components are numbers before summing
+    return basePrice.value + cleaningFee.value + serviceFee.value;
+});
+
+// Use computed properties for languages and companions (handle null/empty array)
+const parsedLanguages = computed((): string[] => {
+    // API response shows languages is [], which is already an array
+    return hostDetailInfo.value?.languages && Array.isArray(hostDetailInfo.value.languages)
+        ? hostDetailInfo.value.languages
+        : [];
+});
+
+const parsedCompanions = computed((): Array<{ name: string, avatar?: string }> => {
+    // API response shows companions is [], which is already an array
+    return hostDetailInfo.value?.companions && Array.isArray(hostDetailInfo.value.companions)
+        // Optional: add validation if needed: && hostDetailInfo.value.companions.every(item => ...)
+        ? hostDetailInfo.value.companions
+        : [];
+});
+
+
+// Methods
+const disablePastDates = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date.getTime() < today.getTime();
+};
+
+
+const handleDateRangeChange = (dates: [Date, Date] | null) => {
+    if (dates && dates.length === 2 && dates[0] && dates[1]) {
+        if (dates[1].getTime() <= dates[0].getTime()) {
+            ElMessage.warning('退房日期必须在入住日期之后');
+            bookingDateRange.value = null;
+            bookingDates.checkIn = null;
+            bookingDates.checkOut = null;
+        } else {
+            bookingDates.checkIn = dates[0];
+            bookingDates.checkOut = dates[1];
         }
     } else {
-        console.error('未找到有效的房源ID');
-        ElMessage.error('未找到房源信息');
-    }
-})
-
-const fetchHomestayDetails = async (id: number) => {
-    loading.value = true
-    try {
-        const response = await getHomestayById(id)
-        const data = response.data
-
-        // 适配后端返回的数据格式
-        homestay.value = {
-            id: data.id,
-            title: data.title || '未命名房源',
-            description: data.description || '暂无描述',
-            location: `${data.province || ''} ${data.city || ''} ${data.district || ''}`,
-            city: data.city || '',
-            country: '中国',
-            pricePerNight: parseFloat(data.price) || 0, // 确保价格是数字
-            maxGuests: data.maxGuests || 1,
-            bedrooms: 1, // 假设值
-            beds: 1, // 假设值
-            bathrooms: 1, // 假设值
-            amenities: data.amenities || [],
-            images: data.images || [data.coverImage].filter(Boolean),
-            rating: data.rating || 4.5, // 假设值
-            reviewCount: data.reviewCount || 0,
-            latitude: 0, // 假设值
-            longitude: 0, // 假设值
-            hostName: data.ownerName || '房东',
-            hostId: 1, // 假设值
-            featured: data.featured,
-            propertyType: data.type || '公寓',
-            distanceFromCenter: 3.5 // 假设值
-        }
-
-        // 日志记录房源信息
-        console.log('房源详情适配后:', homestay.value)
-
-        // 设置默认值
-        if (homestay.value) {
-            // 确保价格是数字类型
-            const pricePerNight = Number(homestay.value.pricePerNight) || 0
-            cleaningFee.value = Math.round(pricePerNight * 0.1) // 清洁费为房价的10%
-            serviceFee.value = Math.round(pricePerNight * 0.15) // 服务费为房价的15%
-
-            // 记录价格信息
-            console.log('价格设置:', {
-                pricePerNight,
-                cleaningFee: cleaningFee.value,
-                serviceFee: serviceFee.value
-            })
-        }
-    } catch (error) {
-        console.error('获取民宿详情失败:', error)
-        ElMessage.error('获取民宿详情失败')
-
-        // 使用模拟数据（当后端服务未启动时）
-        if (process.env.NODE_ENV === 'development') {
-            console.log('使用模拟数据')
-            homestay.value = {
-                id: id,
-                title: '示例民宿详情',
-                description: '这是一个示例民宿详情，用于在后端服务未启动时展示界面。这个美丽的民宿位于风景如画的地区，提供舒适的住宿环境和各种便利设施。从这里，您可以欣赏到壮丽的自然风光，体验当地的文化和美食。',
-                location: '示例位置',
-                city: '示例城市',
-                country: '中国',
-                pricePerNight: 888,
-                maxGuests: 4,
-                bedrooms: 2,
-                beds: 2,
-                bathrooms: 1,
-                amenities: ['WIFI', 'AC', 'TV', 'KITCHEN', 'WASHER', 'DRYER', 'PARKING', 'POOL'],
-                images: [
-                    'https://picsum.photos/800/600?random=10',
-                    'https://picsum.photos/800/600?random=11',
-                    'https://picsum.photos/800/600?random=12',
-                    'https://picsum.photos/800/600?random=13',
-                    'https://picsum.photos/800/600?random=14'
-                ],
-                rating: 4.8,
-                reviewCount: 120,
-                latitude: 30.0,
-                longitude: 120.0,
-                hostName: '示例房东',
-                featured: true,
-                propertyType: '公寓',
-                distanceFromCenter: 3.5
-            }
-
-            // 设置默认清洁费和服务费
-            const pricePerNight = Number(homestay.value.pricePerNight) || 0
-            cleaningFee.value = Math.round(pricePerNight * 0.1)
-            serviceFee.value = Math.round(pricePerNight * 0.15)
-        }
-    } finally {
-        loading.value = false
-        console.log('房源详情:', homestay.value)
+        bookingDates.checkIn = null;
+        bookingDates.checkOut = null;
     }
 }
-
-const getMainImage = () => {
-    // 始终优先使用封面图片作为主图显示
-    if (homestay.value && homestay.value.coverImage) {
-        console.log('使用封面图片作为主图:', homestay.value.coverImage);
-        return processImageUrl(homestay.value.coverImage);
-    }
-
-    // 没有封面图片时才使用图片集的第一张
-    if (homestay.value && homestay.value.images && homestay.value.images.length > 0) {
-        const validImages = homestay.value.images.filter(img => img !== null && img !== undefined);
-        if (validImages.length > 0) {
-            return processImageUrl(validImages[0]);
-        }
-    }
-
-    // 都没有时使用默认图片
-    return 'https://picsum.photos/800/600';
-}
-
-// 处理图片路径
-const processImageUrl = (image: string) => {
-    if (!image) {
-        return 'https://picsum.photos/800/600';
-    }
-
-    // 检查图片路径格式
-    if (typeof image === 'string') {
-        if (image.startsWith('http')) {
-            return image;
-        } else if (image.startsWith('/uploads/')) {
-            return `/api${image}`;
-        } else if (image.startsWith('/homestays/')) {
-            return `/api${image}`;
-        } else if (!image.startsWith('/')) {
-            // 如果是纯文件名，检查是否有效
-            const filename = image.split('/').pop();
-            if (!filename || filename.trim() === '') {
-                return 'https://picsum.photos/800/600';
-            }
-            return `/api/uploads/homestays/${filename}`;
-        } else {
-            // 其他以/开头的路径
-            return `/api${image}`;
-        }
-    }
-
-    return 'https://picsum.photos/800/600';
-}
-
-const getSubImages = () => {
-    // 子图仅使用图片集的图片，不使用封面图片
-    if (!homestay.value || !homestay.value.images || homestay.value.images.length === 0) {
-        // 没有图片集时使用默认图片
-        return [
-            'https://picsum.photos/400/300?random=1',
-            'https://picsum.photos/400/300?random=2',
-            'https://picsum.photos/400/300?random=3',
-            'https://picsum.photos/400/300?random=4'
-        ];
-    }
-
-    // 过滤有效图片
-    const validImages = homestay.value.images.filter(img => img !== null && img !== undefined);
-
-    // 确保有至少4张图片显示
-    if (validImages.length < 4) {
-        const defaultImages = [
-            'https://picsum.photos/400/300?random=1',
-            'https://picsum.photos/400/300?random=2',
-            'https://picsum.photos/400/300?random=3',
-            'https://picsum.photos/400/300?random=4'
-        ];
-
-        // 组合实际图片和默认图片
-        const combinedImages = [...validImages];
-        for (let i = validImages.length; i < 4; i++) {
-            combinedImages.push(defaultImages[i - validImages.length]);
-        }
-
-        return combinedImages.map(processImageUrl);
-    }
-
-    return validImages.map(processImageUrl);
-}
-
-const showAllPhotos = () => {
-    ElMessage.info('查看所有照片功能正在开发中')
-}
-
-const shareHomestay = () => {
-    ElMessage.info('分享功能正在开发中')
-}
-
-const toggleFavorite = () => {
-    isFavorite.value = !isFavorite.value
-    ElMessage.success(isFavorite.value ? '已添加到收藏' : '已从收藏中移除')
-
-    // 保存收藏状态
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]')
-    if (homestay.value) {
-        const id = homestay.value.id
-
-        if (isFavorite.value) {
-            if (!favorites.includes(id)) {
-                favorites.push(id)
-            }
-        } else {
-            const index = favorites.indexOf(id)
-            if (index !== -1) {
-                favorites.splice(index, 1)
-            }
-        }
-
-        localStorage.setItem('favorites', JSON.stringify(favorites))
-    }
-}
-
-const checkFavoriteStatus = () => {
-    if (!homestay.value) return
-
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]')
-    isFavorite.value = favorites.includes(homestay.value.id)
-}
-
-const disablePastDates = (date: Date) => {
-    return date < new Date()
-}
-
-const disableInvalidDates = (date: Date) => {
-    if (!bookingDates.checkIn) {
-        return date < new Date()
-    }
-    return date <= bookingDates.checkIn
-}
-
-const calculateTotalPrice = () => {
-    if (!bookingDates.checkIn || !bookingDates.checkOut || !homestay.value) {
-        totalNights.value = 0
-        basePrice.value = 0
-        totalPrice.value = 0
-        return
-    }
-
-    const checkIn = new Date(bookingDates.checkIn)
-    const checkOut = new Date(bookingDates.checkOut)
-    const diffTime = checkOut.getTime() - checkIn.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    // 确保夜数是正数
-    totalNights.value = Math.max(diffDays, 0)
-
-    // 确保价格是数字类型
-    const pricePerNight = Number(homestay.value.pricePerNight) || 0
-    console.log('计算价格使用的每晚价格:', pricePerNight)
-
-    // 计算基本价格
-    basePrice.value = pricePerNight * totalNights.value
-
-    // 计算服务费和清洁费
-    cleaningFee.value = Math.round(pricePerNight * 0.1) // 清洁费为房价的10%
-    serviceFee.value = Math.round(basePrice.value * 0.15) // 服务费为总价的15%
-
-    // 计算总价
-    totalPrice.value = basePrice.value + cleaningFee.value + serviceFee.value
-
-    // 确保所有价格都是有效数字
-    if (isNaN(basePrice.value)) basePrice.value = 0
-    if (isNaN(cleaningFee.value)) cleaningFee.value = 0
-    if (isNaN(serviceFee.value)) serviceFee.value = 0
-    if (isNaN(totalPrice.value)) totalPrice.value = 0
-
-    console.log('价格计算:', {
-        夜数: totalNights.value,
-        每晚价格: pricePerNight,
-        基本价格: basePrice.value,
-        清洁费: cleaningFee.value,
-        服务费: serviceFee.value,
-        总价: totalPrice.value
-    })
-}
-
-// 实现一个更可靠的formatDate函数
-const formatDate = (date: Date) => {
-    if (!date) return '';
-
-    try {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-
-        return `${year}-${month}-${day}`;
-    } catch (error) {
-        console.error('日期格式化错误:', error);
-        return date.toISOString().split('T')[0]; // 备用格式
-    }
-};
-
-// 格式化日期字符串为本地显示格式（用于评论等显示）
-const formatDateString = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-};
 
 const bookHomestay = async () => {
-    // 检查用户是否已登录
-    const authStore = useAuthStore();
+    // 1. 检查登录状态
     if (!authStore.isAuthenticated) {
-        ElMessageBox.confirm('您需要登录才能预订房源', '提示', {
+        ElMessageBox.confirm('您需要登录才能预订，是否现在登录？', '提示', {
             confirmButtonText: '去登录',
             cancelButtonText: '取消',
-            type: 'info'
+            type: 'warning',
         }).then(() => {
-            router.push({
-                path: '/login',
-                query: { redirect: route.fullPath }
-            });
-        }).catch(() => { });
-        return;
-    }
-
-    // 验证是否已选择日期
-    if (!bookingDates.checkIn || !bookingDates.checkOut) {
-        ElMessage.warning('请选择入住和退房日期');
-        return;
-    }
-
-    // 确保价格已计算
-    calculateTotalPrice();
-
-    // 准备订单预览数据
-    try {
-        const orderPreviewData = {
-            homestayId: homestay.value!.id,
-            homestayTitle: homestay.value!.title,
-            imageUrl: homestay.value!.images && homestay.value!.images.length > 0
-                ? homestay.value!.images[0]
-                : 'https://picsum.photos/400/300',
-            address: homestay.value!.location,
-            checkInDate: bookingDates.checkIn.toISOString().split('T')[0],
-            checkOutDate: bookingDates.checkOut.toISOString().split('T')[0],
-            nights: totalNights.value,
-            guestCount: bookingDates.guests,
-            price: homestay.value!.pricePerNight,
-            baseAmount: basePrice.value,
-            cleaningFee: cleaningFee.value,
-            serviceFee: serviceFee.value,
-            totalAmount: totalPrice.value
-        };
-
-        // 将订单预览数据存储到localStorage
-        localStorage.setItem('orderPreviewData', JSON.stringify(orderPreviewData));
-
-        // 跳转到订单确认页面
-        router.push({
-            path: '/order/confirm',
-            query: {
-                homestayId: homestay.value!.id.toString(),
-                title: homestay.value!.title,
-                image: homestay.value!.coverImage,
-                address: homestay.value!.address || homestay.value!.location,
-                checkIn: bookingDates.checkIn ? formatDate(bookingDates.checkIn) : '',
-                checkOut: bookingDates.checkOut ? formatDate(bookingDates.checkOut) : '',
-                nights: totalNights.value.toString(),
-                guests: bookingDates.guests.toString(),
-                price: homestay.value!.pricePerNight.toString(),
-                baseAmount: basePrice.value.toString(),
-                cleaningFee: cleaningFee.value.toString(),
-                serviceFee: serviceFee.value.toString(),
-                totalAmount: totalPrice.value.toString()
-            }
+            router.push({ path: '/login', query: { redirect: route.fullPath } });
+        }).catch(() => {
+            ElMessage.info('取消预订');
         });
-    } catch (error) {
-        console.error('准备订单数据时出错:', error);
-        ElMessage.error('预订过程中发生错误，请稍后重试');
+        return;
     }
+
+    // 2. 检查日期和民宿信息
+    if (!bookingDates.checkIn || !bookingDates.checkOut || !homestay.value || totalNights.value <= 0) {
+        ElMessage.warning('请先选择有效的入住和退房日期');
+        return;
+    }
+
+    // 3. 检查用户信息 (如果确认页需要展示或预填)
+    if (!userStore.userInfo) {
+        // 可以尝试获取，或者提示用户稍后在确认页填写
+        console.warn('用户信息未加载，可能需要在确认页处理');
+        // 如果确认页强依赖用户信息，这里可以阻止跳转或先获取用户信息
+        // await userStore.fetchUserInfo(); // 假设有这个 action
+        // if (!userStore.userInfo) { ElMessage.error('无法获取用户信息'); return; }
+    }
+
+    // 4. 准备传递给确认页的数据
+    const bookingDetails = {
+        homestayId: homestay.value!.id,
+        checkInDate: formatDateString(bookingDates.checkIn),
+        checkOutDate: formatDateString(bookingDates.checkOut),
+        guestCount: bookingDates.guests,
+        totalPrice: totalPrice.value,
+        // 可以考虑传递更多信息供确认页展示，例如：
+        // homestayTitle: homestay.value.title,
+        // pricePerNight: parsedPricePerNight.value,
+        // cleaningFee: cleaningFee.value,
+        // serviceFee: serviceFee.value
+        // totalNights: totalNights.value
+    };
+
+    console.log("准备跳转到订单确认页，传递数据:", bookingDetails);
+
+    // 5. 跳转到订单确认页，使用 query 参数传递数据
+    // 注意：如果数据复杂或包含敏感信息，考虑使用 Pinia store 或 route state 传递
+    router.push({
+        path: '/order/confirm',
+        query: {
+            homestayId: bookingDetails.homestayId.toString(),
+            checkIn: bookingDetails.checkInDate,
+            checkOut: bookingDetails.checkOutDate,
+            guests: bookingDetails.guestCount.toString(),
+            price: bookingDetails.totalPrice.toString(),
+            // 其他需要传递的参数...
+        }
+    });
+
+    // --- 原来的 createOrder 调用逻辑需要移动到订单确认页 --- 
+    /*
+    const orderPayload: CreateOrderPayload = {
+        homestayId: homestay.value!.id,
+        checkInDate: formatDateString(bookingDates.checkIn),
+        checkOutDate: formatDateString(bookingDates.checkOut),
+        guestCount: bookingDates.guests,
+        totalPrice: totalPrice.value,
+        guestName: userStore.userInfo?.username || '用户信息缺失',
+        guestPhone: userStore.userInfo?.phone || '用户信息缺失'
+    };
+    if (orderPayload.guestName === '用户信息缺失' || orderPayload.guestPhone === '用户信息缺失') { 
+        ElMessage.warning('缺少必要的住客信息，请完善个人资料');
+        // 考虑跳转到用户中心或提供修改入口
+        return; 
+    }
+    console.log("准备创建订单，数据:", orderPayload);
+    try {
+        const response = await createOrder(orderPayload);
+        ElMessage.success('订单创建成功！');
+
+        if (response?.data?.id) {
+            console.log(`订单创建成功，跳转到成功页面，订单ID: ${response.data.id}`);
+            router.push(`/orders/submit-success/${response.data.id}`);
+        } else {
+            console.warn('创建订单成功，但未收到订单ID，跳转到用户订单列表');
+            router.push('/user/orders');
+        }
+    } catch (error: any) { 
+        console.error("创建订单时出错:", error);
+        let message = '创建订单失败，请稍后重试';
+        if (error.response?.data?.message) {
+            message = error.response.data.message;
+        } else if (error.message) {
+            message = error.message;
+        }
+        ElMessage.error(message);
+    }
+    */
 };
 
-const fetchReviews = async (homestayId: number) => {
-    if (loadingReviews.value) return;
-    loadingReviews.value = true;
-
-    try {
-        // 获取评价列表
-        const response = await getHomestayReviews(homestayId, {
-            page: reviewPage.value,
-            size: reviewSize.value
-        });
-
-        if (reviewPage.value === 0) {
-            reviews.value = response.data.content || [];
-
-            // 获取评价统计
-            try {
-                const statsResponse = await getHomestayReviewStats(homestayId);
-                if (statsResponse.data && statsResponse.data.detailedRatings) {
-                    const detailedRatings = statsResponse.data.detailedRatings;
-                    reviewStats.value = [
-                        { name: '清洁度', score: detailedRatings.cleanlinessRating || 0 },
-                        { name: '准确性', score: detailedRatings.accuracyRating || 0 },
-                        { name: '通信', score: detailedRatings.communicationRating || 0 },
-                        { name: '位置', score: detailedRatings.locationRating || 0 },
-                        { name: '入住', score: detailedRatings.checkInRating || 0 },
-                        { name: '性价比', score: detailedRatings.valueRating || 0 },
-                    ];
-                }
-            } catch (statsError) {
-                console.error('获取评价统计失败:', statsError);
-            }
-        } else {
-            reviews.value = [...reviews.value, ...(response.data.content || [])];
-        }
-
-        reviewPage.value++;
-    } catch (error) {
-        console.error('获取评价失败:', error);
-
-        // 如果是开发环境，使用模拟数据
-        if (process.env.NODE_ENV === 'development') {
-            const mockReviews = [
-                {
-                    id: 1,
-                    userId: 101,
-                    userName: '张先生',
-                    rating: 5,
-                    content: '非常棒的住宿体验，房间干净整洁，设施齐全，位置也很方便。房东很热情，给了我们很多当地的旅游建议。下次来还会选择这里。',
-                    createTime: '2023-03-15T14:30:00',
-                    avatarUrl: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-                },
-                {
-                    id: 2,
-                    userId: 102,
-                    userName: '李女士',
-                    rating: 4.5,
-                    content: '房间比照片上看起来要小一些，但是整体还是很满意的。床很舒适，周围环境也很安静。',
-                    createTime: '2023-02-22T10:15:00',
-                    avatarUrl: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-                    response: '感谢您的评价，关于房间大小的问题我们已经更新了更准确的描述，希望您下次再来入住！'
-                },
-                {
-                    id: 3,
-                    userId: 103,
-                    userName: '王先生',
-                    rating: 4,
-                    content: '位置很好，离地铁站很近，购物也方便。就是空调有点吵，希望能改进。',
-                    createTime: '2023-01-10T18:45:00',
-                    avatarUrl: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-                }
-            ];
-
-            reviewStats.value = [
-                { name: '清洁度', score: 4.8 },
-                { name: '准确性', score: 4.7 },
-                { name: '通信', score: 4.9 },
-                { name: '位置', score: 4.6 },
-                { name: '入住', score: 4.8 },
-                { name: '性价比', score: 4.5 },
-            ];
-
-            reviews.value = reviewPage.value === 0 ? mockReviews : [...reviews.value, ...mockReviews];
-            reviewPage.value++;
-        }
-    } finally {
-        loadingReviews.value = false;
-    }
+const fetchReviewsAndStats = async (homestayId: number) => {
+    try { /* ... fetch and process reviews and stats ... */ }
+    catch (error) { /* ... error handling ... */ }
 };
 
 const loadMoreReviews = () => {
-    fetchReviews(Number(route.params.id));
+    if (homestay.value && reviews.value.length < (homestay.value.reviewCount ?? 0)) {
+        reviewsPage.value++;
+        fetchReviewsAndStats(homestay.value.id);
+    } else { /* ... no more reviews message ... */ }
 };
 
-const formatAmenity = (amenity: string) => {
-    // 转换设施名称，避免显示原始代码或字母
-    if (typeof amenity !== 'string') return '';
+// Main data fetching function
+const fetchData = async () => {
+    loading.value = true;
+    const homestayId = Number(route.params.id);
+    console.log(`Fetching data for Homestay ID: ${homestayId}`);
+    if (isNaN(homestayId) || homestayId <= 0) { /* ... invalid ID handling ... */ return; }
 
-    // 常见设施映射
-    const amenityMap: Record<string, string> = {
-        'WIFI': 'WiFi',
-        'AC': '空调',
-        'TV': '电视',
-        'KITCHEN': '厨房',
-        'WASHER': '洗衣机',
-        'DRYER': '烘干机',
-        'PARKING': '停车位',
-        'POOL': '游泳池',
-        'HOT_TUB': '热水浴缸',
-        'GYM': '健身房',
-        'BREAKFAST': '早餐',
-        'WORKSPACE': '工作区',
-        'HEATING': '暖气',
-        'PETS_ALLOWED': '允许宠物',
-        'SMOKING_ALLOWED': '允许吸烟',
-        'ELEVATOR': '电梯',
-        'FIREPLACE': '壁炉'
-    };
-
-    return amenityMap[amenity.toUpperCase()] || amenity;
-};
-
-// 联系房东
-const contactHost = () => {
-    ElMessage.success('即将联系房东，功能开发中...');
-};
-
-const handleDateRangeChange = (val: [Date, Date] | null) => {
-    if (val) {
-        bookingDates.checkIn = val[0]
-        bookingDates.checkOut = val[1]
-        calculateTotalPrice()
-    } else {
-        bookingDates.checkIn = null
-        bookingDates.checkOut = null
-        totalNights.value = 0
-        basePrice.value = 0
-        totalPrice.value = 0
-    }
-}
-
-// 获取房东信息
-const fetchHostInfo = async (homestayId: number) => {
     try {
-        console.log(`开始获取房东信息，房源ID: ${homestayId}`)
-        const response = await getHomestayHostInfo(homestayId)
-        const data = response.data
+        // Reset state
+        homestay.value = null; hostDetailInfo.value = null; reviews.value = [];
+        reviewStats.value = []; reviewsPage.value = 1; allProcessedImages.value = [];
+        bookingDateRange.value = null; bookingDates.checkIn = null; bookingDates.checkOut = null;
+        bookingDates.guests = 1;
 
-        // 适配房东数据
-        hostInfo.value = {
-            id: data.id || 1,
-            name: data.name || homestay.value?.hostName || '房东',
-            avatar: data.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-            rating: data.rating || 4.8,
-            accommodations: data.accommodations || 435,
-            years: data.years || 3,
-            responseRate: data.responseRate || '98%',
-            responseTime: data.responseTime || '几小时内',
-            companions: data.companions || [
-                {
-                    name: 'Kamal',
-                    avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-                },
-                {
-                    name: 'Gaurav',
-                    avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-                }
-            ]
+        // 1. Fetch base homestay info
+        const homestayResponse = await getHomestayById(homestayId);
+        if (!homestayResponse?.data) { throw new Error('未找到民宿信息'); }
+        homestay.value = homestayResponse.data;
+        if (homestay.value) {
+            // 优先用 ownerName，其次 ownerUsername，最后 '未知房东'
+            homestay.value.hostName = homestay.value.ownerName || homestay.value.ownerUsername || '未知房东';
+            console.log("步骤1后 homestay.value.hostName:", homestay.value.hostName);
+            homestay.value.hostAvatar = homestay.value.ownerAvatar || homestay.value.hostAvatar;
+            console.log("Base homestay info received:", homestay.value);
+
+            // 2. Process images
+            const rawImageUrls = homestay.value.images && Array.isArray(homestay.value.images)
+                ? homestay.value.images.map((img: string | { url: string }) => typeof img === 'string' ? img : img?.url).filter(Boolean) as string[]
+                : [];
+            const coverImageUrl = homestay.value.coverImage;
+            let finalImages: string[] = [];
+            if (coverImageUrl) {
+                finalImages.push(coverImageUrl);
+                rawImageUrls.forEach(imgUrl => { if (imgUrl !== coverImageUrl) { finalImages.push(imgUrl); } });
+            } else { finalImages = rawImageUrls; }
+            allProcessedImages.value = finalImages;
+            console.log(`Processed ${allProcessedImages.value.length} images.`);
         }
 
-        console.log('获取房东信息成功:', hostInfo.value)
+        // 3. Fetch initial reviews and stats
+        await fetchReviewsAndStats(homestayId);
 
-        // 更新homestay中的房东信息
-        if (homestay.value) {
-            homestay.value.hostName = hostInfo.value.name
-            homestay.value.hostAvatar = hostInfo.value.avatar
-            homestay.value.hostRating = hostInfo.value.rating.toString()
-            homestay.value.hostAccommodations = hostInfo.value.accommodations.toString()
-            homestay.value.hostYears = hostInfo.value.years.toString()
-            homestay.value.hostResponseRate = hostInfo.value.responseRate
-            homestay.value.hostResponseTime = hostInfo.value.responseTime
-        }
+        // 4. Fetch detailed host info
+        const hostLookupId = homestayId;
+        if (hostLookupId) {
+            console.log(`Attempting to fetch host info using homestay ID: ${hostLookupId}`);
+            try {
+                const hostInfoResponse = await getHomestayHostInfo(hostLookupId);
+                if (hostInfoResponse?.data) {
+                    hostDetailInfo.value = hostInfoResponse.data;
+                    console.log("Detailed host info received:", hostDetailInfo.value);
 
-        // 更新房东伙伴数据
-        hostCompanions.value = hostInfo.value.companions
-    } catch (error) {
-        console.error('获取房东信息失败:', error)
+                    // Check if homestay.value exists before accessing it
+                    if (homestay.value && hostDetailInfo.value) { // Add null check for hostDetailInfo.value
+                        // Update homestay ref with better info from hostDetailInfo if available
+                        // Prioritize nickname, then username from hostDetailInfo
+                        if (hostDetailInfo.value.nickname) {
+                            homestay.value.hostName = hostDetailInfo.value.nickname;
+                            // Only use username if ownerName/ownerUsername was missing initially or was the default fallback
+                        } else if (hostDetailInfo.value.username && (!homestay.value.hostName || homestay.value.hostName === '未知房东')) {
+                            homestay.value.hostName = hostDetailInfo.value.username;
+                        }
+                        console.log("用详细信息更新后 homestay.value.hostName:", homestay.value.hostName);
 
-        // 设置默认房东信息
-        if (homestay.value) {
-            hostInfo.value = {
-                id: 1,
-                name: homestay.value.hostName || 'Chandra Datt',
-                avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-                rating: 4.8,
-                accommodations: 435,
-                years: 3,
-                responseRate: '98%',
-                responseTime: '几小时内',
-                companions: [
-                    {
-                        name: 'Kamal',
-                        avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
-                    },
-                    {
-                        name: 'Gaurav',
-                        avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+                        // Update avatar if available in hostDetailInfo
+                        if (hostDetailInfo.value.avatar) {
+                            homestay.value.hostAvatar = hostDetailInfo.value.avatar;
+                        }
                     }
-                ]
-            }
+                } else { console.warn(`No detailed host info returned for homestay ${hostLookupId}`); }
+            } catch (hostError) { console.error(`获取详细房东信息失败 (Homestay ID: ${hostLookupId}):`, hostError); }
+        } else { console.warn("无法获取详细房东信息，缺少有效的 homestay ID"); }
 
-            // 更新homestay中的房东信息
-            homestay.value.hostName = hostInfo.value.name
-            homestay.value.hostAvatar = hostInfo.value.avatar
-            homestay.value.hostRating = hostInfo.value.rating.toString()
-            homestay.value.hostAccommodations = hostInfo.value.accommodations.toString()
-            homestay.value.hostYears = hostInfo.value.years.toString()
-            homestay.value.hostResponseRate = hostInfo.value.responseRate
-            homestay.value.hostResponseTime = hostInfo.value.responseTime
+        // 5. Calculate initial price - No need to call, computed properties handle it
+        // calculateTotalPrice();
 
-            // 更新房东伙伴数据
-            hostCompanions.value = hostInfo.value.companions
-        }
+        // 6. Check favorite status (if implemented)
+        // checkFavoriteStatus();
+
+    } catch (error: any) {
+        console.error("获取民宿详情过程中发生错误:", error);
+        ElMessage.error(error.message || '加载民宿信息时出错，请稍后重试');
+        homestay.value = null; hostDetailInfo.value = null; // Clear on error
+    } finally {
+        loading.value = false;
     }
-}
+};
+
+// Placeholder methods
+const shareHomestay = () => { ElMessage.info('分享功能待实现'); };
+const toggleFavorite = () => { isFavorite.value = !isFavorite.value; ElMessage.info('收藏功能待实现 (状态未持久化)'); };
+const contactHost = () => { ElMessage.info('联系房东功能待实现'); };
+const showAllPhotos = () => { ElMessage.info('查看全部照片功能待实现'); };
+
+// Lifecycle hook
+onMounted(() => {
+    fetchData();
+});
+
 </script>
 
 <style scoped>
@@ -1218,74 +990,79 @@ const fetchHostInfo = async (homestayId: number) => {
     gap: 16px;
 }
 
-.image-gallery {
+.image-gallery-new {
     position: relative;
-    margin-bottom: 48px;
+    margin-bottom: 32px;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.gallery-container {
-    position: relative;
-    height: 500px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-        "main grid1"
-        "main grid2";
-    gap: 4px;
-}
-
-.main-image {
-    grid-area: main;
-    height: 100%;
     cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.gallery-layout-5plus {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 500px;
+    gap: 4px;
+    height: 500px;
+}
+
+.main-image-wrapper {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
     position: relative;
     overflow: hidden;
+    height: 100%;
 }
 
-.main-image img {
+.main-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.5s ease;
+    display: block;
+    transition: transform 0.3s ease;
 }
 
-.main-image:hover img {
-    transform: scale(1.05);
+.main-image-wrapper:hover .main-img {
+    transform: scale(1.03);
 }
 
-.image-grid {
+.grid-image-wrapper {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
     display: grid;
+    grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
     gap: 4px;
     height: 100%;
 }
 
-.sub-image {
+.grid-img-item {
     position: relative;
     overflow: hidden;
-    cursor: pointer;
+    height: 100%;
 }
 
-.sub-image:nth-child(1) {
-    grid-area: grid1;
-}
-
-.sub-image:nth-child(2) {
-    grid-area: grid2;
-}
-
-.sub-image img {
+.grid-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.5s ease;
+    display: block;
+    transition: transform 0.3s ease;
 }
 
-.sub-image:hover img {
-    transform: scale(1.05);
+.grid-img-item:hover .grid-img {
+    transform: scale(1.03);
+}
+
+.gallery-layout-fallback .main-image-wrapper {
+    height: 500px;
+}
+
+.gallery-layout-fallback .main-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .image-overlay {
@@ -1294,37 +1071,14 @@ const fetchHostInfo = async (homestayId: number) => {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, 0.3) 100%);
+    background-color: rgba(0, 0, 0, 0.1);
     opacity: 0;
     transition: opacity 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    pointer-events: none;
 }
 
-.main-image:hover .image-overlay,
-.sub-image:hover .image-overlay {
-    opacity: 1;
-}
-
-.overlay-content {
-    color: white;
-    font-size: 24px;
-    background-color: rgba(0, 0, 0, 0.5);
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transform: translateY(20px);
-    opacity: 0;
-    transition: all 0.3s ease 0.1s;
-}
-
-.main-image:hover .overlay-content,
-.sub-image:hover .overlay-content {
-    transform: translateY(0);
+.main-image-wrapper:hover .image-overlay,
+.grid-img-item:hover .image-overlay {
     opacity: 1;
 }
 
@@ -1332,21 +1086,70 @@ const fetchHostInfo = async (homestayId: number) => {
     position: absolute;
     bottom: 16px;
     right: 16px;
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 16px;
+    padding: 8px 12px;
     font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
     z-index: 2;
 }
 
 .view-all-photos:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    background-color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+    transform: scale(1.02);
+}
+
+@media (max-width: 992px) {
+    .gallery-layout-5plus {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        height: auto;
+    }
+
+    .main-image-wrapper {
+        height: 400px;
+    }
+
+    .grid-image-wrapper {
+        height: 250px;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: 1fr;
+    }
+
+    .grid-img-item {
+        height: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .gallery-layout-5plus {
+        height: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .main-image-wrapper {
+        height: 300px;
+        width: 100%;
+    }
+
+    .grid-image-wrapper {
+        display: none;
+    }
+
+    .view-all-photos {
+        bottom: 10px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
 }
 
 .detail-content {
@@ -1517,33 +1320,10 @@ const fetchHostInfo = async (homestayId: number) => {
     border-radius: 50%;
 }
 
-.host-badge {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 32px;
-    height: 32px;
-    background-color: #ff385c;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    border: 2px solid white;
-}
-
 .host-name {
     font-size: 20px;
     font-weight: 600;
     margin-bottom: 8px;
-}
-
-.host-badge-text {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 14px;
-    color: #717171;
 }
 
 .host-stats {
@@ -2013,28 +1793,26 @@ const fetchHostInfo = async (homestayId: number) => {
 }
 
 @media (max-width: 768px) {
-    .gallery-container {
+    .gallery-layout-5plus {
         height: auto;
         display: flex;
         flex-direction: column;
     }
 
-    .main-image {
+    .main-image-wrapper {
         height: 300px;
-    }
-
-    .image-grid {
-        position: relative;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        grid-template-rows: 150px;
         width: 100%;
     }
 
-    .booking-card {
-        position: static;
-        margin-top: 20px;
-        width: 100%;
+    .grid-image-wrapper {
+        display: none;
+    }
+
+    .view-all-photos {
+        bottom: 10px;
+        right: 10px;
+        padding: 6px 10px;
+        font-size: 12px;
     }
 }
 
@@ -2097,4 +1875,170 @@ const fetchHostInfo = async (homestayId: number) => {
 .host-summary-item div {
     margin-bottom: 8px;
 }
+
+/* New Styles for 4-image layout (2x2 grid) */
+.gallery-layout-4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* 2 columns */
+    grid-template-rows: 250px 250px;
+    /* 2 rows, adjust height as needed */
+    gap: 4px;
+    height: 504px;
+    /* 250 + 250 + 4 */
+}
+
+.grid-img-item-4 {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    /* Fill grid cell height */
+}
+
+.grid-img-4 {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.grid-img-item-4:hover .grid-img-4 {
+    transform: scale(1.03);
+}
+
+.no-images-placeholder {
+    height: 300px;
+    /* Example height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f7fa;
+    border-radius: 12px;
+    margin-bottom: 32px;
+}
+
+/* --- New Layout Styles --- */
+.gallery-layout-1,
+.gallery-layout-2,
+.gallery-layout-3,
+.gallery-layout-4 {
+    height: 500px;
+    /* Default height, adjust as needed */
+    display: grid;
+    gap: 4px;
+    cursor: pointer;
+}
+
+/* Layout for 1 image */
+.gallery-layout-1 {
+    grid-template-columns: 1fr;
+}
+
+.main-image-wrapper-single {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+.main-img-single {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.main-image-wrapper-single:hover .main-img-single {
+    transform: scale(1.03);
+}
+
+/* Layout for 2 images */
+.gallery-layout-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.grid-img-item-2 {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+.grid-img-2 {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.grid-img-item-2:hover .grid-img-2 {
+    transform: scale(1.03);
+}
+
+/* Layout for 3 images */
+.gallery-layout-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.grid-img-item-3 {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+.grid-img-3 {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.grid-img-item-3:hover .grid-img-3 {
+    transform: scale(1.03);
+}
+
+/* Layout for 4 images */
+.gallery-layout-4 {
+    grid-template-columns: 1fr 1fr;
+    /* 2 columns */
+    grid-template-rows: 1fr 1fr;
+    /* 2 rows */
+    /* height: 504px; /* Let grid auto height based on content or keep fixed */
+}
+
+.grid-img-item-4 {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    /* Fill grid cell height */
+}
+
+.grid-img-4 {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.grid-img-item-4:hover .grid-img-4 {
+    transform: scale(1.03);
+}
+
+.no-images-placeholder {
+    height: 300px;
+    /* Example height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f7fa;
+    border-radius: 12px;
+    margin-bottom: 32px;
+}
+
+/* --- End New Layout Styles --- */
+
+.image-overlay {}
 </style>

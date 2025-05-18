@@ -1,3 +1,5 @@
+import { PaymentMethod, PaymentStatus } from "./index";
+
 // 房源类型
 export interface Homestay {
   id: number;
@@ -26,6 +28,8 @@ export interface Order {
   orderNumber: string;
   homestayId: number;
   homestayTitle: string;
+  hostId: number;
+  hostName: string;
   guestId: number;
   guestName: string;
   guestPhone: string;
@@ -36,6 +40,8 @@ export interface Order {
   price: number;
   totalAmount: number;
   status: string;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   remark: string;
   createTime: string;
   updateTime: string;
@@ -152,14 +158,16 @@ export interface HostOrder {
   homestayId: number;
   homestayTitle: string;
   guestName: string;
+  guestPhone?: string;
   guestAvatar?: string;
   checkInDate: string;
   checkOutDate: string;
   guestCount: number;
   totalAmount: number;
   status: string;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   createdAt: string;
-  paymentStatus: string;
 }
 
 export interface HostReview {

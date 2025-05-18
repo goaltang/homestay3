@@ -2,7 +2,8 @@ package com.homestay3.homestaybackend.repository;
 
 import com.homestay3.homestaybackend.model.Homestay;
 import com.homestay3.homestaybackend.model.Review;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.model.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecificationExecutor<Review> {
@@ -78,6 +80,22 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     @Query("SELECT AVG(r.rating) FROM Review r JOIN r.homestay h WHERE h.owner.id = :hostId AND r.isPublic = true")
     Double getAverageRatingByHostId(@Param("hostId") Long hostId);
     
+    // 统计房东某评分以上的评价数量
+    @Query("SELECT COUNT(r) FROM Review r JOIN r.homestay h WHERE h.owner.id = :hostId AND r.rating >= :rating")
+    Long countByHostIdAndRatingGreaterThanEqual(@Param("hostId") Long hostId, @Param("rating") Integer rating);
+
+    // 统计房东某评分的评价数量
+    @Query("SELECT COUNT(r) FROM Review r JOIN r.homestay h WHERE h.owner.id = :hostId AND r.rating = :rating")
+    Long countByHostIdAndRating(@Param("hostId") Long hostId, @Param("rating") Integer rating);
+
+    // 统计房东某评分以下的评价数量
+    @Query("SELECT COUNT(r) FROM Review r JOIN r.homestay h WHERE h.owner.id = :hostId AND r.rating <= :rating")
+    Long countByHostIdAndRatingLessThanEqual(@Param("hostId") Long hostId, @Param("rating") Integer rating);
+
+    // 统计房东已回复的评价数量
+    @Query("SELECT COUNT(r) FROM Review r JOIN r.homestay h WHERE h.owner.id = :hostId AND r.response IS NOT NULL")
+    Long countByHostIdAndResponseIsNotNull(@Param("hostId") Long hostId);
+    
     // 获取评价系统的平均评分（管理员）
     @Query("SELECT AVG(r.rating) FROM Review r")
     Double getAverageRating();
@@ -96,4 +114,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     
     // 未回复的评价数量（管理员）
     Long countByResponseIsNull();
+
+    // 检查指定订单是否已存在评论
+    boolean existsByOrder(Order order);
+    
+    // 根据订单查找评价（一个订单通常只有一个评价）
+    Optional<Review> findByOrder(Order order);
+
+    // 根据评价ID查找关联的房源标题
+    @Query("SELECT r.homestay.title FROM Review r WHERE r.id = :reviewId")
+    Optional<String> findHomestayTitleByReviewId(@Param("reviewId") Long reviewId);
 } 

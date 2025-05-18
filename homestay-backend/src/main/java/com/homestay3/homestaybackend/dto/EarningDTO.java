@@ -15,14 +15,16 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class EarningDTO {
     private Long id;
+    private Long hostId;
     private String orderNumber;
     private Long homestayId;
     private String homestayTitle;
+    private Long orderId;
     private String guestName;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private Integer nights;
     private BigDecimal amount;
     private String status;
-    private LocalDateTime createTime;
+    private LocalDateTime createdAt;
 } 

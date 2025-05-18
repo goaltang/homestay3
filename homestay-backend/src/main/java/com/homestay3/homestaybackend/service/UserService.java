@@ -3,7 +3,7 @@ package com.homestay3.homestaybackend.service;
 import com.homestay3.homestaybackend.dto.AuthResponse;
 import com.homestay3.homestaybackend.dto.PasswordChangeRequest;
 import com.homestay3.homestaybackend.dto.ProfileUpdateRequest;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

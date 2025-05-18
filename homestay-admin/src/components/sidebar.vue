@@ -1,18 +1,25 @@
 <template>
     <div class="sidebar">
-        <el-menu class="sidebar-el-menu" :default-active="route.path" :collapse="isCollapse" background-color="#324157"
-            text-color="#bfcbd9" active-text-color="#20a0ff" unique-opened router>
-            <template v-for="item in items">
+        <el-menu class="sidebar-el-menu" :default-active="onRoutes" :collapse="sidebar.collapse"
+            :background-color="sidebar.bgColor" :text-color="sidebar.textColor" router>
+            <template v-for="item in menuData">
                 <template v-if="item.children">
                     <el-sub-menu :index="item.index" :key="item.index">
                         <template #title>
                             <el-icon>
-                                <component :is="item.icon" />
+                                <component :is="item.icon"></component>
                             </el-icon>
                             <span>{{ item.title }}</span>
                         </template>
                         <template v-for="subItem in item.children">
-                            <el-menu-item :index="subItem.index" :key="subItem.index">
+                            <el-sub-menu v-if="subItem.children" :index="subItem.index" :key="subItem.index">
+                                <template #title>{{ subItem.title }}</template>
+                                <el-menu-item v-for="(threeItem, i) in subItem.children" :key="i"
+                                    :index="threeItem.index">
+                                    {{ threeItem.title }}
+                                </el-menu-item>
+                            </el-sub-menu>
+                            <el-menu-item v-else :index="subItem.index">
                                 {{ subItem.title }}
                             </el-menu-item>
                         </template>
@@ -21,7 +28,7 @@
                 <template v-else>
                     <el-menu-item :index="item.index" :key="item.index">
                         <el-icon>
-                            <component :is="item.icon" />
+                            <component :is="item.icon"></component>
                         </el-icon>
                         <template #title>{{ item.title }}</template>
                     </el-menu-item>
@@ -32,72 +39,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRoute } from 'vue-router'
-import {
-    House,
-    Document,
-    Setting,
-    User,
-    List,
-    ShoppingCart
-} from '@element-plus/icons-vue'
+import { computed, ref } from 'vue';
+import { useSidebarStore } from '@/stores/sidebar';
+import { useRoute } from 'vue-router';
+import { menuData } from '../config/menu';
 
-const route = useRoute()
-const isCollapse = defineProps<{
-    collapse: boolean
-}>()
+// 定义菜单类型
+type MenuItem = {
+    id: string;
+    title: string;
+    index: string;
+    icon: string;
+    children?: MenuItem[];
+};
 
-const items = [
-    {
-        icon: House,
-        index: '/dashboard',
-        title: '系统首页'
-    },
-    {
-        icon: List,
-        index: '/homestay',
-        title: '房源管理'
-    },
-    {
-        icon: ShoppingCart,
-        index: '/order',
-        title: '订单管理'
-    },
-    {
-        icon: User,
-        index: '/user',
-        title: '用户管理'
-    },
-    {
-        icon: Setting,
-        index: '/setting',
-        title: '系统设置'
-    }
-]
+const route = useRoute();
+const onRoutes = computed(() => {
+    return route.path;
+});
+
+const sidebar = useSidebarStore();
 </script>
 
-<style scoped lang="scss">
+<style scoped>
 .sidebar {
-    display: block;
-    position: absolute;
-    left: 0;
-    top: 70px;
-    bottom: 0;
-    overflow-y: scroll;
-    background-color: #324157;
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 70px !important;
+    bottom: 0 !important;
+    overflow-y: scroll !important;
+    z-index: 999 !important;
+    width: 250px !important;
+}
 
-    &::-webkit-scrollbar {
-        width: 0;
-    }
+.sidebar::-webkit-scrollbar {
+    width: 0;
+}
 
-    .sidebar-el-menu {
-        width: 100%;
-        border-right: none;
+.sidebar-el-menu:not(.el-menu--collapse) {
+    width: 250px !important;
+}
 
-        &:not(.el-menu--collapse) {
-            width: 250px;
-        }
-    }
+.sidebar-el-menu {
+    min-height: 100% !important;
 }
 </style>

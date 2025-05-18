@@ -3,6 +3,7 @@
         <div class="header">
             <h1>收益管理</h1>
             <div class="header-actions">
+                <el-button type="success" @click="handleSettleEarnings" :loading="settling">结算收益</el-button>
                 <el-button type="primary" @click="goToWithdrawal">提现管理</el-button>
             </div>
         </div>
@@ -106,12 +107,24 @@
                 </ul>
             </div>
             <el-table v-else :data="earningsData" stripe style="width: 100%">
-                <el-table-column prop="date" label="日期" width="120" />
-                <el-table-column prop="orderNo" label="订单号" width="120" />
-                <el-table-column prop="homestayName" label="房源名称" min-width="150" />
+                <el-table-column prop="createdAt" label="日期" width="180">
+                    <template #default="{ row }">
+                        {{ formatDateTime(row.createdAt) }} 
+                    </template>
+                </el-table-column>
+                <el-table-column prop="orderNumber" label="订单号" width="180" />
+                <el-table-column prop="homestayTitle" label="房源名称" min-width="150" />
                 <el-table-column prop="guestName" label="客人姓名" width="120" />
-                <el-table-column prop="checkIn" label="入住日期" width="120" />
-                <el-table-column prop="checkOut" label="离店日期" width="120" />
+                <el-table-column prop="checkInDate" label="入住日期" width="120">
+                    <template #default="{ row }">
+                        {{ formatDate(row.checkInDate) }}
+                    </template>
+                </el-table-column>
+                <el-table-column prop="checkOutDate" label="离店日期" width="120">
+                     <template #default="{ row }">
+                        {{ formatDate(row.checkOutDate) }}
+                    </template>
+                </el-table-column>
                 <el-table-column prop="nights" label="入住天数" width="80" align="center" />
                 <el-table-column prop="amount" label="收益金额" width="120">
                     <template #default="{ row }">
@@ -136,7 +149,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { ArrowDown } from '@element-plus/icons-vue'
 import {
@@ -146,6 +159,7 @@ import {
     getEarningsTrend,
     getMonthlyEarnings,
     getPendingEarnings,
+    settleHostEarnings,
     type EarningsQueryParams,
     type EarningsDetail
 } from '@/api/earnings'
@@ -227,6 +241,28 @@ const resetFilter = () => {
 const goToWithdrawal = () => {
     router.push('/host/withdrawal')
 }
+
+// 结算加载状态
+const settling = ref(false)
+
+// 手动触发结算
+const handleSettleEarnings = async () => {
+    settling.value = true;
+    try {
+        const response = await settleHostEarnings();
+        ElMessage.success(response.data.message || '结算请求成功');
+        // 刷新统计数据和表格数据
+        await Promise.all([
+            fetchStatistics(),
+            fetchEarningsData()
+        ]);
+    } catch (error: any) {
+        console.error("结算收益失败:", error);
+        ElMessage.error(error.response?.data?.error || '结算收益失败，请重试');
+    } finally {
+        settling.value = false;
+    }
+};
 
 // 导出数据
 const exportData = async (command: string) => {
@@ -558,7 +594,11 @@ const fetchEarningsData = async () => {
             const formatDate = (dateStr: any): string => {
                 if (!dateStr) return '未知日期';
                 try {
-                    return new Date(dateStr).toISOString().split('T')[0];
+                    return new Date(dateStr).toLocaleDateString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    });
                 } catch (error) {
                     console.warn(`日期格式化失败: ${dateStr}`, error);
                     return String(dateStr) || '未知日期';
@@ -588,12 +628,12 @@ const fetchEarningsData = async () => {
 
             earningsData.value = content.map((item: any) => ({
                 id: item.orderNumber || item.id || `id-${Math.random().toString(36).substr(2, 9)}`,
-                date: formatDate(item.createTime || item.date),
-                orderNo: item.orderNumber || item.orderNo || '未知订单',
-                homestayName: item.homestayTitle || item.homestayName || '未知房源',
+                createdAt: item.createdAt,
+                orderNumber: item.orderNumber || item.orderNo || '未知订单',
+                homestayTitle: item.homestayTitle || item.homestayName || '未知房源',
                 guestName: item.guestName || '未知客人',
-                checkIn: formatDate(item.checkInDate || item.checkIn),
-                checkOut: formatDate(item.checkOutDate || item.checkOut),
+                checkInDate: item.checkInDate || item.checkIn,
+                checkOutDate: item.checkOutDate || item.checkOut,
                 nights: getNumber(item.nights),
                 amount: getNumber(item.amount),
                 status: normalizeStatus(item.status)
@@ -707,6 +747,42 @@ const testApiConnection = async () => {
         ElMessage.error(`无法连接到服务器`);
         return false;
     }
+};
+
+// 导入日期格式化工具 (如果项目中有统一的工具)
+// import { formatDateTime, formatDate } from '@/utils/formatters'; 
+
+// 或者定义简单的格式化函数
+const formatDateTime = (dateTimeString: string | null | undefined): string => {
+  if (!dateTimeString) return '未知日期';
+  try {
+    return new Date(dateTimeString).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch (e) {
+    console.error("Error formatting date-time:", dateTimeString, e);
+    return '无效日期';
+  }
+};
+
+const formatDate = (dateString: string | null | undefined): string => {
+  if (!dateString) return '未知日期';
+  try {
+    return new Date(dateString).toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  } catch (e) {
+    console.error("Error formatting date:", dateString, e);
+    return '无效日期';
+  }
 };
 
 onMounted(async () => {

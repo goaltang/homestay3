@@ -7,7 +7,7 @@ import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.model.Earning;
 import com.homestay3.homestaybackend.model.Homestay;
 import com.homestay3.homestaybackend.model.Order;
-import com.homestay3.homestaybackend.model.User;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.repository.EarningRepository;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
@@ -23,8 +23,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,6 +52,7 @@ import java.util.Map;
     maxAge = 3600
 )
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('HOST', 'LANDLORD', 'ADMIN')")
 public class EarningController {
     
     private static final Logger log = LoggerFactory.getLogger(EarningController.class);
@@ -172,20 +175,35 @@ public class EarningController {
         }
     }
     
-    @PostMapping("/create/{orderId}")
-    public ResponseEntity<?> createEarningFromOrder(@PathVariable Long orderId) {
+    /**
+     * 手动触发结算指定房东的可结算收益
+     */
+    @PostMapping("/settle")
+    public ResponseEntity<?> settleEarnings(Authentication authentication) {
+        String username = authentication.getName();
+        log.info("收到用户 {} 手动触发收益结算的请求", username);
         try {
-            log.info("创建收益记录请求 - 订单ID: {}", orderId);
-            
-            EarningDTO earning = earningService.createEarningFromOrder(orderId);
-            
-            log.info("创建收益记录返回 - 金额: {}, 入住日期: {}, 离店日期: {}, 状态: {}",
-                    earning.getAmount(), earning.getCheckInDate(), earning.getCheckOutDate(), earning.getStatus());
-            
-            return ResponseEntity.ok(earning);
+            int settledCount = earningService.settleHostEarnings(username);
+            if (settledCount > 0) {
+                log.info("成功为用户 {} 结算了 {} 条收益记录", username, settledCount);
+                return ResponseEntity.ok(Map.of(
+                    "message", "成功结算 " + settledCount + " 条收益记录。",
+                    "settledCount", settledCount
+                ));
+            } else {
+                log.info("用户 {} 没有需要结算的收益记录", username);
+                 return ResponseEntity.ok(Map.of(
+                    "message", "没有需要结算的收益记录。",
+                    "settledCount", 0
+                ));
+            }
+        } catch (ResourceNotFoundException e) {
+             log.warn("触发结算失败，用户 {} 不存在", username);
+             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            log.error("创建收益记录失败: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+             log.error("为用户 {} 结算收益时发生意外错误: {}", username, e.getMessage(), e);
+             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                 .body(Map.of("error", "结算过程中发生错误，请稍后重试或联系管理员"));
         }
     }
     

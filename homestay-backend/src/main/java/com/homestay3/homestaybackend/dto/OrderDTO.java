@@ -33,6 +33,12 @@ public class OrderDTO {
     private BigDecimal totalAmount;
     private String status;
     private String remark;
+    private Long hostId;
+    private String hostName;
+    private String paymentStatus;
+    private String paymentMethod;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private boolean isReviewed;
+    private ReviewDTO review;
 } 

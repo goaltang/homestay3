@@ -34,6 +34,17 @@ const initializeApp = async () => {
       console.log("应用启动时获取用户信息");
       await userStore.fetchUserInfo();
       console.log("用户信息获取成功:", userStore.userInfo);
+
+      // 检查头像信息是否存在
+      if (userStore.userInfo && !userStore.userInfo.avatar) {
+        console.warn("用户信息中缺少头像，使用默认头像");
+        // 设置默认头像
+        const seed = userStore.userInfo.username || "default" + Date.now();
+        const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+        userStore.userInfo.avatar = defaultAvatar;
+        // 保存更新后的用户信息
+        localStorage.setItem("userInfo", JSON.stringify(userStore.userInfo));
+      }
     } catch (error: any) {
       console.error("获取用户信息失败，可能需要重新登录:", error);
       // 如果获取用户信息失败，清除token

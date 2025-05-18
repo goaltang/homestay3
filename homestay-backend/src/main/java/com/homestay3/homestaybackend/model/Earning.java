@@ -1,5 +1,6 @@
 package com.homestay3.homestaybackend.model;
 
+import com.homestay3.homestaybackend.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -18,50 +19,50 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 public class Earning {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "homestay_id", nullable = false)
     private Homestay homestay;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
-    
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
-    
+
     @Column(name = "checkin_date", nullable = false)
     private LocalDate checkInDate;
-    
+
     @Column(name = "checkout_date", nullable = false)
     private LocalDate checkOutDate;
-    
+
     @Column(nullable = false)
     private Integer nights;
-    
+
     @Column(nullable = false)
     private String status;
-    
+
     @Column(nullable = false)
     @Builder.Default
     private boolean isTest = false;
-    
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-    
+
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-    
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
@@ -71,9 +72,9 @@ public class Earning {
             updatedAt = LocalDateTime.now();
         }
     }
-    
+
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-} 
+}
