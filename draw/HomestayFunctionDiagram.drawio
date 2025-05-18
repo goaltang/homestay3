@@ -1,0 +1,220 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram id="homestay_function_diagram" name="民宿功能图">
+    <mxGraphModel dx="1737" dy="878" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2339" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="role-host" value="房东 (Host)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="300" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="func-host-create" value="创建房源" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="350" y="150" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="func-host-manage" value="管理我的房源" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="350" y="325" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hf-create" value="填写房源信息并提交" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="150" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hf-view-list" value="查看我的房源列表" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="240" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="hf-view-details" value="查看房源详情" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="290" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="hf-update-info" value="更新房源信息" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="340" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="hf-update-status" value="更新房源状态 (发布/下架)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="390" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="hf-delete" value="删除房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="440" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="role-user" value="用户 (User)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="695" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="func-user-browse" value="浏览与搜索" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="350" y="700" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uf-search" value="搜索/浏览房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="640" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="uf-view-details" value="查看房源详情" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="690" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="uf-view-featured" value="查看推荐房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="740" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="uf-view-type" value="按类型查看房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="550" y="790" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="role-admin" value="管理员 (Admin)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="900" y="500" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="func-admin-manage-all" value="管理所有房源" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="350" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="func-admin-manage-types" value="管理房源类型" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="600" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="func-admin-manage-amenities" value="管理设施" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1150" y="750" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="af-view-all-list" value="查看所有房源列表" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="190" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="af-view-any-details" value="查看任意房源详情" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="240" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="af-create" value="创建房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="290" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="af-update-any" value="更新任意房源信息" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="340" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="af-update-any-status" value="更新任意房源状态" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="390" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="af-delete-any" value="删除任意房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="440" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="af-delete-bulk" value="批量删除房源" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="490" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="aft-list" value="查看类型列表" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="560" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="aft-create" value="创建类型" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="610" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="aft-update" value="更新类型" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="660" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="aft-delete" value="删除类型" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="710" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="afa-list" value="查看设施列表" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="770" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="afa-create" value="创建设施" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="820" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="afa-update" value="更新设施" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="870" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="afa-delete" value="删除设施" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="920" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-host-create" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="role-host" target="func-host-create" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="330" />
+              <mxPoint x="290" y="175" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="conn-host-manage" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="role-host" target="func-host-manage" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="330" />
+              <mxPoint x="290" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="conn-h-create" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-host-create" target="hf-create" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-h-view-list" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-host-manage" target="hf-view-list" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-h-view-details" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-host-manage" target="hf-view-details" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-h-update-info" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-host-manage" target="hf-update-info" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-h-update-status" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-host-manage" target="hf-update-status" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-h-delete" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-host-manage" target="hf-delete" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-user-browse" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="role-user" target="func-user-browse" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-u-search" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-user-browse" target="uf-search" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-u-view-details" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-user-browse" target="uf-view-details" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-u-view-featured" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-user-browse" target="uf-view-featured" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-u-view-type" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-user-browse" target="uf-view-type" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-admin-manage-all" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="role-admin" target="func-admin-manage-all" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1090" y="530" />
+              <mxPoint x="1090" y="375" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="conn-admin-manage-types" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="role-admin" target="func-admin-manage-types" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-admin-manage-amenities" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="role-admin" target="func-admin-manage-amenities" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-view-all-list" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-view-all-list" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-view-any-details" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-view-any-details" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-create" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-create" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-update-any" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-update-any" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-update-any-status" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-update-any-status" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-delete-any" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-delete-any" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-a-delete-bulk" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-all" target="af-delete-bulk" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-at-list" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-types" target="aft-list" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-at-create" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-types" target="aft-create" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-at-update" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-types" target="aft-update" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-at-delete" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-types" target="aft-delete" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-aa-list" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-amenities" target="afa-list" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-aa-create" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-amenities" target="afa-create" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-aa-update" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-amenities" target="afa-update" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="conn-aa-delete" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="func-admin-manage-amenities" target="afa-delete" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

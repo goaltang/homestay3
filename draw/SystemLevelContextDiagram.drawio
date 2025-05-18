@@ -1,0 +1,199 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="level0_context_diagram" name="系统上下文图">
+    <mxGraphModel dx="2381" dy="719" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="process-system" value="0&#xa;民宿预订系统&#xa;(Homestay Booking System)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fontSize=14;fontStyle=1;verticalAlign=middle;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="450" y="320" width="200" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="entity-user" value="用户 (User)" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="40" y="150" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entity-host" value="房东 (Host)" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="-150" y="390" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entity-admin" value="管理员 (Admin)" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="70" y="800" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entity-email" value="邮件服务 (Email Service)" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="880" y="160" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entity-payment" value="支付服务 (Payment Service)" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="880" y="390" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="entity-storage" value="文件存储服务 (File Storage)" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="880" y="710" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="df-user-input-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="entity-user" target="process-system" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="230" y="160" />
+              <mxPoint x="230" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-user-input-label" value="身份认证请求 (登录/注册)&#xa;个人资料操作&#xa;房源浏览/搜索/筛选&#xa;预订请求&#xa;支付信息&#xa;评价/评分&#xa;取消订单&#xa;文件上传" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-user-input-edge" vertex="1" connectable="0">
+          <mxGeometry x="-0.3" y="-1" relative="1" as="geometry">
+            <mxPoint x="1" y="15" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-user-output-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;entryX=1;entryY=0.25;entryDx=0;entryDy=0;" parent="1" target="entity-user" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="410" y="370" />
+              <mxPoint x="410" y="160" />
+              <mxPoint x="180" y="160" />
+            </Array>
+            <mxPoint x="460" y="370" as="sourcePoint" />
+            <mxPoint x="300" y="159.99882352941182" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-user-output-label" value="认证结果&#xa;个人资料数据&#xa;房源列表/详情&#xa;搜索/筛选结果&#xa;订单确认/详情/历史&#xa;支付结果&#xa;评价反馈&#xa;通知/消息&#xa;文件URL" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-user-output-edge" vertex="1" connectable="0">
+          <mxGeometry x="0.3" relative="1" as="geometry">
+            <mxPoint x="1" y="-5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-host-input-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="entity-host" target="process-system" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="df-host-input-label" value="身份认证请求&#xa;个人/银行资料更新&#xa;房源创建/更新/删除&#xa;房源状态管理&#xa;订单确认/拒绝&#xa;入住/退房状态更新&#xa;评价回复&#xa;认证材料提交&#xa;收益查询&#xa;文件上传" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-host-input-edge" vertex="1" connectable="0">
+          <mxGeometry x="-0.5" y="1" relative="1" as="geometry">
+            <mxPoint x="15" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-host-output-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="process-system" target="entity-host" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-host-output-label" value="认证结果&#xa;个人资料数据&#xa;房源列表/详情&#xa;订单通知/列表/详情&#xa;评价数据&#xa;认证状态&#xa;收益统计/明细&#xa;通知/消息&#xa;文件URL" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-host-output-edge" vertex="1" connectable="0">
+          <mxGeometry x="0.5" relative="1" as="geometry">
+            <mxPoint x="-85" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-admin-input-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="entity-admin" target="process-system" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="140" y="680" />
+              <mxPoint x="300" y="680" />
+              <mxPoint x="300" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-admin-input-label" value="管理员登录请求&#xa;用户管理操作&#xa;房源管理/审核&#xa;订单处理/干预&#xa;评价管理&#xa;支付/退款手动处理&#xa;房东认证审核&#xa;系统配置操作&#xa;统计数据查询" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-admin-input-edge" vertex="1" connectable="0">
+          <mxGeometry x="-0.3" y="1" relative="1" as="geometry">
+            <mxPoint x="1" y="-20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-admin-output-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="process-system" target="entity-admin" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="470" />
+              <mxPoint x="440" y="770" />
+              <mxPoint x="140" y="770" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-admin-output-label" value="管理员认证结果&#xa;用户数据列表/详情&#xa;房源数据列表/详情&#xa;订单数据列表/详情&#xa;评价数据列表/详情&#xa;支付/收益数据&#xa;认证申请/材料&#xa;系统配置信息&#xa;统计报表数据&#xa;操作结果通知" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-admin-output-edge" vertex="1" connectable="0">
+          <mxGeometry x="0.3" y="-1" relative="1" as="geometry">
+            <mxPoint x="1" y="5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-email-output-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="process-system" target="entity-email" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="df-email-output-label" value="邮件发送请求&#xa;(注册验证/密码重置&#xa;订单确认/取消&#xa;房源审核结果&#xa;评价通知&#xa;系统通知)" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-email-output-edge" vertex="1" connectable="0">
+          <mxGeometry x="-0.3" relative="1" as="geometry">
+            <mxPoint x="10" y="-5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-email-input-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="entity-email" target="process-system" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="290" />
+              <mxPoint x="800" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-email-input-label" value="邮件发送状态&#xa;邮件交付确认" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-email-input-edge" vertex="1" connectable="0">
+          <mxGeometry x="0.3" relative="1" as="geometry">
+            <mxPoint x="10" y="5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-payment-output-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="process-system" target="entity-payment" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="df-payment-output-label" value="支付请求&#xa;退款请求&#xa;交易查询请求" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-payment-output-edge" vertex="1" connectable="0">
+          <mxGeometry x="-0.3" relative="1" as="geometry">
+            <mxPoint x="10" y="-2" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-payment-input-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="entity-payment" target="process-system" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="420" />
+              <mxPoint x="800" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-payment-input-label" value="支付结果&#xa;退款结果&#xa;交易记录数据" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-payment-input-edge" vertex="1" connectable="0">
+          <mxGeometry x="0.3" relative="1" as="geometry">
+            <mxPoint x="10" y="5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-storage-output-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="process-system" target="entity-storage" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="720" y="470" />
+              <mxPoint x="720" y="550" />
+              <mxPoint x="950" y="550" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-storage-output-label" value="文件上传请求&#xa;文件删除请求&#xa;(房源图片/认证资料/头像)" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-storage-output-edge" vertex="1" connectable="0">
+          <mxGeometry x="-0.3" relative="1" as="geometry">
+            <mxPoint x="-6" y="20" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-storage-input-edge" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="entity-storage" target="process-system" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="530" />
+              <mxPoint x="800" y="530" />
+              <mxPoint x="800" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="df-storage-input-label" value="文件URL&#xa;存储结果&#xa;文件元数据" style="edgeLabel;html=1;align=left;verticalAlign=middle;resizable=0;points=[];fontSize=10;labelBackgroundColor=none;" parent="df-storage-input-edge" vertex="1" connectable="0">
+          <mxGeometry x="0.3" relative="1" as="geometry">
+            <mxPoint x="10" y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="diagram-title" value="民宿预订系统 - 系统上下文图(Level 0)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="425" y="30" width="320" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-container" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;dashed=1;" parent="1" vertex="1">
+          <mxGeometry x="900" y="30" width="160" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="图例" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="950" y="40" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-entity" value="" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="910" y="70" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-entity-text" value="外部实体" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="980" y="70" width="60" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-process" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="930" y="100" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-process-text" value="处理过程" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="980" y="100" width="60" height="20" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

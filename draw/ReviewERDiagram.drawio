@@ -1,0 +1,91 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T12:00:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder_rev" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder_rev" name="Review ERD">
+    <mxGraphModel dx="1434" dy="784" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Review Entity -->
+        <mxCell id="review" value="Review" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="350" y="150" width="180" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="review_pk" value="review_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="review">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="review_user_fk" value="user_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="review">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="review_homestay_fk" value="homestay_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="review">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+         <mxCell id="review_booking_fk" value="booking_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="review">
+          <mxGeometry y="104" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="review_rating" value="rating" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="review">
+          <mxGeometry y="130" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="review_comment" value="comment" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="review">
+          <mxGeometry y="156" width="180" height="26" as="geometry" />
+        </mxCell>
+        <!-- Add review_date, response_text etc. if needed -->
+
+        <!-- User (Placeholder) -->
+        <mxCell id="user" value="User" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="50" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="user_pk" value="user_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Homestay (Placeholder) -->
+        <mxCell id="homestay" value="Homestay" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="250" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay_pk" value="homestay_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Booking (Placeholder) -->
+         <mxCell id="booking" value="Booking" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="600" y="150" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="booking_pk" value="booking_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="booking">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships -->
+        <!-- User(1) -< Writes(N) Review -->
+        <mxCell id="rel_user_review" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmany;startArrow=ERmandOne;endFill=1;startFill=0;" edge="1" parent="1" source="user" target="review">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="260" y="177" as="sourcePoint"/>
+            <mxPoint x="350" y="177" as="targetPoint"/>
+            <Array as="points">
+               <mxPoint x="305" y="77"/>
+               <mxPoint x="305" y="177"/>
+            </Array>
+          </mxGeometry>
+         </mxCell>
+
+        <!-- Homestay(1) -< Has(N) Review -->
+         <mxCell id="rel_homestay_review" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmany;startArrow=ERmandOne;endFill=1;startFill=0;" edge="1" parent="1" source="homestay" target="review">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="260" y="277" as="sourcePoint"/>
+            <mxPoint x="350" y="277" as="targetPoint"/>
+             <Array as="points">
+               <mxPoint x="305" y="277"/>
+            </Array>
+          </mxGeometry>
+         </mxCell>
+
+        <!-- Booking(1) -< Has(0..1) Review -->
+        <mxCell id="rel_booking_review" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERzeroToOne;startArrow=ERmandOne;endFill=1;startFill=0;" edge="1" parent="1" source="booking" target="review">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="600" y="242" as="sourcePoint"/>
+            <mxPoint x="530" y="242" as="targetPoint"/>
+          </mxGeometry>
+         </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

@@ -1,0 +1,109 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram id="homestay_context_dfd" name="民宿模块上下文图">
+    <mxGraphModel dx="1154" dy="738" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- 外部实体 -->
+        <mxCell id="entity-user" value="普通用户" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="280" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-host" value="房东" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-admin" value="系统管理员" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="800" y="280" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-order" value="订单模块" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="440" y="480" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- 主要处理过程 -->
+        <mxCell id="process-homestay" value="0&#xa;民宿管理模块" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fontSize=16;fontStyle=1;verticalAlign=middle;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="400" y="210" width="220" height="220" as="geometry" />
+        </mxCell>
+        
+        <!-- 普通用户数据流 -->
+        <mxCell id="flow-user-browse" value="浏览/搜索房源请求" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-user" target="process-homestay">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="300" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-homestay-user" value="房源列表/详情/搜索结果" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-homestay" target="entity-user">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="330" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 房东数据流 -->
+        <mxCell id="flow-host-manage" value="创建/更新/管理房源" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-host" target="process-homestay">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-homestay-host" value="房源状态/管理结果/统计数据" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-homestay" target="entity-host">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 管理员数据流 -->
+        <mxCell id="flow-admin-manage" value="审核/配置房源/设施/类型" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-admin" target="process-homestay">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="300" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-homestay-admin" value="房源报表/审核列表/操作结果" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-homestay" target="entity-admin">
+          <mxGeometry x="-0.2" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="680" y="330" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 订单模块数据流 -->
+        <mxCell id="flow-order-homestay" value="订单房源信息查询" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-order" target="process-homestay">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-homestay-order" value="房源可用性/价格/详情" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-homestay" target="entity-order">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 图表标题 -->
+        <mxCell id="diagram-title" value="图 4.1 民宿模块上下文图（0层数据流图）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="335" y="550" width="350" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

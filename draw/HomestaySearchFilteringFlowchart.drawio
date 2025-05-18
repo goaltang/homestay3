@@ -1,0 +1,123 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T14:00:00.000Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" etag="flowchart_search_etag" version="22.0.0" type="device">
+  <diagram id="flowchart_search_id" name="Homestay Search Filtering Flowchart">
+    <mxGraphModel dx="1434" dy="784" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Start Event -->
+        <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="450" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Input Search Criteria -->
+        <mxCell id="input_criteria" value="用户输入搜索条件&#xa;(目的地, 日期, 人数, 关键词, 价格, 类型, 设施等)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="160" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_start_input" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="start" target="input_criteria">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Frontend Sends Request -->
+        <mxCell id="send_request" value="前端发送 POST 请求&#xa;(/api/homestays/search)&#xa;含 HomestaySearchRequest" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="280" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_input_send" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="input_criteria" target="send_request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Controller Receives Request -->
+        <mxCell id="controller_receives" value="HomestayController 接收请求" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="400" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_send_controller" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="send_request" target="controller_receives">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Controller Calls Service -->
+        <mxCell id="controller_calls_service" value="调用 HomestayService.searchHomestays" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="500" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_controller_service" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="controller_receives" target="controller_calls_service">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Service Builds Query -->
+        <mxCell id="service_builds_query" value="HomestayService 构建查询&#xa;(JPA Specification)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="600" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_service_build" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="controller_calls_service" target="service_builds_query">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Apply Filters -->
+        <mxCell id="apply_filters" value="应用筛选条件 (Predicates)&#xa;- status = 'ACTIVE'&#xa;- 关键词 (title, desc, addr)&#xa;- 位置 (text, code)&#xa;- 价格范围&#xa;- 人数&#xa;- 类型 (name -&gt; code)&#xa;- 设施 (AND 逻辑)&#xa;- 日期可用性 (NOT EXISTS 订单冲突)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="720" width="260" height="160" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_build_filter" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="service_builds_query" target="apply_filters">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Execute Query -->
+        <mxCell id="execute_query" value="HomestayRepository 执行查询" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+          <mxGeometry x="400" y="920" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_filter_execute" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="apply_filters" target="execute_query">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Service Converts Results -->
+         <mxCell id="service_converts" value="HomestayService 转换结果&#xa;(Homestay -&gt; HomestayDTO)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1040" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_execute_convert" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="execute_query" target="service_converts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Controller Builds Response -->
+         <mxCell id="controller_builds_response" value="HomestayController 构建 JSON 响应" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1160" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_convert_response" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="service_converts" target="controller_builds_response">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Frontend Displays Results -->
+        <mxCell id="display_results" value="前端展示搜索结果" style="shape=display;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="1260" width="220" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_response_display" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="controller_builds_response" target="display_results">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- User Action Decision -->
+        <mxCell id="user_decision" value="用户修改条件或完成?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="410" y="1380" width="160" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_display_decision" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="display_results" target="user_decision">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- End Event -->
+        <mxCell id="end" value="结束" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="450" y="1540" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_decision_end" value="完成" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="user_decision" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Loop Back -->
+        <mxCell id="edge_decision_input" value="修改条件" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="user_decision" target="input_criteria">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="1440" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="700" y="1440" />
+              <mxPoint x="700" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

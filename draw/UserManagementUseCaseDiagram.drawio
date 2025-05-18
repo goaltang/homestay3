@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram id="user_management_use_case" name="用户管理用例图">
+    <mxGraphModel dx="1042" dy="527" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="actor-user" value="用户 (User/Host)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="250" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-admin" value="管理员 (Admin)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="870" y="250" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-register" value="用户注册 (Register)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="80" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-login" value="用户登录 (Login)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="180" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-logout" value="用户登出 (Logout)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="280" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-manage-profile" value="管理个人资料 (Manage Profile)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="380" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-login" value="管理员登录 (Admin Login)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="560" y="180" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-manage-users" value="管理用户 (Manage Users)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="560" y="280" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="assoc-user-register" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-register" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="280" as="sourcePoint" />
+            <mxPoint x="280" y="115" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-login" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-login" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="280" as="sourcePoint" />
+            <mxPoint x="280" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-logout" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-logout" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="210" y="300" as="sourcePoint" />
+            <mxPoint x="290" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-manage-profile" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-manage-profile" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="300" as="sourcePoint" />
+            <mxPoint x="280" y="415" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-admin-login" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-admin" target="uc-admin-login" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="800" y="280" as="sourcePoint" />
+            <mxPoint x="720" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-admin-manage-users" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-admin" target="uc-manage-users" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="800" y="300" as="sourcePoint" />
+            <mxPoint x="720" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

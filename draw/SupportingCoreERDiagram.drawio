@@ -1,0 +1,80 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T11:40:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder_sup_core" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder_sup_core" name="Supporting Core ERD (Chen)">
+    <mxGraphModel dx="1434" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Entities -->
+        <mxCell id="review" value="Review" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="364" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="User" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay" value="Homestay" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="628" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="supportticket" value="SupportTicket" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+           <mxGeometry x="100" y="400" width="100" height="40" as="geometry" />
+        </mxCell>
+        <!-- Consider adding AdminUser if ticket assignment is core -->
+
+        <!-- Relationships (Diamonds) -->
+        <mxCell id="rel_writes" value="Writes" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="247" y="195" width="70" height="50" as="geometry" />
+        </mxCell>
+         <mxCell id="rel_for" value="For" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="511" y="195" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_submits" value="Submits" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="115" y="300" width="70" height="50" as="geometry" />
+        </mxCell>
+       
+        <!-- Connections -->
+        <!-- User(1) -- Writes -- (N)Review -->
+        <mxCell id="conn_user_review" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="user" target="rel_writes">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_user_review_1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_user_review">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="conn_review_user" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_writes" target="review">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="card_user_review_n" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_review_user">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Homestay(1) -- For -- (N)Review -->
+        <mxCell id="conn_review_hs" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="review" target="rel_for">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_review_hs_n" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_review_hs">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="conn_hs_review" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_for" target="homestay">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_review_hs_1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_hs_review">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+         <!-- User(1) -- Submits -- (N)SupportTicket -->
+         <mxCell id="conn_user_ticket" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="user" target="rel_submits">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="card_user_ticket_1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_user_ticket">
+            <mxGeometry y="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="conn_ticket_user" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_submits" target="supportticket">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_user_ticket_n" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_ticket_user">
+            <mxGeometry y="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

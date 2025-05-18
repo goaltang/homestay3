@@ -1,0 +1,272 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T16:30:00.000Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" etag="flowchart_reg_login_etag" version="22.0.0" type="device">
+  <diagram id="flowchart_reg_login_id" name="User Registration &amp; Login Flowchart">
+    <mxGraphModel dx="1800" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Start Event -->
+        <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="550" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Decision: Register or Login -->
+        <mxCell id="decision_reg_login" value="注册 或 登录?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="510" y="160" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_start_decision" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="start" target="decision_reg_login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- === REGISTER PATH === -->
+
+        <mxCell id="reg_input" value="用户输入注册信息&#xa;(用户名, 邮箱, 密码等)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="300" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_decision_reg" value="注册" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="decision_reg_login" target="reg_input">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="510" y="210" as="sourcePoint" />
+             <Array as="points">
+              <mxPoint x="290" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="reg_frontend_check" value="(可选) 前端检查用户名/邮箱格式,&#xa;调用 /check-username, /check-email" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="180" y="420" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_input_fecheck" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_input" target="reg_frontend_check">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_send_request" value="前端发送注册请求&#xa;(POST /api/auth/register)&#xa;含 RegisterRequest" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="540" width="220" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_fecheck_send" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_frontend_check" target="reg_send_request">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_controller" value="AuthController 接收请求" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="660" width="220" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_send_controller_r" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_send_request" target="reg_controller">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_call_service" value="调用 AuthService.register" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="180" y="760" width="220" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_controller_call_r" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_controller" target="reg_call_service">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_service_check_user" value="检查用户名是否存在 (UserRepository)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="860" width="220" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_call_checkuser" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_call_service" target="reg_service_check_user">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_decision_user_exists" value="用户名已存在?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="960" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_check_decision_user" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_service_check_user" target="reg_decision_user_exists">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_service_check_email" value="检查邮箱是否存在 (UserRepository)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1080" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_decision_checkemail" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_decision_user_exists" target="reg_service_check_email">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_decision_email_exists" value="邮箱已存在?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="1180" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_check_decision_email" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_service_check_email" target="reg_decision_email_exists">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_service_process" value="哈希密码 (PasswordEncoder)&#xa;创建 User 实体&#xa;(enabled=true, status=UNVERIFIED)&#xa;保存 User (UserRepository)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="1300" width="260" height="110" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_decision_process" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_decision_email_exists" target="reg_service_process">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+         <mxCell id="reg_service_notify" value="(可选) 发送欢迎通知 (NotificationService)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1450" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_process_notify" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_service_process" target="reg_service_notify">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_service_token" value="生成 JWT (JwtTokenProvider)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1560" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_notify_token" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_service_notify" target="reg_service_token">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reg_return_success" value="AuthService 返回 AuthResponse&#xa;(含 UserDTO, token)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1660" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_token_return" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_service_token" target="reg_return_success">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Error Handling for Register -->
+        <mxCell id="reg_error" value="返回错误信息&#xa;(用户名/邮箱已存在)" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="460" y="950" width="140" height="90" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_userexists_error" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="reg_decision_user_exists" target="reg_error">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_emailexists_error" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="reg_decision_email_exists" target="reg_error">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="290" y="1270" as="sourcePoint"/>
+                 <Array as="points">
+                    <mxPoint x="290" y="1280" />
+                    <mxPoint x="530" y="1280" />
+                    <mxPoint x="530" y="1040" />
+                </Array>
+            </mxGeometry>
+        </mxCell>
+
+        <!-- === LOGIN PATH === -->
+        
+        <mxCell id="login_input" value="用户输入登录凭据&#xa;(用户名, 密码)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="300" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_decision_login" value="登录" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="decision_reg_login" target="login_input">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="670" y="210" as="sourcePoint" />
+              <Array as="points">
+                  <mxPoint x="910" y="210" />
+              </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="login_send_request" value="前端发送登录请求&#xa;(POST /api/auth/login)&#xa;含 AuthRequest" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="420" width="220" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_input_send_l" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_input" target="login_send_request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+         <mxCell id="login_controller" value="AuthController 接收请求" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="540" width="220" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_send_controller_l" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_send_request" target="login_controller">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="login_call_service" value="调用 AuthService.login" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="800" y="640" width="220" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_controller_call_l" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_controller" target="login_call_service">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+         <mxCell id="login_service_auth" value="调用 AuthenticationManager.authenticate&#xa;(验证用户名和密码)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="740" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_call_auth" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_call_service" target="login_service_auth">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="login_decision_auth_ok" value="认证成功?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="820" y="860" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_auth_decision" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_service_auth" target="login_decision_auth_ok">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="login_service_get_user" value="获取 User 实体 (UserRepository)&#xa;更新 lastLogin 时间&#xa;保存 User" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="980" width="220" height="100" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_decision_getuser" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_decision_auth_ok" target="login_service_get_user">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+         <mxCell id="login_service_token" value="生成 JWT (JwtTokenProvider)" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1120" width="220" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_getuser_token" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_service_get_user" target="login_service_token">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+         <mxCell id="login_return_success" value="AuthService 返回 AuthResponse&#xa;(含 UserDTO, token)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1220" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_token_return_l" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_service_token" target="login_return_success">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Error Handling for Login -->
+        <mxCell id="login_error" value="返回错误信息&#xa;(凭据无效)" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+            <mxGeometry x="1080" y="855" width="140" height="90" as="geometry" />
+        </mxCell>
+         <mxCell id="edge_authfail_error" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="login_decision_auth_ok" target="login_error">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Common Success Path -->
+         <mxCell id="common_return_controller" value="AuthController 返回 200 OK&#xa;含 AuthResponse" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="490" y="1800" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_reg_success_common" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="reg_return_success" target="common_return_controller">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="290" y="1760" as="sourcePoint"/>
+                 <Array as="points">
+                    <mxPoint x="290" y="1770" />
+                    <mxPoint x="590" y="1770" />
+                </Array>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_login_success_common" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="login_return_success" target="common_return_controller">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="910" y="1320" as="sourcePoint"/>
+                 <Array as="points">
+                    <mxPoint x="910" y="1770" />
+                    <mxPoint x="590" y="1770" />
+                </Array>
+            </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="common_frontend_process" value="前端处理响应&#xa;(存储 token, 更新 UI, 跳转页面)" style="shape=display;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="490" y="1920" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_commonreturn_frontend" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="common_return_controller" target="common_frontend_process">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- End Event -->
+        <mxCell id="end" value="结束 (已认证/出错)" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="550" y="2040" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_frontend_end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="common_frontend_process" target="end">
+            <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_regerror_end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="reg_error" target="end">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="530" y="1080" as="sourcePoint"/>
+                 <Array as="points">
+                    <mxPoint x="530" y="2080" />
+                </Array>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="edge_loginerror_end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="login_error" target="end">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="1150" y="900" as="sourcePoint"/>
+                 <Array as="points">
+                    <mxPoint x="1150" y="2080" />
+                </Array>
+            </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

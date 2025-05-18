@@ -1,0 +1,217 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="order_management_use_case" name="订单管理用例图">
+    <mxGraphModel dx="1873" dy="1111" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2339" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="actor-user" value="用户 (Guest)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="100" y="400" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-host" value="房东 (Host)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="650" y="850" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-admin" value="管理员 (Admin)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1600" y="600" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-view-details" value="查看订单详情" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="750" y="600" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-user-preview" value="创建订单预览" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="150" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-user-create" value="创建订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="250" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-user-view-my" value="查看我的订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="350" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-user-cancel" value="取消订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="450" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-user-pay" value="支付订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="300" y="550" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-view-owned" value="查看名下订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="850" y="750" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-confirm" value="确认订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="850" y="850" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-reject" value="拒绝订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="850" y="950" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-cancel" value="取消订单(房东)" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="850" y="1050" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-checkin" value="办理入住" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="850" y="1150" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-pending-count" value="获取待处理订单数" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="450" y="800" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-host-stats" value="查看订单统计" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="450" y="900" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-manage-all" value="管理所有订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1330" y="540" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-view-all-list" value="查看所有订单列表" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="300" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-update-status" value="更新订单状态" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="400" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-confirm-payment" value="手动确认支付" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="500" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-refund" value="发起退款" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="600" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-delete" value="删除订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="700" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-admin-export" value="导出订单" style="ellipse;whiteSpace=wrap;html=1;labelBackgroundColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="800" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="assoc-user-preview" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-user-preview" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="380" as="sourcePoint" />
+            <mxPoint x="280" y="185" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-create" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-user-create" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="380" as="sourcePoint" />
+            <mxPoint x="280" y="285" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-view-my" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-user-view-my" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="380" as="sourcePoint" />
+            <mxPoint x="280" y="385" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-cancel" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-user-cancel" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="380" as="sourcePoint" />
+            <mxPoint x="280" y="485" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-pay" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-user-pay" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="380" as="sourcePoint" />
+            <mxPoint x="280" y="585" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-user-view-details" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-user" target="uc-view-details" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="430" as="sourcePoint" />
+            <mxPoint x="730" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-view-owned" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-view-owned" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="830" y="785" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-view-details" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-view-details" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="830" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-confirm" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-confirm" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="830" y="885" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-reject" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-reject" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="830" y="985" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-cancel" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-cancel" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="830" y="1085" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="680" y="1085" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-checkin" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-checkin" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="830" y="1185" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-pending-count" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-pending-count" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="610" y="835" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-stats" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-host" target="uc-host-stats" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="750" y="880" as="sourcePoint" />
+            <mxPoint x="610" y="935" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-admin-manage-all" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;" parent="1" source="actor-admin" target="uc-admin-manage-all" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1580" y="630" as="sourcePoint" />
+            <mxPoint x="1460" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-admin-view-details" value="" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=none;fontColor=default;elbow=vertical;" parent="1" source="actor-admin" target="uc-view-details" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="1580" y="630" as="sourcePoint" />
+            <mxPoint x="910" y="635" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1615" y="635" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="include-user-view-my-details" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=left;verticalAlign=bottom;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;" parent="1" source="uc-user-view-my" target="uc-view-details" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="450" y="385" as="sourcePoint" />
+            <mxPoint x="730" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="include-host-view-owned-details" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=left;verticalAlign=bottom;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;" parent="1" source="uc-host-view-owned" target="uc-view-details" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="830" y="785" as="sourcePoint" />
+            <mxPoint x="830" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="include-admin-manage-view-all" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=right;verticalAlign=middle;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uc-admin-manage-all" target="uc-admin-view-all-list" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="include-admin-manage-details" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=left;verticalAlign=bottom;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;" parent="1" source="uc-admin-manage-all" target="uc-view-details" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1280" y="635" as="sourcePoint" />
+            <mxPoint x="910" y="635" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="include-admin-manage-update-status" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=right;verticalAlign=middle;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uc-admin-manage-all" target="uc-admin-update-status" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="include-admin-manage-confirm-payment" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=right;verticalAlign=middle;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uc-admin-manage-all" target="uc-admin-confirm-payment" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="include-admin-manage-refund" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=right;verticalAlign=middle;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uc-admin-manage-all" target="uc-admin-refund" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="include-admin-manage-delete" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=right;verticalAlign=middle;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uc-admin-manage-all" target="uc-admin-delete" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="include-admin-manage-export" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=orthogonalEdgeStyle;html=1;align=right;verticalAlign=middle;endArrow=open;endSize=8;dashed=1;labelBackgroundColor=none;fontColor=default;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="uc-admin-manage-all" target="uc-admin-export" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

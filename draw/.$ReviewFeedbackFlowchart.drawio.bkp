@@ -1,0 +1,140 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram id="review_feedback_flowchart" name="评价反馈流程图">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Swimlanes -->
+        <mxCell id="lane-user" value="用户 (User)" style="swimlane;startSize=23;horizontal=0;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="40" width="200" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-system" value="系统 (System)" style="swimlane;startSize=23;horizontal=0;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="240" y="40" width="200" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-host" value="房东 (Host)" style="swimlane;startSize=23;horizontal=0;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="440" y="40" width="200" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="lane-admin" value="管理员 (Admin)" style="swimlane;startSize=23;horizontal=0;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="640" y="40" width="200" height="700" as="geometry">
+              <mxPoint x="-30" y="15" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Start -->
+        <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" parent="lane-user" vertex="1">
+            <mxGeometry x="60" y="50" width="80" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- User Actions -->
+        <mxCell id="user-submit" value="提交评价" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-user" vertex="1">
+          <mxGeometry x="50" y="160" width="100" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- System Actions -->
+        <mxCell id="system-receive" value="接收并存储评价" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-system" vertex="1">
+          <mxGeometry x="50" y="160" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="system-check" value="是否需要审核？" style="rhombus;whiteSpace=wrap;html=1;" parent="lane-system" vertex="1">
+          <mxGeometry x="40" y="250" width="120" height="80" as="geometry"/>
+        </mxCell>
+         <mxCell id="system-notify-host" value="通知房东有新评价" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-system" vertex="1">
+          <mxGeometry x="50" y="360" width="100" height="60" as="geometry"/>
+        </mxCell>
+         <mxCell id="system-store-response" value="存储房东回复" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-system" vertex="1">
+            <mxGeometry x="50" y="580" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="system-notify-user" value="通知用户有新回复" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-user" vertex="1">
+             <mxGeometry x="50" y="670" width="100" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Admin Actions -->
+        <mxCell id="admin-review" value="审核评价" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-admin" vertex="1">
+          <mxGeometry x="50" y="260" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="admin-decision" value="通过/拒绝？" style="rhombus;whiteSpace=wrap;html=1;" parent="lane-admin" vertex="1">
+            <mxGeometry x="40" y="350" width="120" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="admin-update-status" value="更新评价状态 (可见/隐藏)" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-admin" vertex="1">
+            <mxGeometry x="50" y="460" width="100" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Host Actions -->
+         <mxCell id="host-view" value="查看收到的评价" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-host" vertex="1">
+          <mxGeometry x="50" y="440" width="100" height="60" as="geometry"/>
+        </mxCell>
+         <mxCell id="host-respond" value="回复评价" style="rounded=0;whiteSpace=wrap;html=1;" parent="lane-host" vertex="1">
+          <mxGeometry x="50" y="580" width="100" height="60" as="geometry"/>
+        </mxCell>
+
+         <!-- End -->
+        <mxCell id="end" value="结束" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" parent="lane-user" vertex="1">
+            <mxGeometry x="60" y="760" width="80" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Transitions -->
+        <mxCell id="flow-start-submit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="start" target="user-submit" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-submit-receive" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="user-submit" target="system-receive" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="flow-receive-check" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="system-receive" target="system-check" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-check-review" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="system-check" target="admin-review" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                 <mxPoint as="offset" x="10" y="-10"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="flow-check-notify" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="system-check" target="system-notify-host" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                 <mxPoint as="offset" x="-10" y="10"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="flow-review-decision" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="admin-review" target="admin-decision" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="flow-decision-update" value="通过" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="admin-decision" target="admin-update-status" edge="1">
+             <mxGeometry relative="1" as="geometry">
+                  <mxPoint as="offset" x="10" y="-10"/>
+             </mxGeometry>
+        </mxCell>
+         <mxCell id="flow-decision-update-reject" value="拒绝" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="admin-decision" target="admin-update-status" edge="1">
+             <mxGeometry relative="1" as="geometry">
+                  <mxPoint as="targetPoint" x="740" y="430"/> <!-- Adjust target point if needed -->
+                  <Array as="points">
+                      <mxPoint x="790" y="390"/>
+                      <mxPoint x="790" y="495"/>
+                  </Array>
+                 <mxPoint as="offset" x="-10" y="10"/>
+             </mxGeometry>
+        </mxCell>
+        <mxCell id="flow-update-notify" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="admin-update-status" target="system-notify-host" edge="1">
+             <mxGeometry relative="1" as="geometry">
+                 <Array as="points">
+                    <mxPoint x="690" y="530"/>
+                    <mxPoint x="690" y="390"/>
+                 </Array>
+             </mxGeometry>
+        </mxCell>
+        <mxCell id="flow-notify-host-view" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="system-notify-host" target="host-view" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="flow-host-view-respond" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="host-view" target="host-respond" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-host-respond-store" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="host-respond" target="system-store-response" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-store-notify-user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="system-store-response" target="system-notify-user" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="flow-notify-user-end" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="system-notify-user" target="end" edge="1">
+             <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

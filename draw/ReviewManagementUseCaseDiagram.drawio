@@ -1,0 +1,184 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram id="review_management_use_case" name="评论管理用例图">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="actor-guest" value="访客/用户 (Guest/User)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+          <mxGeometry x="80" y="350" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-host" value="房东 (Host)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+          <mxGeometry x="80" y="600" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-admin" value="管理员 (Admin)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+          <mxGeometry x="1100" y="480" width="30" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Guest/User Use Cases -->
+        <mxCell id="uc-view-homestay-reviews" value="查看房源评价列表 (View Homestay Reviews)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="100" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-view-homestay-stats" value="查看房源评价统计 (View Homestay Review Stats)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="210" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-submit-review" value="提交评价 (Submit Review)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="320" width="160" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="uc-view-my-reviews" value="查看我的评价 (View My Reviews)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="430" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-update-review" value="更新评价 (Update Review)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="500" y="375" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-delete-review-user" value="删除评价 (Delete Review)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="500" y="485" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Host Use Cases -->
+         <mxCell id="uc-view-received-reviews" value="查看收到的评价 (View Received Reviews)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="540" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-respond-review" value="回复评价 (Respond to Review)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="650" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-delete-response" value="删除评价回复 (Delete Review Response)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="760" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-view-host-stats" value="查看房东评价统计 (View Host Review Stats)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="500" y="595" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Admin Use Cases -->
+        <mxCell id="uc-view-all-reviews" value="查看所有评价 (View All Reviews)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="780" y="210" width="160" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="uc-view-review-detail" value="查看评价详情 (View Review Detail)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="780" y="320" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-delete-review-admin" value="删除评价 (Delete Review)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="780" y="430" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-set-visibility" value="设置评价可见性 (Set Review Visibility)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="780" y="540" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-view-admin-stats" value="查看全站评价统计 (View Admin Review Stats)" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="780" y="650" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Associations -->
+        <!-- Guest/User Associations -->
+        <mxCell id="assoc-guest-view-homestay" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-guest" target="uc-view-homestay-reviews" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="370" as="sourcePoint"/>
+                <mxPoint x="290" y="140" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-guest-view-homestay-stats" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-guest" target="uc-view-homestay-stats" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="370" as="sourcePoint"/>
+                <mxPoint x="290" y="250" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-guest-submit" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-guest" target="uc-submit-review" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="380" as="sourcePoint"/>
+                <mxPoint x="290" y="360" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-guest-view-my" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-guest" target="uc-view-my-reviews" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="390" as="sourcePoint"/>
+                <mxPoint x="290" y="470" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-guest-update" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-guest" target="uc-update-review" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="385" as="sourcePoint"/>
+                <mxPoint x="490" y="415" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-guest-delete" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-guest" target="uc-delete-review-user" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="400" as="sourcePoint"/>
+                <mxPoint x="490" y="525" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        
+        <!-- Host Associations -->
+         <mxCell id="assoc-host-view-received" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-host" target="uc-view-received-reviews" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="620" as="sourcePoint"/>
+                <mxPoint x="290" y="580" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-host-respond" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-host" target="uc-respond-review" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="630" as="sourcePoint"/>
+                <mxPoint x="290" y="690" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="assoc-host-delete-response" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-host" target="uc-delete-response" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="640" as="sourcePoint"/>
+                <mxPoint x="290" y="800" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-host-view-stats" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-host" target="uc-view-host-stats" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="150" y="625" as="sourcePoint"/>
+                <mxPoint x="490" y="635" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+        
+        <!-- Host extends Guest/User -->
+        <mxCell id="extend-host-guest" value="" style="endArrow=block;endFill=0;html=1;edgeStyle=orthogonalEdgeStyle;align=left;verticalAlign=bottom;dashed=1;" edge="1" parent="1" source="actor-host" target="actor-guest">
+          <mxGeometry x="-1" y="-20" relative="1" as="geometry">
+            <mxPoint x="95" y="590" as="sourcePoint"/>
+            <mxPoint x="95" y="420" as="targetPoint"/>
+             <Array as="points">
+              <mxPoint x="95" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell value="&amp;lt;&amp;lt;extends&amp;gt;&amp;gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="extend-host-guest">
+          <mxGeometry x="-0.0417" y="2" relative="1" as="geometry">
+            <mxPoint x="8" y="-8" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Admin Associations -->
+        <mxCell id="assoc-admin-view-all" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-admin" target="uc-view-all-reviews" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="1050" y="500" as="sourcePoint"/>
+                <mxPoint x="950" y="250" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-admin-view-detail" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-admin" target="uc-view-review-detail" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="1050" y="505" as="sourcePoint"/>
+                <mxPoint x="950" y="360" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-admin-delete" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-admin" target="uc-delete-review-admin" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="1050" y="510" as="sourcePoint"/>
+                <mxPoint x="950" y="470" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-admin-set-visibility" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-admin" target="uc-set-visibility" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="1050" y="520" as="sourcePoint"/>
+                <mxPoint x="950" y="580" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+         <mxCell id="assoc-admin-view-stats" value="" style="endArrow=none;html=1;rounded=0;" parent="1" source="actor-admin" target="uc-view-admin-stats" edge="1">
+            <mxGeometry width="50" height="50" relative="1" as="geometry">
+                <mxPoint x="1050" y="530" as="sourcePoint"/>
+                <mxPoint x="950" y="690" as="targetPoint"/>
+            </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

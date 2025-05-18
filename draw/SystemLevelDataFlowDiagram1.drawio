@@ -1,0 +1,279 @@
+<mxfile host="Electron" modified="2024-06-07T15:44:23.231Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2" etag="tAw-HF_yMlcnuKp1Wx0i" type="device">
+  <diagram id="system_level_dataflow" name="系统级数据流图">
+    <mxGraphModel dx="1406" dy="887" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- 外部实体 -->
+        <mxCell id="entity-user" value="普通用户" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-host" value="房东" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="390" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-admin" value="系统管理员" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="570" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-payment" value="第三方支付系统" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="940" y="210" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="entity-email" value="邮件/通知服务" style="shape=rectangle;rounded=1;whiteSpace=wrap;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="940" y="570" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- 主要处理过程 -->
+        <mxCell id="process-system" value="民宿预订系统" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fontSize=16;fontStyle=1;verticalAlign=middle;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="450" y="350" width="220" height="220" as="geometry" />
+        </mxCell>
+        
+        <!-- 数据存储 -->
+        <mxCell id="ds-user" value="D1：用户数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="300" y="130" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-homestay" value="D2：民宿/房源数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="300" y="210" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-orders" value="D3：订单数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="670" y="260" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-payments" value="D4：支付数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="670" y="330" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-reviews" value="D5：评价数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="670" y="400" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-notifications" value="D6：通知记录" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="670" y="470" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-earnings" value="D7：收益数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="670" y="540" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ds-amenities" value="D8：设施/类型数据" style="shape=partialRectangle;whiteSpace=wrap;html=1;left=0;right=0;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="300" y="290" width="150" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- 普通用户数据流 -->
+        <mxCell id="flow-user-register" value="注册/登录" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-user" target="process-system">
+          <mxGeometry x="-0.1429" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="310" y="240"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-user-browse" value="浏览/搜索民宿" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-user" target="process-system">
+          <mxGeometry x="-0.1429" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="250"/>
+              <mxPoint x="280" y="380"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-user-book" value="预订/支付" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-user" target="process-system">
+          <mxGeometry x="-0.1429" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="250" y="260"/>
+              <mxPoint x="250" y="400"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-user-review" value="提交评价" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-user" target="process-system">
+          <mxGeometry x="-0.1429" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="230" y="270"/>
+              <mxPoint x="230" y="420"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-user" value="预订确认/状态更新/评价反馈" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="entity-user">
+          <mxGeometry x="-0.1333" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="360"/>
+              <mxPoint x="400" y="230"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 房东数据流 -->
+        <mxCell id="flow-host-register" value="注册/登录" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-host" target="process-system">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="flow-host-manage" value="发布/管理房源" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-host" target="process-system">
+          <mxGeometry x="-0.1429" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="250" y="410"/>
+              <mxPoint x="250" y="430"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-host-ordermgmt" value="管理预订/入住" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-host" target="process-system">
+          <mxGeometry x="-0.1429" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="250" y="430"/>
+              <mxPoint x="250" y="450"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-host" value="预订通知/收益/评价展示" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="entity-host">
+          <mxGeometry x="-0.3333" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="440"/>
+              <mxPoint x="400" y="410"/>
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 管理员数据流 -->
+        <mxCell id="flow-admin-login" value="登录" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-admin" target="process-system">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="590"/>
+              <mxPoint x="280" y="500"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-admin-manage" value="系统管理" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-admin" target="process-system">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="600"/>
+              <mxPoint x="280" y="520"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-admin" value="系统状态/报表" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="entity-admin">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="500"/>
+              <mxPoint x="400" y="600"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 支付系统数据流 -->
+        <mxCell id="flow-system-payment" value="支付请求" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="entity-payment">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="240"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-payment-system" value="支付结果通知" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="entity-payment" target="process-system">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="240"/>
+              <mxPoint x="800" y="400"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 通知系统数据流 -->
+        <mxCell id="flow-system-email" value="发送通知请求" style="endArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="entity-email">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="600"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 数据存储数据流 -->
+        <mxCell id="flow-system-userdata" value="读/写用户数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-user">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="480" y="155"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-homestaydata" value="读/写房源数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-homestay">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="500" y="235"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-amenitydata" value="读/写设施数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-amenities">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="375" y="350"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-orderdata" value="读/写订单数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-orders">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="285"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-paymentdata" value="读/写支付数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-payments">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="610" y="355"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-reviewdata" value="读/写评价数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-reviews">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="610" y="425"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-notificationdata" value="读/写通知数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-notifications">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="495"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="flow-system-earningdata" value="读/写收益数据" style="endArrow=classic;startArrow=classic;html=1;rounded=0;fontSize=12;strokeWidth=1.5;" edge="1" parent="1" source="process-system" target="ds-earnings">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="560" y="565"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 标题 -->
+        <mxCell id="diagram-title" value="图 3-1 民宿预订系统顶层数据流图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="670" width="350" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

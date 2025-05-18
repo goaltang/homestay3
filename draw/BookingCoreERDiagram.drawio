@@ -1,0 +1,79 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T11:35:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder_bk_core" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder_bk_core" name="Booking Core ERD (Chen)">
+    <mxGraphModel dx="1434" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Entities -->
+        <mxCell id="booking" value="Booking" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="364" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="User" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay" value="Homestay" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="628" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="payment" value="Payment" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="364" y="400" width="100" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships (Diamonds) -->
+        <mxCell id="rel_made_by" value="Made By" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="247" y="195" width="70" height="50" as="geometry" />
+        </mxCell>
+         <mxCell id="rel_for" value="For" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="511" y="195" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_results_in" value="Results In" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="379" y="300" width="70" height="50" as="geometry" />
+        </mxCell>
+       
+        <!-- Connections -->
+        <!-- User(1) -- Made By -- (N)Booking -->
+        <mxCell id="conn_user_booking" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="user" target="rel_made_by">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_user_booking_1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_user_booking">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="conn_booking_user" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_made_by" target="booking">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="card_user_booking_n" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_booking_user">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Homestay(1) -- For -- (N)Booking -->
+        <mxCell id="conn_booking_hs" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="booking" target="rel_for">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_hs_booking_n" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_booking_hs">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="conn_hs_booking" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_for" target="homestay">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_hs_booking_1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_hs_booking">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+       
+        <!-- Booking(1) -- Results In -- (1)Payment -->
+        <mxCell id="conn_booking_payment" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="booking" target="rel_results_in">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="card_booking_payment_1a" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_booking_payment">
+            <mxGeometry y="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="conn_payment_booking" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_results_in" target="payment">
+            <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+         <mxCell id="card_booking_payment_1b" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_payment_booking">
+            <mxGeometry y="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

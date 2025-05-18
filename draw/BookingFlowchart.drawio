@@ -1,0 +1,151 @@
+<mxfile host="Electron" agent="Gemini" version="1.0">
+  <diagram id="booking_flowchart" name="民宿预订流程图">
+    <mxGraphModel dx="1200" dy="2000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Start Event -->
+        <mxCell id="start" value="开始" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+          <mxGeometry x="354" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Process Steps -->
+        <mxCell id="step-browse" value="用户浏览/搜索民宿" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="140" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-view-details" value="用户选择民宿查看详情" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="240" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-book" value="是否预订?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="364" y="340" width="100" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="step-preview-page" value="进入订单预览/创建页面" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="460" width="120" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="step-fill-info" value="用户填写预订信息 (日期, 人数等)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="560" width="120" height="70" as="geometry" />
+        </mxCell>
+         <mxCell id="step-generate-preview" value="系统调用 /preview 生成订单预览" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="670" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-confirm-preview" value="是否确认预览信息?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="344" y="780" width="140" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="step-create-order" value="用户提交, 系统调用 POST / 创建订单 (状态: 待支付)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+           <mxGeometry x="354" y="910" width="120" height="80" as="geometry" />
+        </mxCell>
+        <!-- Updated Payment Flow -->
+        <mxCell id="step-choose-payment" value="用户选择支付方式 / 请求支付凭证 (如二维码 /qrcode)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="1030" width="120" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="step-user-pay" value="用户使用凭证完成支付 (外部支付系统)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="1160" width="120" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="step-payment-callback" value="支付系统回调 / 前端轮询 /payment/status" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+           <mxGeometry x="354" y="1280" width="120" height="70" as="geometry" />
+         </mxCell>
+        <mxCell id="decision-payment-status" value="支付是否成功?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="364" y="1390" width="100" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="step-update-order-paid" value="系统调用 /pay (或内部逻辑) 更新订单状态 (已支付)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="1510" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="step-send-confirmation" value="系统发送预订成功确认 (邮件/通知)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="354" y="1630" width="120" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- End Events -->
+        <mxCell id="end-success" value="预订成功" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+          <mxGeometry x="354" y="1740" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end-fail-nobook" value="结束浏览" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="540" y="350" width="100" height="60" as="geometry" />
+        </mxCell>
+         <mxCell id="end-fail-nopreview" value="返回修改或取消" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="540" y="795" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end-fail-payment" value="支付失败 / 订单待支付" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+           <mxGeometry x="540" y="1400" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Connectors -->
+        <mxCell id="edge-start-browse" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="start" target="step-browse" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-browse-view" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-browse" target="step-view-details" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-view-decision" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-view-details" target="decision-book" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decision-yes-preview" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-book" target="step-preview-page" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="414" y="440" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-decision-no-end" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;" parent="1" source="decision-book" target="end-fail-nobook" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="494" y="380" as="sourcePoint"/>
+             <Array as="points">
+                  <mxPoint x="494" y="380"/>
+                  <mxPoint x="590" y="380"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-preview-fill" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-preview-page" target="step-fill-info" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+         <mxCell id="edge-fill-genpreview" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-fill-info" target="step-generate-preview" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-genpreview-decisionpreview" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-generate-preview" target="decision-confirm-preview" edge="1">
+           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+         <mxCell id="edge-decisionpreview-yes-create" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-confirm-preview" target="step-create-order" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+         <mxCell id="edge-decisionpreview-no-end" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;" parent="1" source="decision-confirm-preview" target="end-fail-nopreview" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="514" y="825" as="sourcePoint"/>
+             <Array as="points">
+                  <mxPoint x="514" y="825"/>
+                  <mxPoint x="590" y="825"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="edge-create-choosepayment" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-create-order" target="step-choose-payment" edge="1">
+           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+         <mxCell id="edge-choosepayment-pay" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-choose-payment" target="step-user-pay" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-pay-callback" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-user-pay" target="step-payment-callback" edge="1">
+           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+         <mxCell id="edge-callback-decisionpayment" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-payment-callback" target="decision-payment-status" edge="1">
+           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decisionpayment-yes-update" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-payment-status" target="step-update-order-paid" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decisionpayment-no-end" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;" parent="1" source="decision-payment-status" target="end-fail-payment" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="494" y="1430" as="sourcePoint"/>
+             <Array as="points">
+                  <mxPoint x="494" y="1430"/>
+                  <mxPoint x="600" y="1430"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="edge-update-sendconfirm" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-order-paid" target="step-send-confirmation" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+         <mxCell id="edge-sendconfirm-endsuccess" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-send-confirmation" target="end-success" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

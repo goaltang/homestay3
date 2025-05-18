@@ -1,0 +1,127 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="seq_listing_id_v2" name="Homestay Listing Sequence Diagram (Simplified)">
+    <mxGraphModel dx="2060" dy="1222" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="lifeline_host" value=":房东 (Host)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+          <mxGeometry x="40" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_frontend" value=":前端 (Frontend)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="200" y="40" width="120" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_frontend_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" parent="lifeline_frontend" vertex="1">
+          <mxGeometry x="55" y="125" width="10" height="690" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_controller" value=":HomestayController" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="400" y="40" width="160" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_controller_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" parent="lifeline_controller" vertex="1">
+          <mxGeometry x="75" y="165" width="10" height="610" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_service" value=":HomestayService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="620" y="40" width="140" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_service_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" parent="lifeline_service" vertex="1">
+          <mxGeometry x="65" y="205" width="10" height="530" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_service_build" value="6. 构建实体 (含URLs)" style="html=1;points=[];perimeter=orthogonalPerimeter;align=left;verticalAlign=middle;labelPosition=right;verticalLabelPosition=middle;spacingLeft=5;fontSize=11;" parent="lifeline_service" vertex="1">
+          <mxGeometry x="75" y="145" width="10" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_service_amenity" value="7. 处理设施 (查AmenityRepo并关联)" style="html=1;points=[];perimeter=orthogonalPerimeter;align=left;verticalAlign=middle;labelPosition=right;verticalLabelPosition=middle;spacingLeft=5;fontSize=11;" parent="lifeline_service" vertex="1">
+          <mxGeometry x="75" y="225" width="10" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_service_convert" value="10. 转换结果 (DTO)" style="html=1;points=[];perimeter=orthogonalPerimeter;align=left;verticalAlign=middle;labelPosition=right;verticalLabelPosition=middle;spacingLeft=5;fontSize=11;" parent="lifeline_service" vertex="1">
+          <mxGeometry x="75" y="410" width="10" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_user_repo" value=":UserRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="800" y="40" width="140" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_userrepo_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" parent="lifeline_user_repo" vertex="1">
+          <mxGeometry x="65" y="245" width="10" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_homestay_repo" value=":HomestayRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="980" y="40" width="160" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="activate_homestayrepo_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" parent="lifeline_homestay_repo" vertex="1">
+          <mxGeometry x="75" y="515" width="10" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_amenity_repo" value=":AmenityRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="1180" y="40" width="160" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="msg_host_input" value="1. 输入房源信息 (含URLs, 设施)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=open;dashed=0;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_host" target="lifeline_frontend" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="160" as="sourcePoint" />
+            <mxPoint x="260" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_frontend_controller" value="2. POST /api/homestays (DTO)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_frontend" target="lifeline_controller" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="265" y="200" as="sourcePoint" />
+            <mxPoint x="480" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_controller_service" value="3. createHomestay(dto, username)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_controller" target="lifeline_service" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="240" as="sourcePoint" />
+            <mxPoint x="690" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_service_userrepo" value="4. findByUsername(username)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_service" target="lifeline_user_repo" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="280" as="sourcePoint" />
+            <mxPoint x="870" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_userrepo_service" value="5. 返回 User (Owner)" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;dashed=1;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_user_repo" target="lifeline_service" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="870" y="330" as="sourcePoint" />
+            <mxPoint x="700" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note_implicit_amenity_repo" value="(隐式调用 AmenityRepository.findById)" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=9;fontColor=#999999;" parent="1" vertex="1">
+          <mxGeometry x="1190" y="460" width="180" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_service_amenity_note" value="" style="endArrow=open;html=1;rounded=0;dashed=1;strokeColor=#999999;" parent="1" source="activate_service_amenity" target="note_implicit_amenity_repo" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="720" y="480" as="sourcePoint" />
+            <mxPoint x="1180" y="470" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="760" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_service_homestayrepo_save" value="8. save(homestay with amenities)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_service" target="lifeline_homestay_repo" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="550" as="sourcePoint" />
+            <mxPoint x="1060" y="550" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_homestayrepo_service_save" value="9. 返回 savedHomestay" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;dashed=1;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_homestay_repo" target="lifeline_service" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1060" y="595" as="sourcePoint" />
+            <mxPoint x="700" y="595" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_service_controller" value="11. 返回 createdHomestayDTO" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;dashed=1;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_service" target="lifeline_controller" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="710" as="sourcePoint" />
+            <mxPoint x="485" y="710" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_controller_frontend" value="12. 201 Created (DTO)" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;dashed=1;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_controller" target="lifeline_frontend" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="750" as="sourcePoint" />
+            <mxPoint x="265" y="750" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg_frontend_host" value="13. 显示创建成功" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;dashed=1;strokeWidth=1;fontSize=11;" parent="1" source="lifeline_frontend" target="lifeline_host" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="260" y="790" as="sourcePoint" />
+            <mxPoint x="120" y="790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

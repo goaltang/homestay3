@@ -1,0 +1,97 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T11:00:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder_core" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder_core" name="Homestay Core ERD">
+    <mxGraphModel dx="1434" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Entities -->
+        <mxCell id="homestay" value="民宿" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="364" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="amenity" value="民宿设施" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="用户 (民宿主)" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="364" y="400" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="image" value="民宿图片" style="whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="628" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships (Diamonds) -->
+        <mxCell id="rel_equipped" value="配备" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="247" y="195" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_owns" value="拥有" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="379" y="300" width="70" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_includes" value="包含" style="rhombus;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="511" y="195" width="70" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Connections -->
+        <mxCell id="conn_amenity_rel" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="amenity" target="rel_equipped">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="200" y="220" as="sourcePoint"/>
+             <mxPoint x="247" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="card_amenity" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_amenity_rel">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_rel_homestay_equipped" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_equipped" target="homestay">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="317" y="220" as="sourcePoint"/>
+             <mxPoint x="364" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="card_homestay_equipped" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_rel_homestay_equipped">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+       
+        <mxCell id="conn_homestay_rel_owns" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="homestay" target="rel_owns">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="414" y="240" as="sourcePoint"/>
+            <mxPoint x="414" y="300" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="card_homestay_owns" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_homestay_rel_owns">
+            <mxGeometry y="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_rel_user" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_owns" target="user">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="414" y="350" as="sourcePoint"/>
+             <mxPoint x="414" y="400" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="card_user_owns" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_rel_user">
+            <mxGeometry y="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_homestay_rel_includes" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="homestay" target="rel_includes">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="464" y="220" as="sourcePoint"/>
+             <mxPoint x="511" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="card_homestay_includes" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_homestay_rel_includes">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="conn_rel_image" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="rel_includes" target="image">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="581" y="220" as="sourcePoint"/>
+             <mxPoint x="628" y="220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="card_image_includes" value="n" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="conn_rel_image">
+            <mxGeometry x="-0.2" relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

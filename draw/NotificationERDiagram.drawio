@@ -1,0 +1,46 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T12:05:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder_notif" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder_notif" name="Notification ERD">
+    <mxGraphModel dx="1434" dy="784" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Notification Entity -->
+        <mxCell id="notification" value="Notification" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="350" y="100" width="180" height="135" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_pk" value="notification_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_user_fk" value="user_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_message" value="message" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_is_read" value="is_read" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="104" width="180" height="26" as="geometry" />
+        </mxCell>
+        <!-- Add timestamp, notification_type etc. if needed -->
+
+        <!-- User (Placeholder) -->
+        <mxCell id="user" value="User" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="user_pk" value="user_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships -->
+        <!-- User(1) -< Receives(N) Notification -->
+        <mxCell id="rel_user_notif" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmany;startArrow=ERmandOne;endFill=1;startFill=0;" edge="1" parent="1" source="user" target="notification">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="260" y="167" as="sourcePoint"/>
+            <mxPoint x="350" y="167" as="targetPoint"/>
+          </mxGeometry>
+         </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

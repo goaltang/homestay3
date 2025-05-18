@@ -1,0 +1,95 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T10:15:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder4" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder4" name="Supporting ERD">
+    <mxGraphModel dx="1434" dy="784" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Notification Entity -->
+        <mxCell id="notification" value="Notification" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="180" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_pk" value="notification_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_user_fk" value="user_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="notif_message" value="message" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+         <mxCell id="notif_is_read" value="is_read" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="notification">
+          <mxGeometry y="104" width="180" height="20" as="geometry" />
+         </mxCell>
+         
+        <!-- Earning Entity -->
+        <mxCell id="earning" value="Earning" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="100" width="180" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="earning_pk" value="earning_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="earning">
+           <mxGeometry y="26" width="180" height="26" as="geometry" />
+         </mxCell>
+        <mxCell id="earning_host_fk" value="host_user_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="earning">
+           <mxGeometry y="52" width="180" height="26" as="geometry" />
+         </mxCell>
+         <mxCell id="earning_order_fk" value="order_id (FK - optional)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="earning">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="earning_amount" value="amount" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="earning">
+          <mxGeometry y="104" width="180" height="26" as="geometry" />
+        </mxCell>
+         <mxCell id="earning_date" value="earning_date" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="earning">
+          <mxGeometry y="130" width="180" height="20" as="geometry" />
+         </mxCell>
+
+
+         <!-- User (Simplified) -->
+        <mxCell id="user_ref_sup" value="User" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="300" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="user_ref_sup_pk" value="user_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user_ref_sup">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Order (Simplified) -->
+         <mxCell id="order_ref_sup" value="Order" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="550" y="300" width="160" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="order_ref_sup_pk" value="order_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="order_ref_sup">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+
+
+        <!-- Relationships -->
+        <mxCell id="rel_notif_user" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="user_ref_sup" target="notification">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="250" y="210" as="sourcePoint"/>
+            <mxPoint x="280" y="155" as="targetPoint"/>
+             <Array as="points">
+              <mxPoint x="250" y="155"/>
+            </Array>
+          </mxGeometry>
+         </mxCell>
+         <mxCell id="rel_earning_user" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="user_ref_sup" target="earning">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="410" y="210" as="sourcePoint"/>
+            <mxPoint x="490" y="155" as="targetPoint"/>
+             <Array as="points">
+              <mxPoint x="410" y="155"/>
+            </Array>
+          </mxGeometry>
+         </mxCell>
+        <mxCell id="rel_earning_order" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERzeroToOne;startArrow=ERmany;endFill=1;startFill=1;" edge="1" parent="1" source="order_ref_sup" target="earning">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="550" y="210" as="sourcePoint"/>
+            <mxPoint x="580" y="155" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="550" y="155"/>
+            </Array>
+          </mxGeometry>
+         </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

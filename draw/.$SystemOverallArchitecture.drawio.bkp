@@ -1,0 +1,90 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" version="26.2.14">
+  <diagram id="system_architecture" name="系统总体模块图">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Root Platform Box -->
+        <mxCell id="platform" value="民宿预订平台" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="484.5" y="100" width="200" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Module Boxes -->
+        <mxCell id="module-user" value="用户管理" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="100" y="300" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="module-homestay" value="民宿管理" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="300" y="300" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="module-order" value="订单管理" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="500" y="300" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="module-review" value="评价管理" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="700" y="300" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="module-payment" value="支付/收益管理" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="900" y="300" width="150" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Connectors -->
+        <mxCell id="conn-user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" parent="1" source="platform" target="module-user" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="584.5" y="160" as="sourcePoint"/>
+             <mxPoint x="175" y="300" as="targetPoint"/>
+             <Array as="points">
+                 <mxPoint x="584.5" y="200"/>
+                 <mxPoint x="175" y="200"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="conn-homestay" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" parent="1" source="platform" target="module-homestay" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="584.5" y="160" as="sourcePoint"/>
+             <mxPoint x="375" y="300" as="targetPoint"/>
+             <Array as="points">
+                 <mxPoint x="584.5" y="200"/>
+                 <mxPoint x="375" y="200"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="conn-order" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" parent="1" source="platform" target="module-order" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="584.5" y="160" as="sourcePoint"/>
+             <mxPoint x="575" y="300" as="targetPoint"/>
+             <Array as="points">
+                 <mxPoint x="584.5" y="200"/>
+                 <mxPoint x="575" y="200"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="conn-review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" parent="1" source="platform" target="module-review" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="584.5" y="160" as="sourcePoint"/>
+             <mxPoint x="775" y="300" as="targetPoint"/>
+              <Array as="points">
+                 <mxPoint x="584.5" y="200"/>
+                 <mxPoint x="775" y="200"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="conn-payment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;endArrow=none;endFill=0;" parent="1" source="platform" target="module-payment" edge="1">
+          <mxGeometry relative="1" as="geometry">
+             <mxPoint x="584.5" y="160" as="sourcePoint"/>
+             <mxPoint x="975" y="300" as="targetPoint"/>
+              <Array as="points">
+                 <mxPoint x="584.5" y="200"/>
+                 <mxPoint x="975" y="200"/>
+             </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Optional: Add a caption similar to the image -->
+        <mxCell id="caption" value="图 4.1 系统总体模块图 (根据代码分析)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+            <mxGeometry x="459.5" y="400" width="250" height="30" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

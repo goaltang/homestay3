@@ -1,0 +1,140 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T16:00:00.000Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" etag="seq_search_etag_v3" version="22.0.0" type="device">
+  <diagram id="seq_search_id_v3" name="Homestay Search Filtering Sequence Diagram (Improved)">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Lifelines -->
+        <mxCell id="lifeline_user" value=":用户 (User)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_frontend" value=":前端 (Frontend)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="40" width="120" height="780" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_controller" value=":HomestayController" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="40" width="160" height="780" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_service" value=":HomestayService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="40" width="140" height="780" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_repository" value=":HomestayRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="820" y="40" width="160" height="780" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline_db" value=":数据库 (Database)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="40" width="120" height="780" as="geometry" />
+        </mxCell>
+
+        <!-- Messages -->
+        <mxCell id="msg_user_input" value="1. 输入搜索条件" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=open;dashed=0;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_user" target="lifeline_frontend">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="120" y="160" as="sourcePoint" />
+            <mxPoint x="260" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Frontend Activation Start -->
+        <mxCell id="activate_frontend_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" vertex="1" parent="lifeline_frontend">
+            <mxGeometry x="55" y="125" width="10" height="580" as="geometry" />
+        </mxCell>
+
+        <mxCell id="msg_frontend_controller" value="2. POST /search (HomestaySearchRequest)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_frontend" target="lifeline_controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="265" y="190" as="sourcePoint" />
+            <mxPoint x="480" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <!-- Controller Activation Start -->
+        <mxCell id="activate_controller_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" vertex="1" parent="lifeline_controller">
+            <mxGeometry x="75" y="155" width="10" height="510" as="geometry" />
+        </mxCell>
+
+        <mxCell id="msg_controller_service" value="3. searchHomestays(request)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_controller" target="lifeline_service">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="220" as="sourcePoint" />
+            <mxPoint x="690" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+         <!-- Service Activation Start -->
+         <mxCell id="activate_service_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" vertex="1" parent="lifeline_service">
+            <mxGeometry x="65" y="185" width="10" height="445" as="geometry" />
+        </mxCell>
+
+        <!-- Nested Activation for Build Query -->
+        <mxCell id="activate_service_build" value="4. 构建查询 (JPA Spec)" style="html=1;points=[];perimeter=orthogonalPerimeter;align=left;verticalAlign=middle;labelPosition=right;verticalLabelPosition=middle;spacingLeft=5;fontSize=11;" vertex="1" parent="lifeline_service">
+            <mxGeometry x="75" y="55" width="10" height="60" as="geometry" />
+             <!-- y is relative to parent activation bar start (185 + 55 = 240) -->
+        </mxCell>
+
+        <mxCell id="msg_service_repo" value="5. findAll(specification)" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_service" target="lifeline_repository">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="330" as="sourcePoint" />
+            <mxPoint x="900" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <!-- Repository Activation Start -->
+        <mxCell id="activate_repo_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" vertex="1" parent="lifeline_repository">
+            <mxGeometry x="75" y="295" width="10" height="230" as="geometry" />
+             <!-- y = 185 + 55 + 60 + 15 = 315? No, start at msg arrival -->
+        </mxCell>
+
+        <mxCell id="msg_repo_db" value="6. 执行 SQL 查询" style="html=1;verticalAlign=bottom;startArrow=none;endArrow=block;dashed=0;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_repository" target="lifeline_db">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="905" y="360" as="sourcePoint" />
+            <mxPoint x="1100" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+         <!-- DB Activation Start/End -->
+         <mxCell id="activate_db_1" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;" vertex="1" parent="lifeline_db">
+            <mxGeometry x="55" y="325" width="10" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="msg_db_repo" value="7. 返回 房源数据 (List)" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;entryX=0;entryY=0;dashed=1;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_db" target="lifeline_repository">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1100" y="500" as="sourcePoint" />
+            <mxPoint x="905" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <!-- Repository Activation End -->
+
+        <mxCell id="msg_repo_service" value="8. 返回 List&lt;Homestay&gt;" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;entryX=0;entryY=0;dashed=1;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_repository" target="lifeline_service">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="900" y="535" as="sourcePoint" />
+            <mxPoint x="700" y="535" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Nested Activation for Convert Result -->
+         <mxCell id="activate_service_convert" value="9. 转换结果 (DTO)" style="html=1;points=[];perimeter=orthogonalPerimeter;align=left;verticalAlign=middle;labelPosition=right;verticalLabelPosition=middle;spacingLeft=5;fontSize=11;" vertex="1" parent="lifeline_service">
+            <mxGeometry x="75" y="360" width="10" height="60" as="geometry" />
+             <!-- y relative to parent start (185 + 360 = 545) -->
+        </mxCell>
+
+        <mxCell id="msg_service_controller" value="10. 返回 List&lt;HomestayDTO&gt;" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;entryX=0;entryY=0;dashed=1;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_service" target="lifeline_controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="610" as="sourcePoint" />
+            <mxPoint x="485" y="610" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+         <!-- Service Activation End -->
+        
+        <mxCell id="msg_controller_frontend" value="11. 200 OK (List)" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;entryX=0;entryY=0;dashed=1;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_controller" target="lifeline_frontend">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="640" as="sourcePoint" />
+            <mxPoint x="265" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <!-- Controller Activation End -->
+        
+        <mxCell id="msg_frontend_user" value="12. 显示搜索结果" style="html=1;verticalAlign=bottom;startArrow=open;endArrow=block;entryX=0;entryY=0;dashed=1;strokeWidth=1;fontSize=11;" edge="1" parent="1" source="lifeline_frontend" target="lifeline_user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="260" y="670" as="sourcePoint" />
+            <mxPoint x="120" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <!-- Frontend Activation End -->
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

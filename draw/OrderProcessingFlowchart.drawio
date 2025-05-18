@@ -1,0 +1,243 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="order_processing_flowchart" name="订单处理流程图">
+    <mxGraphModel dx="1030" dy="611" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="start" value="订单创建成功 (来自用户预订流程, 初始状态: AWAITING_PAYMENT)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+          <mxGeometry x="475" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-payment" value="用户是否支付? (超时/失败?)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="500" y="160" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="step-payment-success" value="支付成功 (回调/轮询/手动确认)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="510" y="300" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-paid" value="系统/管理员更新状态: PAID" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="525" y="420" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-host-action" value="房东操作? (确认/拒绝)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="510" y="520" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="step-host-confirm" value="房东确认订单" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="525" y="660" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-confirmed" value="系统更新状态: CONFIRMED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="525" y="760" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-await-checkin" value="等待入住日期" style="shape=time;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="535" y="860" width="100" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="step-host-checkin" value="房东办理入住" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="525" y="970" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-checkedin" value="系统更新状态: CHECKED_IN" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="525" y="1070" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-await-checkout" value="等待退房日期" style="shape=time;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="535" y="1230" width="100" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="step-host-checkout" value="房东办理退房" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="525" y="1340" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-completed" value="系统更新状态: COMPLETED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="525" y="1440" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-payment-fail" value="支付失败/超时" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="780" y="170" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-auto-cancel" value="系统自动取消订单 (或标记支付失败)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="780" y="270" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="end-cancelled-nopay" value="订单取消 (未支付)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="780" y="390" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-user-cancel-prepay" value="用户取消订单? (支付前)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="200" y="160" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="step-user-cancel-action" value="用户执行取消操作" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="215" y="300" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-user-cancelled" value="系统更新状态: CANCELLED_BY_USER" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="215" y="400" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="step-host-reject" value="房东拒绝订单" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="780" y="540" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-rejected" value="系统更新状态: REJECTED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="780" y="640" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-trigger-refund" value="触发退款流程 (管理员/系统)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="780" y="740" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="step-admin-refund" value="管理员发起退款 (标记状态)" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="780" y="850" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-refunded" value="系统更新状态: REFUNDED" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="780" y="960" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end-refunded" value="订单已退款" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="780" y="1060" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="decision-host-cancel" value="房东取消订单? (确认后/入住前)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="200" y="740" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="step-host-cancel-action" value="房东执行取消操作" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="215" y="940" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="step-update-host-cancelled" value="系统更新状态: CANCELLED_BY_HOST" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="215" y="1040" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="end-completed" value="订单完成" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+          <mxGeometry x="525" y="1540" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="end-cancelled-user" value="订单取消 (用户)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="215" y="510" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="end-cancelled-host" value="订单取消 (房东, 需退款)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="215" y="1170" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-start-decisionpay" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="start" target="decision-payment" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decisionpay-yes-success" value="是 (支付成功)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-payment" target="step-payment-success" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decisionpay-no-fail" value="否 (失败/超时)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;" parent="1" source="decision-payment" target="step-payment-fail" edge="1">
+          <mxGeometry x="0.4545" y="10" relative="1" as="geometry">
+            <mxPoint x="710" y="210" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="710" y="210" />
+              <mxPoint x="840" y="210" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-paymentsuccess-updatepaid" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-payment-success" target="step-update-paid" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updatepaid-decisionhost" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-paid" target="decision-host-action" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decisionhost-yes-confirm" value="确认" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-host-action" target="step-host-confirm" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-decisionhost-no-reject" value="拒绝" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;" parent="1" source="decision-host-action" target="step-host-reject" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="570" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="690" y="570" />
+              <mxPoint x="840" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-confirm-updateconfirmed" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-host-confirm" target="step-update-confirmed" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updateconfirmed-awaitcheckin" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-confirmed" target="step-await-checkin" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-awaitcheckin-checkin" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-await-checkin" target="step-host-checkin" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-checkin-updatecheckedin" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-host-checkin" target="step-update-checkedin" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updatecheckedin-awaitcheckout" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-checkedin" target="step-await-checkout" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-awaitcheckout-checkout" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-await-checkout" target="step-host-checkout" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-checkout-updatecompleted" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-host-checkout" target="step-update-completed" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updatecompleted-end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-completed" target="end-completed" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-paymentfail-autocancel" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-payment-fail" target="step-auto-cancel" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-autocancel-end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-auto-cancel" target="end-cancelled-nopay" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-start-decisionusercancel" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;" parent="1" source="start" target="decision-user-cancel-prepay" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="275" y="120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-decisionusercancel-yes-action" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-user-cancel-prepay" target="step-user-cancel-action" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-usercancelaction-update" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-user-cancel-action" target="step-update-user-cancelled" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updateusercancelled-end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-user-cancelled" target="end-cancelled-user" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-reject-updaterejected" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-host-reject" target="step-update-rejected" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updaterejected-triggerrefund" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-rejected" target="step-trigger-refund" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-triggerrefund-adminrefund" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-trigger-refund" target="step-admin-refund" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-adminrefund-updaterefunded" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-admin-refund" target="step-update-refunded" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updaterefunded-end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-refunded" target="end-refunded" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updateconfirmed-decisionhostcancel" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;" parent="1" source="step-update-confirmed" target="decision-host-cancel" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="275" y="820" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-decisionhostcancel-yes-action" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=left;verticalAlign=bottom;" parent="1" source="decision-host-cancel" target="step-host-cancel-action" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="130" y="790" />
+              <mxPoint x="130" y="910" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-hostcancelaction-update" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-host-cancel-action" target="step-update-host-cancelled" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-updatehostcancelled-end" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;" parent="1" source="step-update-host-cancelled" target="end-cancelled-host" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-cancelledhost-triggerrefund" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="end-cancelled-host" target="step-trigger-refund" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="335" y="1200" />
+              <mxPoint x="1010" y="1200" />
+              <mxPoint x="1010" y="775" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-decisionusercancel-no" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;" parent="1" source="decision-user-cancel-prepay" target="decision-payment" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="210" />
+              <mxPoint x="400" y="210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-decisionhostcancel-no" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;endFill=1;align=right;verticalAlign=middle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="decision-host-cancel" target="step-await-checkin" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="275" y="895" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

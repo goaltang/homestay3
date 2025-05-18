@@ -1,0 +1,69 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T10:00:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder" name="User ERD">
+    <mxGraphModel dx="1434" dy="784" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- User Entity -->
+        <mxCell id="user" value="User" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="200" y="100" width="160" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="user_pk" value="user_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="user_name" value="username" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="52" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="user_password" value="password" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="78" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="user_email" value="email" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="104" width="160" height="26" as="geometry" />
+        </mxCell>
+         <mxCell id="user_role_fk" value="role_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="user">
+          <mxGeometry y="130" width="160" height="20" as="geometry" />
+        </mxCell>
+        <!-- Add other User fields as needed -->
+
+        <!-- UserRole Entity -->
+        <mxCell id="userrole" value="UserRole" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="100" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="userrole_pk" value="role_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="userrole">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="userrole_name" value="role_name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="userrole">
+          <mxGeometry y="52" width="160" height="26" as="geometry" />
+        </mxCell>
+
+         <!-- VerificationStatus Entity (Assuming Enum/Lookup) -->
+        <mxCell id="verifstatus" value="VerificationStatus" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="200" y="300" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="verifstatus_pk" value="status_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="verifstatus">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="verifstatus_name" value="status_name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="verifstatus">
+          <mxGeometry y="52" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships -->
+        <mxCell id="rel_user_role" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="user" target="userrole">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="360" y="140" as="sourcePoint" />
+            <mxPoint x="450" y="140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_user_verif" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERzeroToOne;endFill=0;startFill=1;" edge="1" parent="1" source="user" target="verifstatus">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="280" y="250" as="sourcePoint"/>
+            <mxPoint x="280" y="300" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <!-- Note: Admin.java might represent User with admin role, or a separate linked table. Assuming role-based for now. -->
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

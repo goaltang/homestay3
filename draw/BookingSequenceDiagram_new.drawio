@@ -1,0 +1,189 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="booking_sequence_diagram" name="民宿预订流程时序图">
+    <mxGraphModel dx="1212" dy="719" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="民宿预订流程时序图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="500" y="20" width="220" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="note-precondition" value="前提条件: 用户已登录，选择了民宿和日期范围" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="150" y="60" width="300" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="note-states" value="订单状态流转：PENDING → CONFIRMED → PAID → COMPLETED" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="610" y="60" width="400" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-user" value="用户 (Guest)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="60" y="120" width="100" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-user" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-user" vertex="1">
+          <mxGeometry x="45" y="70" width="10" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-frontend" value="前端应用" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="180" y="120" width="100" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-frontend" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-frontend" vertex="1">
+          <mxGeometry x="45" y="70" width="10" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-controller" value="OrderController" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="290" y="120" width="120" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-controller" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-controller" vertex="1">
+          <mxGeometry x="55" y="80" width="10" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-orderservice" value="OrderService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="420" y="120" width="120" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-orderservice" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-orderservice" vertex="1">
+          <mxGeometry x="55" y="90" width="10" height="360" as="geometry" />
+        </mxCell>
+        <mxCell id="act-create-order" value="创建订单&#xa;1. 检查日期有效性&#xa;2. 计算总价&#xa;3. 保存订单记录" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-orderservice" vertex="1">
+          <mxGeometry x="65" y="240" width="10" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-homestayrepo" value="HomestayRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="550" y="120" width="140" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-homestayrepo" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-homestayrepo" vertex="1">
+          <mxGeometry x="65" y="220" width="10" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-orderrepo" value="OrderRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="700" y="120" width="120" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-orderrepo" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-orderrepo" vertex="1">
+          <mxGeometry x="55" y="170" width="10" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-notification" value="NotificationService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="830" y="120" width="130" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-notification" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-notification" vertex="1">
+          <mxGeometry x="60" y="220" width="10" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-payment" value="PaymentService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" parent="1" vertex="1">
+          <mxGeometry x="970" y="120" width="120" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="activation-payment" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;outlineConnect=0;targetShapes=umlLifeline;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};fontSize=11;" parent="lifeline-payment" vertex="1">
+          <mxGeometry x="55" y="300" width="10" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="msg-preview-req" value="1. 请求订单预览" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-user" target="activation-frontend" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="200" />
+            </Array>
+            <mxPoint x="110" y="200" as="sourcePoint" />
+            <mxPoint x="230" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-preview-api" value="2. 获取订单预览信息" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-frontend" target="activation-controller" edge="1">
+          <mxGeometry x="-0.0526" y="20" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="260" y="220" />
+            </Array>
+            <mxPoint as="offset" />
+            <mxPoint x="230" y="220" as="sourcePoint" />
+            <mxPoint x="350" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-preview-service" value="3. 计算订单价格和预览" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-controller" target="activation-orderservice" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="230" />
+            </Array>
+            <mxPoint x="350" y="230" as="sourcePoint" />
+            <mxPoint x="470" y="230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-get-homestay" value="4. 查询民宿信息" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;entryX=0.534;entryY=0.246;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="activation-orderservice" target="lifeline-homestayrepo" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint x="470" y="240" as="sourcePoint" />
+            <mxPoint x="590" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-preview-user-resp" value="5. 显示订单价格和细节" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-frontend" target="activation-user" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="260" />
+            </Array>
+            <mxPoint x="230" y="260" as="sourcePoint" />
+            <mxPoint x="110" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-create-req" value="6. 确认创建订单" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-user" target="activation-frontend" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="280" />
+            </Array>
+            <mxPoint x="110" y="280" as="sourcePoint" />
+            <mxPoint x="230" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-create-api" value="7. POST /api/orders" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-frontend" target="activation-controller" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="260" y="300" />
+            </Array>
+            <mxPoint x="230" y="300" as="sourcePoint" />
+            <mxPoint x="350" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-check-overlap" value="8. 检查日期可用性" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-orderservice" target="activation-orderrepo" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="310" />
+            </Array>
+            <mxPoint x="470" y="290" as="sourcePoint" />
+            <mxPoint x="590" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-notify-host" value="9. 创建预订通知" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-orderservice" target="activation-notification" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="340" />
+            </Array>
+            <mxPoint x="470" y="340" as="sourcePoint" />
+            <mxPoint x="590" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-create-user-resp" value="10. 显示订单创建成功" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-frontend" target="activation-user" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="380" />
+            </Array>
+            <mxPoint x="230" y="380" as="sourcePoint" />
+            <mxPoint x="110" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-qr-req" value="11. 请求支付二维码" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-user" target="activation-frontend" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="400" />
+            </Array>
+            <mxPoint x="110" y="400" as="sourcePoint" />
+            <mxPoint x="230" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-get-qr" value="12. 生成支付二维码" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-controller" target="activation-payment" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="600" y="420" />
+            </Array>
+            <mxPoint x="350" y="420" as="sourcePoint" />
+            <mxPoint x="470" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-qr-user-resp" value="13. 显示支付二维码" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;" parent="1" source="activation-frontend" target="activation-user" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="460" />
+            </Array>
+            <mxPoint x="230" y="460" as="sourcePoint" />
+            <mxPoint x="110" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note-alternative" value="备注：&#xa;1. 订单创建后需要由房东确认（PENDING → CONFIRMED）或拒绝（PENDING → REJECTED）&#xa;2. 确认后用户可以完成支付（CONFIRMED → PAID）&#xa;3. 根据实际情况，订单可能进入多种其他状态（已取消、已完成、已入住等）" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="60" y="540" width="430" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

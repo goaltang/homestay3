@@ -1,0 +1,358 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="overall_class_diagram" name="总体类图">
+    <mxGraphModel dx="1964" dy="1455" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="class-user" value="User (entity)&#xa;- userId: String&#xa;- username: String&#xa;- email: String&#xa;- passwordHash: String&#xa;- phone: String&#xa;- role: UserRole&#xa;- registrationDate: Date&#xa;- lastLogin: Date&#xa;..." style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="40" y="40" width="200" height="180" as="geometry">
+            <mxRectangle x="40" y="40" width="80" height="26" as="alternateBounds" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="attr-user" value="- isVerified: boolean&#xa;- verificationStatus: VerificationStatus&#xa;+ register()&#xa;+ login()&#xa;+ updateProfile()&#xa;+ requestVerification()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" parent="class-user" vertex="1">
+          <mxGeometry y="26" width="200" height="154" as="geometry" />
+        </mxCell>
+        <mxCell id="class-admin" value="Admin (entity)&#xa;- adminId: String&#xa;- username: String&#xa;- passwordHash: String&#xa;..." style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="40" y="250" width="200" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="attr-admin" value="+ manageUsers()&#xa;+ manageHomestays()&#xa;+ approveVerification()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" parent="class-admin" vertex="1">
+          <mxGeometry y="26" width="200" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="class-homestay" value="Homestay (model)&#xa;- homestayId: String&#xa;- name: String&#xa;- description: String&#xa;- address: String&#xa;- latitude: Double&#xa;- longitude: Double&#xa;- pricePerNight: BigDecimal&#xa;- maxGuests: Integer&#xa;- owner (User)&#xa;- type: HomestayType&#xa;- category: TypeCategory&#xa;- verificationStatus: VerificationStatus&#xa;- createdAt: Date&#xa;..." style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+          <mxGeometry x="320" y="160" width="220" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="attr-homestay" value="+ addImage()&#xa;+ removeImage()&#xa;+ updateDetails()&#xa;+ addAmenity()&#xa;+ removeAmenity()&#xa;+ getAvailability()&#xa;+ calculateAverageRating()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" parent="class-homestay" vertex="1">
+          <mxGeometry y="26" width="220" height="224" as="geometry" />
+        </mxCell>
+        <mxCell id="class-homestayimage" value="HomestayImage (entity)&#xa;- imageId: String&#xa;- homestayId: String&#xa;- imageUrl: String&#xa;- isCover: boolean" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="320" y="440" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="class-order" value="Order (model)&#xa;- orderId: String&#xa;- guest (User)&#xa;- homestay (Homestay)&#xa;- checkInDate: Date&#xa;- checkOutDate: Date&#xa;- numberOfGuests: Integer&#xa;- totalPrice: BigDecimal&#xa;- orderStatus: OrderStatus&#xa;- paymentStatus: PaymentStatus&#xa;- createdAt: Date&#xa;..." style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
+          <mxGeometry x="620" y="40" width="220" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="attr-order" value="+ createOrder()&#xa;+ cancelOrder()&#xa;+ updateStatus()&#xa;+ processPaymentCallback()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;whiteSpace=wrap;html=1;" parent="class-order" vertex="1">
+          <mxGeometry y="26" width="220" height="184" as="geometry" />
+        </mxCell>
+        <mxCell id="class-review" value="Review (model)&#xa;- reviewId: String&#xa;- guest (User)&#xa;- homestay (Homestay)&#xa;- order (Order)&#xa;- rating: Integer (1-5)&#xa;- comment: String&#xa;- createdAt: Date" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+          <mxGeometry x="620" y="300" width="220" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="class-amenity" value="Amenity (model)&#xa;- amenityId: String&#xa;- name: String&#xa;- description: String&#xa;- category (AmenityCategory)" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+          <mxGeometry x="320" y="570" width="220" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="class-amenitycategory" value="AmenityCategory (model)&#xa;- categoryId: String&#xa;- name: String" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#e1d5e7;strokeColor=#9673a6;" parent="1" vertex="1">
+          <mxGeometry x="40" y="600" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="class-earning" value="Earning (model)&#xa;- earningId: String&#xa;- host (User)&#xa;- order (Order)&#xa;- amount: BigDecimal&#xa;- transactionDate: Date&#xa;- status: String" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#f5f5f5;strokeColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="320" y="730" width="220" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="class-notification" value="Notification (entity)&#xa;- notificationId: String&#xa;- user (User)&#xa;- message: String&#xa;- isRead: boolean&#xa;- createdAt: Date&#xa;- type: String" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;rounded=1;shadow=0;strokeWidth=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+          <mxGeometry x="620" y="510" width="220" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="enum-userrole" value="&lt;&lt;enumeration&gt;&gt;&#xa;UserRole (model)&#xa;+ GUEST&#xa;+ HOST&#xa;+ ADMIN" style="shape=rectangle;perimeter=rectanglePerimeter;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="40" y="400" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="enum-verificationstatus" value="&lt;&lt;enumeration&gt;&gt;&#xa;VerificationStatus (model)&#xa;+ PENDING&#xa;+ VERIFIED&#xa;+ REJECTED&#xa;+ NOT_SUBMITTED" style="shape=rectangle;perimeter=rectanglePerimeter;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="350" y="20" width="160" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="enum-homestaytype" value="&lt;&lt;enumeration&gt;&gt;&#xa;HomestayType (model)&#xa;+ APARTMENT&#xa;+ HOUSE&#xa;+ UNIQUE_STAY&#xa;..." style="shape=rectangle;perimeter=rectanglePerimeter;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="40" y="730" width="150" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="enum-typecategory" value="&lt;&lt;enumeration&gt;&gt;&#xa;TypeCategory (model)&#xa;+ STANDARD&#xa;+ LUXURY&#xa;..." style="shape=rectangle;perimeter=rectanglePerimeter;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="40" y="850" width="150" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="enum-orderstatus" value="&lt;&lt;enumeration&gt;&gt;&#xa;OrderStatus (model)&#xa;+ PENDING&#xa;+ CONFIRMED&#xa;+ CANCELLED&#xa;+ COMPLETED&#xa;+ AWAITING_PAYMENT" style="shape=rectangle;perimeter=rectanglePerimeter;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="900" y="40" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="enum-paymentstatus" value="&lt;&lt;enumeration&gt;&gt;&#xa;PaymentStatus (model)&#xa;+ UNPAID&#xa;+ PAID&#xa;+ FAILED&#xa;+ REFUNDED" style="shape=rectangle;perimeter=rectanglePerimeter;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
+          <mxGeometry x="900" y="170" width="160" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="rel-user-homestay" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.25;exitX=1;exitY=0.25;" parent="1" source="class-user" target="class-homestay" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="100" as="sourcePoint" />
+            <mxPoint x="310" y="100" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="280" y="87" />
+              <mxPoint x="280" y="223" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-homestay-owner" value="1 (Owner)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-homestay" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-homestay-homestays" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-homestay" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="1" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-image" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0.5;entryY=0;exitX=0.5;exitY=1;" parent="1" source="class-homestay" target="class-homestayimage" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="430" y="420" as="sourcePoint" />
+            <mxPoint x="430" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-image-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-image" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-image-many" value="1..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-image" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="-1" relative="1" as="geometry">
+            <mxPoint y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-user-order" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.25;exitX=1;exitY=0.75;" parent="1" source="class-user" target="class-order" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="170" as="sourcePoint" />
+            <mxPoint x="610" y="170" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="430" y="175" />
+              <mxPoint x="430" y="93" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-order-guest" value="1 (Guest)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-order" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-order-orders" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-order" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-order" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.75;exitX=1;exitY=0.75;" parent="1" source="class-homestay" target="class-order" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="550" y="350" as="sourcePoint" />
+            <mxPoint x="610" y="350" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="580" y="348" />
+              <mxPoint x="580" y="198" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-order-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-order" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-order-many" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-order" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-user-review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.25;exitX=1;exitY=0.5;" parent="1" source="class-user" target="class-review" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="130" as="sourcePoint" />
+            <mxPoint x="610" y="350" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="430" y="130" />
+              <mxPoint x="430" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-review-guest" value="1 (Guest)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-review" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-review-reviews" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-review" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.75;exitX=1;exitY=0.5;" parent="1" source="class-homestay" target="class-review" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="550" y="285" as="sourcePoint" />
+            <mxPoint x="610" y="400" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="580" y="285" />
+              <mxPoint x="580" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-review-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-review" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-review-many" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-review" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-order-review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0.5;entryY=0;exitX=0.5;exitY=1;" parent="1" source="class-order" target="class-review" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="730" y="260" as="sourcePoint" />
+            <mxPoint x="730" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-order-review-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-order-review" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-order-review-01" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-order-review" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="-1" relative="1" as="geometry">
+            <mxPoint y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-amenity" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=classic;endFill=1;startFill=1;entryX=0.5;entryY=0;exitX=0.25;exitY=1;" parent="1" source="class-homestay" target="class-amenity" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="375" y="420" as="sourcePoint" />
+            <mxPoint x="430" y="560" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="375" y="500" />
+              <mxPoint x="430" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-amenity-many1" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-amenity" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="-1" relative="1" as="geometry">
+            <mxPoint x="-5" y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-homestay-amenity-many2" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-homestay-amenity" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="1" relative="1" as="geometry">
+            <mxPoint x="5" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-amenity-category" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=1;entryY=0.5;exitX=0;exitY=0.5;" parent="1" source="class-amenity" target="class-amenitycategory" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="310" y="625" as="sourcePoint" />
+            <mxPoint x="250" y="640" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="280" y="625" />
+              <mxPoint x="280" y="640" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-amenity-category-many" value="*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-amenity-category" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-amenity-category-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-amenity-category" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-user-earning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.25;exitX=0.75;exitY=1;" parent="1" source="class-user" target="class-earning" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="190" y="230" as="sourcePoint" />
+            <mxPoint x="310" y="765" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="190" y="500" />
+              <mxPoint x="280" y="500" />
+              <mxPoint x="280" y="765" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-earning-host" value="1 (Host)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-earning" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="-1" relative="1" as="geometry">
+            <mxPoint y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-earning-earnings" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-earning" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="1" relative="1" as="geometry">
+            <mxPoint x="8" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-order-earning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=1;entryY=0.5;exitX=0.75;exitY=1;" parent="1" source="class-order" target="class-earning" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="785" y="260" as="sourcePoint" />
+            <mxPoint x="550" y="800" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="785" y="500" />
+              <mxPoint x="580" y="500" />
+              <mxPoint x="580" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-order-earning-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-order-earning" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="-1" relative="1" as="geometry">
+            <mxPoint y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-order-earning-01" value="0..1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-order-earning" vertex="1" connectable="0">
+          <mxGeometry x="0.2" y="1" relative="1" as="geometry">
+            <mxPoint x="8" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-user-notification" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.5;exitX=1;exitY=0.5;" parent="1" source="class-user" target="class-notification" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="130" as="sourcePoint" />
+            <mxPoint x="610" y="580" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="430" y="130" />
+              <mxPoint x="430" y="580" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-notification-1" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-notification" vertex="1" connectable="0">
+          <mxGeometry x="-0.2" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label-user-notification-many" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="rel-user-notification" vertex="1" connectable="0">
+          <mxGeometry x="0.2" relative="1" as="geometry">
+            <mxPoint x="8" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-user-role" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0.5;entryY=0;exitX=0.25;exitY=1;" parent="1" source="class-user" target="enum-userrole" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="90" y="230" as="sourcePoint" />
+            <mxPoint x="115" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-user-verification" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=1;exitX=1;exitY=0;" parent="1" source="class-user" target="enum-verificationstatus" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="40" as="sourcePoint" />
+            <mxPoint x="340" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-verification" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0.5;entryY=1;exitX=0.5;exitY=0;" parent="1" source="class-homestay" target="enum-verificationstatus" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="430" y="150" as="sourcePoint" />
+            <mxPoint x="430" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-type" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=1;entryY=0.5;exitX=0;exitY=1;" parent="1" source="class-homestay" target="enum-homestaytype" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="310" y="420" as="sourcePoint" />
+            <mxPoint x="200" y="775" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="280" y="410" />
+              <mxPoint x="280" y="775" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-homestay-category" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=1;entryY=0.5;exitX=0;exitY=1;entryDx=0;entryDy=0;" parent="1" source="class-homestay" target="enum-typecategory" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="420" as="sourcePoint" />
+            <mxPoint x="190" y="890" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="320" y="600" />
+              <mxPoint x="220" y="600" />
+              <mxPoint x="220" y="890" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-order-orderstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.5;exitX=1;exitY=0.5;" parent="1" source="class-order" target="enum-orderstatus" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="850" y="145" as="sourcePoint" />
+            <mxPoint x="890" y="90" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-order-paymentstatus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;startArrow=none;endFill=1;startFill=0;entryX=0;entryY=0.5;exitX=1;exitY=0.75;" parent="1" source="class-order" target="enum-paymentstatus" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="850" y="198" as="sourcePoint" />
+            <mxPoint x="890" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

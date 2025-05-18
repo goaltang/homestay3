@@ -1,0 +1,162 @@
+<mxfile host="app.diagrams.net" modified="2023-10-27T10:05:00.000Z" agent="Mozilla/5.0" etag="etag_placeholder_hs" version="22.0.0" type="device">
+  <diagram id="diagram_id_placeholder_hs" name="Homestay ERD">
+    <mxGraphModel dx="2000" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Homestay Entity -->
+        <mxCell id="homestay" value="Homestay" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="100" width="180" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay_pk" value="homestay_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay_name" value="name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay_address" value="address" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay_price" value="price_per_night" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="104" width="180" height="26" as="geometry" />
+        </mxCell>
+         <mxCell id="homestay_host_fk" value="host_user_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="130" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="homestay_type_fk" value="type_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay">
+          <mxGeometry y="156" width="180" height="24" as="geometry" />
+        </mxCell>
+        <!-- Add other Homestay fields -->
+
+        <!-- HomestayType Entity -->
+        <mxCell id="homestaytype" value="HomestayType" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="700" y="100" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="hstype_pk" value="type_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestaytype">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="hstype_name" value="type_name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestaytype">
+          <mxGeometry y="52" width="160" height="26" as="geometry" />
+        </mxCell>
+
+         <!-- TypeCategory Entity -->
+        <mxCell id="typecategory" value="TypeCategory" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="700" y="220" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="typecat_pk" value="category_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="typecategory">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="typecat_name" value="category_name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="typecategory">
+          <mxGeometry y="52" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Amenity Entity -->
+        <mxCell id="amenity" value="Amenity" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="350" width="180" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="amenity_pk" value="amenity_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="amenity">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="amenity_name" value="name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="amenity">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+         <mxCell id="amenity_category_fk" value="category_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="amenity">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- AmenityCategory Entity -->
+        <mxCell id="amenitycategory" value="AmenityCategory" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="700" y="350" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="amenitycat_pk" value="category_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="amenitycategory">
+          <mxGeometry y="26" width="160" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="amenitycat_name" value="category_name" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="amenitycategory">
+          <mxGeometry y="52" width="160" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- HomestayImage Entity -->
+        <mxCell id="homestayimage" value="HomestayImage" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="180" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="hsimage_pk" value="image_id (PK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestayimage">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="hsimage_url" value="image_url" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestayimage">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="hsimage_homestay_fk" value="homestay_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestayimage">
+          <mxGeometry y="78" width="180" height="26" as="geometry" />
+        </mxCell>
+
+         <!-- Homestay_Amenity Junction Table (Many-to-Many) -->
+        <mxCell id="homestay_amenity" value="Homestay_Amenity" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=0;marginBottom=0;" vertex="1" parent="1">
+          <mxGeometry x="400" y="500" width="180" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ha_homestay_fk" value="homestay_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay_amenity">
+          <mxGeometry y="26" width="180" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ha_amenity_fk" value="amenity_id (FK)" style="text;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;portConstraint=eastwest;rotatable=0;" vertex="1" parent="homestay_amenity">
+          <mxGeometry y="52" width="180" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Placeholder for User Entity -->
+        <mxCell id="User(Placeholder)" value="User" style="shape=ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+            <mxGeometry x="180" y="40" width="100" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- Relationships -->
+        <mxCell id="rel_hs_user" value="Hosted By" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERzeroToMany;endFill=0;startFill=1;" edge="1" parent="1" source="homestay" target="User(Placeholder)">
+            <mxGeometry width="100" height="100" relative="1" as="geometry">
+                <mxPoint x="350" y="190" as="sourcePoint"/>
+                <mxPoint x="250" y="190" as="targetPoint"/>
+                <Array as="points">
+                  <mxPoint x="350" y="60" />
+                  <mxPoint x="250" y="60" />
+                </Array>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_hs_type" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="homestay" target="homestaytype">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="580" y="190" as="sourcePoint" />
+            <mxPoint x="700" y="140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="rel_hstype_typecat" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERzeroToOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="homestaytype" target="typecategory">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="780" y="180" as="sourcePoint" />
+            <mxPoint x="780" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_amenity_cat" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="amenity" target="amenitycategory">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="580" y="405" as="sourcePoint" />
+            <mxPoint x="700" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+         <mxCell id="rel_hsimage_hs" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmandOne;startArrow=ERmany;endFill=0;startFill=1;" edge="1" parent="1" source="homestayimage" target="homestay">
+          <mxGeometry width="100" height="100" relative="1" as="geometry">
+            <mxPoint x="280" y="155" as="sourcePoint" />
+            <mxPoint x="400" y="155" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Relationships for Many-to-Many Homestay-Amenity -->
+         <mxCell id="rel_hs_ha" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmany;startArrow=ERmandOne;endFill=1;startFill=0;" edge="1" parent="1" source="homestay" target="homestay_amenity">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+             <mxPoint x="490" y="280" as="sourcePoint" />
+             <mxPoint x="490" y="500" as="targetPoint" />
+           </mxGeometry>
+         </mxCell>
+         <mxCell id="rel_amenity_ha" value="" style="edgeStyle=entityRelationEdgeStyle;endArrow=ERmany;startArrow=ERmandOne;endFill=1;startFill=0;" edge="1" parent="1" source="amenity" target="homestay_amenity">
+           <mxGeometry width="100" height="100" relative="1" as="geometry">
+             <mxPoint x="490" y="460" as="sourcePoint" />
+             <mxPoint x="490" y="500" as="targetPoint" />
+           </mxGeometry>
+         </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

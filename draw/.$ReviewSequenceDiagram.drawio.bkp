@@ -1,0 +1,237 @@
+<mxfile host="Electron" agent="AI Assistant" version="1.0">
+  <diagram id="review_submission_sequence" name="评价提交流程时序图">
+    <mxGraphModel dx="1400" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Lifelines -->
+        <mxCell id="lifeline-user" value="用户 (Guest)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=80;" parent="1" vertex="1">
+          <mxGeometry x="80" y="40" width="100" height="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-fe" value="前端 (Frontend)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=80;" parent="1" vertex="1">
+          <mxGeometry x="240" y="40" width="110" height="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-ordsvc" value="订单服务 (Order Service)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=80;" parent="1" vertex="1">
+          <mxGeometry x="410" y="40" width="140" height="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-orddb" value="订单数据库 (Order DB)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=60;part=1;" parent="1" vertex="1">
+          <mxGeometry x="590" y="40" width="120" height="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-revsvc" value="评价服务 (Review Service)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=80;" parent="1" vertex="1">
+          <mxGeometry x="770" y="40" width="140" height="1100" as="geometry" />
+        </mxCell>
+         <mxCell id="lifeline-revdb" value="评价数据库 (Review DB)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=60;part=1;" parent="1" vertex="1">
+          <mxGeometry x="950" y="40" width="130" height="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="lifeline-hstsvc" value="民宿服务 (Homestay Service)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=80;" parent="1" vertex="1">
+          <mxGeometry x="1140" y="40" width="160" height="1100" as="geometry" />
+        </mxCell>
+         <mxCell id="lifeline-hstdb" value="民宿数据库 (Homestay DB)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=60;part=1;" parent="1" vertex="1">
+          <mxGeometry x="1360" y="40" width="140" height="1100" as="geometry" />
+        </mxCell>
+
+        <!-- Activations -->
+        <mxCell id="act-fe-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-fe" vertex="1">
+            <mxGeometry x="50" y="100" width="10" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="act-ordsvc-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-ordsvc" vertex="1">
+            <mxGeometry x="65" y="120" width="10" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="act-orddb-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-orddb" vertex="1">
+            <mxGeometry x="55" y="150" width="10" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="act-fe-2" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-fe" vertex="1">
+            <mxGeometry x="50" y="370" width="10" height="610" as="geometry" />
+        </mxCell>
+        <mxCell id="act-revsvc-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-revsvc" vertex="1">
+            <mxGeometry x="65" y="390" width="10" height="570" as="geometry" />
+        </mxCell>
+        <mxCell id="act-ordsvc-2" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-ordsvc" vertex="1">
+            <mxGeometry x="65" y="410" width="10" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="act-orddb-2" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-orddb" vertex="1">
+            <mxGeometry x="55" y="440" width="10" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="act-revdb-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-revdb" vertex="1">
+            <mxGeometry x="60" y="590" width="10" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="act-hstsvc-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-hstsvc" vertex="1">
+            <mxGeometry x="75" y="740" width="10" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="act-hstdb-1" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-hstdb" vertex="1">
+            <mxGeometry x="65" y="770" width="10" height="80" as="geometry" />
+        </mxCell>
+         <mxCell id="act-fe-3" value="" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;" parent="lifeline-fe" vertex="1">
+            <mxGeometry x="50" y="1030" width="10" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Messages -->
+        <mxCell id="msg-1" value="1. 进入评价页面 (针对某已完成订单)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="1" source="lifeline-user" target="act-fe-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="100" as="sourcePoint" />
+            <mxPoint x="295" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-2" value="2. 请求验证评价资格 (orderId, userId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="1" source="act-fe-1" target="act-ordsvc-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="300" y="130" as="sourcePoint" />
+            <mxPoint x="480" y="130" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-3" value="3. 查询订单状态和用户信息" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="1" source="act-ordsvc-1" target="act-orddb-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="485" y="160" as="sourcePoint" />
+            <mxPoint x="650" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-4" value="4. 返回订单信息" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="1" source="act-orddb-1" target="act-ordsvc-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="210" as="sourcePoint" />
+            <mxPoint x="485" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-5" value="5. 返回评价资格 (是/否)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="1" source="act-ordsvc-1" target="act-fe-1" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="260" as="sourcePoint" />
+            <mxPoint x="300" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Alt Fragment -->
+        <mxCell id="alt-frame" value="alt [评价资格通过]" style="shape=umlFrame;whiteSpace=wrap;html=1;labelAlign=left;labelVerticalAlign=top;align=left;spacingLeft=5;" parent="1" vertex="1">
+          <mxGeometry x="60" y="300" width="1380" height="690" as="geometry" />
+        </mxCell>
+        <mxCell id="msg-6" value="6. 填写评分和评论" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="lifeline-user" target="lifeline-fe" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="70" y="40" as="sourcePoint"/>
+                <mxPoint x="195" y="40" as="targetPoint"/>
+                <mxPoint x="-70" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-7" value="7. 提交评价" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="lifeline-user" target="act-fe-2" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="70" y="80" as="sourcePoint"/>
+                <mxPoint x="195" y="80" as="targetPoint"/>
+                 <mxPoint x="-70" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-8" value="8. submitReview(orderId, userId, homestayId, rating, comment)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-fe-2" target="act-revsvc-1" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="200" y="100" as="sourcePoint"/>
+                <mxPoint x="720" y="100" as="targetPoint"/>
+                <mxPoint y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-9" value="9. 确认订单完成状态 (orderId, userId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-revsvc-1" target="act-ordsvc-2" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="725" y="120" as="sourcePoint"/>
+                <mxPoint x="420" y="120" as="targetPoint"/>
+                <mxPoint x="152" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-10" value="10. 查询订单状态" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-ordsvc-2" target="act-orddb-2" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="425" y="150" as="sourcePoint"/>
+                <mxPoint x="545" y="150" as="targetPoint"/>
+                <mxPoint x="-60" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-11" value="11. 返回订单状态 (已完成)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-orddb-2" target="act-ordsvc-2" edge="1">
+             <mxGeometry relative="1" as="geometry">
+                <mxPoint x="545" y="200" as="sourcePoint"/>
+                <mxPoint x="425" y="200" as="targetPoint"/>
+                 <mxPoint x="-60" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-12" value="12. 确认完成" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-ordsvc-2" target="act-revsvc-1" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="420" y="230" as="sourcePoint"/>
+                <mxPoint x="725" y="230" as="targetPoint"/>
+                <mxPoint x="152" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-13" value="13. 保存评价信息" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-revsvc-1" target="act-revdb-1" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="730" y="300" as="sourcePoint"/>
+                <mxPoint x="905" y="300" as="targetPoint"/>
+                <mxPoint x="-87" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-14" value="14. 保存成功" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-revdb-1" target="act-revsvc-1" edge="1">
+           <mxGeometry relative="1" as="geometry">
+                <mxPoint x="905" y="350" as="sourcePoint"/>
+                <mxPoint x="730" y="350" as="targetPoint"/>
+                 <mxPoint x="-87" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+
+        <!-- Opt Fragment -->
+        <mxCell id="opt-frame" value="opt [更新民宿平均分]" style="shape=umlFrame;whiteSpace=wrap;html=1;labelAlign=left;labelVerticalAlign=top;align=left;spacingLeft=5;" parent="alt-frame" vertex="1">
+          <mxGeometry x="10" y="410" width="1360" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="msg-15" value="15. updateAggregateRating(homestayId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="opt-frame" source="act-revsvc-1" target="act-hstsvc-1" edge="1">
+           <mxGeometry relative="1" as="geometry">
+                <mxPoint x="730" y="40" as="sourcePoint"/>
+                <mxPoint x="1105" y="40" as="targetPoint"/>
+                <mxPoint x="-187" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-16" value="16. 更新平均分" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="opt-frame" source="act-hstsvc-1" target="act-hstdb-1" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="1110" y="70" as="sourcePoint"/>
+                <mxPoint x="1305" y="70" as="targetPoint"/>
+                <mxPoint x="-97" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-17" value="17. 更新成功" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="opt-frame" source="act-hstdb-1" target="act-hstsvc-1" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="1305" y="120" as="sourcePoint"/>
+                <mxPoint x="1110" y="120" as="targetPoint"/>
+                <mxPoint x="-97" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-18" value="18. 更新成功" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="opt-frame" source="act-hstsvc-1" target="act-revsvc-1" edge="1">
+             <mxGeometry relative="1" as="geometry">
+                <mxPoint x="1105" y="170" as="sourcePoint"/>
+                <mxPoint x="730" y="170" as="targetPoint"/>
+                <mxPoint x="-187" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <!-- End Opt -->
+
+        <mxCell id="msg-19" value="19. 返回评价提交成功" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-revsvc-1" target="act-fe-2" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="720" y="650" as="sourcePoint"/>
+                <mxPoint x="200" y="650" as="targetPoint"/>
+                 <mxPoint y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <mxCell id="msg-20" value="20. 显示&quot;评价成功&quot;" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-fe-2" target="lifeline-user" edge="1">
+             <mxGeometry relative="1" as="geometry">
+                <mxPoint x="195" y="670" as="sourcePoint"/>
+                <mxPoint x="70" y="670" as="targetPoint"/>
+                 <mxPoint x="-62" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+
+         <!-- Separator for Else -->
+        <mxCell value="" style="line;strokeWidth=1;dashed=1;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;align=left;spacingLeft=2;" parent="alt-frame" vertex="1">
+          <mxGeometry x="0" y="640" width="1380" height="10" as="geometry" />
+        </mxCell>
+        <mxCell value="else [评价资格未通过]" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];labelPosition=left;verticalLabelPosition=middle;" parent="alt-frame" vertex="1">
+          <mxGeometry x="10" y="645" width="150" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="msg-21" value="5a. 显示&quot;无评价资格&quot;" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=horizontal;rounded=0;labelBackgroundColor=none;" parent="alt-frame" source="act-fe-3" target="lifeline-user" edge="1">
+            <mxGeometry relative="1" as="geometry">
+                <mxPoint x="195" y="740" as="sourcePoint"/>
+                <mxPoint x="70" y="740" as="targetPoint"/>
+                <mxPoint x="-62" y="-10" as="offset"/>
+            </mxGeometry>
+        </mxCell>
+        <!-- End Alt -->
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

@@ -1,0 +1,417 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.2.2 Chrome/134.0.6998.178 Electron/35.1.2 Safari/537.36" version="26.2.2">
+  <diagram id="payment_sequence_diagram" name="订单支付流程时序图">
+    <mxGraphModel dx="1434" dy="844" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- 标题和说明 -->
+        <mxCell id="title" value="民宿订单支付流程时序图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="220" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="note-precondition" value="前提条件: 订单已创建 (初始状态: PENDING)" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="120" y="60" width="250" height="40" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="note-states" value="订单状态流转：PENDING → PAYMENT_PENDING → PAID → CONFIRMED" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="680" y="60" width="370" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- 生命线定义 -->
+        <mxCell id="lifeline-user" value="用户 (Guest)" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="120" y="120" width="100" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-frontend" value="前端应用" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="270" y="120" width="100" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-controller" value="OrderController" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="420" y="120" width="120" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-orderservice" value="OrderService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="590" y="120" width="120" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="act-process-pay" value="处理支付&#xa;1. 验证订单权限&#xa;2. 检查订单状态&#xa;3. 执行状态更新" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;fontSize=11;" vertex="1" parent="lifeline-orderservice">
+          <mxGeometry x="55" y="340" width="10" height="70" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-paymentservice" value="PaymentService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="760" y="120" width="120" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="act-gen-qr" value="生成支付二维码&#xa;检查订单状态" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;fontSize=11;" vertex="1" parent="lifeline-paymentservice">
+          <mxGeometry x="55" y="200" width="10" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-repository" value="OrderRepository" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="930" y="120" width="120" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-payment" value="第三方支付平台" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="120" width="120" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="act-gateway-process" value="处理支付请求" style="html=1;points=[];align=center;imageAlign=center;verticalAlign=middle;labelBackgroundColor=none;fontSize=11;" vertex="1" parent="lifeline-payment">
+          <mxGeometry x="55" y="270" width="10" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-notify" value="NotificationService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1270" y="120" width="130" height="680" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="lifeline-earnings" value="EarningService" style="shape=umlLifeline;perimeter=lifelinePerimeter;container=1;collapsible=0;recursiveResize=0;rounded=0;shadow=0;strokeWidth=1;size=40;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1450" y="120" width="120" height="680" as="geometry" />
+        </mxCell>
+        
+        <!-- 消息交互开始 -->
+        <!-- 阶段1: 请求支付二维码 -->
+        <mxCell id="note-phase1" value="阶段一: 生成支付二维码" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=middle;align=center;spacingLeft=5;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="180" width="60" height="110" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="msg-qr-req" value="1. 请求支付二维码" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-user" target="lifeline-frontend">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="170" y="180" as="sourcePoint" />
+            <mxPoint x="320" y="180" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="210" y="180" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-api-req" value="2. POST /api/orders/{orderId}/payment/qrcode" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-frontend" target="lifeline-controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="200" as="sourcePoint" />
+            <mxPoint x="480" y="200" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="370" y="200" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-update-status" value="3. updateOrderStatus(orderId, PAYMENT_PENDING)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-orderservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="220" as="sourcePoint" />
+            <mxPoint x="650" y="220" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="540" y="220" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-gen-qr-req" value="4. generatePaymentQRCode(orderId, method)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-paymentservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="240" as="sourcePoint" />
+            <mxPoint x="820" y="240" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="600" y="240" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-qr-find-order" value="5. findById(orderId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-paymentservice" target="lifeline-repository">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="820" y="210" as="sourcePoint" />
+            <mxPoint x="990" y="210" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="880" y="210" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-qr-find-resp" value="6. 返回订单信息" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-repository" target="lifeline-paymentservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="990" y="230" as="sourcePoint" />
+            <mxPoint x="820" y="230" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="900" y="230" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-gen-qr-resp" value="7. 返回生成的二维码URL" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-paymentservice" target="lifeline-controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="820" y="260" as="sourcePoint" />
+            <mxPoint x="480" y="260" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="650" y="260" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-qr-api-resp" value="8. 返回二维码信息(JSON)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-frontend">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="280" as="sourcePoint" />
+            <mxPoint x="320" y="280" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="390" y="280" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-display-qr" value="9. 显示支付二维码" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-frontend" target="lifeline-user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="290" as="sourcePoint" />
+            <mxPoint x="170" y="290" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="240" y="290" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 阶段2: 用户支付流程 -->
+        <mxCell id="note-phase2" value="阶段二: 用户支付处理" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=middle;align=center;spacingLeft=5;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="310" width="60" height="110" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="msg-user-scan-pay" value="10. 扫描二维码支付" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-user" target="lifeline-payment">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="170" y="310" as="sourcePoint" />
+            <mxPoint x="1160" y="310" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="550" y="310" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-gateway-resp-user" value="11. 支付结果反馈" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-payment" target="lifeline-user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1160" y="350" as="sourcePoint" />
+            <mxPoint x="170" y="350" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="550" y="350" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-payment-callback" value="12. 支付结果回调 POST /api/payment/callback" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-payment" target="lifeline-controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1160" y="370" as="sourcePoint" />
+            <mxPoint x="480" y="370" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="780" y="370" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-process-payment" value="13. payOrder(orderId, paymentMethod)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-orderservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="390" as="sourcePoint" />
+            <mxPoint x="650" y="390" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="530" y="390" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-update-order" value="14. save(order) 更新订单状态为PAID" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-repository">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="410" as="sourcePoint" />
+            <mxPoint x="990" y="410" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="770" y="410" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-update-order-resp" value="15. 返回更新后的订单" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-repository" target="lifeline-orderservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="990" y="420" as="sourcePoint" />
+            <mxPoint x="650" y="420" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="840" y="420" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 阶段3: 支付后处理 -->
+        <mxCell id="note-phase3" value="阶段三: 支付后处理" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=middle;align=center;spacingLeft=5;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="440" width="60" height="140" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="msg-notify-host" value="16. createNotification(hostId, PAYMENT_RECEIVED)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-notify">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="450" as="sourcePoint" />
+            <mxPoint x="1330" y="450" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="930" y="450" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-notify-user" value="17. createNotification(guestId, BOOKING_ACCEPTED)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-notify">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="480" as="sourcePoint" />
+            <mxPoint x="1330" y="480" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="930" y="480" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-generate-earnings" value="18. generatePendingEarningForOrder(orderId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-earnings">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="510" as="sourcePoint" />
+            <mxPoint x="1510" y="510" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1000" y="510" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-earnings-resp" value="19. 返回收益记录" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-earnings" target="lifeline-orderservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1510" y="530" as="sourcePoint" />
+            <mxPoint x="650" y="530" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1000" y="530" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-send-notification-user" value="20. 发送支付成功通知" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-notify" target="lifeline-user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1330" y="550" as="sourcePoint" />
+            <mxPoint x="170" y="550" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="650" y="550" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-pay-resp" value="21. 返回支付处理结果" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="570" as="sourcePoint" />
+            <mxPoint x="480" y="570" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="540" y="570" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-callback-ack" value="22. 返回支付处理成功响应" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-payment">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="590" as="sourcePoint" />
+            <mxPoint x="1160" y="590" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="750" y="590" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 阶段4: 主动查询支付状态 -->
+        <mxCell id="note-phase4" value="阶段四: 主动查询支付状态" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=middle;align=center;spacingLeft=5;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="60" height="120" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="msg-check-status" value="23. 查询支付状态" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-frontend" target="lifeline-controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="620" as="sourcePoint" />
+            <mxPoint x="480" y="620" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="400" y="620" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-get-order" value="24. getOrderById(orderId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-orderservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="640" as="sourcePoint" />
+            <mxPoint x="650" y="640" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="540" y="640" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-get-order-repo" value="25. findById(orderId)" style="html=1;verticalAlign=bottom;endArrow=block;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-repository">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="660" as="sourcePoint" />
+            <mxPoint x="990" y="660" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="770" y="660" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-get-order-repo-resp" value="26. 返回订单(status=PAID)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-repository" target="lifeline-orderservice">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="990" y="680" as="sourcePoint" />
+            <mxPoint x="650" y="680" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="840" y="680" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-get-order-resp" value="27. 返回OrderDTO" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-orderservice" target="lifeline-controller">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="700" as="sourcePoint" />
+            <mxPoint x="480" y="700" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="540" y="700" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-check-status-resp" value="28. 返回支付状态(paid=true)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-controller" target="lifeline-frontend">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="720" as="sourcePoint" />
+            <mxPoint x="320" y="720" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="400" y="720" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="msg-show-success" value="29. 显示支付成功页面" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=11;labelBackgroundColor=default;" vertex="1" parent="1" source="lifeline-frontend" target="lifeline-user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="320" y="740" as="sourcePoint" />
+            <mxPoint x="170" y="740" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="240" y="740" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 备注说明 -->
+        <mxCell id="note-alternative" value="备注：&#xa;1. 用户也可以通过PUT /api/orders/{id}/pay接口主动完成支付&#xa;2. 对于主动支付场景，直接调用OrderService的payOrder方法&#xa;3. 支付失败时会将订单状态更新为PAYMENT_FAILED" style="shape=note;size=15;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=5;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="120" y="760" width="360" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 
