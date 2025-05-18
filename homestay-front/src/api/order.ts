@@ -1,4 +1,6 @@
 import request from "@/utils/request";
+import { handleApiError } from "@/utils/errorHandler";
+import { OrderStatus } from "@/types/order";
 
 /**
  * 创建订单
@@ -26,6 +28,7 @@ export function createOrder(data: {
     })
     .catch((error) => {
       console.error("订单创建失败:", error);
+      handleApiError(error, "创建订单失败，请重试");
       throw error;
     });
 }
@@ -51,6 +54,7 @@ export function getUserOrders(params?: {
     })
     .catch((error) => {
       console.error("获取用户订单失败:", error);
+      handleApiError(error, "获取订单列表失败");
 
       // 开发模式下提供模拟数据
       if (process.env.NODE_ENV === "development") {
@@ -71,7 +75,7 @@ export function getUserOrders(params?: {
               .split("T")[0],
             nights: 3,
             totalAmount: 1200,
-            status: "PENDING",
+            status: OrderStatus.PENDING,
             createTime: new Date().toISOString(),
           },
           {
@@ -89,7 +93,7 @@ export function getUserOrders(params?: {
               .split("T")[0],
             nights: 3,
             totalAmount: 1800,
-            status: "CONFIRMED",
+            status: OrderStatus.CONFIRMED,
             createTime: new Date(Date.now() - 86400000 * 2).toISOString(),
           },
         ];
@@ -117,6 +121,54 @@ export function getUserOrders(params?: {
     });
 }
 
+// 假设 ReviewDTO 的类型 (与 MyReviews.vue 或 ReviewDTO.java 对应)
+interface ReviewItem {
+  id: number;
+  userId?: number;
+  userName?: string;
+  userAvatar?: string;
+  homestayId: number;
+  homestayTitle?: string;
+  orderId?: number;
+  rating: number;
+  content: string;
+  response?: string;
+  createTime: string;
+  responseTime?: string;
+  cleanlinessRating?: number;
+  accuracyRating?: number;
+  communicationRating?: number;
+  locationRating?: number;
+  checkInRating?: number;
+  valueRating?: number;
+  isPublic?: boolean;
+}
+
+// 定义订单详情的数据类型
+interface OrderDetailData {
+  id: number;
+  orderNumber: string;
+  homestayId: number;
+  homestayTitle: string;
+  imageUrl?: string;
+  address?: string;
+  guestId: number;
+  guestName: string;
+  guestPhone: string;
+  checkInDate: string;
+  checkOutDate: string;
+  nights: number;
+  guestCount: number;
+  price: number;
+  totalAmount: number;
+  status: string;
+  remark?: string;
+  createTime: string;
+  updateTime: string;
+  reviewed?: boolean; // 使用之前添加的 reviewed 字段
+  review?: ReviewItem | null; // 添加可选的 review 字段
+}
+
 /**
  * 获取订单详情
  * @param id 订单ID
@@ -125,18 +177,24 @@ export function getOrderById(id: number) {
   return request({
     url: `/api/orders/${id}`,
     method: "get",
+  }).catch((error) => {
+    handleApiError(error, "获取订单详情失败");
+    throw error;
   });
 }
 
 /**
  * 取消订单
  * @param id 订单ID
+ * @param reason 取消原因
  */
-export function cancelOrder(id: number) {
-  console.log("取消订单，ID:", id);
+export function cancelOrder(id: number, reason?: string) {
+  console.log("取消订单，ID:", id, "原因:", reason || "无");
+  const requestData = reason ? { reason } : {};
   return request({
     url: `/api/orders/${id}/cancel`,
     method: "put",
+    data: requestData,
   })
     .then((response) => {
       console.log("订单取消成功:", response.data);
@@ -144,16 +202,68 @@ export function cancelOrder(id: number) {
     })
     .catch((error) => {
       console.error("订单取消失败:", error);
+      handleApiError(error, "取消订单失败");
       throw error;
     });
 }
 
-// 获取订单列表
+/**
+ * 房东确认订单
+ * @param id 订单ID
+ */
+export function confirmOrder(id: number) {
+  console.log("确认订单，ID:", id);
+  return request({
+    url: `/api/orders/${id}/status`,
+    method: "put",
+    data: { status: "CONFIRMED" },
+  })
+    .then((response) => {
+      console.log("订单确认成功:", response.data);
+      return response;
+    })
+    .catch((error) => {
+      console.error("订单确认失败:", error);
+      handleApiError(error, "确认订单失败");
+      throw error;
+    });
+}
+
+/**
+ * 房东拒绝订单
+ * @param id 订单ID
+ * @param reason 拒绝原因
+ */
+export function rejectOrder(id: number, reason: string) {
+  console.log("拒绝订单，ID:", id, "原因:", reason);
+  return request({
+    url: `/api/orders/${id}/reject`,
+    method: "put",
+    data: { reason },
+  })
+    .then((response) => {
+      console.log("订单拒绝成功:", response.data);
+      return response;
+    })
+    .catch((error) => {
+      console.error("订单拒绝失败:", error);
+      handleApiError(error, "拒绝订单失败");
+      throw error;
+    });
+}
+
+/**
+ * 获取订单列表
+ * @param params 查询参数
+ */
 export function getOrders(params?: any) {
   return request({
     url: "/api/orders",
     method: "get",
     params,
+  }).catch((error) => {
+    handleApiError(error, "获取订单列表失败");
+    throw error;
   });
 }
 
@@ -163,11 +273,63 @@ export function getOrders(params?: any) {
  * @param paymentMethod 支付方式
  */
 export function payOrder(id: number, paymentMethod: string) {
+  console.log("支付订单，ID:", id, "支付方式:", paymentMethod);
   return request({
     url: `/api/orders/${id}/pay`,
     method: "post",
     data: { paymentMethod },
-  });
+  })
+    .then((response) => {
+      console.log("订单支付成功:", response.data);
+      return response;
+    })
+    .catch((error) => {
+      console.error("订单支付失败:", error);
+      handleApiError(error, "支付失败，请重试");
+      throw error;
+    });
+}
+
+/**
+ * 订单办理入住
+ * @param id 订单ID
+ */
+export function checkInOrder(id: number) {
+  console.log("订单办理入住，ID:", id);
+  return request({
+    url: `/api/orders/${id}/check-in`,
+    method: "put",
+  })
+    .then((response) => {
+      console.log("入住办理成功:", response.data);
+      return response;
+    })
+    .catch((error) => {
+      console.error("入住办理失败:", error);
+      handleApiError(error, "办理入住失败");
+      throw error;
+    });
+}
+
+/**
+ * 订单办理退房
+ * @param id 订单ID
+ */
+export function checkOutOrder(id: number) {
+  console.log("订单办理退房，ID:", id);
+  return request({
+    url: `/api/orders/${id}/check-out`,
+    method: "put",
+  })
+    .then((response) => {
+      console.log("退房办理成功:", response.data);
+      return response;
+    })
+    .catch((error) => {
+      console.error("退房办理失败:", error);
+      handleApiError(error, "办理退房失败");
+      throw error;
+    });
 }
 
 /**
@@ -180,6 +342,9 @@ export function reviewOrder(id: number, data: any) {
     url: `/api/orders/${id}/review`,
     method: "post",
     data,
+  }).catch((error) => {
+    handleApiError(error, "提交评价失败");
+    throw error;
   });
 }
 
@@ -188,6 +353,9 @@ export function getPendingOrderCount() {
   return request({
     url: "/api/orders/pending/count",
     method: "get",
+  }).catch((error) => {
+    handleApiError(error, "获取待处理订单数量失败");
+    throw error;
   });
 }
 
@@ -215,14 +383,15 @@ export function createOrderPreview(data: {
     })
     .catch((error) => {
       console.error("订单预览创建失败:", error);
+      handleApiError(error, "创建订单预览失败");
       throw error;
     });
 }
 
 // 获取订单详情
-export function getOrderDetail(orderId: string | number) {
-  return request({
-    url: `/api/orders/${orderId}`,
+export function getOrderDetail(id: number) {
+  return request<OrderDetailData>({
+    url: `/api/orders/${id}`,
     method: "get",
   });
 }
@@ -236,6 +405,9 @@ export function generatePaymentQRCode(data: {
     url: `/api/orders/${data.orderId}/payment/qrcode`,
     method: "post",
     data: { method: data.method },
+  }).catch((error) => {
+    handleApiError(error, "生成支付二维码失败");
+    throw error;
   });
 }
 
@@ -244,6 +416,9 @@ export function checkPayment(orderId: number) {
   return request({
     url: `/api/orders/${orderId}/payment/status`,
     method: "get",
+  }).catch((error) => {
+    handleApiError(error, "检查支付状态失败");
+    throw error;
   });
 }
 
@@ -252,6 +427,9 @@ export function mockPayment(orderId: number) {
   return request({
     url: `/api/orders/${orderId}/payment/mock`,
     method: "post",
+  }).catch((error) => {
+    handleApiError(error, "模拟支付失败");
+    throw error;
   });
 }
 
@@ -265,6 +443,9 @@ export function getOrderList(params?: {
     url: "/api/orders",
     method: "get",
     params,
+  }).catch((error) => {
+    handleApiError(error, "获取订单列表失败");
+    throw error;
   });
 }
 
@@ -316,6 +497,7 @@ export function getMyOrders(params?: {
     })
     .catch((error) => {
       console.error("获取我的订单失败:", error);
+      handleApiError(error, "获取我的订单失败");
 
       // 开发模式下提供模拟数据
       if (process.env.NODE_ENV === "development") {
@@ -340,7 +522,7 @@ export function getMyOrders(params?: {
             price: 350,
             cleaningFee: 100,
             serviceFee: 50,
-            status: "PENDING",
+            status: OrderStatus.PENDING,
             createTime: new Date().toISOString(),
           },
           {
@@ -362,7 +544,7 @@ export function getMyOrders(params?: {
             price: 500,
             cleaningFee: 150,
             serviceFee: 150,
-            status: "CONFIRMED",
+            status: OrderStatus.CONFIRMED,
             createTime: new Date(Date.now() - 86400000 * 2).toISOString(),
           },
           {
@@ -384,7 +566,7 @@ export function getMyOrders(params?: {
             price: 600,
             cleaningFee: 200,
             serviceFee: 200,
-            status: "COMPLETED",
+            status: OrderStatus.COMPLETED,
             createTime: new Date(Date.now() - 86400000 * 15).toISOString(),
           },
         ];
@@ -410,6 +592,28 @@ export function getMyOrders(params?: {
         };
       }
 
+      throw error;
+    });
+}
+
+/**
+ * [测试用] 模拟支付成功
+ * @param orderId 订单ID
+ */
+export function mockPaymentSuccess(orderId: number) {
+  console.log(`[测试] 模拟订单 ${orderId} 支付成功...`);
+  return request({
+    url: `/api/orders/${orderId}/payment/mock`,
+    method: "post",
+    // 这个接口后端不需要 data
+  })
+    .then((response) => {
+      console.log(`[测试] 模拟订单 ${orderId} 支付成功完成:`, response.data);
+      return response;
+    })
+    .catch((error) => {
+      console.error(`[测试] 模拟订单 ${orderId} 支付成功失败:`, error);
+      handleApiError(error, "模拟支付成功失败");
       throw error;
     });
 }

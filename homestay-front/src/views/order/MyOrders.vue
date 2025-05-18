@@ -39,21 +39,36 @@
                             <span class="order-date">下单时间: {{ formatDate(order.createTime) }}</span>
                         </div>
                         <div class="order-status">
-                            <el-tag :type="getStatusType(order.status)">
-                                {{ getStatusText(order.status) }}
+                            <el-tag :type="getStatusType(order)">
+                                {{ getStatusText(order) }}
                             </el-tag>
+                            <div v-if="order.status === 'PENDING'" class="order-countdown warning">
+                                <el-tooltip content="超过24小时未确认的订单将被自动取消">
+                                    <span><i class="el-icon-time"></i> 剩余: {{ getCountdownTime(order.createTime, 24)
+                                        }}</span>
+                                </el-tooltip>
+                            </div>
+                            <div v-if="order.status === 'CONFIRMED'" class="order-countdown danger">
+                                <el-tooltip content="超过2小时未支付的订单将被自动取消">
+                                    <span><i class="el-icon-time"></i> 剩余: {{ getCountdownTime(order.updateTime, 2)
+                                        }}</span>
+                                </el-tooltip>
+                            </div>
                         </div>
                     </div>
 
                     <div class="order-card-content">
                         <div class="homestay-image">
-                            <img :src="order.imageUrl || 'https://picsum.photos/400/300'" :alt="order.homestayTitle">
+                            <img :src="processImageUrl(order.imageUrl)" :alt="order.homestayTitle"
+                                @error="handleImageErrorEvent">
                         </div>
                         <div class="order-details">
                             <h3>{{ order.homestayTitle }}</h3>
-                            <p class="date-info">{{ formatDateRange(order.checkInDate, order.checkOutDate) }} · {{
-                                order.nights }}晚</p>
-                            <p class="guest-info">{{ order.guestCount }}位房客</p>
+                            <p class="date-info"><i class="el-icon-date"></i> {{ formatDateRange(order.checkInDate,
+                                order.checkOutDate) }} · {{
+                                    order.nights }}晚</p>
+                            <p class="guest-info"><i class="el-icon-user"></i> {{ order.guestCount }}位房客</p>
+                            <p class="host-info"><i class="el-icon-s-custom"></i> 房东: {{ order.hostName || '未知' }}</p>
                             <div class="price-container">
                                 <span class="price-label">总价</span>
                                 <span class="price-value">¥{{ order.totalAmount }}</span>
@@ -63,28 +78,73 @@
 
                     <div class="order-card-footer">
                         <div class="action-buttons">
-                            <!-- 待确认状态 -->
-                            <template v-if="order.status === 'PENDING'">
-                                <el-button type="default" @click="viewOrderDetail(order.id)">查看详情</el-button>
-                                <el-button type="danger" plain @click="cancelOrder(order.id)">取消订单</el-button>
+                            <!-- 待支付 (已确认 & 未支付) -->
+                            <template v-if="order.status === 'CONFIRMED' && order.paymentStatus === 'UNPAID'">
+                                <el-button type="default" size="small"
+                                    @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <el-button type="danger" plain size="small"
+                                    @click="cancelOrder(order.id)">取消订单</el-button>
+                                <el-button type="primary" size="small" @click="goToPayment(order.id)">立即支付</el-button>
+                                <!-- 保留支付提示，或根据需要调整 -->
+                                <div v-if="order.status === 'CONFIRMED'" class="payment-reminder danger small-text">
+                                    <el-tooltip content="超过2小时未支付的订单将被自动取消">
+                                        <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime,
+                                            2)
+                                            }}</span>
+                                    </el-tooltip>
+                                </div>
                             </template>
 
-                            <!-- 已确认状态 -->
-                            <template v-else-if="order.status === 'CONFIRMED'">
-                                <el-button type="default" @click="viewOrderDetail(order.id)">查看详情</el-button>
-                                <el-button type="danger" plain @click="cancelOrder(order.id)">取消订单</el-button>
-                                <el-button type="primary" @click="goToPayment(order.id)">立即支付</el-button>
+                            <!-- 已支付 (且未完成/未取消) -->
+                            <template
+                                v-else-if="order.paymentStatus === 'PAID' && order.status !== 'COMPLETED' && order.status !== 'CANCELLED'">
+                                <el-button type="default" size="small"
+                                    @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <el-button type="primary" plain size="small">联系房东</el-button>
+                                <!-- <el-button type="warning" plain size="small" @click="requestRefund(order.id)">申请退款</el-button> -->
+                                <!-- 可选：申请退款按钮 -->
                             </template>
 
-                            <!-- 已支付状态 -->
-                            <template v-else-if="order.status === 'PAID'">
-                                <el-button type="default" @click="viewOrderDetail(order.id)">查看详情</el-button>
-                                <el-button type="primary" plain>联系房东</el-button>
+                            <!-- 新增：支付失败 -->
+                            <template v-else-if="order.status === 'PAYMENT_FAILED' || order.paymentStatus === 'FAILED'">
+                                <el-button type="default" size="small"
+                                    @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <el-button type="warning" plain size="small"
+                                    @click="goToPayment(order.id)">重新支付</el-button>
+                                <el-button type="danger" plain size="small"
+                                    @click="cancelOrder(order.id)">取消订单</el-button>
                             </template>
 
-                            <!-- 其他状态 -->
+                            <!-- 待确认 -->
+                            <template v-else-if="order.status === 'PENDING'">
+                                <el-button type="default" size="small"
+                                    @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <el-button type="danger" plain size="small"
+                                    @click="cancelOrder(order.id)">取消订单</el-button>
+                                <!-- 保留确认提示 -->
+                                <div v-if="order.status === 'PENDING'" class="payment-reminder warning small-text">
+                                    <el-tooltip content="超过24小时未确认的订单将被自动取消">
+                                        <span><i class="el-icon-time"></i> 确认剩余: {{ getCountdownTime(order.createTime,
+                                            24)
+                                            }}</span>
+                                    </el-tooltip>
+                                </div>
+                            </template>
+
+                            <!-- 已完成 / 已取消 / 其他最终状态 -->
                             <template v-else>
-                                <el-button type="default" @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <el-button type="default" size="small"
+                                    @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <!-- 添加评价按钮，仅在订单完成且未评价时显示 -->
+                                <el-button v-if="order.status === 'COMPLETED' && !order.reviewed" type="primary" plain
+                                    size="small" @click="openReviewModal(order)">
+                                    评价订单
+                                </el-button>
+                                <!-- 可以添加一个已评价的提示或按钮 -->
+                                <el-button v-else-if="order.status === 'COMPLETED' && order.reviewed" type="info" plain
+                                    size="small" disabled>
+                                    已评价
+                                </el-button>
                             </template>
                         </div>
                     </div>
@@ -96,6 +156,11 @@
                 </div>
             </template>
         </div>
+
+        <!-- 评价模态框 -->
+        <ReviewForm v-if="currentReviewOrder" v-model:visible="reviewDialogVisible" :order-id="currentReviewOrder.id"
+            :homestay-id="currentReviewOrder.homestayId" :homestay-title="currentReviewOrder.homestayTitle"
+            @submit="handleSubmitReview" />
     </div>
 </template>
 
@@ -104,20 +169,29 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyOrders, cancelOrder as apiCancelOrder } from '@/api/order'
+import { getHomestayById } from '@/api/homestay'
+import { submitReview } from '@/api/review'
+import ReviewForm from '@/components/ReviewForm.vue'
+import { getHomestayImageUrl, handleImageError } from '@/utils/image'
+import { type OrderStatus, type PaymentStatus } from '@/types/index'
 
 interface OrderItem {
     id: number
     orderNumber: string
     homestayId: number
     homestayTitle: string
+    hostName: string
     imageUrl?: string
     guestCount: number
     checkInDate: string
     checkOutDate: string
     nights: number
     totalAmount: number
-    status: string
+    status: OrderStatus
+    paymentStatus: PaymentStatus
     createTime: string
+    updateTime: string
+    reviewed?: boolean
 }
 
 const router = useRouter()
@@ -128,6 +202,10 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const activeTab = ref('all')
+
+// --- 评价模态框状态 ---
+const reviewDialogVisible = ref(false);
+const currentReviewOrder = ref<OrderItem | null>(null);
 
 // 获取订单列表
 const fetchOrders = async () => {
@@ -146,44 +224,57 @@ const fetchOrders = async () => {
         const response = await getMyOrders(params)
         console.log('获取到订单数据:', response)
 
-        // 处理不同格式的响应数据
         let orderData = response.data
+        let rawOrders: any[] = [];
 
-        // 处理嵌套在data.data字段中的情况
+        // --- 数据提取逻辑，保持不变 ---
         if (orderData.data && orderData.data.content) {
-            orders.value = orderData.data.content
+            rawOrders = orderData.data.content
             total.value = orderData.data.totalElements
-        }
-        // 处理嵌套在data字段中的情况
-        else if (orderData.data && Array.isArray(orderData.data.content)) {
-            orders.value = orderData.data.content
+        } else if (orderData.data && Array.isArray(orderData.data.content)) {
+            rawOrders = orderData.data.content
             total.value = orderData.data.totalElements || orderData.data.content.length
-        }
-        // 处理直接包含content字段的情况
-        else if (orderData.content) {
-            orders.value = orderData.content
+        } else if (orderData.content) {
+            rawOrders = orderData.content
             total.value = orderData.totalElements || orderData.content.length
-        }
-        // 处理直接是数组的情况
-        else if (Array.isArray(orderData)) {
-            orders.value = orderData
+        } else if (Array.isArray(orderData)) {
+            rawOrders = orderData
             total.value = orderData.length
-        }
-        // 处理从后端标准Spring Data格式的情况
-        else if (Array.isArray(orderData.content)) {
-            orders.value = orderData.content
+        } else if (Array.isArray(orderData.content)) {
+            rawOrders = orderData.content
             total.value = orderData.totalElements || orderData.totalPages * orderData.size
-        }
-        // 默认情况
-        else {
+        } else {
             console.warn('未识别的订单数据格式:', orderData)
-            orders.value = []
+            rawOrders = []
             total.value = 0
         }
+        // --- 数据提取逻辑结束 ---
 
-        // 日志订单数据供调试
-        console.log('处理后的订单数据:', orders.value)
-        console.log('总数量:', total.value)
+        // --- 数据映射 --- 
+        orders.value = rawOrders.map((order: any): OrderItem => ({
+            id: order.id,
+            orderNumber: order.orderNumber,
+            homestayId: order.homestayId,
+            homestayTitle: order.homestayTitle,
+            hostName: order.hostName,
+            imageUrl: order.imageUrl, // 后端DTO似乎没有这个，依赖 updateOrderImages
+            guestCount: order.guestCount,
+            checkInDate: order.checkInDate,
+            checkOutDate: order.checkOutDate,
+            nights: order.nights,
+            totalAmount: order.totalAmount,
+            status: order.status as OrderStatus,
+            paymentStatus: order.paymentStatus as PaymentStatus,
+            createTime: order.createTime,
+            updateTime: order.updateTime,
+            reviewed: order.reviewed ?? false
+        }));
+
+        console.log('处理后的订单数据 (含reviewed):', orders.value);
+        console.log('总数量:', total.value);
+
+        await updateOrderImages(); // 图片更新逻辑保持不变
+
     } catch (error) {
         console.error('获取订单列表失败:', error)
         ElMessage.error('获取订单列表失败，请刷新页面重试')
@@ -192,6 +283,45 @@ const fetchOrders = async () => {
     } finally {
         loading.value = false
     }
+}
+
+// 更新订单的房源图片
+const updateOrderImages = async () => {
+    if (!orders.value.length) return
+
+    // 使用Promise.all并行获取所有订单的房源图片
+    const updatePromises = orders.value.map(async (order) => {
+        if (!order.homestayId) return
+        try {
+            const response = await getHomestayById(order.homestayId)
+            if (response && response.data) {
+                // 更新订单图片为房源的封面图或第一张图片
+                const coverImage = response.data.coverImage ||
+                    (response.data.images && response.data.images.length > 0 ?
+                        response.data.images[0] : null)
+
+                if (coverImage) {
+                    order.imageUrl = coverImage
+                    console.log(`订单${order.id}更新图片: ${order.imageUrl}`)
+                }
+            }
+        } catch (error) {
+            console.error(`获取订单${order.id}对应的房源详情失败:`, error)
+        }
+    })
+
+    // 等待所有图片更新完成
+    await Promise.all(updatePromises)
+}
+
+// 处理图片URL
+const processImageUrl = (url?: string) => {
+    return getHomestayImageUrl(url);
+}
+
+// 处理图片加载错误事件处理器
+const handleImageErrorEvent = (event: Event) => {
+    handleImageError(event, 'homestay');
 }
 
 // 处理标签页切换
@@ -210,12 +340,14 @@ const handlePageChange = (page: number) => {
 const cancelOrder = async (orderId: number) => {
     try {
         await ElMessageBox.confirm(
-            '确定要取消该订单吗？',
+            '确定要取消该订单吗？取消后将无法恢复',
             '取消订单',
             {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
-                type: 'warning'
+                confirmButtonText: '确定取消',
+                cancelButtonText: '再想想',
+                type: 'warning',
+                distinguishCancelAndClose: true,
+                closeOnClickModal: false
             }
         )
 
@@ -233,11 +365,22 @@ const cancelOrder = async (orderId: number) => {
             // 关闭加载消息
             ElMessage.closeAll()
 
-            // 显示成功消息
-            ElMessage.success('订单已取消')
-
-            // 刷新列表
-            fetchOrders()
+            // 显示更详细的成功消息，并提供跳转链接
+            ElMessageBox.alert(
+                '订单已成功取消，您可以继续浏览其他房源',
+                '取消成功',
+                {
+                    confirmButtonText: '查看其他房源',
+                    callback: (action: string) => {
+                        if (action === 'confirm') {
+                            router.push('/')
+                        } else {
+                            // 刷新当前页面的订单列表
+                            fetchOrders()
+                        }
+                    }
+                }
+            )
         } catch (apiError: any) {
             // 关闭加载消息
             ElMessage.closeAll()
@@ -263,7 +406,7 @@ const viewOrderDetail = (orderId: number) => {
     router.push(`/orders/${orderId}`)
 }
 
-// 前往支付页面
+// 前往支付页面 (恢复原始逻辑)
 const goToPayment = (orderId: number) => {
     router.push(`/orders/${orderId}/pay`)
 }
@@ -291,40 +434,82 @@ const getEmptyDescription = () => {
     }
 }
 
-// 获取订单状态对应的样式类型
-const getStatusType = (status: string) => {
-    switch (status) {
-        case 'PENDING':
-            return 'info'
-        case 'CONFIRMED':
-            return 'success'
-        case 'PAID':
-            return 'success'
-        case 'COMPLETED':
-            return 'success'
-        case 'CANCELLED':
-            return 'danger'
-        default:
-            return 'info'
+// 获取订单状态对应的样式类型 (更正逻辑)
+const getStatusType = (order: OrderItem): string => {
+    const status = order.status as OrderStatus;
+    const paymentStatus = order.paymentStatus as PaymentStatus;
+
+    // 优先处理最终/关键状态
+    if (status?.startsWith('CANCELLED') || status === 'REJECTED') return 'danger';
+    if (paymentStatus === 'REFUNDED') return 'warning'; // 已退款用 warning
+    if (status === 'COMPLETED') return 'info'; // 已完成用 info
+    if (status === 'PAYMENT_FAILED' || paymentStatus === 'FAILED') return 'danger'; // 支付失败用 danger
+
+    // 处理支付成功状态
+    if (paymentStatus === 'PAID') {
+        // 如果后端有 CHECKED_IN 状态
+        if (status === 'COMPLETED') return 'info'; // 完成状态用 info
+        // Add CHECKED_IN check if applicable
+        // if (status === 'CHECKED_IN') return 'primary';
+        return 'success'; // 其他 PAID 相关状态用 success
     }
+
+    // 处理待支付状态 (已确认但未支付)
+    if (status === 'CONFIRMED' && (paymentStatus === 'UNPAID' || paymentStatus === null || paymentStatus === undefined)) {
+        return 'warning'; // 待支付用 warning
+    }
+    // 处理支付处理中状态
+    if (status === 'PAYMENT_PENDING') {
+        return 'warning'; // 支付处理中也用 warning
+    }
+
+    // 处理待确认
+    if (status === 'PENDING') return 'info'; // 待确认用 info
+
+    console.warn(`Unhandled order state in getStatusType: status=${status}, paymentStatus=${order.paymentStatus}`);
+    return 'info'; // Fallback
 }
 
-// 获取订单状态文本
-const getStatusText = (status: string) => {
-    switch (status) {
-        case 'PENDING':
-            return '待确认'
-        case 'CONFIRMED':
-            return '已确认'
-        case 'PAID':
-            return '已支付'
-        case 'COMPLETED':
-            return '已完成'
-        case 'CANCELLED':
-            return '已取消'
-        default:
-            return '未知状态'
+// 获取订单状态文本 (更正逻辑)
+const getStatusText = (order: OrderItem): string => {
+    const status = order.status as OrderStatus;
+    const paymentStatus = order.paymentStatus as PaymentStatus;
+
+    // 优先处理最终/关键状态
+    if (status?.startsWith('CANCELLED')) return '已取消';
+    if (status === 'REJECTED') return '已拒绝';
+    if (paymentStatus === 'REFUNDED') return '已退款';
+    if (status === 'COMPLETED') return '已完成';
+    if (status === 'PAYMENT_FAILED' || paymentStatus === 'FAILED') return '支付失败'; // 支付失败文本
+
+    // 处理支付成功状态驱动的状态
+    if (paymentStatus === 'PAID') {
+        if (status === 'COMPLETED') return '已完成';
+        // Add CHECKED_IN check if applicable
+        // if (status === 'CHECKED_IN') return '已入住';
+        return '已支付'; // 明确是支付状态驱动
     }
+
+    // 处理待支付
+    if (status === 'CONFIRMED' && (paymentStatus === 'UNPAID' || paymentStatus === null || paymentStatus === undefined)) {
+        return '待支付';
+    }
+    // 处理支付处理中
+    if (status === 'PAYMENT_PENDING') {
+        return '待支付'; // 支付处理中也显示待支付
+    }
+
+    // 处理待确认
+    if (status === 'PENDING') {
+        return '待确认';
+    }
+
+    // 处理完成 (如果前面没匹配到)
+    if (status === 'COMPLETED') return '已完成';
+
+    // Fallback
+    console.warn(`Unhandled order state in getStatusText: status=${status}, paymentStatus=${order.paymentStatus}`);
+    return '未知状态';
 }
 
 // 格式化日期
@@ -346,6 +531,57 @@ const formatDateRange = (checkInDate: string, checkOutDate: string) => {
     return `${formatDate(checkInDate)} - ${formatDate(checkOutDate)}`
 }
 
+// 计算倒计时
+const getCountdownTime = (startTimeStr: string, hoursLimit: number) => {
+    const startTime = new Date(startTimeStr).getTime();
+    const currentTime = new Date().getTime();
+    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
+    const remainingTime = limitTime - currentTime;
+
+    if (remainingTime <= 0) {
+        return "即将自动取消";
+    }
+
+    // 计算剩余小时和分钟
+    const hours = Math.floor(remainingTime / (60 * 60 * 1000));
+    const minutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
+
+    return `${hours}小时${minutes}分钟`;
+}
+
+// --- 评价相关方法 ---
+const openReviewModal = (order: OrderItem) => {
+    console.log('Opening review modal for order:', order);
+    currentReviewOrder.value = order;
+    reviewDialogVisible.value = true;
+};
+
+const handleSubmitReview = async (reviewData: any) => {
+    console.log('Received review data from form:', reviewData);
+    if (!currentReviewOrder.value) return;
+
+    // 确认 reviewData 中包含所有需要的信息，特别是 orderId
+    // 我们的 ReviewForm 应该已经包含了 orderId 和 homestayId
+    // const payload = { ...reviewData }; 
+
+    try {
+        const response = await submitReview(reviewData); // 直接传递表单数据
+        console.log('Submit review response:', response);
+        ElMessage.success('评价提交成功！');
+        reviewDialogVisible.value = false;
+        // 评价成功后可以刷新订单列表，或者更新按钮状态（如果需要）
+        fetchOrders(); // 重新获取订单，如果后端会标记订单已评价
+    } catch (error: any) {
+        console.error('提交评价失败:', error);
+        let errorMessage = '提交评价失败，请稍后重试';
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message; // 显示后端返回的错误信息
+        }
+        ElMessage.error(errorMessage);
+        // 不关闭弹窗，让用户可以修改
+    }
+};
+
 // 初始化
 onMounted(() => {
     fetchOrders()
@@ -357,38 +593,65 @@ onMounted(() => {
     max-width: 1200px;
     margin: 0 auto;
     padding: 40px 20px;
+    background-color: #f9f9f9;
 }
 
 .page-header {
     margin-bottom: 32px;
+    text-align: center;
 }
 
 .page-header h1 {
-    font-size: 28px;
+    font-size: 32px;
+    font-weight: 600;
     margin: 0;
-    color: #303133;
+    color: #333;
+    position: relative;
+    display: inline-block;
+}
+
+.page-header h1::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background-color: #409EFF;
+    border-radius: 3px;
 }
 
 .filters-bar {
     margin-bottom: 24px;
-    border-bottom: 1px solid #e4e7ed;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    padding: 16px 20px;
 }
 
 .loading-container,
 .empty-container {
-    padding: 40px;
+    padding: 60px;
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
     margin-bottom: 24px;
+    text-align: center;
 }
 
 .order-card {
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     margin-bottom: 24px;
     overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.order-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .order-card-header {
@@ -397,7 +660,7 @@ onMounted(() => {
     align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid #f0f0f0;
-    background-color: #f8f9fa;
+    background-color: #fafafa;
 }
 
 .order-info {
@@ -407,52 +670,72 @@ onMounted(() => {
 
 .order-number {
     font-weight: 500;
+    color: #333;
 }
 
 .order-date {
     color: #606266;
 }
 
-.order-card-content {
-    padding: 20px;
+.order-status {
     display: flex;
-    gap: 20px;
+    align-items: center;
+    gap: 12px;
+}
+
+.order-card-content {
+    padding: 24px 20px;
+    display: flex;
+    gap: 24px;
 }
 
 .homestay-image {
-    width: 160px;
-    height: 120px;
-    border-radius: 8px;
+    width: 180px;
+    height: 130px;
+    border-radius: 10px;
     overflow: hidden;
     flex-shrink: 0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .homestay-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.homestay-image:hover img {
+    transform: scale(1.05);
 }
 
 .order-details {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .order-details h3 {
-    margin: 0 0 8px 0;
-    font-size: 18px;
-    color: #303133;
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
 }
 
 .date-info,
 .guest-info {
-    margin: 4px 0;
+    margin: 8px 0;
     color: #606266;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .price-container {
+    margin-top: 12px;
     display: flex;
     align-items: center;
-    margin-top: 12px;
 }
 
 .price-label {
@@ -461,9 +744,9 @@ onMounted(() => {
 }
 
 .price-value {
-    font-size: 18px;
-    font-weight: bold;
-    color: #f56c6c;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ff6b6b;
 }
 
 .order-card-footer {
@@ -471,6 +754,7 @@ onMounted(() => {
     border-top: 1px solid #f0f0f0;
     display: flex;
     justify-content: flex-end;
+    background-color: #fafafa;
 }
 
 .action-buttons {
@@ -482,6 +766,22 @@ onMounted(() => {
     margin-top: 32px;
     display: flex;
     justify-content: center;
+}
+
+.order-countdown {
+    margin-left: 8px;
+    font-size: 12px;
+    color: #606266;
+    padding: 2px 8px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+}
+
+.payment-reminder {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #606266;
+    font-style: italic;
 }
 
 @media (max-width: 768px) {
@@ -502,5 +802,21 @@ onMounted(() => {
     .action-buttons {
         flex-wrap: wrap;
     }
+}
+
+/* Add styles for small-text if needed */
+.small-text {
+    font-size: 12px;
+    color: #909399;
+    /* Adjust color as needed */
+    margin-left: 10px;
+}
+
+.payment-reminder.danger {
+    color: var(--el-color-danger);
+}
+
+.payment-reminder.warning {
+    color: var(--el-color-warning);
 }
 </style>

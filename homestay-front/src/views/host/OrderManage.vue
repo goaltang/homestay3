@@ -82,8 +82,8 @@
                 <el-form-item label="房源">
                     <el-select v-model="filterForm.homestayId" placeholder="全部房源" clearable filterable
                         :popper-append-to-body="false" style="width: 150px;">
-                        <el-option v-for="item in homestayOptions" :key="item.value" :label="item.label"
-                            :value="item.value" />
+                        <el-option v-for="item in homestayOptions" :key="item.id" :label="item.title"
+                            :value="item.id" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="订单状态">
@@ -145,7 +145,7 @@
                 <el-table-column label="订单金额" width="100" align="right">
                     <template #default="scope">
                         <span class="price-value">¥{{ (scope.row.totalPrice || scope.row.totalAmount || 0).toFixed(2)
-                        }}</span>
+                            }}</span>
                     </template>
                 </el-table-column>
                 <el-table-column label="入住日期" width="200">
@@ -176,7 +176,11 @@
                                 @click="handleConfirm(scope.row)">
                                 确认
                             </el-button>
-                            <el-button v-if="scope.row.status === 'CONFIRMED'" type="primary" size="small"
+                            <el-button v-if="scope.row.status === 'PENDING'" type="danger" size="small"
+                                @click="handleReject(scope.row)">
+                                拒绝
+                            </el-button>
+                            <el-button v-if="scope.row.status === 'PAID'" type="primary" size="small"
                                 @click="handleCheckIn(scope.row)">
                                 办理入住
                             </el-button>
@@ -184,8 +188,9 @@
                                 @click="handleComplete(scope.row)">
                                 完成订单
                             </el-button>
-                            <el-button v-if="['PENDING', 'CONFIRMED'].includes(scope.row.status)" type="danger"
-                                size="small" @click="handleCancel(scope.row)">
+                            <el-button
+                                v-if="(scope.row.status === 'PENDING' || scope.row.status === 'CONFIRMED') && scope.row.paymentStatus === 'UNPAID'"
+                                type="danger" size="small" @click="handleCancel(scope.row)">
                                 取消
                             </el-button>
                             <el-button type="warning" size="small" @click="handleDetails(scope.row)">
@@ -206,12 +211,12 @@
 
         <!-- 订单详情对话框 -->
         <el-dialog v-model="detailsDialogVisible" title="订单详情" width="60%">
-            <div v-if="currentOrder.id" class="order-details">
+            <div v-if="currentOrder" class="order-details">
                 <el-descriptions :column="2" border>
                     <el-descriptions-item label="订单号" :span="2">{{ currentOrder.id }}</el-descriptions-item>
                     <el-descriptions-item label="房源名称" :span="2">{{ currentOrder.homestayTitle ||
                         currentOrder.homestayName
-                        }}</el-descriptions-item>
+                    }}</el-descriptions-item>
                     <el-descriptions-item label="客户姓名">{{ currentOrder.guestName }}</el-descriptions-item>
                     <el-descriptions-item label="客户电话">{{ currentOrder.guestPhone }}</el-descriptions-item>
                     <el-descriptions-item label="入住日期">{{ currentOrder.checkInDate }}</el-descriptions-item>
@@ -219,7 +224,8 @@
                     <el-descriptions-item label="入住天数">{{ currentOrder.nights }}晚</el-descriptions-item>
                     <el-descriptions-item label="入住人数">{{ currentOrder.guestCount }}人</el-descriptions-item>
                     <el-descriptions-item label="订单金额" :span="2">
-                        <span class="price">¥{{ (currentOrder.totalPrice || currentOrder.totalAmount || 0).toFixed(2)
+                        <span class="price">¥{{ (currentOrder.totalPrice || currentOrder.totalAmount ||
+                            0).toFixed(2)
                             }}</span>
                     </el-descriptions-item>
                     <el-descriptions-item label="订单状态" :span="2">
@@ -227,19 +233,25 @@
                             {{ getStatusText(currentOrder.status) }}
                         </el-tag>
                     </el-descriptions-item>
-                    <el-descriptions-item label="创建时间" :span="2">{{ currentOrder.createTime || currentOrder.createdTime
+                    <el-descriptions-item label="创建时间" :span="2">{{ currentOrder.createTime ||
+                        currentOrder.createdTime
                         }}</el-descriptions-item>
-                    <el-descriptions-item label="备注" :span="2">{{ currentOrder.remark || currentOrder.remarks || '无'
+                    <el-descriptions-item label="备注" :span="2">{{ currentOrder.remark ||
+                        currentOrder.remarks || '无'
                         }}</el-descriptions-item>
                 </el-descriptions>
 
-                <!-- 添加操作按钮 -->
-                <div class="detail-actions">
+                <!-- 操作按钮也需要 currentOrder 存在 -->
+                <div class="detail-actions" style="margin-top: 20px; text-align: right;">
                     <el-button v-if="currentOrder.status === 'PENDING'" type="success"
                         @click="handleConfirm(currentOrder)">
                         确认订单
                     </el-button>
-                    <el-button v-if="currentOrder.status === 'CONFIRMED'" type="primary"
+                    <el-button v-if="currentOrder.status === 'PENDING'" type="danger"
+                        @click="handleReject(currentOrder)">
+                        拒绝订单
+                    </el-button>
+                    <el-button v-if="currentOrder.status === 'PAID'" type="primary"
                         @click="handleCheckIn(currentOrder)">
                         办理入住
                     </el-button>
@@ -247,13 +259,15 @@
                         @click="handleComplete(currentOrder)">
                         完成订单
                     </el-button>
-                    <el-button v-if="['PENDING', 'CONFIRMED'].includes(currentOrder.status)" type="danger"
-                        @click="handleCancel(currentOrder)">
+                    <el-button
+                        v-if="(currentOrder.status === 'PENDING' || currentOrder.status === 'CONFIRMED') && currentOrder.paymentStatus === 'UNPAID'"
+                        type="danger" @click="handleCancel(currentOrder)">
                         取消订单
                     </el-button>
                     <el-button @click="detailsDialogVisible = false">关闭</el-button>
                 </div>
             </div>
+            <div v-else>加载中或无订单数据...</div>
         </el-dialog>
 
         <!-- 取消订单对话框 -->
@@ -273,6 +287,24 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 拒绝订单对话框 -->
+        <el-dialog v-model="rejectDialogVisible" title="拒绝订单" width="40%">
+            <el-form :model="rejectForm" ref="rejectFormRef">
+                <el-form-item label="拒绝原因" prop="reason"
+                    :rules="[{ required: true, message: '请输入拒绝原因', trigger: 'blur' }]">
+                    <el-input v-model="rejectForm.reason" type="textarea" :rows="3" placeholder="请输入拒绝原因" />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="rejectDialogVisible = false">取消</el-button>
+                    <el-button type="danger" @click="confirmReject" :loading="submitting">
+                        确认拒绝订单
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -281,14 +313,43 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
+import request from '@/utils/request'
 import {
     getHostOrders,
     updateOrderStatus,
     confirmOrder,
     rejectOrder,
+    cancelOrder,
     getHostOrderStats
 } from '@/api/hostOrder'
-import { getOwnerHomestays } from '@/api/homestay'
+import { getHostHomestayOptions } from '@/api/host'
+
+// 定义订单项接口
+interface HostOrderItem {
+    id: number;
+    status: string; // 考虑使用导入的 OrderStatus 类型
+    paymentStatus: string | null; // 支付状态，可能为 null
+    homestayTitle?: string;
+    homestayName?: string; // 兼容不同字段名
+    guestName?: string;
+    guestPhone?: string;
+    totalPrice?: number;
+    totalAmount?: number; // 兼容不同字段名
+    checkInDate?: string;
+    checkOutDate?: string;
+    nights?: number;
+    guestCount?: number;
+    createTime?: string;
+    createdTime?: string; // 兼容不同字段名
+    remark?: string;
+    remarks?: string; // 兼容不同字段名
+}
+
+// 新增：定义房源选项接口
+interface HomestayOption {
+    id: number;
+    title: string;
+}
 
 // 统计数据
 const orderStats = reactive({
@@ -309,8 +370,8 @@ const filterForm = reactive({
     dateRange: null as [string, string] | null
 })
 
-// 房源选项
-const homestayOptions = ref<{ value: number, label: string }[]>([])
+// 房源选项 - 修改类型定义
+const homestayOptions = ref<HomestayOption[]>([])
 
 // 页码相关
 const loading = ref(false)
@@ -318,18 +379,25 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 
-// 订单列表 - 移除测试数据，仅从后端获取
-const orders = ref<any[]>([])
+// 订单列表 - 使用定义的接口
+const orders = ref<HostOrderItem[]>([])
 
 // 详情对话框相关
 const detailsDialogVisible = ref(false)
-const currentOrder = ref<any>({})
+const currentOrder = ref<HostOrderItem | null>(null)
 
 // 取消对话框相关
 const cancelDialogVisible = ref(false)
 const cancelFormRef = ref<FormInstance>()
 const submitting = ref(false)
 const cancelForm = reactive({
+    reason: ''
+})
+
+// 拒绝订单相关
+const rejectDialogVisible = ref(false)
+const rejectFormRef = ref<FormInstance>()
+const rejectForm = reactive({
     reason: ''
 })
 
@@ -351,6 +419,7 @@ const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
         'PENDING': '待确认',
         'CONFIRMED': '已确认',
+        'PAYMENT_PENDING': '待支付',
         'CHECKED_IN': '已入住',
         'COMPLETED': '已完成',
         'CANCELLED': '已取消',
@@ -364,7 +433,8 @@ const getStatusText = (status: string) => {
 const getStatusType = (status: string) => {
     const statusMap: Record<string, string> = {
         'PENDING': 'warning',
-        'CONFIRMED': 'success',
+        'CONFIRMED': 'primary',
+        'PAYMENT_PENDING': 'warning',
         'CHECKED_IN': 'primary',
         'COMPLETED': 'info',
         'CANCELLED': 'danger',
@@ -375,29 +445,43 @@ const getStatusType = (status: string) => {
 }
 
 // 展示订单详情
-const handleDetails = (order: any) => {
+const handleDetails = (order: HostOrderItem) => {
     currentOrder.value = order
     detailsDialogVisible.value = true
 }
 
-// 获取房东的房源列表
-const fetchHomestays = async () => {
+// 获取房源列表 - 修改函数实现
+const fetchHomestayOptions = async () => {
     try {
-        const response = await getOwnerHomestays()
-        if (response.data && Array.isArray(response.data)) {
-            homestayOptions.value = response.data.map((item: any) => ({
-                value: item.id,
-                label: item.title
-            }))
+        // 调用正确的 API
+        const options = await getHostHomestayOptions()
+        // 假设 options 直接就是 {id, title}[] 格式
+        // 如果不是，可能需要解包，例如 options = options.data
+        if (options && Array.isArray(options)) {
+            homestayOptions.value = options.map(opt => ({ id: opt.id, title: opt.title }))
+        } else {
+            console.warn('getHostHomestayOptions 返回的数据格式不符合预期:', options)
+            homestayOptions.value = []
         }
+
     } catch (error) {
-        console.error('获取房源列表失败:', error)
-        ElMessage.error('获取房源列表失败')
+        console.error('获取房源选项失败:', error)
+        ElMessage.error('获取房源选项失败')
+        homestayOptions.value = [] // 出错时清空
     }
 }
 
+// 修复后的确认订单函数
+const confirmOrderFixed = async (id: number) => {
+    console.log("正在使用修复后的确认订单函数", id);
+    return request({
+        url: `/api/orders/${id}/confirm`,
+        method: "put"
+    });
+};
+
 // 确认订单
-const handleConfirm = async (order: any) => {
+const handleConfirm = async (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
@@ -411,7 +495,8 @@ const handleConfirm = async (order: any) => {
         loading.value = true
         try {
             console.log('确认订单ID:', order.id)
-            await confirmOrder(order.id)
+            // 使用修复后的函数
+            await confirmOrderFixed(order.id)
             ElMessage.success('订单已确认')
             // 更新本地数据
             const index = orders.value.findIndex(item => item.id === order.id)
@@ -438,7 +523,7 @@ const handleConfirm = async (order: any) => {
 }
 
 // 办理入住
-const handleCheckIn = async (order: any) => {
+const handleCheckIn = async (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
@@ -479,7 +564,7 @@ const handleCheckIn = async (order: any) => {
 }
 
 // 完成订单
-const handleComplete = async (order: any) => {
+const handleComplete = async (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
@@ -520,7 +605,7 @@ const handleComplete = async (order: any) => {
 }
 
 // 取消订单
-const handleCancel = (order: any) => {
+const handleCancel = (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
@@ -535,21 +620,21 @@ const handleCancel = (order: any) => {
 // 确认取消订单
 const confirmCancel = async () => {
     if (!cancelFormRef.value) return
-    if (!currentOrder.value || !currentOrder.value.id) {
-        ElMessage.error('无效的订单数据')
+    if (!currentOrder.value) {
+        ElMessage.error('当前没有选中的订单')
         return
     }
 
-    await cancelFormRef.value.validate(async (valid) => {
+    await cancelFormRef.value.validate(async (valid: boolean) => {
         if (valid) {
             submitting.value = true
 
             try {
-                console.log('拒绝订单ID:', currentOrder.value.id, '原因:', cancelForm.reason)
-                await rejectOrder(currentOrder.value.id, cancelForm.reason)
+                console.log('取消订单ID:', currentOrder.value!.id, '原因:', cancelForm.reason)
+                await cancelOrder(currentOrder.value!.id, cancelForm.reason)
 
                 // 更新本地数据
-                const index = orders.value.findIndex(item => item.id === currentOrder.value.id)
+                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
                 if (index !== -1) {
                     orders.value[index].status = 'CANCELLED'
                 }
@@ -557,18 +642,80 @@ const confirmCancel = async () => {
                 ElMessage.success('订单已取消')
                 cancelDialogVisible.value = false
 
-                // 关闭详情对话框（如果打开）
                 if (detailsDialogVisible.value) {
                     detailsDialogVisible.value = false
                 }
 
                 updateStats()
-
-                // 刷新订单列表
                 fetchOrders()
             } catch (error: any) {
                 console.error('取消订单失败:', error)
-                ElMessage.error(error.response?.data?.message || '操作失败，请重试')
+                ElMessage.error(error.message || '取消订单失败，请重试')
+            } finally {
+                submitting.value = false
+            }
+        }
+    })
+}
+
+// 修复后的拒绝订单函数
+const rejectOrderFixed = async (id: number, reason: string) => {
+    console.log("正在使用修复后的拒绝订单函数", id, reason);
+    return request({
+        url: `/api/orders/${id}/reject`,
+        method: "put",
+        data: { reason }
+    });
+};
+
+// 处理拒绝订单
+const handleReject = (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    console.log('拒绝订单:', order)
+    currentOrder.value = order
+    rejectForm.reason = ''
+    rejectDialogVisible.value = true
+}
+
+// 确认拒绝订单
+const confirmReject = async () => {
+    if (!rejectFormRef.value) return
+    if (!currentOrder.value) {
+        ElMessage.error('当前没有选中的订单')
+        return
+    }
+
+    await rejectFormRef.value.validate(async (valid: boolean) => {
+        if (valid) {
+            submitting.value = true
+
+            try {
+                console.log('拒绝订单ID:', currentOrder.value!.id, '原因:', rejectForm.reason)
+                await rejectOrderFixed(currentOrder.value!.id, rejectForm.reason)
+
+                // 更新本地数据
+                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
+
+                if (index !== -1) {
+                    orders.value[index].status = 'REJECTED'
+                }
+
+                ElMessage.success('订单已拒绝')
+                rejectDialogVisible.value = false
+
+                if (detailsDialogVisible.value) {
+                    detailsDialogVisible.value = false
+                }
+
+                updateStats()
+                fetchOrders()
+            } catch (error: any) {
+                console.error('拒绝订单失败:', error)
+                ElMessage.error(error.response?.data?.message || error.message || '拒绝订单失败，请重试')
             } finally {
                 submitting.value = false
             }
@@ -743,7 +890,7 @@ const formatDateTime = (dateTimeString: string) => {
 }
 
 onMounted(() => {
-    fetchHomestays()
+    fetchHomestayOptions()
     fetchOrders()
     updateStats()
 })

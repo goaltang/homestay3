@@ -70,7 +70,7 @@ const orderNumber = ref<string>('')
 // 获取订单详情
 onMounted(async () => {
     if (!orderId.value) {
-        router.push('/orders')
+        router.push('/user/orders')
         return
     }
 
@@ -97,7 +97,7 @@ const goToOrderDetail = () => {
 
 // 跳转到我的订单列表
 const goToMyOrders = () => {
-    router.push('/orders')
+    router.push('/user/orders')
 }
 </script>
 

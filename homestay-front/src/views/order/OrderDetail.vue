@@ -40,13 +40,14 @@
                 </div>
                 <div class="homestay-info">
                     <div class="homestay-image">
-                        <img :src="orderData.imageUrl || 'https://picsum.photos/400/300'" alt="房源图片">
+                        <img :src="processImageUrl(orderData.imageUrl)" alt="房源图片" @error="handleImageErrorEvent">
                     </div>
                     <div class="homestay-details">
                         <h3>{{ orderData.homestayTitle }}</h3>
-                        <p>{{ orderData.address }}</p>
-                        <p>{{ formatDateRange(orderData.checkInDate, orderData.checkOutDate) }}</p>
-                        <p>{{ orderData.guestCount }}位房客 · {{ orderData.nights }}晚</p>
+                        <p><i class="el-icon-location"></i> {{ orderData.address }}</p>
+                        <p><i class="el-icon-date"></i> {{ formatDateRange(orderData.checkInDate,
+                            orderData.checkOutDate) }}</p>
+                        <p><i class="el-icon-user"></i> {{ orderData.guestCount }}位房客 · {{ orderData.nights }}晚</p>
                     </div>
                 </div>
             </div>
@@ -55,11 +56,25 @@
             <div class="status-notice" v-if="orderData.status === 'PENDING'">
                 <el-alert title="等待房东确认" type="warning" description="您的预订申请已提交，正在等待房东确认。房东将在24小时内确认您的预订。" show-icon
                     :closable="false" />
+                <div class="countdown-container">
+                    <div class="countdown-title">订单确认倒计时</div>
+                    <div class="countdown-timer" :class="{ 'urgent': isTimeUrgent(orderData.createTime, 24) }">
+                        {{ getCountdownTime(orderData.createTime, 24) }}
+                    </div>
+                    <div class="countdown-desc">超过24小时未确认，订单将自动取消</div>
+                </div>
             </div>
 
             <div class="status-notice" v-else-if="orderData.status === 'CONFIRMED'">
                 <el-alert title="房东已确认预订" type="success" description="房东已确认您的预订，请尽快完成支付以确保您的住宿。" show-icon
                     :closable="false" />
+                <div class="countdown-container">
+                    <div class="countdown-title">支付倒计时</div>
+                    <div class="countdown-timer" :class="{ 'urgent': isTimeUrgent(orderData.updateTime, 2) }">
+                        {{ getCountdownTime(orderData.updateTime, 2) }}
+                    </div>
+                    <div class="countdown-desc">超过2小时未支付，订单将自动取消</div>
+                </div>
                 <div class="pay-button-container">
                     <el-button type="primary" @click="goToPayment">
                         立即支付
@@ -105,6 +120,47 @@
                 </div>
             </div>
 
+            <!-- 评价详情 (如果已完成且已评价) -->
+            <div class="review-details-section" v-if="orderData?.status === 'COMPLETED' && orderData.review">
+                <div class="review-header">
+                    <h2>我的评价</h2>
+                    <div class="review-actions">
+                        <el-button v-if="canEditReview(orderData.review)"
+                            type="primary" plain size="small"
+                            @click="openEditModal(orderData.review)">
+                            修改评价
+                        </el-button>
+                        <el-button v-if="canDeleteReview(orderData.review)" type="danger" plain size="small"
+                            @click="handleDeleteReview(orderData.review.id)" :loading="isDeletingReview"
+                            class="delete-review-btn">
+                            删除评价
+                        </el-button>
+                    </div>
+                </div>
+                <div class="review-content">
+                    <div class="rating-line">
+                        <span class="label">评分:</span>
+                        <el-rate :model-value="orderData.review.rating" disabled size="small" text-color="#ff9900" />
+                    </div>
+                    <div class="info-item">
+                        <span class="label">评价内容:</span>
+                        <p>{{ orderData.review.content }}</p>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">评价时间:</span>
+                        <span>{{ formatDate(orderData.review.createTime) }}</span>
+                    </div>
+                    <div v-if="orderData.review.response" class="host-response-detail">
+                        <el-divider direction="horizontal" />
+                        <h4>房东回复:</h4>
+                        <p>{{ orderData.review.response }}</p>
+                        <div class="response-time" v-if="orderData.review.responseTime">
+                            回复于: {{ formatDateTime(orderData.review.responseTime) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 按钮操作区 -->
             <div class="action-buttons">
                 <el-button @click="goToOrders">返回订单列表</el-button>
@@ -116,6 +172,13 @@
                 </el-button>
             </div>
         </div>
+
+        <!-- Add Edit Modal -->
+        <ReviewEditModal 
+            v-model:visible="isEditModalVisible"
+            :review-data="currentEditingReview"
+            @submitted="handleReviewUpdated"
+        />
     </div>
 </template>
 
@@ -124,6 +187,32 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrderDetail, cancelOrder } from '../../api/order'
+import { getHomestayById } from '../../api/homestay'
+import { getHomestayImageUrl, handleImageError } from '../../utils/image'
+import dayjs from 'dayjs'
+import { deleteReview } from '@/api/review'
+import { useUserStore } from '@/stores/user'
+import ReviewEditModal from '@/components/ReviewEditModal.vue'
+
+// 定义评价数据接口
+interface ReviewItem {
+    id: number;
+    userId?: number; // 后端DTO可能没有，但前端获取用户评价列表时可能有
+    rating: number;
+    content: string;
+    response?: string;
+    createTime: string;
+    responseTime?: string;
+    // 添加其他需要的字段...
+}
+
+// --- Add type for editable data ---
+interface EditableReviewData {
+  id: number;
+  rating: number;
+  content: string;
+}
+// --- End type ---
 
 interface OrderData {
     id: number
@@ -145,31 +234,77 @@ interface OrderData {
     remark?: string
     createTime: string
     updateTime: string
+    reviewed?: boolean; // 保留 reviewed 字段
+    review?: ReviewItem | null; // 添加 review 字段
 }
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const loading = ref(true)
 const orderData = ref<OrderData | null>(null)
+const isDeletingReview = ref(false)
+
+// --- Add state for edit modal ---
+const isEditModalVisible = ref(false);
+const currentEditingReview = ref<EditableReviewData | null>(null);
+// --- End state ---
+
+// 获取当前登录用户ID
+const currentUserId = userStore.userInfo?.id
 
 // 获取订单详情
 const fetchOrderDetail = async () => {
+    loading.value = true; // 开始时设置加载状态
     try {
         const orderId = Number(route.params.id)
         if (isNaN(orderId)) {
             ElMessage.error('无效的订单ID')
-            return
+            return;
         }
 
         const response = await getOrderDetail(orderId)
-        orderData.value = response.data
+
+        // 直接将后端返回的 data 赋值给 orderData
+        // 假设 response.data 的结构与 OrderData 接口匹配 (包括 review)
+        orderData.value = response.data;
+        console.log('获取到的订单详情数据:', orderData.value);
+
+        // 获取房源详情，更新房源图片 (这部分逻辑保持不变)
+        if (orderData.value && orderData.value.homestayId && !orderData.value.imageUrl) {
+            try {
+                const homestayResponse = await getHomestayById(orderData.value.homestayId)
+                if (homestayResponse && homestayResponse.data) {
+                    const coverImage = homestayResponse.data.coverImage ||
+                        (homestayResponse.data.images && homestayResponse.data.images.length > 0 ?
+                            homestayResponse.data.images[0] : null);
+
+                    if (coverImage && orderData.value) { // Check orderData again
+                        orderData.value.imageUrl = coverImage;
+                    }
+                }
+            } catch (error) {
+                console.error('获取房源详情失败:', error);
+            }
+        }
     } catch (error: any) {
-        console.error('获取订单详情失败:', error)
-        ElMessage.error('获取订单详情失败，请重试')
+        console.error('获取订单详情失败:', error);
+        ElMessage.error('获取订单详情失败，请重试');
+        orderData.value = null; // 清空数据
     } finally {
-        loading.value = false
+        loading.value = false;
     }
+}
+
+// 处理图片URL
+const processImageUrl = (url?: string) => {
+    return getHomestayImageUrl(url);
+}
+
+// 处理图片加载错误事件处理器
+const handleImageErrorEvent = (event: Event) => {
+    handleImageError(event, 'homestay');
 }
 
 // 计算是否可以取消订单
@@ -187,6 +322,7 @@ const getStatusStep = (status: string) => {
         'CONFIRMED': 2,     // 房东确认(步骤2)
         'REJECTED': 1,      // 被拒绝(保持在步骤1)
         'CANCELLED': 1,     // 已取消(保持在步骤1)
+        'CANCELLED_SYSTEM': 1, // 系统取消(保持在步骤1)
         'PAID': 3,          // 已支付(步骤3)
         'CHECKED_IN': 4,    // 已入住(步骤4)
         'COMPLETED': 5      // 已完成(步骤5)
@@ -201,6 +337,9 @@ const getStatusType = (status: string) => {
         'CONFIRMED': 'success',
         'REJECTED': 'danger',
         'CANCELLED': 'info',
+        'CANCELLED_SYSTEM': 'info',
+        'CANCELLED_BY_USER': 'info',
+        'CANCELLED_BY_HOST': 'info',
         'PAID': 'success',
         'CHECKED_IN': 'success',
         'COMPLETED': 'success'
@@ -215,6 +354,9 @@ const getStatusText = (status: string) => {
         'CONFIRMED': '已确认',
         'REJECTED': '已拒绝',
         'CANCELLED': '已取消',
+        'CANCELLED_SYSTEM': '系统已取消',
+        'CANCELLED_BY_USER': '已取消',
+        'CANCELLED_BY_HOST': '已取消',
         'PAID': '已支付',
         'CHECKED_IN': '已入住',
         'COMPLETED': '已完成'
@@ -244,39 +386,64 @@ const extractRejectReason = (remark: string) => {
 const confirmCancel = async () => {
     try {
         await ElMessageBox.confirm(
-            '确定要取消该订单吗？',
+            '确定要取消该订单吗？取消后将无法恢复',
             '取消订单',
             {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
-                type: 'warning'
+                confirmButtonText: '确定取消',
+                cancelButtonText: '再想想',
+                type: 'warning',
+                distinguishCancelAndClose: true,
+                closeOnClickModal: false
             }
         )
 
         if (!orderData.value) return
 
-        try {
-            // 使用PUT方法更新订单状态为取消，而不是使用特定的取消API
-            const response = await fetch(`/api/orders/${orderData.value.id}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ status: 'CANCELLED' })
-            });
+        // 显示取消中的加载状态
+        const loadingInstance = ElMessage({
+            type: 'info',
+            message: '订单取消中...',
+            duration: 0
+        })
 
-            const result = await response.json();
-            if (response.ok) {
-                ElMessage.success('订单已成功取消');
-                // 刷新订单数据
-                fetchOrderDetail();
+        try {
+            // 使用cancelOrder API方法，确保它使用正确的/status接口
+            await cancelOrder(orderData.value.id);
+
+            // 关闭加载消息
+            ElMessage.closeAll();
+
+            // 显示更详细的成功消息，并提供跳转链接
+            const result = await ElMessageBox.alert(
+                '订单已成功取消，您可以继续浏览其他房源或返回订单列表查看',
+                '取消成功',
+                {
+                    confirmButtonText: '查看其他房源',
+                    cancelButtonText: '返回订单列表',
+                    distinguishCancelAndClose: true,
+                    showCancelButton: true
+                }
+            );
+
+            if (result === 'confirm') {
+                router.push('/'); // 前往首页
             } else {
-                throw new Error(result.message || '取消订单失败');
+                router.push('/orders'); // 返回订单列表
             }
         } catch (error: any) {
+            // 关闭加载消息
+            ElMessage.closeAll();
+
+            if (error === 'cancel' || error === 'close') {
+                // 用户选择了返回订单列表
+                router.push('/orders');
+                return;
+            }
+
             console.error('API调用错误:', error);
             ElMessage.error(`取消订单失败: ${error.message || '请稍后重试'}`);
+            // 刷新订单数据
+            fetchOrderDetail();
         }
     } catch (error: any) {
         if (error !== 'cancel') {
@@ -295,8 +462,118 @@ const goToPayment = () => {
 
 // 前往订单列表
 const goToOrders = () => {
-    router.push('/orders')
+    router.push('/user/orders')
 }
+
+// 计算倒计时
+const getCountdownTime = (startTimeStr: string, hoursLimit: number) => {
+    const startTime = new Date(startTimeStr).getTime();
+    const currentTime = new Date().getTime();
+    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
+    const remainingTime = limitTime - currentTime;
+
+    if (remainingTime <= 0) {
+        return "即将自动取消";
+    }
+
+    // 计算剩余小时、分钟和秒数
+    const hours = Math.floor(remainingTime / (60 * 60 * 1000));
+    const minutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
+    const seconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
+
+    return `${hours}小时${minutes}分钟${seconds}秒`;
+}
+
+// 判断时间是否紧急（剩余不到30分钟）
+const isTimeUrgent = (startTimeStr: string, hoursLimit: number) => {
+    const startTime = new Date(startTimeStr).getTime();
+    const currentTime = new Date().getTime();
+    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
+    const remainingTime = limitTime - currentTime;
+
+    // 如果剩余时间小于30分钟，显示紧急样式
+    return remainingTime < 30 * 60 * 1000 && remainingTime > 0;
+}
+
+// 添加日期格式化函数
+const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    return dayjs(dateString).format('YYYY-MM-DD');
+};
+
+const formatDateTime = (dateString?: string) => {
+    if (!dateString) return '';
+    return dayjs(dateString).format('YYYY-MM-DD HH:mm');
+};
+
+// 判断是否可以删除评价 (当前用户是评价者)
+const canDeleteReview = (review?: ReviewItem | null): boolean => {
+    // 注意：orderData.review 可能没有 userId，如果后端 /api/orders/{id} 返回的ReviewDTO不包含userId
+    // 需要确认 getOrderDetail 返回的数据中 Review 对象是否包含 userId
+    // 如果不包含，需要调整逻辑，可能需要基于 orderData.guestId 判断
+    // return !!currentUserId && orderData.value?.guestId === currentUserId && !!review;
+    // 假设后端返回了 userId
+    return !!currentUserId && !!review && review.userId === currentUserId; 
+};
+
+// --- Add function to check if review can be edited ---
+const canEditReview = (review?: ReviewItem | null): boolean => {
+    // 权限同删除
+    return canDeleteReview(review);
+};
+// --- End function ---
+
+// 处理删除评价
+const handleDeleteReview = async (reviewId: number) => {
+    if (!reviewId) return;
+    try {
+        await ElMessageBox.confirm('确定要删除这条评价吗？删除后不可恢复。', '删除确认', {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning',
+        });
+
+        isDeletingReview.value = true;
+        await deleteReview(reviewId);
+        ElMessage.success('评价删除成功');
+        // 从订单数据中移除评价信息或重新加载订单详情
+        if (orderData.value) {
+            orderData.value.review = null; // 直接置空
+            // 或者重新获取订单详情: fetchOrderDetail();
+        }
+
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            console.error('删除评价失败:', error);
+            const errMsg = error?.response?.data?.message || '删除评价失败，请稍后重试';
+            ElMessage.error(errMsg);
+        }
+    } finally {
+        isDeletingReview.value = false;
+    }
+};
+
+// --- Add functions for edit modal ---
+// 打开编辑弹窗
+const openEditModal = (review: ReviewItem) => {
+  currentEditingReview.value = {
+    id: review.id,
+    rating: review.rating,
+    content: review.content,
+  };
+  isEditModalVisible.value = true;
+};
+
+// 处理评价更新事件
+const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
+    if (orderData.value && orderData.value.review) {
+        orderData.value.review.rating = updatedReviewData.rating;
+        orderData.value.review.content = updatedReviewData.content;
+        // 可以考虑更新 updateTime 如果需要显示的话
+    }
+    isEditModalVisible.value = false; // 关闭弹窗
+};
+// --- End functions ---
 
 onMounted(() => {
     fetchOrderDetail()
@@ -308,12 +585,23 @@ onMounted(() => {
     max-width: 800px;
     margin: 0 auto;
     padding: 40px 20px;
+    background-color: #f9f9f9;
 }
 
 .loading-container,
 .error-container {
     padding: 40px;
     text-align: center;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.order-content {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    padding: 32px;
 }
 
 .order-header {
@@ -326,10 +614,15 @@ onMounted(() => {
 h1 {
     font-size: 28px;
     margin: 0;
+    font-weight: 600;
+    color: #333;
 }
 
 .order-status-flow {
     margin-bottom: 32px;
+    padding: 24px;
+    background-color: #fafafa;
+    border-radius: 8px;
 }
 
 .order-summary-card {
@@ -337,6 +630,13 @@ h1 {
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 32px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+}
+
+.order-summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
@@ -349,6 +649,8 @@ h1 {
 .card-header h2 {
     margin: 0;
     font-size: 18px;
+    color: #333;
+    font-weight: 600;
 }
 
 .order-number {
@@ -362,26 +664,42 @@ h1 {
 }
 
 .homestay-image {
-    width: 120px;
-    height: 90px;
-    border-radius: 8px;
+    width: 160px;
+    height: 120px;
+    border-radius: 10px;
     overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .homestay-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.homestay-image:hover img {
+    transform: scale(1.05);
 }
 
 .homestay-details h3 {
-    margin: 0 0 8px 0;
+    margin: 0 0 12px 0;
     font-size: 18px;
+    font-weight: 600;
+    color: #333;
 }
 
 .homestay-details p {
-    margin: 4px 0;
+    margin: 8px 0;
     color: #666;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.homestay-details i {
+    color: #409EFF;
 }
 
 .status-notice {
@@ -412,36 +730,63 @@ h1 {
 .guest-info-section,
 .price-details-section {
     margin-bottom: 32px;
+    background-color: #fafafa;
+    border-radius: 12px;
+    padding: 24px;
 }
 
 h2 {
     font-size: 18px;
     margin-bottom: 16px;
+    font-weight: 600;
+    color: #333;
+    position: relative;
+    display: inline-block;
+}
+
+h2::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 30px;
+    height: 2px;
+    background-color: #409EFF;
+    border-radius: 2px;
 }
 
 .info-item {
     display: flex;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 .info-item .label {
     width: 100px;
     color: #666;
+    font-weight: 500;
 }
 
 .price-item {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    padding: 8px 0;
 }
 
 .price-total {
     display: flex;
     justify-content: space-between;
     font-weight: bold;
-    padding-top: 12px;
+    padding-top: 16px;
     border-top: 1px solid #eee;
-    margin-top: 12px;
+    margin-top: 16px;
+    font-size: 18px;
+    color: #333;
+}
+
+.price-total span:last-child {
+    color: #ff6b6b;
+    font-size: 20px;
 }
 
 .action-buttons {
@@ -449,5 +794,136 @@ h2 {
     gap: 16px;
     justify-content: center;
     margin-top: 40px;
+}
+
+.action-buttons .el-button {
+    min-width: 120px;
+}
+
+.countdown-container {
+    margin-top: 15px;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.countdown-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #333;
+}
+
+.countdown-timer {
+    font-size: 28px;
+    font-weight: bold;
+    color: #409eff;
+    margin-bottom: 12px;
+}
+
+.countdown-timer.urgent {
+    color: #f56c6c;
+    animation: blink 1s infinite;
+}
+
+.countdown-desc {
+    font-size: 14px;
+    color: #606266;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .homestay-info {
+        flex-direction: column;
+    }
+
+    .homestay-image {
+        width: 100%;
+        height: 180px;
+        margin-bottom: 16px;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+
+.review-details-section {
+    background-color: #fafafa;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+}
+
+.review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.review-header h2 {
+    margin-bottom: 0;
+}
+
+.review-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.delete-review-btn {
+    margin-left: 16px;
+}
+
+.review-content .info-item {
+    display: flex;
+    margin-bottom: 12px;
+}
+
+.review-content .label {
+    width: 100px;
+    color: #666;
+    font-weight: 500;
+}
+
+.review-content p {
+    margin: 0;
+    flex: 1;
+}
+
+.host-response-detail {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #dcdfe6;
+}
+
+.host-response-detail h4 {
+    margin: 0 0 8px 0;
+    color: #409EFF;
+}
+
+.host-response-detail p {
+    margin-bottom: 5px;
+}
+
+.host-response-detail .response-time {
+    font-size: 12px;
+    color: #909399;
+    text-align: right;
 }
 </style>

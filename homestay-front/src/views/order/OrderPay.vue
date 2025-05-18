@@ -12,15 +12,35 @@
             </el-empty>
         </div>
         <div v-else class="pay-content">
+            <!-- 新增：支付失败提示 -->
+            <el-alert v-if="orderData.status === 'PAYMENT_FAILED' || orderData.paymentStatus === 'FAILED'" title="支付提醒"
+                type="warning" description="您之前的支付尝试未成功，请重新选择支付方式并完成支付。" show-icon :closable="false"
+                style="margin-bottom: 20px;">
+            </el-alert>
+
             <div class="pay-header">
                 <h1>订单支付</h1>
                 <div class="order-info">
                     <p class="amount">支付金额: <span class="price">¥{{ orderData.totalAmount }}</span></p>
                     <p class="order-number">订单号: {{ orderData.orderNumber }}</p>
-                    <el-tag :type="orderData.status === 'PENDING_PAYMENT' ? 'warning' : 'success'">
+                    <el-tag
+                        :type="orderData.status === 'PENDING_PAYMENT' || orderData.status === 'CONFIRMED' || orderData.status === 'PAYMENT_PENDING' ? 'warning' : 'success'">
                         {{ getStatusText(orderData.status) }}
                     </el-tag>
                 </div>
+            </div>
+
+            <!-- 添加订单超时倒计时提醒 -->
+            <div class="order-timeout-alert" :class="{ 'urgent': isTimeUrgent(orderData.updateTime, 2) }">
+                <el-alert title="请在限定时间内完成支付" type="warning" description="超过2小时未完成支付，订单将被自动取消" show-icon
+                    :closable="false">
+                    <template #default>
+                        <div class="timeout-countdown">
+                            <span>支付倒计时：</span>
+                            <span class="countdown-time">{{ getCountdownTime(orderData.updateTime, 2) }}</span>
+                        </div>
+                    </template>
+                </el-alert>
             </div>
 
             <div class="payment-section">
@@ -69,11 +89,11 @@
 
             <div class="actions">
                 <el-button @click="cancelOrder" plain>取消订单</el-button>
-                <el-button type="primary" @click="checkPaymentStatus">
-                    我已完成支付
+                <el-button type="success" plain @click="handleMockPaymentSuccess" v-if="orderData.status !== 'PAID'">
+                    【测试】模拟支付成功
                 </el-button>
-                <el-button type="success" @click="mockPaymentSuccess">
-                    模拟支付成功 (测试用)
+                <el-button type="primary" @click="checkPaymentStatus" :disabled="!qrCodeGenerated">
+                    我已完成支付
                 </el-button>
             </div>
         </div>
@@ -84,7 +104,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder, mockPayment } from '../../api/order'
+import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder, mockPaymentSuccess } from '../../api/order'
 
 interface OrderData {
     id: number
@@ -95,6 +115,8 @@ interface OrderData {
     guestCount: number
     totalAmount: number
     status: string
+    paymentStatus: string
+    updateTime: string
 }
 
 const route = useRoute()
@@ -105,6 +127,7 @@ const orderData = ref<OrderData | null>(null)
 const paymentMethod = ref(route.query.method?.toString() || '')
 const qrCode = ref('')
 const countdown = ref(900) // 15分钟倒计时
+const qrCodeGenerated = ref(false) // 新增状态变量，标记二维码是否已生成
 let timer: NodeJS.Timeout | null = null
 
 // 获取订单详情
@@ -131,6 +154,7 @@ const generateQRCode = async () => {
             method: paymentMethod.value
         })
         qrCode.value = response.data.qrCode
+        qrCodeGenerated.value = true // 生成成功后，更新状态为 true
         startCountdown()
     } catch (error: any) {
         ElMessage.error('生成支付二维码失败，请重试')
@@ -162,32 +186,27 @@ const formatCountdown = (seconds: number) => {
 const checkPaymentStatus = async () => {
     if (!orderData.value) return
 
+    const loadingInstance = ElMessage({ type: 'info', message: '正在确认支付状态...', duration: 0 });
     try {
         const response = await checkPayment(orderData.value.id)
+        loadingInstance.close(); // 关闭加载提示
+
         if (response.data.paid) {
             ElMessage.success('支付成功！')
-            router.push(`/order/${orderData.value.id}`)
+            // 跳转到订单详情页
+            router.push(`/orders/${orderData.value.id}`)
         } else {
-            ElMessage.warning('未检测到支付完成，请确认支付状态')
+            // 检查是否有错误消息从后端传来
+            if (response.data.error) {
+                ElMessage.error(response.data.error);
+            } else {
+                ElMessage.warning('支付状态尚未确认，请稍后再试或联系客服');
+            }
         }
     } catch (error: any) {
-        ElMessage.error('检查支付状态失败，请重试')
-    }
-}
-
-// 模拟支付成功（仅用于测试）
-const mockPaymentSuccess = async () => {
-    if (!orderData.value) return
-
-    try {
-        const response = await mockPayment(orderData.value.id)
-        if (response.data.paid) {
-            ElMessage.success('模拟支付成功！')
-            router.push(`/order/${orderData.value.id}`)
-        }
-    } catch (error: any) {
-        console.error('模拟支付失败:', error)
-        ElMessage.error(error.response?.data?.message || '模拟支付失败')
+        loadingInstance.close(); // 关闭加载提示
+        console.error("检查支付状态接口调用失败:", error);
+        ElMessage.error(error.response?.data?.error || '检查支付状态失败，请重试');
     }
 }
 
@@ -197,22 +216,80 @@ const cancelOrder = async () => {
 
     try {
         await ElMessageBox.confirm(
-            '确定要取消该订单吗？',
+            '确定要取消该订单吗？取消后将无法恢复',
             '取消订单',
             {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
-                type: 'warning'
+                confirmButtonText: '确定取消',
+                cancelButtonText: '继续支付',
+                type: 'warning',
+                distinguishCancelAndClose: true,
+                closeOnClickModal: false
             }
         )
 
-        await apiCancelOrder(orderData.value.id)
-        ElMessage.success('订单已取消')
-        router.push('/orders')
-    } catch (error: any) {
-        if (error !== 'cancel') {
+        // 显示取消中的加载状态
+        const loadingInstance = ElMessage({
+            type: 'info',
+            message: '订单取消中...',
+            duration: 0
+        })
+
+        try {
+            await apiCancelOrder(orderData.value.id)
+
+            // 关闭加载消息
+            ElMessage.closeAll()
+
+            // 显示更详细的成功消息，并提供跳转选项
+            const result = await ElMessageBox.alert(
+                '订单已成功取消，您可以继续浏览其他房源或返回订单列表',
+                '取消成功',
+                {
+                    confirmButtonText: '查看其他房源',
+                    cancelButtonText: '返回订单列表',
+                    distinguishCancelAndClose: true,
+                    showCancelButton: true
+                }
+            )
+
+            if (result === 'confirm') {
+                router.push('/') // 前往首页
+            } else {
+                router.push('/orders') // 返回订单列表
+            }
+        } catch (error: any) {
+            // 关闭加载消息
+            ElMessage.closeAll()
+
+            console.error('取消订单失败:', error)
             ElMessage.error('取消订单失败，请重试')
         }
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            console.error('取消订单确认操作失败:', error)
+        }
+    }
+}
+
+// 新增：处理模拟支付成功的函数
+const handleMockPaymentSuccess = async () => {
+    if (!orderData.value) return;
+
+    const loadingInstance = ElMessage({
+        message: '正在模拟支付成功...',
+        type: 'info',
+        duration: 0,
+    });
+    try {
+        await mockPaymentSuccess(orderData.value.id);
+        loadingInstance.close();
+        ElMessage.success('模拟支付成功！正在检查最终状态...');
+        // 模拟成功后，立即检查支付状态，这会确认状态并可能导航离开
+        await checkPaymentStatus();
+    } catch (error) {
+        loadingInstance.close();
+        // 错误已在 api/order.ts 中处理并提示，这里可以不再重复提示
+        console.error('模拟支付成功失败:', error);
     }
 }
 
@@ -229,6 +306,8 @@ const getPaymentMethodText = (method: string) => {
 const getStatusText = (status: string) => {
     const statusMap = {
         PENDING_PAYMENT: '待支付',
+        PAYMENT_PENDING: '待支付',
+        CONFIRMED: '待支付',
         PAID: '已支付',
         CANCELLED: '已取消'
     }
@@ -248,13 +327,58 @@ const goToOrders = () => {
     router.push('/orders')
 }
 
+// 计算倒计时
+const getCountdownTime = (startTimeStr: string, hoursLimit: number) => {
+    if (!startTimeStr) return "获取中...";
+
+    const startTime = new Date(startTimeStr).getTime();
+    const currentTime = new Date().getTime();
+    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
+    const remainingTime = limitTime - currentTime;
+
+    if (remainingTime <= 0) {
+        return "即将自动取消";
+    }
+
+    // 计算剩余小时、分钟和秒数
+    const hours = Math.floor(remainingTime / (60 * 60 * 1000));
+    const minutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
+    const seconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
+
+    return `${hours}小时${minutes}分钟${seconds}秒`;
+}
+
+// 判断时间是否紧急（剩余不到30分钟）
+const isTimeUrgent = (startTimeStr: string, hoursLimit: number) => {
+    if (!startTimeStr) return false;
+
+    const startTime = new Date(startTimeStr).getTime();
+    const currentTime = new Date().getTime();
+    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
+    const remainingTime = limitTime - currentTime;
+
+    // 如果剩余时间小于30分钟，显示紧急样式
+    return remainingTime < 30 * 60 * 1000 && remainingTime > 0;
+}
+
+// 自动刷新倒计时
+let autoRefreshTimer: NodeJS.Timeout | null = null;
+
 onMounted(() => {
-    fetchOrderDetail()
-})
+    fetchOrderDetail();
+    // 每秒刷新倒计时显示
+    autoRefreshTimer = setInterval(() => {
+        if (orderData.value?.updateTime) {
+            // 强制更新页面
+            orderData.value = { ...orderData.value };
+        }
+    }, 1000);
+});
 
 onUnmounted(() => {
-    if (timer) clearInterval(timer)
-})
+    if (timer) clearInterval(timer);
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+});
 </script>
 
 <style scoped>
@@ -371,5 +495,44 @@ h1 {
 
 .fab {
     font-size: 18px;
+}
+
+.order-timeout-alert {
+    margin: 20px 0;
+}
+
+.order-timeout-alert.urgent .el-alert {
+    background-color: #fef0f0;
+    border-color: #f56c6c;
+}
+
+.timeout-countdown {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.countdown-time {
+    font-size: 18px;
+    font-weight: bold;
+    color: #e6a23c;
+}
+
+.order-timeout-alert.urgent .countdown-time {
+    color: #f56c6c;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 </style>
