@@ -19,14 +19,14 @@
                         <el-icon>
                             <Star />
                         </el-icon>
-                        <span>{{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }}</span>
-                        <span class="review-count">({{ homestay.reviewCount ?? 0 }}条评价)</span>
+                        <span>{{ formattedRating }}</span>
+                        <span class="review-count">({{ formattedReviewCount }}条评价)</span>
                     </div>
                     <div class="location">
                         <el-icon>
                             <Location />
                         </el-icon>
-                        <span>{{ homestay.location || homestay.address || '未知地点' }}</span>
+                        <span>{{ formattedLocation }}</span>
                     </div>
                 </div>
                 <div class="actions">
@@ -114,11 +114,10 @@
                     <!-- 房东信息 - 简单版 -->
                     <div class="host-brief">
                         <div class="host-avatar">
-                            <img :src="homestay.hostAvatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
-                                :alt="homestay.hostName">
+                            <img :src="hostDisplayAvatar" :alt="hostDisplayName">
                         </div>
                         <div class="host-brief-info">
-                            <h3>{{ homestay.hostName || '暂无房东信息' }}是星级旅居主人</h3>
+                            <h3>{{ hostDisplayName }}</h3>
                             <p>星级旅居主人接待经验丰富、深获旅人好评，他们致力为旅人提供优质的住宿体验。</p>
                         </div>
                     </div>
@@ -191,9 +190,9 @@
                             <span class="night">/晚</span>
                         </div>
                         <div class="rating-info">
-                            <el-rate v-model="homestay.rating" disabled text-color="#FF9900"
+                            <el-rate v-model="numericRating" disabled text-color="#FF9900"
                                 disabled-void-color="#C6D1DE" />
-                            <span class="review-link">{{ homestay.reviewCount ?? 0 }}条评价</span>
+                            <span class="review-link">{{ formattedReviewCount }}条评价</span>
                         </div>
                     </div>
 
@@ -252,14 +251,90 @@
                 </div>
             </div>
 
-            <!-- 位置信息 - 调整为全宽度 -->
-            <div class="full-width-section">
+            <!-- 位置信息 - 全新设计 -->
+            <div class="full-width-section location-section">
                 <h2>位置信息</h2>
-                <div class="map-container">
-                    <img src="https://picsum.photos/800/400" alt="地图" class="map-placeholder" />
+
+                <!-- 地址信息 -->
+                <div class="address-info">
+                    <div class="primary-location">
+                        <el-icon class="location-icon">
+                            <Location />
+                        </el-icon>
+                        <div class="location-text">
+                            <div class="main-address">{{ formattedLocation }}</div>
+                            <div class="detail-address" v-if="homestay.addressDetail">
+                                {{ homestay.addressDetail }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="location-features" v-if="homestay.distanceFromCenter">
+                        <div class="distance-info">
+                            <el-icon>
+                                <House />
+                            </el-icon>
+                            <span>距离市中心 {{ homestay.distanceFromCenter }} 公里</span>
+                        </div>
+                    </div>
                 </div>
-                <p>{{ homestay.location || homestay.address || '具体位置请参考地图' }}</p>
-                <p v-if="homestay.distanceFromCenter">距离市中心{{ homestay.distanceFromCenter }}公里</p>
+
+                <!-- 地图区域 -->
+                <div class="map-section">
+                    <div class="map-container" @click="openMapModal">
+                        <!-- 加载状态 -->
+                        <div v-if="mapData.isLoading" class="map-loading">
+                            <el-skeleton :rows="5" animated />
+                            <div class="loading-text">正在加载地图...</div>
+                        </div>
+
+                        <!-- 真实地图 -->
+                        <div v-else-if="mapData.hasLocation && mapData.staticMapUrl" class="map-placeholder">
+                            <div class="map-overlay">
+                                <el-icon class="map-icon">
+                                    <Location />
+                                </el-icon>
+                                <div class="map-text">
+                                    <div class="map-title">查看详细地图</div>
+                                    <div class="map-subtitle">点击打开交互式地图</div>
+                                </div>
+                            </div>
+                            <img :src="mapData.staticMapUrl" alt="房源位置地图" class="map-image" @error="onMapImageError" />
+                        </div>
+
+                        <!-- fallback 地图 -->
+                        <div v-else class="map-placeholder">
+                            <div class="map-overlay">
+                                <el-icon class="map-icon">
+                                    <Location />
+                                </el-icon>
+                                <div class="map-text">
+                                    <div class="map-title">查看地图</div>
+                                    <div class="map-subtitle">点击查看位置信息</div>
+                                </div>
+                            </div>
+                            <img src="https://picsum.photos/800/400?random=location" alt="位置地图" class="map-image" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 周边信息 -->
+                <div class="nearby-info" v-if="nearbyPlaces.length > 0">
+                    <h3>周边设施</h3>
+                    <div class="nearby-grid">
+                        <div v-for="(place, index) in nearbyPlaces" :key="index" class="nearby-item">
+                            <el-icon class="facility-icon">
+                                <Location v-if="place.type === '地铁站'" />
+                                <House v-else-if="place.type === '商场'" />
+                                <Check v-else />
+                            </el-icon>
+                            <div class="facility-info">
+                                <div class="facility-name">{{ place.name }}</div>
+                                <div class="facility-distance">{{ formatDistance(place.distance) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <el-divider />
@@ -361,7 +436,7 @@
                         <!-- 联系按钮 -->
                         <div class="host-contact">
                             <el-button type="primary" class="contact-button" @click="contactHost">
-                                发送讯息给房东
+                                发送消息给房东
                             </el-button>
                         </div>
 
@@ -389,7 +464,7 @@
                         <el-icon>
                             <Star />
                         </el-icon>
-                        {{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }} · {{ homestay.reviewCount ?? 0 }}条评价
+                        {{ formattedRating }} · {{ formattedReviewCount }}条评价
                     </h2>
                 </div>
 
@@ -412,8 +487,7 @@
                         <div class="review-header">
                             <div class="reviewer-info">
                                 <div class="avatar">
-                                    <img :src="review.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
-                                        :alt="review.userName">
+                                    <img :src="getReviewerAvatar(review)" :alt="review.userName">
                                 </div>
                                 <div class="reviewer-details">
                                     <div class="reviewer-name">{{ review.userName }}</div>
@@ -436,7 +510,7 @@
 
                 <!-- 无评价提示 -->
                 <div class="no-reviews" v-else>
-                    <el-empty description="暂无评价" v-if="homestay.reviewCount === 0">
+                    <el-empty description="暂无评价" v-if="formattedReviewCount === 0">
                         <span>这个房源还没有收到评价</span>
                     </el-empty>
                     <div class="loading-reviews" v-else>
@@ -445,8 +519,7 @@
                 </div>
 
                 <!-- 加载更多按钮 -->
-                <div class="load-more"
-                    v-if="homestay && reviews.length > 0 && reviews.length < (homestay.reviewCount ?? 0)">
+                <div class="load-more" v-if="homestay && reviews.length > 0 && reviews.length < totalReviewCount">
                     <el-button @click="loadMoreReviews">加载更多评价</el-button>
                 </div>
             </div>
@@ -466,42 +539,55 @@ import { createOrder } from '@/api/order'
 import { getHomestayHostInfo } from '@/api/host'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
+import { regionData, codeToText } from 'element-china-area-data'
+import {
+    geocodeAddress,
+    generateStaticMapUrl,
+    addPrivacyOffset,
+    searchNearbyPlaces,
+    formatDistance,
+    FACILITY_TYPES
+} from '@/utils/mapService'
 
 // --- Start Local Type Definitions (Recommend exporting from API files later) ---
 
-// Simplified Homestay Type (Add ownerUsername)
+// Simplified Homestay Type (与后端 API 保持一致)
 interface Homestay {
     id: number;
     title: string;
-    price: number;
+    price: number; // 每晚价格
     maxGuests: number;
     images?: (string | { url: string })[];
     coverImage?: string;
     reviewCount?: number;
-    hostId?: number;
+    rating?: number | null;
+
+    // 房东信息 (使用统一的字段名)
     ownerId?: number;
-    hostName?: string;
-    ownerName?: string | null; // API shows it can be null
-    ownerUsername?: string | null; // Add this field based on API response
-    hostAvatar?: string;
+    ownerName?: string | null;
+    ownerUsername?: string | null;
     ownerAvatar?: string;
+
+    // 房源详情
     amenities?: any[];
     description?: string;
-    location?: string;
-    rating?: number | null;
     propertyType?: string;
-    distanceFromCenter?: number;
     bedrooms?: number;
     beds?: number;
     bathrooms?: number;
     type?: string;
     status?: string;
     minNights?: number;
-    province?: string;
-    city?: string;
-    district?: string;
-    address?: string;
     featured?: boolean;
+    distanceFromCenter?: number;
+
+    // 位置信息
+    provinceCode?: string;
+    cityCode?: string;
+    districtCode?: string;
+    addressDetail?: string;
+
+    // 时间戳
     createdAt?: string | Date;
     updatedAt?: string | Date;
 }
@@ -510,11 +596,12 @@ interface Homestay {
 interface Review {
     id: number;
     userName: string;
-    avatarUrl?: string;
+    userAvatar?: string; // 修改字段名以匹配后端
     rating: number;
     content: string;
     createTime: string;
     response?: string;
+    responseTime?: string;
 }
 
 // Simplified Review Stat Item Type
@@ -614,9 +701,21 @@ const hostDetailInfo = ref<HostDetailInfoData | null>(null) // Use FINAL type
 const isFavorite = ref(false)
 const reviews = ref<Review[]>([])
 const reviewStats = ref<ReviewStatItem[]>([])
+const totalReviewCount = ref(0) // 添加总评价数量
 const reviewsPage = ref(1)
 const reviewsPageSize = 5
 const allProcessedImages = ref<string[]>([])
+
+// 地图相关数据
+const mapData = ref({
+    lat: 0,
+    lng: 0,
+    staticMapUrl: '',
+    isLoading: false,
+    hasLocation: false
+})
+const nearbyPlaces = ref<Array<{ name: string, type: string, distance: number, address: string }>>([])
+const showMapModal = ref(false)
 
 // Booking related refs
 const bookingDates = reactive<BookingDates>({
@@ -633,10 +732,20 @@ const gridImageUrls = computed(() => allProcessedImages.value.slice(1));
 // Computed property for parsed price per night
 const parsedPricePerNight = computed(() => {
     // Ensure homestay and price exist and are valid numbers
-    // Use the 'price' field from the API response
-    if (homestay.value && typeof homestay.value.price !== 'undefined' && homestay.value.price !== null) {
-        const priceValue = Number(homestay.value.price);
-        return isNaN(priceValue) ? 0 : priceValue; // Return 0 if parsing fails
+    // 尝试多个可能的价格字段名
+    if (homestay.value) {
+        let priceValue: number | undefined;
+
+        // 尝试不同的价格字段名称
+        if (typeof homestay.value.price !== 'undefined' && homestay.value.price !== null) {
+            priceValue = Number(homestay.value.price);
+        } else if (typeof (homestay.value as any).pricePerNight !== 'undefined' && (homestay.value as any).pricePerNight !== null) {
+            priceValue = Number((homestay.value as any).pricePerNight);
+        }
+
+        if (priceValue !== undefined && !isNaN(priceValue)) {
+            return priceValue;
+        }
     }
     return 0; // Default to 0 if no valid price
 });
@@ -701,6 +810,106 @@ const parsedCompanions = computed((): Array<{ name: string, avatar?: string }> =
         : [];
 });
 
+// Computed property for formatted location display
+const formattedLocation = computed(() => {
+    if (!homestay.value) return '位置待更新';
+
+    const parts = [];
+
+    // 使用省市区代码组合位置信息
+    if (homestay.value.provinceCode && codeToText[homestay.value.provinceCode]) {
+        parts.push(codeToText[homestay.value.provinceCode]);
+    }
+    if (homestay.value.cityCode && codeToText[homestay.value.cityCode]) {
+        // 避免重复省份（如直辖市）
+        if (!parts.includes(codeToText[homestay.value.cityCode])) {
+            parts.push(codeToText[homestay.value.cityCode]);
+        }
+    }
+    if (homestay.value.districtCode && codeToText[homestay.value.districtCode]) {
+        parts.push(codeToText[homestay.value.districtCode]);
+    }
+
+    if (parts.length > 0) {
+        return parts.join(' · ');
+    }
+
+    // 后备方案：使用详细地址字段
+    return homestay.value.addressDetail || '位置待更新';
+});
+
+// Computed property for formatted rating display
+const formattedRating = computed(() => {
+    console.log('=== formattedRating 计算过程 ===');
+    console.log('reviewStats.value:', reviewStats.value);
+    console.log('totalReviewCount.value:', totalReviewCount.value);
+    console.log('reviews.value.length:', reviews.value.length);
+
+    // 优先使用评价统计中的平均评分
+    if (reviewStats.value.length > 0) {
+        const avgRating = reviewStats.value.reduce((sum, stat) => sum + stat.score, 0) / reviewStats.value.length;
+        console.log('使用评价统计平均评分:', avgRating.toFixed(1));
+        return avgRating.toFixed(1);
+    }
+
+    // 如果有评价但没有评价统计，根据评价数量给出默认评分
+    if (totalReviewCount.value > 0 || reviews.value.length > 0) {
+        // 如果有具体评价且有评分，计算平均评分
+        if (reviews.value.length > 0) {
+            const ratingsWithScores = reviews.value.filter(review => review.rating && review.rating > 0);
+            console.log('评价中有评分的条目:', ratingsWithScores);
+            if (ratingsWithScores.length > 0) {
+                const avgRating = ratingsWithScores.reduce((sum, review) => sum + review.rating, 0) / ratingsWithScores.length;
+                console.log('使用评价中的平均评分:', avgRating.toFixed(1));
+                return avgRating.toFixed(1);
+            }
+        }
+        // 如果有评价但没有具体评分，给出默认好评评分
+        console.log('使用默认好评评分: 4.5');
+        return '4.5'; // 默认好评评分
+    }
+
+    // 后备方案：使用 homestay 中的评分（可能为 undefined）
+    if (homestay.value && homestay.value.rating) {
+        const rating = Number(homestay.value.rating);
+        const result = isNaN(rating) ? '暂无评分' : rating.toFixed(1);
+        console.log('使用homestay评分:', result);
+        return result;
+    }
+
+    console.log('最终返回: 暂无评分');
+    return '暂无评分';
+});
+
+// Computed property for review count display  
+const formattedReviewCount = computed(() => {
+    // 优先使用从评价接口获取的总数量
+    if (totalReviewCount.value > 0) {
+        return totalReviewCount.value;
+    }
+
+    // 其次使用当前已加载的评价数量
+    if (reviews.value.length > 0) {
+        return reviews.value.length;
+    }
+
+    // 后备方案：使用 homestay 中的评价数量（可能为 undefined）
+    if (homestay.value && homestay.value.reviewCount) {
+        const count = Number(homestay.value.reviewCount);
+        return isNaN(count) ? 0 : count;
+    }
+
+    return 0;
+});
+
+// 为 el-rate 组件提供数值类型的评分
+const numericRating = computed(() => {
+    const rating = formattedRating.value;
+    if (rating === '暂无评分') {
+        return 0;
+    }
+    return parseFloat(rating);
+});
 
 // Methods
 const disablePastDates = (date: Date) => {
@@ -830,15 +1039,58 @@ const bookHomestay = async () => {
 };
 
 const fetchReviewsAndStats = async (homestayId: number) => {
-    try { /* ... fetch and process reviews and stats ... */ }
-    catch (error) { /* ... error handling ... */ }
+    try {
+        // 获取评价列表
+        const reviewsResponse = await getHomestayReviews(homestayId, {
+            page: reviewsPage.value - 1, // 转换为 0-based
+            size: reviewsPageSize
+        });
+
+        if (reviewsResponse?.data?.content) {
+            if (reviewsPage.value === 1) {
+                reviews.value = reviewsResponse.data.content;
+            } else {
+                reviews.value.push(...reviewsResponse.data.content);
+            }
+
+            // 更新总评价数量
+            if (reviewsResponse.data.totalElements !== undefined) {
+                totalReviewCount.value = reviewsResponse.data.totalElements;
+                console.log(`总评价数量: ${totalReviewCount.value}`);
+            }
+        }
+
+        // 获取评价统计
+        const statsResponse = await getHomestayReviewStats(homestayId);
+        console.log('评价统计接口响应:', statsResponse);
+        if (statsResponse?.data) {
+            console.log('评价统计原始数据:', statsResponse.data);
+            reviewStats.value = [
+                { name: '清洁度', score: statsResponse.data.cleanlinessRating || 0 },
+                { name: '准确性', score: statsResponse.data.accuracyRating || 0 },
+                { name: '沟通', score: statsResponse.data.communicationRating || 0 },
+                { name: '位置', score: statsResponse.data.locationRating || 0 },
+                { name: '入住', score: statsResponse.data.checkInRating || 0 },
+                { name: '性价比', score: statsResponse.data.valueRating || 0 }
+            ].filter(stat => stat.score > 0); // 只显示有评分的项目
+
+            console.log('处理后的评价统计:', reviewStats.value);
+        } else {
+            console.warn('评价统计接口未返回数据或返回空数据');
+        }
+    } catch (error) {
+        console.error('获取评价数据失败:', error);
+        // 不抛出错误，只是无法显示评价数据
+    }
 };
 
 const loadMoreReviews = () => {
-    if (homestay.value && reviews.value.length < (homestay.value.reviewCount ?? 0)) {
+    if (homestay.value && reviews.value.length < totalReviewCount.value) {
         reviewsPage.value++;
         fetchReviewsAndStats(homestay.value.id);
-    } else { /* ... no more reviews message ... */ }
+    } else {
+        ElMessage.info('没有更多评价了');
+    }
 };
 
 // Main data fetching function
@@ -851,19 +1103,40 @@ const fetchData = async () => {
     try {
         // Reset state
         homestay.value = null; hostDetailInfo.value = null; reviews.value = [];
-        reviewStats.value = []; reviewsPage.value = 1; allProcessedImages.value = [];
+        reviewStats.value = []; totalReviewCount.value = 0; reviewsPage.value = 1; allProcessedImages.value = [];
         bookingDateRange.value = null; bookingDates.checkIn = null; bookingDates.checkOut = null;
         bookingDates.guests = 1;
+        // 重置地图数据
+        mapData.value = { lat: 0, lng: 0, staticMapUrl: '', isLoading: false, hasLocation: false };
+        nearbyPlaces.value = [];
 
         // 1. Fetch base homestay info
         const homestayResponse = await getHomestayById(homestayId);
         if (!homestayResponse?.data) { throw new Error('未找到民宿信息'); }
         homestay.value = homestayResponse.data;
+
+        // 添加调试日志，查看后端返回的实际数据结构
         if (homestay.value) {
-            // 优先用 ownerName，其次 ownerUsername，最后 '未知房东'
-            homestay.value.hostName = homestay.value.ownerName || homestay.value.ownerUsername || '未知房东';
-            console.log("步骤1后 homestay.value.hostName:", homestay.value.hostName);
-            homestay.value.hostAvatar = homestay.value.ownerAvatar || homestay.value.hostAvatar;
+            console.log("=== 后端返回的民宿数据结构 ===");
+            console.log("完整数据:", homestay.value);
+            console.log("价格字段 (price):", homestay.value.price);
+            console.log("价格字段 (pricePerNight):", (homestay.value as any).pricePerNight);
+            console.log("位置相关字段:");
+            console.log("  - addressDetail:", homestay.value.addressDetail);
+            console.log("  - provinceCode:", homestay.value.provinceCode);
+            console.log("  - cityCode:", homestay.value.cityCode);
+            console.log("  - districtCode:", homestay.value.districtCode);
+            console.log("评价相关字段:");
+            console.log("  - rating:", homestay.value.rating);
+            console.log("  - reviewCount:", homestay.value.reviewCount);
+            console.log("房东相关字段:");
+            console.log("  - ownerName:", homestay.value.ownerName);
+            console.log("  - ownerUsername:", homestay.value.ownerUsername);
+            console.log("  - ownerAvatar:", homestay.value.ownerAvatar);
+            console.log("===============================");
+        }
+
+        if (homestay.value) {
             console.log("Base homestay info received:", homestay.value);
 
             // 2. Process images
@@ -895,29 +1168,21 @@ const fetchData = async () => {
 
                     // Check if homestay.value exists before accessing it
                     if (homestay.value && hostDetailInfo.value) { // Add null check for hostDetailInfo.value
-                        // Update homestay ref with better info from hostDetailInfo if available
-                        // Prioritize nickname, then username from hostDetailInfo
-                        if (hostDetailInfo.value.nickname) {
-                            homestay.value.hostName = hostDetailInfo.value.nickname;
-                            // Only use username if ownerName/ownerUsername was missing initially or was the default fallback
-                        } else if (hostDetailInfo.value.username && (!homestay.value.hostName || homestay.value.hostName === '未知房东')) {
-                            homestay.value.hostName = hostDetailInfo.value.username;
-                        }
-                        console.log("用详细信息更新后 homestay.value.hostName:", homestay.value.hostName);
-
-                        // Update avatar if available in hostDetailInfo
-                        if (hostDetailInfo.value.avatar) {
-                            homestay.value.hostAvatar = hostDetailInfo.value.avatar;
-                        }
+                        // hostDetailInfo 已获取，但不再直接修改 homestay.value 的字段
+                        // 使用计算属性 hostDisplayName 和 hostDisplayAvatar 来显示房东信息
+                        console.log("详细房东信息已获取，将通过计算属性显示");
                     }
                 } else { console.warn(`No detailed host info returned for homestay ${hostLookupId}`); }
             } catch (hostError) { console.error(`获取详细房东信息失败 (Homestay ID: ${hostLookupId}):`, hostError); }
         } else { console.warn("无法获取详细房东信息，缺少有效的 homestay ID"); }
 
-        // 5. Calculate initial price - No need to call, computed properties handle it
+        // 5. 初始化地图数据
+        await initializeMap();
+
+        // 6. Calculate initial price - No need to call, computed properties handle it
         // calculateTotalPrice();
 
-        // 6. Check favorite status (if implemented)
+        // 7. Check favorite status (if implemented)
         // checkFavoriteStatus();
 
     } catch (error: any) {
@@ -935,10 +1200,178 @@ const toggleFavorite = () => { isFavorite.value = !isFavorite.value; ElMessage.i
 const contactHost = () => { ElMessage.info('联系房东功能待实现'); };
 const showAllPhotos = () => { ElMessage.info('查看全部照片功能待实现'); };
 
+// 地图相关方法
+const openMapModal = () => {
+    if (mapData.value.hasLocation) {
+        showMapModal.value = true;
+        ElMessage.info('打开交互式地图功能待实现');
+        // 这里可以实现：
+        // 1. 打开地图模态框
+        // 2. 显示高德地图交互式组件
+        // 3. 显示精确位置和周边设施
+        // 4. 提供路线规划功能
+    } else {
+        ElMessage.warning('地图数据加载中，请稍后再试');
+    }
+};
+
+const onMapImageError = (event: Event) => {
+    console.warn('地图图片加载失败，使用fallback图片');
+    const img = event.target as HTMLImageElement;
+    img.src = 'https://picsum.photos/800/400?random=map-fallback';
+};
+
 // Lifecycle hook
 onMounted(() => {
     fetchData();
 });
+
+const getReviewerAvatar = (review: Review): string => {
+    console.log('评价用户头像处理:', review);
+    console.log('userAvatar字段:', review.userAvatar);
+
+    if (review.userAvatar) {
+        // 如果头像URL是相对路径，需要添加服务器前缀
+        if (review.userAvatar.startsWith('/')) {
+            const avatarUrl = `http://localhost:8080${review.userAvatar}`;
+            console.log('处理后的头像URL:', avatarUrl);
+            return avatarUrl;
+        }
+        // 如果已经是完整URL，直接返回
+        console.log('使用原始头像URL:', review.userAvatar);
+        return review.userAvatar;
+    }
+
+    console.log('使用默认头像');
+    return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+};
+
+// 添加计算属性来处理房东信息显示
+const hostDisplayName = computed(() => {
+    if (!homestay.value) return '暂无房东信息';
+    return homestay.value.ownerName || homestay.value.ownerUsername || '暂无房东信息';
+});
+
+const hostDisplayAvatar = computed(() => {
+    if (!homestay.value) return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+    return homestay.value.ownerAvatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+});
+
+// 地图相关功能
+const initializeMap = async () => {
+    if (!homestay.value) return;
+
+    console.log('=== 初始化地图 ===');
+    mapData.value.isLoading = true;
+
+    try {
+        // 构建完整地址用于地理编码
+        const fullAddress = `${formattedLocation.value} ${homestay.value.addressDetail || ''}`;
+        console.log('地理编码地址:', fullAddress);
+
+        // 使用省市区信息进行地理编码
+        let geocodeResult = null;
+        if (homestay.value.provinceCode && homestay.value.cityCode) {
+            geocodeResult = await geocodeAddress(
+                homestay.value.provinceCode,
+                homestay.value.cityCode,
+                homestay.value.districtCode || '',
+                homestay.value.addressDetail
+            );
+        }
+
+        if (geocodeResult) {
+            console.log('地理编码成功:', geocodeResult);
+
+            // 为保护隐私，添加随机偏移
+            const offsetLocation = addPrivacyOffset(geocodeResult.lat, geocodeResult.lng);
+
+            mapData.value.lat = offsetLocation.lat;
+            mapData.value.lng = offsetLocation.lng;
+            mapData.value.hasLocation = true;
+
+            // 生成静态地图URL
+            mapData.value.staticMapUrl = generateStaticMapUrl(
+                offsetLocation.lat,
+                offsetLocation.lng,
+                800,
+                400,
+                15
+            );
+
+            console.log('静态地图URL:', mapData.value.staticMapUrl);
+
+            // 搜索周边设施
+            await searchNearbyFacilities(offsetLocation.lat, offsetLocation.lng);
+
+        } else {
+            console.warn('地理编码失败，使用默认位置');
+            // 使用城市中心作为默认位置（这里可以根据城市代码设置默认坐标）
+            await setDefaultLocation();
+        }
+    } catch (error) {
+        console.error('初始化地图失败:', error);
+        await setDefaultLocation();
+    } finally {
+        mapData.value.isLoading = false;
+    }
+};
+
+// 设置默认位置
+const setDefaultLocation = async () => {
+    // 根据省市区代码设置一些常见城市的默认坐标
+    const defaultLocations: Record<string, { lat: number, lng: number, name: string }> = {
+        '1101': { lat: 39.9042, lng: 116.4074, name: '北京市' }, // 北京
+        '3101': { lat: 31.2304, lng: 121.4737, name: '上海市' }, // 上海
+        '4403': { lat: 22.5431, lng: 114.0579, name: '深圳市' }, // 深圳
+        '4401': { lat: 23.1291, lng: 113.2644, name: '广州市' }, // 广州
+        '4602': { lat: 20.0444, lng: 110.1989, name: '三亚市' }  // 三亚（海南）
+    };
+
+    const cityCode = homestay.value?.cityCode;
+    const defaultLocation = cityCode ? defaultLocations[cityCode] : null;
+
+    if (defaultLocation) {
+        console.log('使用默认城市位置:', defaultLocation.name);
+        mapData.value.lat = defaultLocation.lat;
+        mapData.value.lng = defaultLocation.lng;
+        mapData.value.hasLocation = true;
+
+        // 添加隐私偏移
+        const offsetLocation = addPrivacyOffset(defaultLocation.lat, defaultLocation.lng);
+        mapData.value.staticMapUrl = generateStaticMapUrl(
+            offsetLocation.lat,
+            offsetLocation.lng,
+            800,
+            400,
+            12
+        );
+    } else {
+        // 最后的fallback - 使用北京天安门
+        console.log('使用北京作为默认位置');
+        mapData.value.lat = 39.9042;
+        mapData.value.lng = 116.4074;
+        mapData.value.staticMapUrl = 'https://picsum.photos/800/400?random=map';
+    }
+};
+
+// 搜索周边设施
+const searchNearbyFacilities = async (lat: number, lng: number) => {
+    try {
+        console.log('搜索周边设施...');
+        const facilities = await searchNearbyPlaces(lat, lng, ['地铁站', '商场', '医院']);
+        nearbyPlaces.value = facilities;
+        console.log('周边设施:', facilities);
+    } catch (error) {
+        console.error('搜索周边设施失败:', error);
+        // 设置一些模拟数据
+        nearbyPlaces.value = [
+            { name: '地铁站', type: '交通', distance: 500, address: '步行约5分钟' },
+            { name: '购物中心', type: '购物', distance: 800, address: '步行约8分钟' },
+            { name: '医院', type: '医疗', distance: 1200, address: '步行约12分钟' }
+        ];
+    }
+};
 
 </script>
 
@@ -1918,127 +2351,257 @@ onMounted(() => {
     margin-bottom: 32px;
 }
 
-/* --- New Layout Styles --- */
-.gallery-layout-1,
-.gallery-layout-2,
-.gallery-layout-3,
-.gallery-layout-4 {
-    height: 500px;
-    /* Default height, adjust as needed */
-    display: grid;
-    gap: 4px;
-    cursor: pointer;
-}
-
-/* Layout for 1 image */
-.gallery-layout-1 {
-    grid-template-columns: 1fr;
-}
-
-.main-image-wrapper-single {
-    position: relative;
-    overflow: hidden;
-    height: 100%;
-}
-
-.main-img-single {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.3s ease;
-}
-
-.main-image-wrapper-single:hover .main-img-single {
-    transform: scale(1.03);
-}
-
-/* Layout for 2 images */
-.gallery-layout-2 {
-    grid-template-columns: 1fr 1fr;
-}
-
-.grid-img-item-2 {
-    position: relative;
-    overflow: hidden;
-    height: 100%;
-}
-
-.grid-img-2 {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.3s ease;
-}
-
-.grid-img-item-2:hover .grid-img-2 {
-    transform: scale(1.03);
-}
-
-/* Layout for 3 images */
-.gallery-layout-3 {
-    grid-template-columns: 1fr 1fr 1fr;
-}
-
-.grid-img-item-3 {
-    position: relative;
-    overflow: hidden;
-    height: 100%;
-}
-
-.grid-img-3 {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.3s ease;
-}
-
-.grid-img-item-3:hover .grid-img-3 {
-    transform: scale(1.03);
-}
-
-/* Layout for 4 images */
-.gallery-layout-4 {
-    grid-template-columns: 1fr 1fr;
-    /* 2 columns */
-    grid-template-rows: 1fr 1fr;
-    /* 2 rows */
-    /* height: 504px; /* Let grid auto height based on content or keep fixed */
-}
-
-.grid-img-item-4 {
-    position: relative;
-    overflow: hidden;
-    height: 100%;
-    /* Fill grid cell height */
-}
-
-.grid-img-4 {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 0.3s ease;
-}
-
-.grid-img-item-4:hover .grid-img-4 {
-    transform: scale(1.03);
-}
-
-.no-images-placeholder {
-    height: 300px;
-    /* Example height */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f5f7fa;
-    border-radius: 12px;
-    margin-bottom: 32px;
-}
-
 /* --- End New Layout Styles --- */
 
 .image-overlay {}
+
+/* 新增全宽度部分的样式 */
+.full-width-section.location-section {
+    margin: 48px 0;
+}
+
+.full-width-section.location-section h2 {
+    font-size: 22px;
+    margin-bottom: 16px;
+}
+
+.address-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.primary-location {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.location-icon {
+    font-size: 24px;
+    color: #409EFF;
+}
+
+.location-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.main-address {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.detail-address {
+    font-size: 14px;
+    color: #717171;
+}
+
+.location-features {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.distance-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.map-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.map-container {
+    width: 100%;
+    height: 400px;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.map-placeholder {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.map-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    transition: opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.map-overlay:hover {
+    opacity: 1;
+}
+
+.map-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.map-text {
+    text-align: center;
+}
+
+.map-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.map-subtitle {
+    font-size: 14px;
+    color: #717171;
+}
+
+.map-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.nearby-info {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.nearby-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.nearby-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nearby-item .el-icon {
+    font-size: 24px;
+    color: #409EFF;
+}
+
+.nearby-item span {
+    font-size: 14px;
+    color: #717171;
+}
+
+.map-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.loading-text {
+    font-size: 14px;
+    color: #717171;
+    margin-top: 12px;
+}
+
+.facility-icon {
+    font-size: 24px;
+    color: #409EFF;
+    flex-shrink: 0;
+}
+
+.facility-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.facility-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+}
+
+.facility-distance {
+    font-size: 14px;
+    color: #717171;
+}
+
+/* 地图容器交互效果 */
+.map-container {
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.map-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.map-container:hover .map-overlay {
+    opacity: 1;
+}
+
+/* 周边设施网格优化 */
+.nearby-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.nearby-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+}
+
+.nearby-item:hover {
+    background-color: #e9ecef;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .map-container {
+        height: 300px;
+    }
+
+    .nearby-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .nearby-item {
+        padding: 12px;
+    }
+
+    .facility-name {
+        font-size: 14px;
+    }
+
+    .facility-distance {
+        font-size: 12px;
+    }
+}
 </style>
