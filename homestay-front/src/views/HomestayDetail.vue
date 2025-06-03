@@ -1262,29 +1262,43 @@ const initializeMap = async () => {
     if (!homestay.value) return;
 
     console.log('=== 初始化地图 ===');
+    console.log('当前民宿数据:', homestay.value);
+
     mapData.value.isLoading = true;
 
     try {
+        // 详细打印地址相关字段
+        console.log('=== 地址信息详情 ===');
+        console.log('provinceCode:', homestay.value.provinceCode);
+        console.log('cityCode:', homestay.value.cityCode);
+        console.log('districtCode:', homestay.value.districtCode);
+        console.log('addressDetail:', homestay.value.addressDetail);
+        console.log('formattedLocation:', formattedLocation.value);
+
         // 构建完整地址用于地理编码
         const fullAddress = `${formattedLocation.value} ${homestay.value.addressDetail || ''}`;
-        console.log('地理编码地址:', fullAddress);
+        console.log('准备进行地理编码的地址:', fullAddress);
 
         // 使用省市区信息进行地理编码
         let geocodeResult = null;
         if (homestay.value.provinceCode && homestay.value.cityCode) {
+            console.log('开始地理编码...');
             geocodeResult = await geocodeAddress(
                 homestay.value.provinceCode,
                 homestay.value.cityCode,
                 homestay.value.districtCode || '',
                 homestay.value.addressDetail
             );
+        } else {
+            console.warn('缺少省市区代码，无法进行精确地理编码');
         }
 
         if (geocodeResult) {
-            console.log('地理编码成功:', geocodeResult);
+            console.log('地理编码成功，原始坐标:', geocodeResult);
 
             // 为保护隐私，添加随机偏移
             const offsetLocation = addPrivacyOffset(geocodeResult.lat, geocodeResult.lng);
+            console.log('添加隐私偏移后的坐标:', offsetLocation);
 
             mapData.value.lat = offsetLocation.lat;
             mapData.value.lng = offsetLocation.lng;

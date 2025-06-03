@@ -1,6 +1,9 @@
 // 高德地图服务工具类
 // 需要先申请高德地图API Key: https://console.amap.com/
 
+// 导入地区数据转换工具
+import { codeToText } from "element-china-area-data";
+
 // 高德地图API配置
 const AMAP_CONFIG = {
   // 请替换为你申请的API Key
@@ -68,42 +71,108 @@ export const geocodeAddress = async (
 
   try {
     // 构建完整地址字符串
-    let address = "";
-
-    // 从省市区代码构建地址（这里需要你导入地区数据）
-    // 由于我们已经有了 element-china-area-data，可以直接使用
     const addressParts: string[] = [];
 
-    // 注意：这里需要导入 codeToText 来转换代码为文本
-    // 暂时使用简化版本
-    if (addressDetail) {
-      address = addressDetail;
+    console.log("=== 开始构建地址 ===");
+    console.log("provinceCode:", provinceCode);
+    console.log("cityCode:", cityCode);
+    console.log("districtCode:", districtCode);
+    console.log("addressDetail:", addressDetail);
+
+    // 使用 codeToText 将代码转换为中文地名
+    if (provinceCode && codeToText[provinceCode]) {
+      addressParts.push(codeToText[provinceCode]);
+      console.log("省份:", codeToText[provinceCode]);
     }
 
-    console.log("正在进行地理编码，地址:", address);
+    if (cityCode && codeToText[cityCode]) {
+      // 避免直辖市重复（如北京市、上海市）
+      const cityName = codeToText[cityCode];
+      if (!addressParts.includes(cityName)) {
+        addressParts.push(cityName);
+        console.log("城市:", cityName);
+      }
+    }
+
+    if (districtCode && codeToText[districtCode]) {
+      addressParts.push(codeToText[districtCode]);
+      console.log("区县:", codeToText[districtCode]);
+    }
+
+    // 添加详细地址
+    if (addressDetail && addressDetail.trim()) {
+      addressParts.push(addressDetail.trim());
+      console.log("详细地址:", addressDetail.trim());
+    }
+
+    const fullAddress = addressParts.join("");
+    console.log("完整地址:", fullAddress);
+
+    if (!fullAddress) {
+      console.warn("地址为空，无法进行地理编码");
+      return null;
+    }
 
     // 使用高德地图Web API
-    const response = await fetch(
-      `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(
-        address
-      )}&key=${AMAP_CONFIG.apiKey}&output=json`
-    );
+    const apiUrl = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(
+      fullAddress
+    )}&key=${AMAP_CONFIG.apiKey}&output=json`;
+    console.log("API请求URL:", apiUrl);
 
+    const response = await fetch(apiUrl);
     const data = await response.json();
+
     console.log("高德地图API响应:", data);
 
     if (data.status === "1" && data.geocodes && data.geocodes.length > 0) {
-      const location = data.geocodes[0].location.split(",");
-      return {
+      const geocode = data.geocodes[0];
+      const location = geocode.location.split(",");
+
+      const result = {
         lat: parseFloat(location[1]),
         lng: parseFloat(location[0]),
-        address: data.geocodes[0].formatted_address,
-        formattedAddress: data.geocodes[0].formatted_address,
+        address: geocode.formatted_address,
+        formattedAddress: geocode.formatted_address,
       };
-    }
 
-    console.warn("地理编码未找到结果，使用模拟数据");
-    return null;
+      console.log("地理编码成功:", result);
+      return result;
+    } else {
+      console.warn("地理编码API未返回有效结果:", data);
+
+      // 如果精确地址找不到，尝试只用省市查询
+      if (addressParts.length > 1) {
+        const cityOnlyAddress = addressParts.slice(0, 2).join("");
+        console.log("尝试使用省市地址:", cityOnlyAddress);
+
+        const fallbackUrl = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(
+          cityOnlyAddress
+        )}&key=${AMAP_CONFIG.apiKey}&output=json`;
+        const fallbackResponse = await fetch(fallbackUrl);
+        const fallbackData = await fallbackResponse.json();
+
+        if (
+          fallbackData.status === "1" &&
+          fallbackData.geocodes &&
+          fallbackData.geocodes.length > 0
+        ) {
+          const geocode = fallbackData.geocodes[0];
+          const location = geocode.location.split(",");
+
+          const result = {
+            lat: parseFloat(location[1]),
+            lng: parseFloat(location[0]),
+            address: fullAddress, // 保持原始完整地址
+            formattedAddress: fullAddress,
+          };
+
+          console.log("省市级地理编码成功:", result);
+          return result;
+        }
+      }
+
+      return null;
+    }
   } catch (error) {
     console.error("地理编码失败:", error);
     return null;
