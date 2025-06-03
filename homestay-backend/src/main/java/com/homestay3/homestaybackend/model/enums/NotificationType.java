@@ -36,5 +36,6 @@ public enum NotificationType {
     PAYMENT_RECEIVED,     // 收到用户付款 (给房东) // (已实现)
     ORDER_CANCELLED_BY_HOST, // 订单被房东取消 (给用户) // (逻辑包含在 BOOKING_CANCELLED 中)
     ORDER_CANCELLED_BY_GUEST, // 订单被用户取消 (给房东) // (逻辑包含在 BOOKING_CANCELLED 中)
-    ORDER_COMPLETED       // 订单已完成 (给双方)
+    ORDER_COMPLETED,      // 订单已完成 (给双方)
+    ORDER_STATUS_CHANGED  // 添加订单状态变更通知类型
 } 

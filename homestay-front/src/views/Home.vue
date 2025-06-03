@@ -910,6 +910,18 @@ const getHomestayLocation = (homestay: Homestay): string => {
   margin-bottom: 4px;
 }
 
+/* 为人数选择的 el-input-number 设置特定样式 */
+.search-item.guests .el-input-number {
+  width: 100%;
+  /* 尝试让其填满父容器，或者指定一个具体像素值如 120px */
+}
+
+/* 确保 el-input-number 内部的 input 元素正常显示 */
+.search-item.guests .el-input-number .el-input__inner {
+  text-align: center;
+  /* 数字居中显示 */
+}
+
 .search-button {
   width: 48px;
   height: 48px;

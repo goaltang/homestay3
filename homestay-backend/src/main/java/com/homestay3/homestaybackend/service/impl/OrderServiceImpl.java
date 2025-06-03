@@ -631,10 +631,37 @@ public class OrderServiceImpl implements OrderService {
 
         // --- 添加：发送订单取消通知 ---
         try {
-            notificationService.createOrderStatusNotification(cancelledOrder, 
-                                                            currentStatus.name(), 
-                                                            targetStatus.name(), 
-                                                            "订单已取消: " + (reason != null ? reason : "未提供原因"));
+            User guest = cancelledOrder.getGuest();
+            User actor = null; 
+            // 尝试获取当前用户作为操作者，如果失败（例如在系统调用中），actorId 将为 null
+            try {
+                actor = getCurrentUser();
+            } catch (Exception e) {
+                log.warn("无法在发送订单取消通知时获取当前用户: {}", e.getMessage());
+            }
+
+            if (guest != null) {
+                String notificationContent = String.format(
+                        "您的订单 %s (房源: %s) 已被取消。状态从 %s 变为 %s。原因: %s",
+                        cancelledOrder.getOrderNumber(),
+                        cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
+                        currentStatus.getDescription(), // 使用 currentStatus 的描述
+                        targetStatus.getDescription(),  // 使用 targetStatus 的描述
+                        reason != null && !reason.isEmpty() ? reason : "未提供原因"
+                );
+
+                notificationService.createNotification(
+                        guest.getId(),
+                        actor != null ? actor.getId() : null,
+                        NotificationType.ORDER_STATUS_CHANGED, // 或更具体的如 ORDER_CANCELLED
+                        EntityType.ORDER,
+                        String.valueOf(cancelledOrder.getId()),
+                        notificationContent
+                );
+                log.info("已为用户 {} 发送订单 {} 取消通知", guest.getUsername(), cancelledOrder.getOrderNumber());
+            }
+             // (可选) 如果也需要通知房东，请在此处添加类似逻辑
+
         } catch (Exception e) {
             log.error("发送订单取消通知失败: {}", e.getMessage(), e);
             // 通知发送失败不应影响订单取消流程
@@ -1183,12 +1210,20 @@ public class OrderServiceImpl implements OrderService {
     
     // 工具方法：检查用户是否为订单的房东
     private boolean isOrderOwner(Order order, User user) {
-        return order.getHomestay().getOwner().getId().equals(user.getId());
+        return order.getHomestay() != null && order.getHomestay().getOwner() != null && order.getHomestay().getOwner().getId().equals(user.getId());
     }
     
     // 工具方法：检查用户是否为订单的客户
     private boolean isOrderGuest(Order order, User user) {
-        return order.getGuest().getId().equals(user.getId());
+        return order.getGuest() != null && order.getGuest().getId().equals(user.getId());
+    }
+    
+    private boolean hasAdminAuthority(User user) {
+        if (user == null || user.getRole() == null) { // 假设 getRole() 返回 String
+            return false;
+        }
+        // 与 isOrderAccessible 方法中的 isAdmin 逻辑保持一致
+        return user.getRole().contains("ADMIN"); 
     }
     
     /**
