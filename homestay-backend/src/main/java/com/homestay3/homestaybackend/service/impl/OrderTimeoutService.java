@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 订单超时处理服务
- * 处理订单在各个状态的超时情况
+ * 订单超时处理服务 - 优化版
+ * 处理订单在各个状态的超时情况，增加更频繁的检查和预警机制
  */
 @Service
 @RequiredArgsConstructor
@@ -24,9 +24,6 @@ import java.util.List;
 public class OrderTimeoutService implements IOrderTimeoutService {
     
     private final OrderRepository orderRepository;
-    
-    // 注意：直接注入 OrderServiceImpl 可能导致循环依赖，更好的方式是注入 OrderService 接口
-    // private final OrderServiceImpl orderService; 
     private final OrderService orderService;
     
     /**
@@ -34,55 +31,107 @@ public class OrderTimeoutService implements IOrderTimeoutService {
      */
     private static final int PENDING_TIMEOUT_HOURS = 24; // 待确认状态超时时间
     private static final int CONFIRMED_TIMEOUT_HOURS = 2; // 已确认未支付状态超时时间
-    private static final int PAYMENT_PENDING_TIMEOUT_HOURS = 2; // 支付中状态超时时间 (新增)
+    private static final int PAYMENT_PENDING_TIMEOUT_HOURS = 2; // 支付中状态超时时间
     
     /**
-     * 定时任务：处理超时订单
-     * 每小时执行一次
+     * 预警配置（单位：分钟）
+     */
+    private static final int WARNING_BEFORE_TIMEOUT_MINUTES = 30; // 超时前30分钟预警
+    
+    /**
+     * 主要定时任务：处理超时订单
+     * 每10分钟执行一次，提高实时性
      */
     @Override
-    @Scheduled(fixedRate = 60 * 60 * 1000) // 每小时执行一次
+    @Scheduled(fixedRate = 10 * 60 * 1000) // 每10分钟执行一次
     @Transactional
     public void handleTimeoutOrders() {
-        log.info("开始处理超时订单...");
+        log.debug("开始处理超时订单...");
         
-        // 处理待确认超时订单
-        handlePendingTimeoutOrders();
+        try {
+            // 处理待确认超时订单
+            handlePendingTimeoutOrders();
+            
+            // 处理已确认未支付超时订单
+            handleConfirmedTimeoutOrders();
+            
+            // 处理支付中超时订单
+            handlePaymentPendingTimeoutOrders();
+            
+            log.debug("超时订单处理完成");
+        } catch (Exception e) {
+            log.error("处理超时订单时发生异常", e);
+        }
+    }
+    
+    /**
+     * 预警定时任务：发送超时预警通知
+     * 每5分钟执行一次，及时提醒用户
+     */
+    @Scheduled(fixedRate = 5 * 60 * 1000) // 每5分钟执行一次
+    @Transactional(readOnly = true)
+    public void sendTimeoutWarnings() {
+        log.debug("开始检查超时预警...");
         
-        // 处理已确认未支付超时订单
-        handleConfirmedTimeoutOrders();
+        try {
+            // 发送待确认订单预警
+            sendPendingOrderWarnings();
+            
+            // 发送待支付订单预警
+            sendPaymentWarnings();
+            
+            log.debug("超时预警检查完成");
+        } catch (Exception e) {
+            log.error("发送超时预警时发生异常", e);
+        }
+    }
+    
+    /**
+     * 快速检查任务：处理即将超时的订单
+     * 每分钟执行一次，处理最后几分钟的订单
+     */
+    @Scheduled(fixedRate = 60 * 1000) // 每分钟执行一次
+    @Transactional
+    public void handleImminentTimeouts() {
+        log.debug("开始处理即将超时的订单...");
         
-        // 处理支付中超时订单 (新增)
-        handlePaymentPendingTimeoutOrders();
-        
-        log.info("超时订单处理完成");
+        try {
+            // 处理即将超时的支付订单（最后5分钟）
+            handleImminentPaymentTimeouts();
+            
+            log.debug("即将超时订单处理完成");
+        } catch (Exception e) {
+            log.error("处理即将超时订单时发生异常", e);
+        }
     }
     
     /**
      * 处理待确认超时订单
      */
     private void handlePendingTimeoutOrders() {
-        // 获取所有待确认且已经超时的订单
         LocalDateTime timeoutThreshold = LocalDateTime.now().minusHours(PENDING_TIMEOUT_HOURS);
         log.debug("查找创建时间早于 {} 的 PENDING 订单", timeoutThreshold);
+        
         List<Order> timeoutOrders = orderRepository.findByStatusAndCreatedAtBefore(
                 OrderStatus.PENDING.name(), timeoutThreshold);
         
         if (!timeoutOrders.isEmpty()) {
             log.info("找到 {} 个待确认超时订单", timeoutOrders.size());
             
-            // 更新订单状态为系统取消
             for (Order order : timeoutOrders) {
                 try {
-                    // 使用 OrderService 接口的方法
-                    orderService.cancelOrderWithReason(order.getId(), OrderStatus.CANCELLED_SYSTEM.name(), "系统自动取消原因: 24小时内未确认");
+                    orderService.cancelOrderWithReason(order.getId(), 
+                        OrderStatus.CANCELLED_SYSTEM.name(), 
+                        "系统自动取消：24小时内未确认");
                     log.info("已自动取消超时待确认订单: {}", order.getOrderNumber());
+                    
+                    // TODO: 发送取消通知给用户
+                    // notificationService.sendOrderCancelledNotification(order);
+                    
                 } catch (Exception e) {
-                    log.error("取消超时待确认订单失败: {}, 错误: {}", order.getId(), e.getMessage(), e); // 添加异常堆栈
+                    log.error("取消超时待确认订单失败: {}, 错误: {}", order.getId(), e.getMessage(), e);
                 }
             }
-        } else {
-            log.debug("没有待确认超时订单");
         }
     }
     
@@ -90,55 +139,117 @@ public class OrderTimeoutService implements IOrderTimeoutService {
      * 处理已确认未支付超时订单
      */
     private void handleConfirmedTimeoutOrders() {
-        // 获取所有已确认且已经超时的订单
         LocalDateTime timeoutThreshold = LocalDateTime.now().minusHours(CONFIRMED_TIMEOUT_HOURS);
-         log.debug("查找更新时间早于 {} 的 CONFIRMED 订单", timeoutThreshold);
+        log.debug("查找更新时间早于 {} 的 CONFIRMED 订单", timeoutThreshold);
+        
         List<Order> timeoutOrders = orderRepository.findByStatusAndUpdatedAtBefore(
                 OrderStatus.CONFIRMED.name(), timeoutThreshold);
         
         if (!timeoutOrders.isEmpty()) {
             log.info("找到 {} 个已确认未支付超时订单", timeoutOrders.size());
             
-            // 更新订单状态为系统取消
             for (Order order : timeoutOrders) {
                 try {
-                    // 使用 OrderService 接口的方法
-                    orderService.cancelOrderWithReason(order.getId(), OrderStatus.CANCELLED_SYSTEM.name(), "系统自动取消原因: 2小时内未支付");
+                    orderService.cancelOrderWithReason(order.getId(), 
+                        OrderStatus.CANCELLED_SYSTEM.name(), 
+                        "系统自动取消：2小时内未支付");
                     log.info("已自动取消超时未支付订单: {}", order.getOrderNumber());
+                    
+                    // TODO: 发送取消通知给用户
+                    // notificationService.sendOrderCancelledNotification(order);
+                    
                 } catch (Exception e) {
-                    log.error("取消超时未支付订单失败: {}, 错误: {}", order.getId(), e.getMessage(), e); // 添加异常堆栈
+                    log.error("取消超时未支付订单失败: {}, 错误: {}", order.getId(), e.getMessage(), e);
                 }
             }
-        } else {
-            log.debug("没有已确认未支付超时订单");
         }
     }
     
     /**
-     * 处理支付中超时订单 (新增)
+     * 处理支付中超时订单
      */
     private void handlePaymentPendingTimeoutOrders() {
-        // 获取所有支付中且已经超时的订单 (通常支付中状态更新时间较新，用 updatedAt 比较合适)
         LocalDateTime timeoutThreshold = LocalDateTime.now().minusHours(PAYMENT_PENDING_TIMEOUT_HOURS);
         log.debug("查找更新时间早于 {} 的 PAYMENT_PENDING 订单", timeoutThreshold);
+        
         List<Order> timeoutOrders = orderRepository.findByStatusAndUpdatedAtBefore(
                 OrderStatus.PAYMENT_PENDING.name(), timeoutThreshold);
         
         if (!timeoutOrders.isEmpty()) {
             log.info("找到 {} 个支付中超时订单", timeoutOrders.size());
             
-            // 更新订单状态为系统取消
             for (Order order : timeoutOrders) {
                 try {
-                     // 使用 OrderService 接口的方法
-                    orderService.cancelOrderWithReason(order.getId(), OrderStatus.CANCELLED_SYSTEM.name(), "系统自动取消原因: 支付超时");
+                    orderService.cancelOrderWithReason(order.getId(), 
+                        OrderStatus.CANCELLED_SYSTEM.name(), 
+                        "系统自动取消：支付超时");
                     log.info("已自动取消支付超时订单: {}", order.getOrderNumber());
+                    
+                    // TODO: 发送取消通知给用户
+                    // notificationService.sendOrderCancelledNotification(order);
+                    
                 } catch (Exception e) {
-                    log.error("取消支付超时订单失败: {}, 错误: {}", order.getId(), e.getMessage(), e); // 添加异常堆栈
+                    log.error("取消支付超时订单失败: {}, 错误: {}", order.getId(), e.getMessage(), e);
                 }
             }
-        } else {
-            log.debug("没有支付中超时订单");
+        }
+    }
+    
+    /**
+     * 处理即将超时的支付订单（最后5分钟）
+     */
+    private void handleImminentPaymentTimeouts() {
+        // 查找即将在5分钟内超时的支付中订单
+        LocalDateTime imminentThreshold = LocalDateTime.now().minusHours(CONFIRMED_TIMEOUT_HOURS).plusMinutes(5);
+        LocalDateTime currentThreshold = LocalDateTime.now().minusHours(CONFIRMED_TIMEOUT_HOURS);
+        
+        List<Order> imminentOrders = orderRepository.findByStatusAndUpdatedAtBetween(
+                OrderStatus.CONFIRMED.name(), currentThreshold, imminentThreshold);
+        
+        for (Order order : imminentOrders) {
+            // TODO: 发送紧急通知给用户
+            // notificationService.sendUrgentPaymentReminder(order);
+            log.debug("订单 {} 即将在5分钟内超时", order.getOrderNumber());
+        }
+    }
+    
+    /**
+     * 发送待确认订单预警
+     */
+    private void sendPendingOrderWarnings() {
+        LocalDateTime warningThreshold = LocalDateTime.now()
+            .minusHours(PENDING_TIMEOUT_HOURS)
+            .plusMinutes(WARNING_BEFORE_TIMEOUT_MINUTES);
+        
+        List<Order> warningOrders = orderRepository.findByStatusAndCreatedAtBetween(
+                OrderStatus.PENDING.name(), 
+                warningThreshold.minusMinutes(5), // 避免重复发送
+                warningThreshold);
+        
+        for (Order order : warningOrders) {
+            // TODO: 发送预警通知
+            // notificationService.sendTimeoutWarning(order, "请尽快确认订单，否则将在30分钟后自动取消");
+            log.debug("发送待确认订单预警: {}", order.getOrderNumber());
+        }
+    }
+    
+    /**
+     * 发送待支付订单预警
+     */
+    private void sendPaymentWarnings() {
+        LocalDateTime warningThreshold = LocalDateTime.now()
+            .minusHours(CONFIRMED_TIMEOUT_HOURS)
+            .plusMinutes(WARNING_BEFORE_TIMEOUT_MINUTES);
+        
+        List<Order> warningOrders = orderRepository.findByStatusAndUpdatedAtBetween(
+                OrderStatus.CONFIRMED.name(), 
+                warningThreshold.minusMinutes(5), // 避免重复发送
+                warningThreshold);
+        
+        for (Order order : warningOrders) {
+            // TODO: 发送预警通知
+            // notificationService.sendTimeoutWarning(order, "请尽快完成支付，否则将在30分钟后自动取消");
+            log.debug("发送待支付订单预警: {}", order.getOrderNumber());
         }
     }
 } 
