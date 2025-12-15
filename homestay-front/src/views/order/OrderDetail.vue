@@ -14,11 +14,6 @@
         <div v-else class="order-content">
             <div class="order-header">
                 <h1>订单详情</h1>
-                <div class="order-status">
-                    <el-tag :type="getStatusType(orderData.status)">
-                        {{ getStatusText(orderData.status) }}
-                    </el-tag>
-                </div>
             </div>
 
             <!-- 订单状态流程提示 -->
@@ -36,7 +31,12 @@
             <div class="order-summary-card">
                 <div class="card-header">
                     <h2>订单信息</h2>
-                    <span class="order-number">订单号: {{ orderData.orderNumber }}</span>
+                    <div class="header-right">
+                        <span class="order-number">订单号: {{ orderData.orderNumber }}</span>
+                        <el-tag :type="getStatusType(orderData.status)" size="large" class="status-tag">
+                            {{ getStatusText(orderData.status, orderData.paymentStatus, orderData.refundType) }}
+                        </el-tag>
+                    </div>
                 </div>
                 <div class="homestay-info">
                     <div class="homestay-image">
@@ -50,36 +50,39 @@
                         <p><i class="el-icon-user"></i> {{ orderData.guestCount }}位房客 · {{ orderData.nights }}晚</p>
                     </div>
                 </div>
+
+                <!-- 旅客信息整合到订单信息中 -->
+                <div class="guest-info-inline">
+                    <div class="info-row">
+                        <div class="info-item">
+                            <span class="label">联系人:</span>
+                            <span>{{ orderData.guestName }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">联系电话:</span>
+                            <span>{{ orderData.guestPhone }}</span>
+                        </div>
+                    </div>
+                    <div class="info-item" v-if="orderData.remark && orderData.status !== 'REJECTED'">
+                        <span class="label">备注:</span>
+                        <span>{{ orderData.remark }}</span>
+                    </div>
+                </div>
             </div>
 
             <!-- 预订状态提示 -->
             <div class="status-notice" v-if="orderData.status === 'PENDING'">
-                <el-alert title="等待房东确认" type="warning" description="您的预订申请已提交，正在等待房东确认。房东将在24小时内确认您的预订。" show-icon
-                    :closable="false" />
-                <div class="countdown-container">
-                    <div class="countdown-title">订单确认倒计时</div>
-                    <div class="countdown-timer" :class="{ 'urgent': isTimeUrgent(orderData.createTime, 24) }">
-                        {{ getCountdownTime(orderData.createTime, 24) }}
-                    </div>
-                    <div class="countdown-desc">超过24小时未确认，订单将自动取消</div>
-                </div>
+                <el-alert title="等待房东确认" type="warning" description="您的预订申请已提交" show-icon :closable="false" />
+                <OrderTimeoutIndicator :order-id="orderData.id" :order-status="orderData.status as OrderStatus"
+                    :create-time="orderData.createTime" :confirm-time="orderData.updateTime"
+                    :update-time="orderData.updateTime" @timeout="handleOrderTimeout" @warning="handleOrderWarning" />
             </div>
 
             <div class="status-notice" v-else-if="orderData.status === 'CONFIRMED'">
-                <el-alert title="房东已确认预订" type="success" description="房东已确认您的预订，请尽快完成支付以确保您的住宿。" show-icon
-                    :closable="false" />
-                <div class="countdown-container">
-                    <div class="countdown-title">支付倒计时</div>
-                    <div class="countdown-timer" :class="{ 'urgent': isTimeUrgent(orderData.updateTime, 2) }">
-                        {{ getCountdownTime(orderData.updateTime, 2) }}
-                    </div>
-                    <div class="countdown-desc">超过2小时未支付，订单将自动取消</div>
-                </div>
-                <div class="pay-button-container">
-                    <el-button type="primary" @click="goToPayment">
-                        立即支付
-                    </el-button>
-                </div>
+                <el-alert title="房东已确认预订" type="success" description="请及时完成支付" show-icon :closable="false" />
+                <OrderTimeoutIndicator :order-id="orderData.id" :order-status="orderData.status as OrderStatus"
+                    :create-time="orderData.createTime" :confirm-time="orderData.updateTime"
+                    :update-time="orderData.updateTime" @timeout="handleOrderTimeout" @warning="handleOrderWarning" />
             </div>
 
             <div class="status-notice" v-else-if="orderData.status === 'REJECTED'">
@@ -90,33 +93,73 @@
                 </div>
             </div>
 
-            <!-- 旅客信息 -->
-            <div class="guest-info-section">
-                <h2>旅客信息</h2>
-                <div class="info-item">
-                    <span class="label">联系人:</span>
-                    <span>{{ orderData.guestName }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">联系电话:</span>
-                    <span>{{ orderData.guestPhone }}</span>
-                </div>
-                <div class="info-item" v-if="orderData.remark && orderData.status !== 'REJECTED'">
-                    <span class="label">备注:</span>
-                    <span>{{ orderData.remark }}</span>
-                </div>
+            <!-- 退款状态提示 -->
+            <div class="status-notice" v-else-if="isRefundStatus">
+                <el-alert :title="getRefundStatusTitle" :type="getRefundStatusType" :description="getRefundStatusDesc"
+                    show-icon :closable="false" />
             </div>
+
+
 
             <!-- 价格详情 -->
             <div class="price-details-section">
-                <h2>价格详情</h2>
+                <h2>{{ isRefundStatus ? '费用明细' : '价格详情' }}</h2>
                 <div class="price-item">
                     <span>每晚价格 x {{ orderData.nights }}晚</span>
                     <span>¥{{ orderData.price * orderData.nights }}</span>
                 </div>
                 <div class="price-total">
-                    <span>总价</span>
+                    <span>原始总价</span>
                     <span>¥{{ orderData.totalAmount }}</span>
+                </div>
+
+                <!-- 退款状态下显示退款信息 -->
+                <template v-if="isRefundStatus && orderData.refundAmount">
+                    <div class="price-item refund-item">
+                        <span>退款金额</span>
+                        <span class="refund-amount">-¥{{ orderData.refundAmount }}</span>
+                    </div>
+                    <div class="price-total final-amount" v-if="orderData.paymentStatus === 'REFUNDED'">
+                        <span>实际扣费</span>
+                        <span>¥{{ orderData.totalAmount - orderData.refundAmount }}</span>
+                    </div>
+                </template>
+            </div>
+
+            <!-- 退款信息 -->
+            <div v-if="hasRefundInfo" class="refund-details-section">
+                <h2>退款信息</h2>
+                <div class="info-item">
+                    <span class="label">退款类型:</span>
+                    <span>{{ getRefundTypeText(orderData.refundType).replace(/[（）]/g, '') }}</span>
+                </div>
+                <div v-if="orderData.refundInitiatedByName" class="info-item">
+                    <span class="label">发起人:</span>
+                    <span>{{ orderData.refundInitiatedByName }}</span>
+                </div>
+                <div v-if="orderData.refundInitiatedAt" class="info-item">
+                    <span class="label">申请时间:</span>
+                    <span>{{ formatDateTime(orderData.refundInitiatedAt) }}</span>
+                </div>
+                <div v-if="orderData.refundReason" class="info-item">
+                    <span class="label">退款原因:</span>
+                    <span>{{ orderData.refundReason }}</span>
+                </div>
+                <div v-if="orderData.refundAmount" class="info-item">
+                    <span class="label">退款金额:</span>
+                    <span class="refund-amount">¥{{ orderData.refundAmount }}</span>
+                </div>
+                <div v-if="orderData.refundProcessedByName" class="info-item">
+                    <span class="label">处理人:</span>
+                    <span>{{ orderData.refundProcessedByName }}</span>
+                </div>
+                <div v-if="orderData.refundProcessedAt" class="info-item">
+                    <span class="label">处理时间:</span>
+                    <span>{{ formatDateTime(orderData.refundProcessedAt) }}</span>
+                </div>
+                <div v-if="orderData.refundTransactionId" class="info-item">
+                    <span class="label">退款交易号:</span>
+                    <span>{{ orderData.refundTransactionId }}</span>
                 </div>
             </div>
 
@@ -125,8 +168,7 @@
                 <div class="review-header">
                     <h2>我的评价</h2>
                     <div class="review-actions">
-                        <el-button v-if="canEditReview(orderData.review)"
-                            type="primary" plain size="small"
+                        <el-button v-if="canEditReview(orderData.review)" type="primary" plain size="small"
                             @click="openEditModal(orderData.review)">
                             修改评价
                         </el-button>
@@ -164,21 +206,33 @@
             <!-- 按钮操作区 -->
             <div class="action-buttons">
                 <el-button @click="goToOrders">返回订单列表</el-button>
-                <el-button type="danger" plain v-if="canCancel" @click="confirmCancel">
-                    取消订单
-                </el-button>
-                <el-button type="primary" v-if="orderData.status === 'CONFIRMED'" @click="goToPayment">
-                    立即支付
-                </el-button>
+
+                <!-- 非退款状态下的正常操作 -->
+                <template v-if="!isRefundStatus">
+                    <el-button type="danger" plain v-if="canCancel" @click="confirmCancel">
+                        取消订单
+                    </el-button>
+                    <el-button type="primary" v-if="orderData.status === 'CONFIRMED'" @click="goToPayment">
+                        立即支付
+                    </el-button>
+                    <el-button type="warning" plain v-if="canRequestRefund" @click="confirmRequestRefund">
+                        申请退款
+                    </el-button>
+                </template>
+
+                <!-- 退款状态下的简化操作 -->
+                <template v-else>
+                    <el-button type="info" plain @click="contactCustomerService"
+                        v-if="orderData.paymentStatus === 'REFUND_FAILED'">
+                        联系客服
+                    </el-button>
+                </template>
             </div>
         </div>
 
         <!-- Add Edit Modal -->
-        <ReviewEditModal 
-            v-model:visible="isEditModalVisible"
-            :review-data="currentEditingReview"
-            @submitted="handleReviewUpdated"
-        />
+        <ReviewEditModal v-model:visible="isEditModalVisible" :review-data="currentEditingReview"
+            @submitted="handleReviewUpdated" />
     </div>
 </template>
 
@@ -191,8 +245,11 @@ import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
 import { deleteReview } from '@/api/review'
+import { requestRefund } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
 import ReviewEditModal from '@/components/ReviewEditModal.vue'
+import OrderTimeoutIndicator from '@/components/order/OrderTimeoutIndicator.vue'
+import { OrderStatus } from '@/types/order'
 
 // 定义评价数据接口
 interface ReviewItem {
@@ -208,9 +265,9 @@ interface ReviewItem {
 
 // --- Add type for editable data ---
 interface EditableReviewData {
-  id: number;
-  rating: number;
-  content: string;
+    id: number;
+    rating: number;
+    content: string;
 }
 // --- End type ---
 
@@ -231,11 +288,23 @@ interface OrderData {
     price: number
     totalAmount: number
     status: string
+    paymentStatus?: string
     remark?: string
     createTime: string
     updateTime: string
     reviewed?: boolean; // 保留 reviewed 字段
     review?: ReviewItem | null; // 添加 review 字段
+    // 退款相关字段
+    refundType?: string
+    refundReason?: string
+    refundAmount?: number
+    refundInitiatedBy?: number
+    refundInitiatedByName?: string
+    refundInitiatedAt?: string
+    refundProcessedBy?: number
+    refundProcessedByName?: string
+    refundProcessedAt?: string
+    refundTransactionId?: string
 }
 
 const route = useRoute()
@@ -315,6 +384,85 @@ const canCancel = computed(() => {
     return ['PENDING', 'CONFIRMED'].includes(orderData.value.status)
 })
 
+// 计算是否有退款信息
+const hasRefundInfo = computed(() => {
+    if (!orderData.value) return false
+
+    return orderData.value.refundType ||
+        orderData.value.refundReason ||
+        orderData.value.refundAmount ||
+        orderData.value.refundInitiatedByName ||
+        orderData.value.refundProcessedByName
+})
+
+// 计算是否可以申请退款
+const canRequestRefund = computed(() => {
+    if (!orderData.value) return false
+
+    // 只有已支付且未退款的订单可以申请退款
+    return (orderData.value.status === 'PAID' || orderData.value.paymentStatus === 'PAID') &&
+        orderData.value.paymentStatus !== 'REFUND_PENDING' &&
+        orderData.value.paymentStatus !== 'REFUNDED' &&
+        orderData.value.status !== 'COMPLETED' &&
+        orderData.value.status !== 'CANCELLED'
+})
+
+// 计算是否为退款状态
+const isRefundStatus = computed(() => {
+    if (!orderData.value) return false
+    return ['REFUND_PENDING', 'REFUNDED', 'REFUND_FAILED'].includes(orderData.value.paymentStatus || '')
+})
+
+// 获取退款状态标题
+const getRefundStatusTitle = computed(() => {
+    if (!orderData.value) return ''
+
+    const refundTypeText = getRefundTypeText(orderData.value.refundType)
+
+    switch (orderData.value.paymentStatus) {
+        case 'REFUND_PENDING':
+            return `退款申请处理中${refundTypeText}`
+        case 'REFUNDED':
+            return `退款已完成${refundTypeText}`
+        case 'REFUND_FAILED':
+            return `退款处理失败${refundTypeText}`
+        default:
+            return ''
+    }
+})
+
+// 获取退款状态类型
+const getRefundStatusType = computed(() => {
+    if (!orderData.value) return 'info'
+
+    switch (orderData.value.paymentStatus) {
+        case 'REFUND_PENDING':
+            return 'warning'
+        case 'REFUNDED':
+            return 'success'
+        case 'REFUND_FAILED':
+            return 'error'
+        default:
+            return 'info'
+    }
+})
+
+// 获取退款状态描述
+const getRefundStatusDesc = computed(() => {
+    if (!orderData.value) return ''
+
+    switch (orderData.value.paymentStatus) {
+        case 'REFUND_PENDING':
+            return '您的退款申请正在处理中，请耐心等待'
+        case 'REFUNDED':
+            return `退款金额 ¥${orderData.value.refundAmount || orderData.value.totalAmount} 将在1-3个工作日内到账`
+        case 'REFUND_FAILED':
+            return '退款处理失败，如有疑问请联系客服'
+        default:
+            return ''
+    }
+})
+
 // 获取订单状态的步骤
 const getStatusStep = (status: string) => {
     const statusSteps: Record<string, number> = {
@@ -348,7 +496,21 @@ const getStatusType = (status: string) => {
 }
 
 // 获取状态显示文本
-const getStatusText = (status: string) => {
+const getStatusText = (status: string, paymentStatus?: string, refundType?: string) => {
+    // 优先处理退款相关状态
+    if (paymentStatus === 'REFUND_PENDING') {
+        const refundTypeText = getRefundTypeText(refundType);
+        return `退款中${refundTypeText}`;
+    }
+    if (paymentStatus === 'REFUNDED') {
+        const refundTypeText = getRefundTypeText(refundType);
+        return `已退款${refundTypeText}`;
+    }
+    if (paymentStatus === 'REFUND_FAILED') {
+        const refundTypeText = getRefundTypeText(refundType);
+        return `退款失败${refundTypeText}`;
+    }
+
     const statusTexts: Record<string, string> = {
         'PENDING': '待确认',
         'CONFIRMED': '已确认',
@@ -359,9 +521,31 @@ const getStatusText = (status: string) => {
         'CANCELLED_BY_HOST': '已取消',
         'PAID': '已支付',
         'CHECKED_IN': '已入住',
-        'COMPLETED': '已完成'
+        'COMPLETED': '已完成',
+        'PAYMENT_FAILED': '支付失败',
+        'REFUND_PENDING': '退款中',
+        'REFUNDED': '已退款',
+        'REFUND_FAILED': '退款失败'
     }
     return statusTexts[status] || status
+}
+
+// 获取退款类型文本
+const getRefundTypeText = (refundType?: string): string => {
+    if (!refundType) return '';
+
+    switch (refundType) {
+        case 'USER_REQUESTED':
+            return '（用户申请）';
+        case 'HOST_CANCELLED':
+            return '（房东取消）';
+        case 'ADMIN_INITIATED':
+            return '（管理员发起）';
+        case 'SYSTEM_AUTOMATIC':
+            return '（系统自动）';
+        default:
+            return '';
+    }
 }
 
 // 格式化日期范围
@@ -428,7 +612,7 @@ const confirmCancel = async () => {
             if (result === 'confirm') {
                 router.push('/'); // 前往首页
             } else {
-                router.push('/orders'); // 返回订单列表
+                router.push('/user/bookings'); // 返回订单列表
             }
         } catch (error: any) {
             // 关闭加载消息
@@ -436,7 +620,7 @@ const confirmCancel = async () => {
 
             if (error === 'cancel' || error === 'close') {
                 // 用户选择了返回订单列表
-                router.push('/orders');
+                router.push('/user/bookings');
                 return;
             }
 
@@ -462,38 +646,67 @@ const goToPayment = () => {
 
 // 前往订单列表
 const goToOrders = () => {
-    router.push('/user/orders')
+    router.push('/user/bookings')
 }
 
-// 计算倒计时
-const getCountdownTime = (startTimeStr: string, hoursLimit: number) => {
-    const startTime = new Date(startTimeStr).getTime();
-    const currentTime = new Date().getTime();
-    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
-    const remainingTime = limitTime - currentTime;
+// 联系客服
+const contactCustomerService = () => {
+    ElMessage.info('客服热线：400-123-4567，工作时间：9:00-21:00')
+}
 
-    if (remainingTime <= 0) {
-        return "即将自动取消";
+// 确认申请退款
+const confirmRequestRefund = async () => {
+    try {
+        const result = await ElMessageBox.prompt(
+            '请说明退款原因（必填）',
+            '申请退款',
+            {
+                confirmButtonText: '提交申请',
+                cancelButtonText: '取消',
+                inputPattern: /\S/,
+                inputErrorMessage: '退款原因不能为空',
+                inputPlaceholder: '请输入退款原因...',
+                type: 'warning'
+            }
+        )
+
+        if (!result.value || !orderData.value) {
+            ElMessage.warning('退款原因不能为空')
+            return
+        }
+
+        const loadingInstance = ElMessage({
+            type: 'info',
+            message: '正在提交退款申请...',
+            duration: 0
+        })
+
+        try {
+            await requestRefund(orderData.value.id, result.value.trim())
+            ElMessage.closeAll()
+            ElMessage.success('退款申请已提交，请耐心等待处理')
+
+            // 刷新订单详情
+            fetchOrderDetail()
+        } catch (error: any) {
+            ElMessage.closeAll()
+            console.error('申请退款失败:', error)
+
+            let errorMessage = '申请退款失败，请稍后重试'
+            if (error.response && error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message
+            }
+            ElMessage.error(errorMessage)
+        }
+    } catch (error) {
+        // 用户取消了对话框
+        if (error !== 'cancel') {
+            console.error('退款申请确认框错误:', error)
+        }
     }
-
-    // 计算剩余小时、分钟和秒数
-    const hours = Math.floor(remainingTime / (60 * 60 * 1000));
-    const minutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
-    const seconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
-
-    return `${hours}小时${minutes}分钟${seconds}秒`;
 }
 
-// 判断时间是否紧急（剩余不到30分钟）
-const isTimeUrgent = (startTimeStr: string, hoursLimit: number) => {
-    const startTime = new Date(startTimeStr).getTime();
-    const currentTime = new Date().getTime();
-    const limitTime = startTime + hoursLimit * 60 * 60 * 1000;
-    const remainingTime = limitTime - currentTime;
 
-    // 如果剩余时间小于30分钟，显示紧急样式
-    return remainingTime < 30 * 60 * 1000 && remainingTime > 0;
-}
 
 // 添加日期格式化函数
 const formatDate = (dateString?: string) => {
@@ -513,7 +726,7 @@ const canDeleteReview = (review?: ReviewItem | null): boolean => {
     // 如果不包含，需要调整逻辑，可能需要基于 orderData.guestId 判断
     // return !!currentUserId && orderData.value?.guestId === currentUserId && !!review;
     // 假设后端返回了 userId
-    return !!currentUserId && !!review && review.userId === currentUserId; 
+    return !!currentUserId && !!review && review.userId === currentUserId;
 };
 
 // --- Add function to check if review can be edited ---
@@ -553,15 +766,30 @@ const handleDeleteReview = async (reviewId: number) => {
     }
 };
 
+// 处理订单超时事件
+const handleOrderTimeout = () => {
+    ElMessage.warning('订单已超时，正在自动取消...')
+    // 刷新订单状态
+    fetchOrderDetail()
+}
+
+// 处理订单超时预警事件
+const handleOrderWarning = (remainingTime: number) => {
+    const minutes = Math.floor(remainingTime / (60 * 1000))
+    if (minutes <= 30) {
+        ElMessage.warning(`订单即将超时，剩余 ${minutes} 分钟`)
+    }
+}
+
 // --- Add functions for edit modal ---
 // 打开编辑弹窗
 const openEditModal = (review: ReviewItem) => {
-  currentEditingReview.value = {
-    id: review.id,
-    rating: review.rating,
-    content: review.content,
-  };
-  isEditModalVisible.value = true;
+    currentEditingReview.value = {
+        id: review.id,
+        rating: review.rating,
+        content: review.content,
+    };
+    isEditModalVisible.value = true;
 };
 
 // 处理评价更新事件
@@ -646,6 +874,13 @@ h1 {
     margin-bottom: 16px;
 }
 
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
 .card-header h2 {
     margin: 0;
     font-size: 18px;
@@ -656,6 +891,10 @@ h1 {
 .order-number {
     color: #666;
     font-size: 14px;
+}
+
+.status-tag {
+    font-weight: 600;
 }
 
 .homestay-info {
@@ -702,13 +941,31 @@ h1 {
     color: #409EFF;
 }
 
-.status-notice {
-    margin-bottom: 32px;
+.guest-info-inline {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
 }
 
-.pay-button-container {
-    margin-top: 16px;
-    text-align: center;
+.info-row {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 12px;
+}
+
+.guest-info-inline .info-item {
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.guest-info-inline .label {
+    width: 80px;
+    color: #666;
+    font-weight: 500;
+}
+
+.status-notice {
+    margin-bottom: 32px;
 }
 
 .reject-reason {
@@ -727,12 +984,19 @@ h1 {
     margin: 0;
 }
 
-.guest-info-section,
 .price-details-section {
     margin-bottom: 32px;
     background-color: #fafafa;
     border-radius: 12px;
     padding: 24px;
+}
+
+.refund-details-section {
+    margin-bottom: 32px;
+    background-color: #fff3e0;
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid #ffcc02;
 }
 
 h2 {
@@ -789,6 +1053,35 @@ h2::after {
     font-size: 20px;
 }
 
+.refund-amount {
+    color: #f39c12;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.refund-item {
+    background-color: #fff9f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+}
+
+.refund-item .refund-amount {
+    color: #e67e22;
+    font-weight: 700;
+}
+
+.final-amount {
+    background-color: #f0f9ff;
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #3b82f6;
+}
+
+.final-amount span:last-child {
+    color: #3b82f6;
+}
+
 .action-buttons {
     display: flex;
     gap: 16px;
@@ -800,52 +1093,7 @@ h2::after {
     min-width: 120px;
 }
 
-.countdown-container {
-    margin-top: 15px;
-    padding: 20px;
-    border-radius: 8px;
-    background-color: #f8f9fa;
-    text-align: center;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-}
 
-.countdown-title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: #333;
-}
-
-.countdown-timer {
-    font-size: 28px;
-    font-weight: bold;
-    color: #409eff;
-    margin-bottom: 12px;
-}
-
-.countdown-timer.urgent {
-    color: #f56c6c;
-    animation: blink 1s infinite;
-}
-
-.countdown-desc {
-    font-size: 14px;
-    color: #606266;
-}
-
-@keyframes blink {
-    0% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.5;
-    }
-
-    100% {
-        opacity: 1;
-    }
-}
 
 @media (max-width: 768px) {
     .homestay-info {

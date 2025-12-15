@@ -44,25 +44,69 @@
             </div>
 
             <div class="payment-section">
-                <div class="qr-code-container" v-if="qrCode">
+                <!-- 如果已经跳转支付宝页面，显示提示信息 -->
+                <div class="payment-redirect-notice" v-if="qrCodeGenerated && paymentMethod === 'alipay' && !qrCode">
+                    <div class="redirect-content">
+                        <div class="redirect-icon">
+                            <el-icon size="40" color="#1677ff">
+                                <Promotion />
+                            </el-icon>
+                        </div>
+                        <h3>已跳转支付宝支付页面</h3>
+                        <p>如果支付页面未自动打开，请点击下方按钮手动跳转</p>
+                        <div class="redirect-actions">
+                            <el-button type="primary" @click="generateQRCode">
+                                <i class="fab fa-alipay"></i> 重新跳转支付宝
+                            </el-button>
+                            <el-button @click="resetPayment">选择其他支付方式</el-button>
+                        </div>
+                        <div class="payment-guide">
+                            <h4>支付完成后：</h4>
+                            <ol>
+                                <li>支付成功后，会自动跳转回民宿平台</li>
+                                <li>您也可以点击下方"我已完成支付"按钮确认</li>
+                                <li>支付状态会在几分钟内更新到您的订单中</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 二维码支付（微信或扫码模式） -->
+                <div class="qr-code-container" v-else-if="qrCode">
                     <img :src="qrCode" alt="支付二维码" class="qr-code">
                     <p class="qr-tip">请使用{{ getPaymentMethodText(paymentMethod) }}扫码支付</p>
                     <div class="countdown" v-if="countdown > 0">
                         二维码有效期: {{ formatCountdown(countdown) }}
                     </div>
                 </div>
+
+                <!-- 支付方式选择 -->
                 <div v-else class="payment-methods">
                     <h3>选择支付方式</h3>
-                    <el-radio-group v-model="paymentMethod" @change="generateQRCode">
-                        <el-radio-button label="wechat">
-                            <i class="fab fa-weixin"></i> 微信支付
-                        </el-radio-button>
-                        <el-radio-button label="alipay">
-                            <i class="fab fa-alipay"></i> 支付宝
-                        </el-radio-button>
-                    </el-radio-group>
+                    <div class="payment-options">
+                        <el-radio-group v-model="paymentMethod" @change="generateQRCode">
+                            <div class="payment-option">
+                                <el-radio-button label="alipay">
+                                    <div class="payment-option-content">
+                                        <i class="fab fa-alipay"></i>
+                                        <span>支付宝（推荐）</span>
+                                        <small>页面跳转支付</small>
+                                    </div>
+                                </el-radio-button>
+                            </div>
+                            <div class="payment-option">
+                                <el-radio-button label="wechat">
+                                    <div class="payment-option-content">
+                                        <i class="fab fa-weixin"></i>
+                                        <span>微信支付</span>
+                                        <small>扫码支付</small>
+                                    </div>
+                                </el-radio-button>
+                            </div>
+                        </el-radio-group>
+                    </div>
                     <el-button type="primary" class="generate-qr" @click="generateQRCode" :disabled="!paymentMethod">
-                        生成支付二维码
+                        立即支付
                     </el-button>
                 </div>
             </div>
@@ -89,12 +133,37 @@
 
             <div class="actions">
                 <el-button @click="cancelOrder" plain>取消订单</el-button>
-                <el-button type="success" plain @click="handleMockPaymentSuccess" v-if="orderData.status !== 'PAID'">
-                    【测试】模拟支付成功
-                </el-button>
                 <el-button type="primary" @click="checkPaymentStatus" :disabled="!qrCodeGenerated">
                     我已完成支付
                 </el-button>
+                <!-- 重新生成支付按钮 -->
+                <el-button type="warning" plain @click="resetPayment"
+                    v-if="qrCodeGenerated && paymentMethod === 'alipay'">
+                    重新生成支付
+                </el-button>
+                <!-- 手动跳转按钮 -->
+                <el-button type="danger" plain @click="manualJumpToAlipay"
+                    v-if="qrCodeGenerated && paymentMethod === 'alipay' && lastPaymentUrl">
+                    手动跳转支付宝
+                </el-button>
+                <!-- 开发环境下显示测试按钮 -->
+                <el-button type="success" plain @click="handleMockPaymentSuccess"
+                    v-if="isDev && orderData.status !== 'PAID'">
+                    【测试】模拟支付成功
+                </el-button>
+            </div>
+
+            <!-- 支付说明 -->
+            <div class="payment-tips" v-if="paymentMethod === 'alipay' && qrCodeGenerated">
+                <el-alert title="支付说明" type="info" :closable="false" show-icon>
+                    <template #default>
+                        <div class="tips-content">
+                            <p>• 如果页面没有自动跳转到支付宝，请点击"重新生成支付"</p>
+                            <p>• 如果多次尝试仍无法跳转，建议使用"微信支付"扫码支付</p>
+                            <p>• 支付完成后请点击"我已完成支付"确认订单状态</p>
+                        </div>
+                    </template>
+                </el-alert>
             </div>
         </div>
     </div>
@@ -103,7 +172,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
+import { Promotion } from '@element-plus/icons-vue'
 import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder, mockPaymentSuccess } from '../../api/order'
 
 interface OrderData {
@@ -128,6 +198,8 @@ const paymentMethod = ref(route.query.method?.toString() || '')
 const qrCode = ref('')
 const countdown = ref(900) // 15分钟倒计时
 const qrCodeGenerated = ref(false) // 新增状态变量，标记二维码是否已生成
+const isDev = ref(import.meta.env.DEV) // 开发环境标识
+const lastPaymentUrl = ref('') // 保存最后一次生成的支付URL
 let timer: NodeJS.Timeout | null = null
 
 // 获取订单详情
@@ -135,7 +207,20 @@ const fetchOrderDetail = async () => {
     try {
         const orderId = Number(route.params.id)
         const response = await getOrderDetail(orderId)
-        orderData.value = response.data
+        // 确保数据符合OrderData接口
+        const data = response.data
+        orderData.value = {
+            id: data.id,
+            orderNumber: data.orderNumber,
+            homestayTitle: data.homestayTitle,
+            checkInDate: data.checkInDate,
+            checkOutDate: data.checkOutDate,
+            guestCount: data.guestCount,
+            totalAmount: data.totalAmount,
+            status: data.status,
+            paymentStatus: 'UNPAID', // 默认值，如果后端有这个字段会被覆盖
+            updateTime: data.updateTime
+        }
     } catch (error: any) {
         console.error('获取订单详情失败:', error)
         ElMessage.error(error.response?.data?.message || '获取订单详情失败')
@@ -144,7 +229,7 @@ const fetchOrderDetail = async () => {
     }
 }
 
-// 生成支付二维码
+// 生成支付二维码或跳转支付页面
 const generateQRCode = async () => {
     if (!orderData.value || !paymentMethod.value) return
 
@@ -153,11 +238,179 @@ const generateQRCode = async () => {
             orderId: orderData.value.id,
             method: paymentMethod.value
         })
-        qrCode.value = response.data.qrCode
-        qrCodeGenerated.value = true // 生成成功后，更新状态为 true
-        startCountdown()
+
+        // 适配新的返回格式，优先处理二维码支付
+        if (response.data.success) {
+            // 如果返回的是二维码（现在优先返回二维码）
+            if (response.data.qrCode || (response.data.paymentUrl && response.data.paymentUrl.startsWith('http'))) {
+                console.log('收到支付二维码')
+                qrCode.value = response.data.qrCode || response.data.paymentUrl
+                qrCodeGenerated.value = true
+                ElMessage.success('支付二维码生成成功，请使用支付宝扫码支付')
+                startCountdown()
+                return
+            }
+
+            // 如果返回的是支付页面URL（支付宝页面跳转支付）
+            if (response.data.paymentUrl && paymentMethod.value === 'alipay') {
+                console.log('支付宝返回的paymentUrl:', response.data.paymentUrl)
+
+                // 方法1: 解析表单数据并直接跳转（最可靠的方法）
+                try {
+                    console.log('尝试方法1: 解析表单数据直接跳转')
+
+                    // 创建一个临时div来解析HTML
+                    const tempDiv = document.createElement('div')
+                    tempDiv.innerHTML = response.data.paymentUrl
+
+                    // 查找表单
+                    const form = tempDiv.querySelector('form')
+                    if (form) {
+                        console.log('找到支付表单，准备解析')
+                        console.log('表单action:', form.action)
+                        console.log('表单method:', form.method)
+
+                        // 提取表单数据
+                        const formData = new FormData(form)
+                        const params = new URLSearchParams()
+
+                        for (const [key, value] of formData.entries()) {
+                            params.append(key, value.toString())
+                        }
+
+                        // 构建完整的URL
+                        const baseUrl = form.action
+                        const fullUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + params.toString()
+
+                        console.log('构建的跳转URL长度:', fullUrl.length)
+                        console.log('准备跳转到:', baseUrl)
+
+                        // 保存支付URL供手动跳转使用
+                        lastPaymentUrl.value = fullUrl
+
+                        ElMessage.success('正在跳转到支付页面...')
+
+                        // 尝试多种跳转方式
+                        console.log('开始尝试跳转，URL:', fullUrl.substring(0, 100) + '...')
+
+                        // 方式1: 直接跳转
+                        try {
+                            window.location.href = fullUrl
+                            console.log('window.location.href 跳转已执行')
+                        } catch (e) {
+                            console.error('window.location.href 失败:', e)
+                        }
+
+                        // 方式2: 使用 window.open 在当前窗口
+                        setTimeout(() => {
+                            try {
+                                window.open(fullUrl, '_self')
+                                console.log('window.open(_self) 跳转已执行')
+                            } catch (e) {
+                                console.error('window.open(_self) 失败:', e)
+                            }
+                        }, 500)
+
+                        // 方式3: 创建临时链接点击
+                        setTimeout(() => {
+                            try {
+                                const link = document.createElement('a')
+                                link.href = fullUrl
+                                link.target = '_self'
+                                link.style.display = 'none'
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                                console.log('临时链接点击已执行')
+                            } catch (e) {
+                                console.error('临时链接点击失败:', e)
+                            }
+                        }, 1000)
+
+                        qrCodeGenerated.value = true
+                        return
+                    } else {
+                        console.log('未找到表单元素')
+                    }
+                } catch (error) {
+                    console.error('方法1失败:', error)
+                }
+
+                // 方法2: 如果方法1失败，尝试表单提交
+                try {
+                    console.log('尝试方法2: 使用表单提交')
+
+                    // 解析HTML表单
+                    const tempDiv = document.createElement('div')
+                    tempDiv.innerHTML = response.data.paymentUrl
+                    const form = tempDiv.querySelector('form')
+
+                    if (form) {
+                        // 将表单添加到页面并提交
+                        form.style.display = 'none'
+                        form.target = '_self'
+                        document.body.appendChild(form)
+
+                        ElMessage.success('正在跳转到支付页面...')
+
+                        // 立即提交表单
+                        form.submit()
+                        qrCodeGenerated.value = true
+
+                        // 清理DOM
+                        setTimeout(() => {
+                            if (document.body.contains(form)) {
+                                document.body.removeChild(form)
+                            }
+                        }, 2000)
+                        return
+                    }
+                } catch (error) {
+                    console.error('方法2失败:', error)
+                }
+
+                // 方法3: 如果直接跳转失败，尝试在新窗口打开
+                try {
+                    console.log('尝试方法3: 在新窗口打开支付页面')
+                    const newWindow = window.open('about:blank', '_blank')
+                    if (newWindow) {
+                        newWindow.document.write(response.data.paymentUrl)
+                        newWindow.document.close()
+                        ElMessage.success('支付页面已在新窗口打开，请完成支付')
+                        qrCodeGenerated.value = true
+                        return
+                    }
+                } catch (error) {
+                    console.error('新窗口打开失败:', error)
+                }
+
+                // 方法3: 如果都失败了，显示错误并提供手动操作
+                ElMessage.error('自动跳转失败，请尝试重新生成支付或使用其他支付方式')
+                console.log('所有跳转方法都失败，需要手动处理')
+                qrCodeGenerated.value = false  // 重置状态，允许重新尝试
+            }
+            else {
+                ElMessage.error('支付方式不支持，请选择其他支付方式')
+            }
+        } else {
+            ElMessage.error(response.data.message || '生成支付失败')
+        }
     } catch (error: any) {
-        ElMessage.error('生成支付二维码失败，请重试')
+        console.error('支付生成失败:', error)
+
+        // 检查是否是502错误（支付宝服务器问题）
+        if (error.response?.status === 502 ||
+            (error.response?.data?.message && error.response.data.message.includes('502'))) {
+            ElMessage.error('支付宝服务暂时不可用，请稍后重试或选择其他支付方式')
+            ElNotification({
+                title: '支付服务提示',
+                message: '当前支付宝沙箱环境出现临时故障，建议：\n1. 稍后重试\n2. 选择微信支付\n3. 联系客服处理',
+                type: 'warning',
+                duration: 8000
+            })
+        } else {
+            ElMessage.error('生成支付失败，请重试')
+        }
     }
 }
 
@@ -191,22 +444,22 @@ const checkPaymentStatus = async () => {
         const response = await checkPayment(orderData.value.id)
         loadingInstance.close(); // 关闭加载提示
 
-        if (response.data.paid) {
-            ElMessage.success('支付成功！')
-            // 跳转到订单详情页
-            router.push(`/orders/${orderData.value.id}`)
-        } else {
-            // 检查是否有错误消息从后端传来
-            if (response.data.error) {
-                ElMessage.error(response.data.error);
+        // 适配新的返回格式
+        if (response.data.success) {
+            if (response.data.isPaid) {
+                ElMessage.success('支付成功！')
+                // 跳转到支付成功页面
+                router.push(`/orders/${orderData.value.id}/pay-success`)
             } else {
-                ElMessage.warning('支付状态尚未确认，请稍后再试或联系客服');
+                ElMessage.warning(response.data.message || '支付状态尚未确认，请稍后再试或联系客服');
             }
+        } else {
+            ElMessage.error(response.data.message || '查询支付状态失败');
         }
     } catch (error: any) {
         loadingInstance.close(); // 关闭加载提示
         console.error("检查支付状态接口调用失败:", error);
-        ElMessage.error(error.response?.data?.error || '检查支付状态失败，请重试');
+        ElMessage.error('检查支付状态失败，请重试');
     }
 }
 
@@ -255,7 +508,7 @@ const cancelOrder = async () => {
             if (result === 'confirm') {
                 router.push('/') // 前往首页
             } else {
-                router.push('/orders') // 返回订单列表
+                router.push('/user/bookings') // 返回订单列表
             }
         } catch (error: any) {
             // 关闭加载消息
@@ -293,6 +546,50 @@ const handleMockPaymentSuccess = async () => {
     }
 }
 
+// 重置支付状态，用于重新选择支付方式
+const resetPayment = () => {
+    qrCode.value = ''
+    qrCodeGenerated.value = false
+    paymentMethod.value = ''
+    lastPaymentUrl.value = ''
+    if (timer) {
+        clearInterval(timer)
+        timer = null
+    }
+    countdown.value = 900
+}
+
+// 手动跳转到支付宝
+const manualJumpToAlipay = () => {
+    if (!lastPaymentUrl.value) {
+        ElMessage.error('支付链接已失效，请重新生成支付')
+        return
+    }
+
+    console.log('手动跳转到支付宝，URL长度:', lastPaymentUrl.value.length)
+
+    // 尝试多种方式打开支付宝页面
+    try {
+        // 方式1: 新窗口打开
+        const newWindow = window.open(lastPaymentUrl.value, '_blank')
+        if (newWindow) {
+            ElMessage.success('支付页面已在新窗口打开')
+            return
+        }
+    } catch (e) {
+        console.error('新窗口打开失败:', e)
+    }
+
+    try {
+        // 方式2: 当前窗口跳转
+        window.location.href = lastPaymentUrl.value
+        ElMessage.success('正在跳转到支付页面...')
+    } catch (e) {
+        console.error('当前窗口跳转失败:', e)
+        ElMessage.error('跳转失败，请尝试重新生成支付或使用其他支付方式')
+    }
+}
+
 // 获取支付方式文本
 const getPaymentMethodText = (method: string) => {
     const methods = {
@@ -324,7 +621,7 @@ const formatDate = (date: string) => {
 
 // 跳转到订单列表
 const goToOrders = () => {
-    router.push('/orders')
+    router.push('/user/bookings')
 }
 
 // 计算倒计时
@@ -366,6 +663,19 @@ let autoRefreshTimer: NodeJS.Timeout | null = null;
 
 onMounted(() => {
     fetchOrderDetail();
+
+    // 为自动确认订单提供更流畅的支付体验
+    if (route.query.autoConfirm === 'true') {
+        // 自动选择支付宝作为默认支付方式
+        paymentMethod.value = 'alipay';
+        // 延迟500ms后自动生成二维码，确保页面已完全加载
+        setTimeout(() => {
+            if (paymentMethod.value && orderData.value) {
+                generateQRCode();
+            }
+        }, 500);
+    }
+
     // 每秒刷新倒计时显示
     autoRefreshTimer = setInterval(() => {
         if (orderData.value?.updateTime) {
@@ -534,5 +844,113 @@ h1 {
     100% {
         opacity: 1;
     }
+}
+
+/* 支付方式选项样式 */
+.payment-options {
+    margin-bottom: 24px;
+}
+
+.payment-option {
+    margin-bottom: 12px;
+}
+
+.payment-option-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    gap: 4px;
+}
+
+.payment-option-content i {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.payment-option-content span {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.payment-option-content small {
+    font-size: 12px;
+    color: #909399;
+    opacity: 0.8;
+}
+
+/* 支付跳转提示样式 */
+.payment-redirect-notice {
+    background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+    border: 2px solid #1677ff;
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.redirect-content h3 {
+    color: #1677ff;
+    margin: 16px 0 12px 0;
+    font-size: 20px;
+}
+
+.redirect-content p {
+    color: #666;
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+
+.redirect-actions {
+    margin: 24px 0;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.redirect-actions .el-button {
+    padding: 10px 20px;
+}
+
+.redirect-actions .el-button i {
+    margin-right: 8px;
+}
+
+.payment-guide {
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 24px;
+    text-align: left;
+}
+
+.payment-guide h4 {
+    margin: 0 0 12px 0;
+    color: #303133;
+    font-size: 16px;
+}
+
+.payment-guide ol {
+    margin: 0;
+    padding-left: 20px;
+    color: #666;
+}
+
+.payment-guide li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+/* 支付说明样式 */
+.payment-tips {
+    margin: 24px 0;
+}
+
+.tips-content p {
+    margin: 8px 0;
+    line-height: 1.6;
+    color: #606266;
+    font-size: 14px;
 }
 </style>

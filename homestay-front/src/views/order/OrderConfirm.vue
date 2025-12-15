@@ -16,7 +16,10 @@
 
             <!-- 提醒信息 -->
             <div class="order-notice">
-                <el-alert title="请在2小时内完成支付" type="warning" description="超时未支付订单将被自动取消" show-icon :closable="false" />
+                <el-alert v-if="orderData.autoConfirm" title="即时预订" type="success"
+                    description="🚀 此房源支持即时预订！订单确认后无需等待房东审核，可直接支付。请在2小时内完成支付，超时将被自动取消。" show-icon :closable="false" />
+                <el-alert v-else title="房东确认制" type="info" description="📋 此房源采用房东确认制，订单提交后需等待房东确认才能支付。房东通常会在24小时内回复。"
+                    show-icon :closable="false" />
             </div>
 
             <!-- 订单信息卡片 -->
@@ -34,7 +37,7 @@
                     </div>
                     <div class="homestay-details">
                         <h3>{{ orderData.homestayTitle }}</h3>
-                        <p class="homestay-address"><i class="el-icon-location-outline"></i> {{ orderData.address }}</p>
+                        <p class="homestay-address"><i class="el-icon-location-outline"></i> {{ formattedAddress }}</p>
                         <p class="date-highlight"><i class="el-icon-date"></i> {{ formatDateRange(orderData.checkInDate,
                             orderData.checkOutDate) }}
                         </p>
@@ -183,7 +186,7 @@
                     <span class="total-price-value">¥{{ orderData.totalAmount }}</span>
                 </div>
                 <el-button type="primary" :loading="submitting" :disabled="!agreementChecked" @click="submitOrder">
-                    提交订单
+                    {{ orderData.autoConfirm ? '确认预订并支付' : '提交预订申请' }}
                 </el-button>
                 <el-button @click="goBack">返回</el-button>
             </div>
@@ -230,7 +233,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createOrder } from '../../api/order'
@@ -238,6 +241,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useUserStore } from '../../stores/user'
 import { getUserInfo } from '../../api/user'
 import { getHomestayById } from '@/api/homestay'
+import { codeToText } from 'element-china-area-data'
 
 // 定义订单数据类型
 interface OrderData {
@@ -245,6 +249,9 @@ interface OrderData {
     homestayTitle: string
     imageUrl: string
     address: string
+    provinceCode?: string
+    cityCode?: string
+    districtCode?: string
     checkInDate: string
     checkOutDate: string
     nights: number
@@ -256,6 +263,7 @@ interface OrderData {
     totalAmount: number
     hostId: number
     hostName: string
+    autoConfirm?: boolean
 }
 
 // 定义旅客信息类型
@@ -388,16 +396,30 @@ const submitOrder = async () => {
             checkInDate: orderData.value.checkInDate,
             checkOutDate: orderData.value.checkOutDate,
             guestCount: orderData.value.guestCount,
-            totalPrice: orderData.value.totalAmount,
+            totalAmount: orderData.value.totalAmount,
             guestName: guestInfo.name,
             guestPhone: guestInfo.phone,
-            message: guestInfo.message
+            remark: guestInfo.message
         }
 
         const response = await createOrder(orderRequestData)
         if (response && response.data && response.data.id) {
-            ElMessage.success('订单创建成功')
-            router.push(`/orders/submit-success/${response.data.id}`)
+            const successMessage = orderData.value?.autoConfirm
+                ? '预订成功！订单已确认，正在跳转支付页面...'
+                : '预订申请已提交！等待房东确认'
+            ElMessage.success(successMessage)
+
+            // 根据autoConfirm决定跳转的页面
+            if (orderData.value?.autoConfirm) {
+                // 自动确认的房源直接跳转到支付页面，并传递autoConfirm参数
+                router.push({
+                    path: `/orders/${response.data.id}/pay`,
+                    query: { autoConfirm: 'true' }
+                })
+            } else {
+                // 房东确认的房源跳转到提交成功页面
+                router.push(`/orders/submit-success/${response.data.id}`)
+            }
         } else {
             ElMessage.error('订单创建失败')
         }
@@ -459,21 +481,35 @@ const fetchHostInfo = async () => {
             if (orderData.value) {
                 orderData.value = {
                     ...orderData.value,
-                    address: response.data.address || orderData.value.address,
-                    imageUrl: response.data.coverImage || response.data.images?.[0] || orderData.value.imageUrl,
+                    address: response.data.addressDetail || orderData.value.address,
+                    provinceCode: response.data.provinceCode || '',
+                    cityCode: response.data.cityCode || '',
+                    districtCode: response.data.districtCode || '',
+                    imageUrl: processImageUrl(response.data.coverImage || response.data.images?.[0]?.url || response.data.images?.[0]) || orderData.value.imageUrl,
                     homestayTitle: response.data.title || orderData.value.homestayTitle,
                 };
                 console.log('获取到房源详情:', response.data);
             }
 
             // 直接使用getHomestayById返回的房东信息
-            if (response.data.ownerUsername) { // 检查是否有房东信息
+            const ownerName = response.data.ownerName || response.data.ownerUsername;
+            const ownerAvatar = response.data.ownerAvatar;
+            const ownerRating = response.data.rating;
+
+            if (ownerName) {
                 hostInfo.value = {
-                    name: response.data.ownerName || response.data.ownerUsername || '房东',
-                    avatar: processImageUrl(response.data.ownerAvatar) || '', // 使用processImageUrl处理头像
-                    rating: response.data.ownerRating || 4.5 // 使用返回的评分，提供默认值
+                    name: ownerName || '房东',
+                    avatar: processImageUrl(ownerAvatar) || '',
+                    rating: ownerRating !== undefined && ownerRating !== null ? Number(ownerRating) : (hostInfo.value.rating || 4.5)
                 };
-                console.log('已更新房东信息:', hostInfo.value);
+                console.log('已更新房东信息 (来自房源详情):', hostInfo.value);
+            } else if (response.data.hostInfo) {
+                hostInfo.value = {
+                    name: response.data.hostInfo.name || '房东',
+                    avatar: processImageUrl(response.data.hostInfo.avatar) || '',
+                    rating: response.data.hostInfo.rating !== undefined && response.data.hostInfo.rating !== null ? Number(response.data.hostInfo.rating) : 4.5
+                };
+                console.log('已更新房东信息 (来自嵌套 hostInfo):', hostInfo.value);
             } else {
                 console.warn('房源详情中未找到房东信息');
             }
@@ -490,9 +526,48 @@ const fetchHostInfo = async () => {
     }
 }
 
-// 修改initOrderData函数，添加价格计算逻辑
+// 修改initOrderData函数，优先从session storage读取数据
 const initOrderData = () => {
-    // 从URL参数获取订单数据
+    // 优先从session storage获取完整数据
+    const storedData = sessionStorage.getItem('booking-details');
+    if (storedData) {
+        try {
+            const bookingDetails = JSON.parse(storedData);
+            console.log('从session storage加载订单数据:', bookingDetails);
+
+            // 构建订单数据对象
+            const baseAmount = bookingDetails.homestayData.price * bookingDetails.nights;
+            const totalAmount = baseAmount + bookingDetails.cleaningFee + bookingDetails.serviceFee;
+
+            return {
+                homestayId: bookingDetails.homestayId,
+                homestayTitle: bookingDetails.homestayData.title || '未命名房源',
+                imageUrl: bookingDetails.homestayData.coverImage || '',
+                address: bookingDetails.homestayData.addressDetail || '地址未知',
+                provinceCode: '',
+                cityCode: '',
+                districtCode: '',
+                checkInDate: bookingDetails.checkInDate,
+                checkOutDate: bookingDetails.checkOutDate,
+                nights: bookingDetails.nights,
+                guestCount: bookingDetails.guestCount,
+                price: bookingDetails.homestayData.price,
+                baseAmount: baseAmount,
+                cleaningFee: bookingDetails.cleaningFee,
+                serviceFee: bookingDetails.serviceFee,
+                totalAmount: totalAmount,
+                hostId: bookingDetails.homestayData.ownerId || 0,
+                hostName: bookingDetails.homestayData.ownerName || '',
+                autoConfirm: bookingDetails.homestayData.autoConfirm || false
+            } as OrderData;
+        } catch (error) {
+            console.error('解析session storage数据失败:', error);
+            // 清除损坏的数据
+            sessionStorage.removeItem('booking-details');
+        }
+    }
+
+    // 回退到URL参数（兼容旧的链接方式）
     const query = route.query
     if (!query.homestayId || !query.checkIn || !query.checkOut || !query.guests) {
         ElMessage.error('参数不完整，无法创建订单')
@@ -522,6 +597,9 @@ const initOrderData = () => {
         homestayTitle: query.title as string || '未命名房源',
         imageUrl: query.image as string || '',
         address: query.address as string || '地址未知',
+        provinceCode: query.provinceCode as string || '',
+        cityCode: query.cityCode as string || '',
+        districtCode: query.districtCode as string || '',
         checkInDate: query.checkIn as string,
         checkOutDate: query.checkOut as string,
         nights: nights,
@@ -532,7 +610,8 @@ const initOrderData = () => {
         serviceFee: serviceFee,
         totalAmount: calculatedTotalAmount, // 使用计算值
         hostId: Number(query.hostId) || 0,
-        hostName: query.hostName as string || ''
+        hostName: query.hostName as string || '',
+        autoConfirm: query.autoConfirm === 'true'
     } as OrderData
 }
 
@@ -556,6 +635,36 @@ const processImageUrl = (url: string | undefined): string => {
     return `/api/uploads/homestays/${url}`;
 }
 
+const formattedAddress = computed(() => {
+    if (!orderData.value) return '地址加载中...';
+
+    const parts = [];
+    const provinceCode = orderData.value.provinceCode;
+    const cityCode = orderData.value.cityCode;
+    const districtCode = orderData.value.districtCode;
+    const addressDetail = orderData.value.address;
+
+    if (provinceCode && codeToText[provinceCode]) {
+        parts.push(codeToText[provinceCode]);
+    }
+    if (cityCode && codeToText[cityCode]) {
+        if (!parts.includes(codeToText[cityCode])) {
+            parts.push(codeToText[cityCode]);
+        }
+    }
+    if (districtCode && codeToText[districtCode]) {
+        parts.push(codeToText[districtCode]);
+    }
+
+    const regionPath = parts.join(' · ');
+
+    if (addressDetail) {
+        return regionPath ? `${regionPath} ${addressDetail}` : addressDetail;
+    }
+
+    return regionPath || '地址待更新';
+});
+
 onMounted(async () => {
     try {
         // 初始化订单数据
@@ -574,6 +683,11 @@ onMounted(async () => {
     } finally {
         loading.value = false
     }
+})
+
+// 页面卸载时清理session storage
+onUnmounted(() => {
+    sessionStorage.removeItem('booking-details');
 })
 </script>
 

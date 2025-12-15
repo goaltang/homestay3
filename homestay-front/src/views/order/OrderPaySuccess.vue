@@ -1,13 +1,13 @@
 <template>
-    <div class="order-success-container">
+    <div class="pay-success-container">
         <div class="success-card">
             <div class="icon-container">
                 <el-icon class="success-icon">
-                    <Check />
+                    <CircleCheck />
                 </el-icon>
             </div>
-            <h1>预订申请已提交</h1>
-            <p class="status-text">您的预订申请已成功提交，正在等待房东确认</p>
+            <h1>支付成功！</h1>
+            <p class="status-text">您的预订已完成，我们已为您发送确认信息</p>
 
             <div class="order-info">
                 <div class="order-number">
@@ -17,39 +17,49 @@
                         复制
                     </el-button>
                 </div>
-                <p class="notice">房东将在24小时内确认您的预订申请。确认后，您将收到通知并可进行支付。</p>
+                <div class="payment-amount">
+                    <span>支付金额：</span>
+                    <span class="amount">¥{{ paymentAmount }}</span>
+                </div>
             </div>
 
             <div class="next-steps">
-                <h3>后续步骤</h3>
+                <h3>接下来您可以</h3>
                 <div class="step-list">
                     <div class="step">
-                        <div class="step-number">1</div>
+                        <div class="step-icon">
+                            <el-icon><Calendar /></el-icon>
+                        </div>
                         <div class="step-content">
-                            <h4>等待房东确认</h4>
-                            <p>房东会审核您的预订申请，并在24小时内给予回复</p>
+                            <h4>查看入住信息</h4>
+                            <p>确认您的入住日期和房源详情</p>
                         </div>
                     </div>
                     <div class="step">
-                        <div class="step-number">2</div>
+                        <div class="step-icon">
+                            <el-icon><ChatDotRound /></el-icon>
+                        </div>
                         <div class="step-content">
-                            <h4>预订确认通知</h4>
-                            <p>您将收到预订确认通知，请及时查看</p>
+                            <h4>联系房东</h4>
+                            <p>提前与房东沟通入住细节</p>
                         </div>
                     </div>
                     <div class="step">
-                        <div class="step-number">3</div>
+                        <div class="step-icon">
+                            <el-icon><Location /></el-icon>
+                        </div>
                         <div class="step-content">
-                            <h4>完成支付</h4>
-                            <p>确认后请尽快完成支付以确保住宿</p>
+                            <h4>查看位置</h4>
+                            <p>了解房源周边交通和设施</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="action-buttons">
-                <el-button @click="goToOrderDetail">查看订单详情</el-button>
-                <el-button type="primary" @click="goToMyOrders">查看我的订单</el-button>
+                <el-button @click="goToOrderDetail" type="primary">查看订单详情</el-button>
+                <el-button @click="goToHomestayDetail" plain>查看房源信息</el-button>
+                <el-button @click="goToHome" plain>继续探索</el-button>
             </div>
         </div>
     </div>
@@ -59,13 +69,15 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Check } from '@element-plus/icons-vue'
+import { CircleCheck, Calendar, ChatDotRound, Location } from '@element-plus/icons-vue'
 import { getOrderDetail } from '@/api/order'
 
 const route = useRoute()
 const router = useRouter()
 const orderId = ref<number>(Number(route.params.id) || 0)
 const orderNumber = ref<string>('')
+const paymentAmount = ref<number>(0)
+const homestayId = ref<number>(0)
 
 // 获取订单详情
 onMounted(async () => {
@@ -77,6 +89,8 @@ onMounted(async () => {
     try {
         const response = await getOrderDetail(orderId.value)
         orderNumber.value = response.data.orderNumber
+        paymentAmount.value = response.data.totalAmount
+        homestayId.value = response.data.homestayId
     } catch (error) {
         console.error('获取订单详情失败:', error)
         ElMessage.error('获取订单详情失败')
@@ -95,14 +109,19 @@ const goToOrderDetail = () => {
     router.push(`/orders/${orderId.value}`)
 }
 
-// 跳转到我的订单列表
-const goToMyOrders = () => {
-    router.push('/user/bookings')
+// 跳转到房源详情
+const goToHomestayDetail = () => {
+    router.push(`/homestays/${homestayId.value}`)
+}
+
+// 跳转到首页
+const goToHome = () => {
+    router.push('/')
 }
 </script>
 
 <style scoped>
-.order-success-container {
+.pay-success-container {
     max-width: 800px;
     margin: 40px auto;
     padding: 0 20px;
@@ -148,26 +167,21 @@ h1 {
     text-align: left;
 }
 
-.order-number {
+.order-number, .payment-amount {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
 }
 
-.number {
+.number, .amount {
     font-weight: bold;
     margin-right: 8px;
+    color: #409eff;
 }
 
 .copy-btn {
     margin-left: 8px;
     padding: 0;
-}
-
-.notice {
-    color: #606266;
-    margin: 0;
-    line-height: 1.5;
 }
 
 .next-steps {
@@ -179,6 +193,7 @@ h1 {
     font-size: 18px;
     margin-bottom: 16px;
     color: #303133;
+    text-align: center;
 }
 
 .step-list {
@@ -193,16 +208,15 @@ h1 {
     gap: 16px;
 }
 
-.step-number {
+.step-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     background-color: #409eff;
     color: white;
     border-radius: 50%;
-    font-weight: bold;
     flex-shrink: 0;
 }
 
@@ -239,4 +253,4 @@ h1 {
         gap: 8px;
     }
 }
-</style>
+</style> 

@@ -8,11 +8,47 @@
             <div class="status-tabs">
                 <el-tabs v-model="activeTab" @tab-change="handleTabChange">
                     <el-tab-pane label="全部订单" name="all"></el-tab-pane>
-                    <el-tab-pane label="待确认" name="PENDING"></el-tab-pane>
-                    <el-tab-pane label="已确认" name="CONFIRMED"></el-tab-pane>
-                    <el-tab-pane label="已支付" name="PAID"></el-tab-pane>
-                    <el-tab-pane label="已完成" name="COMPLETED"></el-tab-pane>
-                    <el-tab-pane label="已取消" name="CANCELLED"></el-tab-pane>
+                    <el-tab-pane label="待确认" name="PENDING">
+                        <template #label>
+                            <span>待确认</span>
+                            <el-badge v-if="statusCounts.PENDING > 0" :value="statusCounts.PENDING" class="tab-badge" />
+                        </template>
+                    </el-tab-pane>
+                    <el-tab-pane label="待支付" name="NEED_PAYMENT">
+                        <template #label>
+                            <span>待支付</span>
+                            <el-badge v-if="statusCounts.NEED_PAYMENT > 0" :value="statusCounts.NEED_PAYMENT"
+                                class="tab-badge" />
+                        </template>
+                    </el-tab-pane>
+                    <el-tab-pane label="进行中" name="IN_PROGRESS">
+                        <template #label>
+                            <span>进行中</span>
+                            <el-badge v-if="statusCounts.IN_PROGRESS > 0" :value="statusCounts.IN_PROGRESS"
+                                class="tab-badge" />
+                        </template>
+                    </el-tab-pane>
+                    <el-tab-pane label="已完成" name="COMPLETED">
+                        <template #label>
+                            <span>已完成</span>
+                            <el-badge v-if="statusCounts.COMPLETED > 0" :value="statusCounts.COMPLETED"
+                                class="tab-badge" />
+                        </template>
+                    </el-tab-pane>
+                    <el-tab-pane label="已取消" name="CANCELLED">
+                        <template #label>
+                            <span>已取消</span>
+                            <el-badge v-if="statusCounts.CANCELLED > 0" :value="statusCounts.CANCELLED"
+                                class="tab-badge" />
+                        </template>
+                    </el-tab-pane>
+                    <el-tab-pane label="退款相关" name="REFUND_RELATED">
+                        <template #label>
+                            <span>退款相关</span>
+                            <el-badge v-if="statusCounts.REFUND_RELATED > 0" :value="statusCounts.REFUND_RELATED"
+                                class="tab-badge" />
+                        </template>
+                    </el-tab-pane>
                 </el-tabs>
             </div>
         </div>
@@ -22,7 +58,7 @@
                 <el-skeleton :rows="5" animated />
             </div>
 
-            <div v-else-if="!orders.length" class="empty-container">
+            <div v-else-if="!filteredOrders.length" class="empty-container">
                 <el-empty description="没有找到订单">
                     <template #description>
                         <p>{{ getEmptyDescription() }}</p>
@@ -32,7 +68,7 @@
             </div>
 
             <template v-else>
-                <div v-for="order in orders" :key="order.id" class="order-card">
+                <div v-for="order in paginatedFilteredOrders" :key="order.id" class="order-card">
                     <div class="order-card-header">
                         <div class="order-info">
                             <span class="order-number">订单号: {{ order.orderNumber }}</span>
@@ -45,13 +81,13 @@
                             <div v-if="order.status === 'PENDING'" class="order-countdown warning">
                                 <el-tooltip content="超过24小时未确认的订单将被自动取消">
                                     <span><i class="el-icon-time"></i> 剩余: {{ getCountdownTime(order.createTime, 24)
-                                        }}</span>
+                                    }}</span>
                                 </el-tooltip>
                             </div>
                             <div v-if="order.status === 'CONFIRMED'" class="order-countdown danger">
                                 <el-tooltip content="超过2小时未支付的订单将被自动取消">
                                     <span><i class="el-icon-time"></i> 剩余: {{ getCountdownTime(order.updateTime, 2)
-                                        }}</span>
+                                    }}</span>
                                 </el-tooltip>
                             </div>
                         </div>
@@ -78,19 +114,22 @@
 
                     <div class="order-card-footer">
                         <div class="action-buttons">
-                            <!-- 待支付 (已确认 & 未支付) -->
-                            <template v-if="order.status === 'CONFIRMED' && order.paymentStatus === 'UNPAID'">
+                            <!-- 待支付 (已确认 & 未支付 或 支付中状态) -->
+                            <template
+                                v-if="(order.status === 'CONFIRMED' && order.paymentStatus === 'UNPAID') || order.status === 'PAYMENT_PENDING'">
                                 <el-button type="default" size="small"
                                     @click="viewOrderDetail(order.id)">查看详情</el-button>
                                 <el-button type="danger" plain size="small"
                                     @click="cancelOrder(order.id)">取消订单</el-button>
                                 <el-button type="primary" size="small" @click="goToPayment(order.id)">立即支付</el-button>
                                 <!-- 保留支付提示，或根据需要调整 -->
-                                <div v-if="order.status === 'CONFIRMED'" class="payment-reminder danger small-text">
+                                <div v-if="order.status === 'CONFIRMED' || order.status === 'PAYMENT_PENDING'"
+                                    class="payment-reminder danger small-text">
                                     <el-tooltip content="超过2小时未支付的订单将被自动取消">
-                                        <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime,
+                                        <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime ||
+                                            order.createTime,
                                             2)
-                                            }}</span>
+                                        }}</span>
                                     </el-tooltip>
                                 </div>
                             </template>
@@ -101,12 +140,13 @@
                                 <el-button type="default" size="small"
                                     @click="viewOrderDetail(order.id)">查看详情</el-button>
                                 <el-button type="primary" plain size="small">联系房东</el-button>
-                                <!-- <el-button type="warning" plain size="small" @click="requestRefund(order.id)">申请退款</el-button> -->
-                                <!-- 可选：申请退款按钮 -->
+                                <el-button type="warning" plain size="small"
+                                    @click="requestRefund(order.id)">申请退款</el-button>
                             </template>
 
                             <!-- 新增：支付失败 -->
-                            <template v-else-if="order.status === 'PAYMENT_FAILED' || order.paymentStatus === 'FAILED'">
+                            <template
+                                v-else-if="order.status === 'PAYMENT_FAILED' || order.paymentStatus === 'PAYMENT_FAILED'">
                                 <el-button type="default" size="small"
                                     @click="viewOrderDetail(order.id)">查看详情</el-button>
                                 <el-button type="warning" plain size="small"
@@ -126,7 +166,7 @@
                                     <el-tooltip content="超过24小时未确认的订单将被自动取消">
                                         <span><i class="el-icon-time"></i> 确认剩余: {{ getCountdownTime(order.createTime,
                                             24)
-                                            }}</span>
+                                        }}</span>
                                     </el-tooltip>
                                 </div>
                             </template>
@@ -151,7 +191,7 @@
                 </div>
 
                 <div class="pagination-container">
-                    <el-pagination background layout="prev, pager, next" :total="total" :page-size="pageSize"
+                    <el-pagination background layout="prev, pager, next" :total="filteredTotal" :page-size="pageSize"
                         :current-page="currentPage" @current-change="handlePageChange" />
                 </div>
             </template>
@@ -161,6 +201,8 @@
         <ReviewForm v-if="currentReviewOrder" v-model:visible="reviewDialogVisible" :order-id="currentReviewOrder.id"
             :homestay-id="currentReviewOrder.homestayId" :homestay-title="currentReviewOrder.homestayTitle"
             @submit="handleSubmitReview" />
+
+
     </div>
 </template>
 
@@ -171,6 +213,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyOrders, cancelOrder as apiCancelOrder } from '@/api/order'
 import { getHomestayById } from '@/api/homestay'
 import { submitReview } from '@/api/review'
+import { requestRefund as apiRequestRefund } from '@/api/refund'
 import ReviewForm from '@/components/ReviewForm.vue'
 import { getHomestayImageUrl, handleImageError } from '@/utils/image'
 import { type OrderStatus, type PaymentStatus } from '@/types/index'
@@ -192,6 +235,17 @@ interface OrderItem {
     createTime: string
     updateTime: string
     reviewed?: boolean
+    // 退款相关字段
+    refundType?: string
+    refundReason?: string
+    refundAmount?: number
+    refundInitiatedBy?: number
+    refundInitiatedByName?: string
+    refundInitiatedAt?: string
+    refundProcessedBy?: number
+    refundProcessedByName?: string
+    refundProcessedAt?: string
+    refundTransactionId?: string
 }
 
 const router = useRouter()
@@ -203,23 +257,120 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const activeTab = ref('all')
 
+// 状态统计
+const statusCounts = ref({
+    PENDING: 0,
+    NEED_PAYMENT: 0,
+    IN_PROGRESS: 0,
+    COMPLETED: 0,
+    CANCELLED: 0,
+    REFUND_RELATED: 0
+})
+
 // --- 评价模态框状态 ---
 const reviewDialogVisible = ref(false);
 const currentReviewOrder = ref<OrderItem | null>(null);
+
+// 计算状态统计
+const updateStatusCounts = () => {
+    const counts = {
+        PENDING: 0,
+        NEED_PAYMENT: 0,
+        IN_PROGRESS: 0,
+        COMPLETED: 0,
+        CANCELLED: 0,
+        REFUND_RELATED: 0
+    }
+
+    orders.value.forEach(order => {
+        const status = order.status as OrderStatus
+        const paymentStatus = order.paymentStatus as PaymentStatus
+
+        // 退款相关
+        if (paymentStatus === 'REFUND_PENDING' || paymentStatus === 'REFUNDED' || paymentStatus === 'REFUND_FAILED') {
+            counts.REFUND_RELATED++
+        }
+        // 已取消
+        else if (status.includes('CANCELLED') || status === 'REJECTED') {
+            counts.CANCELLED++
+        }
+        // 已完成
+        else if (status === 'COMPLETED') {
+            counts.COMPLETED++
+        }
+        // 待确认
+        else if (status === 'PENDING') {
+            counts.PENDING++
+        }
+        // 待支付 (已确认但未支付 或 支付中状态)
+        else if ((status === 'CONFIRMED' && (paymentStatus === 'UNPAID' || !paymentStatus)) || status === 'PAYMENT_PENDING') {
+            counts.NEED_PAYMENT++
+        }
+        // 进行中（已支付但未完成）
+        else if (paymentStatus === 'PAID' || status === 'CHECKED_IN' || status === 'READY_FOR_CHECKIN') {
+            counts.IN_PROGRESS++
+        }
+    })
+
+    statusCounts.value = counts
+}
+
+// 筛选订单
+const getFilteredOrders = () => {
+    if (activeTab.value === 'all') {
+        return orders.value
+    }
+
+    return orders.value.filter(order => {
+        const status = order.status as OrderStatus
+        const paymentStatus = order.paymentStatus as PaymentStatus
+
+        switch (activeTab.value) {
+            case 'PENDING':
+                return status === 'PENDING'
+            case 'NEED_PAYMENT':
+                return (status === 'CONFIRMED' && (paymentStatus === 'UNPAID' || !paymentStatus)) || status === 'PAYMENT_PENDING'
+            case 'IN_PROGRESS':
+                return paymentStatus === 'PAID' || status === 'CHECKED_IN' || status === 'READY_FOR_CHECKIN'
+            case 'COMPLETED':
+                return status === 'COMPLETED'
+            case 'CANCELLED':
+                return status.includes('CANCELLED') || status === 'REJECTED'
+            case 'REFUND_RELATED':
+                return paymentStatus === 'REFUND_PENDING' || paymentStatus === 'REFUNDED' || paymentStatus === 'REFUND_FAILED'
+            default:
+                return true
+        }
+    })
+}
+
+// 使用筛选后的订单
+const filteredOrders = computed(() => getFilteredOrders())
+
+// 分页筛选后的订单
+const paginatedFilteredOrders = computed(() => {
+    const filtered = filteredOrders.value
+    const start = (currentPage.value - 1) * pageSize.value
+    const end = start + pageSize.value
+    return filtered.slice(start, end)
+})
+
+// 当前筛选状态下的总数
+const filteredTotal = computed(() => filteredOrders.value.length)
+
+
 
 // 获取订单列表
 const fetchOrders = async () => {
     loading.value = true
     try {
         const params: any = {
-            page: currentPage.value - 1,
-            size: pageSize.value
+            page: 0,
+            size: 1000  // 获取足够多的订单数据，在前端分页
         }
 
-        // 如果不是全部订单，则添加状态过滤
-        if (activeTab.value !== 'all') {
-            params.status = activeTab.value
-        }
+        // 注意：我们现在获取所有订单，然后在前端进行筛选
+        // 不再向后端传递新的状态分类，因为后端不认识这些状态
 
         const response = await getMyOrders(params)
         console.log('获取到订单数据:', response)
@@ -275,6 +426,9 @@ const fetchOrders = async () => {
 
         await updateOrderImages(); // 图片更新逻辑保持不变
 
+        // 更新状态统计
+        updateStatusCounts()
+
     } catch (error) {
         console.error('获取订单列表失败:', error)
         ElMessage.error('获取订单列表失败，请刷新页面重试')
@@ -327,13 +481,14 @@ const handleImageErrorEvent = (event: Event) => {
 // 处理标签页切换
 const handleTabChange = () => {
     currentPage.value = 1
-    fetchOrders()
+    // 不需要重新获取数据，只需要更新统计
+    updateStatusCounts()
 }
 
 // 处理分页变化
 const handlePageChange = (page: number) => {
     currentPage.value = page
-    fetchOrders()
+    // 不需要重新获取数据，分页由计算属性自动处理
 }
 
 // 取消订单
@@ -406,6 +561,56 @@ const viewOrderDetail = (orderId: number) => {
     router.push(`/orders/${orderId}`)
 }
 
+// 申请退款
+const requestRefund = async (orderId: number) => {
+    try {
+        const result = await ElMessageBox.prompt(
+            '请说明退款原因（必填）',
+            '申请退款',
+            {
+                confirmButtonText: '提交申请',
+                cancelButtonText: '取消',
+                inputPattern: /\S/,
+                inputErrorMessage: '退款原因不能为空',
+                inputPlaceholder: '请输入退款原因...',
+                type: 'warning'
+            }
+        )
+
+        if (!result.value) {
+            ElMessage.warning('退款原因不能为空')
+            return
+        }
+
+        const loadingInstance = ElMessage({
+            type: 'info',
+            message: '正在提交退款申请...',
+            duration: 0
+        })
+
+        try {
+            await apiRequestRefund(orderId, result.value.trim())
+            ElMessage.closeAll()
+            ElMessage.success('退款申请已提交，请耐心等待处理')
+            fetchOrders() // 刷新订单列表
+        } catch (error: any) {
+            ElMessage.closeAll()
+            console.error('申请退款失败:', error)
+
+            let errorMessage = '申请退款失败，请稍后重试'
+            if (error.response && error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message
+            }
+            ElMessage.error(errorMessage)
+        }
+    } catch (error) {
+        // 用户取消了对话框
+        if (error !== 'cancel') {
+            console.error('退款申请确认框错误:', error)
+        }
+    }
+}
+
 // 前往支付页面 (恢复原始逻辑)
 const goToPayment = (orderId: number) => {
     router.push(`/orders/${orderId}/pay`)
@@ -421,16 +626,18 @@ const getEmptyDescription = () => {
     switch (activeTab.value) {
         case 'PENDING':
             return '暂无待确认的订单'
-        case 'CONFIRMED':
-            return '暂无已确认的订单'
-        case 'PAID':
-            return '暂无已支付的订单'
+        case 'NEED_PAYMENT':
+            return '暂无待支付的订单'
+        case 'IN_PROGRESS':
+            return '暂无进行中的订单'
         case 'COMPLETED':
             return '暂无已完成的订单'
         case 'CANCELLED':
             return '暂无已取消的订单'
+        case 'REFUND_RELATED':
+            return '暂无退款相关的订单'
         default:
-            return '暂无订单记录'
+            return '暂无订单记录，快去预订心仪的民宿吧！'
     }
 }
 
@@ -443,7 +650,7 @@ const getStatusType = (order: OrderItem): string => {
     if (status?.startsWith('CANCELLED') || status === 'REJECTED') return 'danger';
     if (paymentStatus === 'REFUNDED') return 'warning'; // 已退款用 warning
     if (status === 'COMPLETED') return 'info'; // 已完成用 info
-    if (status === 'PAYMENT_FAILED' || paymentStatus === 'FAILED') return 'danger'; // 支付失败用 danger
+    if (status === 'PAYMENT_FAILED' || paymentStatus === 'PAYMENT_FAILED') return 'danger'; // 支付失败用 danger
 
     // 处理支付成功状态
     if (paymentStatus === 'PAID') {
@@ -475,16 +682,28 @@ const getStatusText = (order: OrderItem): string => {
     const status = order.status as OrderStatus;
     const paymentStatus = order.paymentStatus as PaymentStatus;
 
+    // 优先处理退款相关状态
+    if (paymentStatus === 'REFUND_PENDING') {
+        const refundTypeText = getRefundTypeText(order.refundType);
+        return `退款中${refundTypeText}`;
+    }
+    if (paymentStatus === 'REFUNDED') {
+        const refundTypeText = getRefundTypeText(order.refundType);
+        return `已退款${refundTypeText}`;
+    }
+    if (paymentStatus === 'REFUND_FAILED') {
+        const refundTypeText = getRefundTypeText(order.refundType);
+        return `退款失败${refundTypeText}`;
+    }
+
     // 优先处理最终/关键状态
     if (status?.startsWith('CANCELLED')) return '已取消';
     if (status === 'REJECTED') return '已拒绝';
-    if (paymentStatus === 'REFUNDED') return '已退款';
     if (status === 'COMPLETED') return '已完成';
-    if (status === 'PAYMENT_FAILED' || paymentStatus === 'FAILED') return '支付失败'; // 支付失败文本
+    if (status === 'PAYMENT_FAILED' || paymentStatus === 'PAYMENT_FAILED') return '支付失败'; // 支付失败文本
 
     // 处理支付成功状态驱动的状态
     if (paymentStatus === 'PAID') {
-        if (status === 'COMPLETED') return '已完成';
         // Add CHECKED_IN check if applicable
         // if (status === 'CHECKED_IN') return '已入住';
         return '已支付'; // 明确是支付状态驱动
@@ -504,12 +723,27 @@ const getStatusText = (order: OrderItem): string => {
         return '待确认';
     }
 
-    // 处理完成 (如果前面没匹配到)
-    if (status === 'COMPLETED') return '已完成';
-
     // Fallback
     console.warn(`Unhandled order state in getStatusText: status=${status}, paymentStatus=${order.paymentStatus}`);
     return '未知状态';
+}
+
+// 获取退款类型文本
+const getRefundTypeText = (refundType?: string): string => {
+    if (!refundType) return '';
+
+    switch (refundType) {
+        case 'USER_REQUESTED':
+            return '（用户申请）';
+        case 'HOST_CANCELLED':
+            return '（房东取消）';
+        case 'ADMIN_INITIATED':
+            return '（管理员发起）';
+        case 'SYSTEM_AUTOMATIC':
+            return '（系统自动）';
+        default:
+            return '';
+    }
 }
 
 // 格式化日期
@@ -814,6 +1048,20 @@ onMounted(() => {
 
 .payment-reminder.danger {
     color: var(--el-color-danger);
+}
+
+.tab-badge {
+    margin-left: 8px;
+}
+
+.tab-badge :deep(.el-badge__content) {
+    background-color: #409eff;
+    border: none;
+    font-size: 11px;
+    height: 16px;
+    line-height: 16px;
+    padding: 0 5px;
+    min-width: 16px;
 }
 
 .payment-reminder.warning {
