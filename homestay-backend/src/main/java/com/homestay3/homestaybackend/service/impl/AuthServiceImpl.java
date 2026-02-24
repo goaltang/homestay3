@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.*;
 import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.mapper.UserMapper;
 import com.homestay3.homestaybackend.model.VerificationStatus;
 import com.homestay3.homestaybackend.model.UserRole;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -45,6 +46,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final NotificationService notificationService;
     private final AdminRepository adminRepository;
+    private final UserMapper userMapper;
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -272,21 +274,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private UserDTO convertToDTO(User user) {
-        UserDTO dto = new UserDTO();
-        dto.setId(user.getId());
-        dto.setUsername(user.getUsername());
-        dto.setEmail(user.getEmail());
-        dto.setPhone(user.getPhone());
-        dto.setRealName(user.getRealName());
-        dto.setIdCard(user.getIdCard());
-        dto.setRole(user.getRole());
-        dto.setAvatar(user.getAvatar());
-        dto.setVerificationStatus(user.getVerificationStatus());
-        dto.setCreatedAt(user.getCreatedAt());
-        dto.setUpdatedAt(user.getUpdatedAt());
-        dto.setLastLogin(user.getLastLogin());
-        dto.setEnabled(user.isEnabled());
-        return dto;
+        return userMapper.toDTO(user);
     }
 
     @Override

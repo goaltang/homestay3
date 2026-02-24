@@ -5,7 +5,7 @@ import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
-import com.homestay3.homestaybackend.utils.UserUtil;
+import com.homestay3.homestaybackend.util.UserUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

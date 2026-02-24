@@ -1,5 +1,6 @@
 package com.homestay3.homestaybackend.exception;
 
+import com.homestay3.homestaybackend.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,126 +22,121 @@ public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleResourceNotFoundException(ResourceNotFoundException ex) {
-        Map<String, String> response = new HashMap<>();
-        response.put("error", ex.getMessage());
+    public ResponseEntity<ApiResponse<?>> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        ApiResponse<?> response = ApiResponse.error(404, ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<Map<String, String>> handleBadCredentialsException(BadCredentialsException ex) {
-        Map<String, String> response = new HashMap<>();
-        response.put("error", "用户名或密码错误");
+    public ResponseEntity<ApiResponse<?>> handleBadCredentialsException(BadCredentialsException ex) {
+        ApiResponse<?> response = ApiResponse.error(401, "用户名或密码错误");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponse<?>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
         });
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+        ApiResponse<Map<String, String>> response = ApiResponse.error(400, "参数校验失败", errors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex, WebRequest request) {
+    public ResponseEntity<ApiResponse<?>> handleRuntimeException(RuntimeException ex, WebRequest request) {
         String path = request.getDescription(false).replace("uri=", "");
         logger.error("系统发生运行时异常，路径: {}, 异常: {}", path, ex.getMessage(), ex);
         
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("success", false);
-        errorResponse.put("timestamp", new Date());
-        errorResponse.put("path", path);
+        Map<String, Object> data = new HashMap<>();
         
-        // 为房东房源列表API提供特定的错误处理
+        // 为房东房源列表API提供特定的错误处理（向后兼容）
         if (path.contains("/api/homestays/owner")) {
-            errorResponse.put("message", "获取房源列表失败，请重试");
-            errorResponse.put("data", new ArrayList<>());
-            errorResponse.put("total", 0);
-            errorResponse.put("page", 0);
-            errorResponse.put("size", 10);
-            errorResponse.put("pages", 0);
+            data.put("list", new ArrayList<>());
+            data.put("total", 0);
+            data.put("page", 0);
+            data.put("size", 10);
+            data.put("pages", 0);
         } else if (path.contains("/api/homestays") && !path.contains("/api/homestays/")) {
-            errorResponse.put("message", "系统处理失败，请重试");
-            errorResponse.put("data", new ArrayList<>());
-        } else {
-            errorResponse.put("message", "系统处理失败，请重试");
+            data.put("list", new ArrayList<>());
         }
         
         // 开发环境下返回详细错误信息
         String activeProfile = System.getProperty("spring.profiles.active", "dev");
         if ("dev".equals(activeProfile) || "development".equals(activeProfile)) {
-            errorResponse.put("error", ex.getMessage());
-            errorResponse.put("errorType", ex.getClass().getSimpleName());
+            data.put("error", ex.getMessage());
+            data.put("errorType", ex.getClass().getSimpleName());
         }
         
-        return ResponseEntity.ok(errorResponse);
+        ApiResponse<?> response = data.isEmpty() 
+            ? ApiResponse.error(500, "系统处理失败，请重试")
+            : ApiResponse.error(500, "系统处理失败，请重试", data);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
     
     @ExceptionHandler(NullPointerException.class)
-    public ResponseEntity<Map<String, Object>> handleNullPointerException(NullPointerException ex, WebRequest request) {
+    public ResponseEntity<ApiResponse<?>> handleNullPointerException(NullPointerException ex, WebRequest request) {
         logger.error("系统发生空指针异常: {}", ex.getMessage(), ex);
         
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("success", false);
-        errorResponse.put("message", "数据处理异常，请重试");
-        errorResponse.put("timestamp", new Date());
-        errorResponse.put("path", request.getDescription(false).replace("uri=", ""));
-        
         String path = request.getDescription(false);
+        Map<String, Object> data = new HashMap<>();
+        
         if (path.contains("/api/homestays") && !path.contains("/api/homestays/")) {
-            errorResponse.put("data", new ArrayList<>());
+            data.put("list", new ArrayList<>());
         }
         
-        return ResponseEntity.ok(errorResponse);
+        ApiResponse<?> response = data.isEmpty()
+            ? ApiResponse.error(500, "数据处理异常，请重试")
+            : ApiResponse.error(500, "数据处理异常，请重试", data);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
     
     @ExceptionHandler(org.springframework.dao.DataAccessException.class)
-    public ResponseEntity<Map<String, Object>> handleDataAccessException(
+    public ResponseEntity<ApiResponse<?>> handleDataAccessException(
             org.springframework.dao.DataAccessException ex, WebRequest request) {
         logger.error("数据库访问异常: {}", ex.getMessage(), ex);
         
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("success", false);
-        errorResponse.put("message", "数据服务暂时不可用，请稍后重试");
-        errorResponse.put("timestamp", new Date());
-        errorResponse.put("path", request.getDescription(false).replace("uri=", ""));
-        
         String path = request.getDescription(false);
+        Map<String, Object> data = new HashMap<>();
+        
         if (path.contains("/api/homestays") && !path.contains("/api/homestays/")) {
-            errorResponse.put("data", new ArrayList<>());
+            data.put("list", new ArrayList<>());
         }
         
-        return ResponseEntity.ok(errorResponse);
+        ApiResponse<?> response = data.isEmpty()
+            ? ApiResponse.error(503, "数据服务暂时不可用")
+            : ApiResponse.error(503, "数据服务暂时不可用", data);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGlobalException(Exception ex, WebRequest request) {
+    public ResponseEntity<ApiResponse<?>> handleGlobalException(Exception ex, WebRequest request) {
         logger.error("系统发生未捕获异常: {}", ex.getMessage(), ex);
         
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("success", false);
-        errorResponse.put("message", "系统暂时繁忙，请稍后重试");
-        errorResponse.put("timestamp", new Date());
-        errorResponse.put("path", request.getDescription(false).replace("uri=", ""));
-        
-        // 为获取房源列表的API提供空数据而不是错误
         String path = request.getDescription(false);
+        Map<String, Object> data = new HashMap<>();
+        
+        // 为获取房源列表的API提供空数据而不是错误（向后兼容）
         if (path.contains("/api/homestays") && !path.contains("/api/homestays/")) {
-            errorResponse.put("data", new ArrayList<>());
-            errorResponse.put("message", "暂无房源数据");
+            data.put("list", new ArrayList<>());
         }
         
         // 开发环境下返回详细错误信息，生产环境下隐藏
         String activeProfile = System.getProperty("spring.profiles.active", "dev");
         if ("dev".equals(activeProfile) || "development".equals(activeProfile)) {
-            errorResponse.put("error", ex.getMessage());
-            errorResponse.put("type", ex.getClass().getSimpleName());
+            data.put("error", ex.getMessage());
+            data.put("type", ex.getClass().getSimpleName());
         }
         
-        return ResponseEntity.ok(errorResponse);
+        String message = path.contains("/api/homestays") && !path.contains("/api/homestays/")
+            ? "暂无房源数据"
+            : "系统暂时繁忙，请稍后重试";
+        
+        ApiResponse<?> response = data.isEmpty()
+            ? ApiResponse.error(500, message)
+            : ApiResponse.error(500, message, data);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 } 

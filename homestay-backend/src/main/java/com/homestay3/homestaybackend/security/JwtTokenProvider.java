@@ -74,15 +74,15 @@ public class JwtTokenProvider {
 
     public String getUsernameFromToken(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
+            Claims claims = Jwts.parser()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-            
+
             String username = claims.getSubject();
             log.debug("从Token解析出用户名: {}", username);
-            
+
             // 尝试获取并记录 "authorities" claim
             Object authoritiesClaim = claims.get("authorities");
             if (authoritiesClaim != null) {
@@ -90,7 +90,7 @@ public class JwtTokenProvider {
             } else {
                 log.warn("Token中未包含 'authorities' claim");
             }
-            
+
             return username;
         } catch (Exception e) {
             log.error("从Token解析用户名失败: {}", e.getMessage());
@@ -100,12 +100,12 @@ public class JwtTokenProvider {
 
     public String getAuthoritiesFromToken(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
+            Claims claims = Jwts.parser()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-            
+
             String authorities = claims.get("authorities", String.class);
             log.debug("从Token解析出权限: {}", authorities);
             return authorities;
@@ -117,7 +117,7 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
+            Jwts.parser()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token);
@@ -142,7 +142,7 @@ public class JwtTokenProvider {
 
     private boolean isTokenExpired(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
+            Claims claims = Jwts.parser()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token)

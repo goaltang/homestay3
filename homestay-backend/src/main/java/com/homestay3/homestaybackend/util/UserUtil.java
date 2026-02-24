@@ -1,4 +1,4 @@
-package com.homestay3.homestaybackend.utils;
+package com.homestay3.homestaybackend.util;
 
 // import com.homestay3.homestaybackend.model.CustomUserDetails; // 移除或注释掉错误的导入
 import org.springframework.security.core.Authentication;
