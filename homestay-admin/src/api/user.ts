@@ -38,21 +38,20 @@ export function getUserDetail(id: number) {
 }
 
 // 创建用户
-export function createUser(data: Omit<User, "id">) {
+export function createUser(data: any) {
   // Convert frontend data to backend format
   // Ensure required fields are present and provide defaults if necessary
   const adaptedData: any = {
     username: data.username,
     email: data.email,
     password: data.password, // Assuming password is part of the creation data
-    phoneNumber: data.phone,
-    fullName: data.fullName,
-    role: data.role || "USER", // Default role if not provided
+    phone: data.phone, // 修复：后端字段是 phone，不是 phoneNumber
+    nickname: data.nickname,
+    role: data.userType || "ROLE_USER", // 使用 userType 并设置默认值为 ROLE_USER
     // Set enabled, default to true if not provided in data
     enabled: typeof data.enabled === "boolean" ? data.enabled : true,
     // Copy other potential fields from User type excluding id and status
     realName: data.realName,
-    idCard: data.idCard,
     avatar: data.avatar,
     // DO NOT include status here if User type still has it
   };
@@ -73,10 +72,17 @@ export function updateUser(id: number, data: Partial<User>) {
   // Convert frontend data to backend format
   const adaptedData: any = { ...data };
 
-  if ("phone" in adaptedData) {
-    adaptedData.phoneNumber = adaptedData.phone;
-    delete adaptedData.phone;
+  // 处理用户类型字段映射
+  if ("userType" in adaptedData) {
+    adaptedData.role = adaptedData.userType;
+    delete adaptedData.userType;
   }
+
+  // 手机号字段在后端就是 phone，不需要转换
+  // if ("phone" in adaptedData) {
+  //   adaptedData.phoneNumber = adaptedData.phone;
+  //   delete adaptedData.phone;
+  // }
 
   // Send the boolean `enabled` value directly if present
   if ("enabled" in adaptedData) {

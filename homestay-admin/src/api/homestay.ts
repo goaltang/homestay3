@@ -12,15 +12,58 @@ import {
 
 // Temporary type definition if not available in @/types
 interface HomestayTypeDTO {
+  id: number;
   code: string;
   name: string;
-  // Add other fields from backend DTO if needed (icon, description etc.)
+  description?: string;
+  icon?: string;
+  active: boolean;
+  sortOrder: number;
+  categoryId?: number;
+  categoryName?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface HomestayTypeApiResponse {
   success: boolean;
   data: HomestayTypeDTO[];
   message?: string;
+}
+
+// 审核记录类型定义
+interface AuditLog {
+  id: number;
+  homestayId: number;
+  homestayTitle: string;
+  reviewerId: number;
+  reviewerName: string;
+  oldStatus: string;
+  newStatus: string;
+  actionType: string;
+  reviewReason?: string;
+  reviewNotes?: string;
+  createdAt: string;
+  ipAddress?: string;
+}
+
+// 审核请求类型定义
+interface ReviewRequest {
+  actionType: "APPROVE" | "REJECT";
+  targetStatus?: string;
+  reviewReason?: string;
+  reviewNotes?: string;
+}
+
+// 审核员工作量统计
+
+// 审核统计数据
+interface AuditStatistics {
+  totalPending: number;
+  totalApproved: number;
+  totalRejected: number;
+  averageProcessTime: number;
+  approvalRate: number;
 }
 
 // 获取房源列表
@@ -74,6 +117,24 @@ export function getHomestayDetail(id: number): Promise<Homestay> {
     // adaptHomestayItem 应该返回 Homestay 类型
     return adaptHomestayItem(response.data || response); // 处理可能的包装
   });
+}
+
+// 获取房源详情（包含完整房东信息）
+export function getHomestayDetailWithOwner(id: number): Promise<Homestay> {
+  return request<any>({
+    url: `/api/admin/homestays/${id}/with-owner`,
+    method: "get",
+  })
+    .then((response) => {
+      const data = response.data || response;
+      console.log("获取到的带房东信息的房源数据:", data);
+      return adaptHomestayItem(data);
+    })
+    .catch((error) => {
+      console.warn("带房东信息的API不可用，使用标准API:", error);
+      // 如果专用API不存在，降级使用标准API
+      return getHomestayDetail(id);
+    });
 }
 
 // 创建房源
@@ -185,3 +246,185 @@ export function getActiveHomestayTypes(): Promise<HomestayTypeDTO[]> {
     }
   });
 }
+
+// ======= 新增：审核相关API接口 =======
+
+/**
+ * 执行房源审核操作
+ */
+export function reviewHomestay(
+  id: number,
+  reviewData: ReviewRequest
+): Promise<AuditLog> {
+  return request<AuditLog>({
+    url: `/api/homestays/${id}/review`,
+    method: "post",
+    data: reviewData,
+  });
+}
+
+/**
+ * 获取房源审核历史记录
+ */
+export function getHomestayAuditLogs(
+  id: number,
+  page: number = 1,
+  size: number = 10
+): Promise<PageResult<AuditLog>> {
+  return request<{
+    content: AuditLog[];
+    totalElements: number;
+    totalPages: number;
+    page: number;
+    size: number;
+  }>({
+    url: `/api/homestays/${id}/audit-logs`,
+    method: "get",
+    params: { page: page - 1, size }, // 后端是0开始的分页
+  }).then((response) => {
+    return {
+      list: response.content,
+      total: response.totalElements,
+      totalPages: response.totalPages,
+      currentPage: response.page + 1, // 转换为1开始的分页
+      pageSize: response.size,
+    };
+  });
+}
+
+/**
+ * 房东提交房源审核
+ */
+export function submitHomestayForReview(id: number): Promise<AuditLog> {
+  return request<AuditLog>({
+    url: `/api/homestays/${id}/submit-review`,
+    method: "post",
+  });
+}
+
+/**
+ * 获取审核统计数据
+ */
+export function getAuditStatistics(
+  startDate?: string,
+  endDate?: string
+): Promise<AuditStatistics> {
+  return request<AuditStatistics>({
+    url: "/api/admin/statistics/audit",
+    method: "get",
+    params: {
+      startDate,
+      endDate,
+    },
+  });
+}
+
+/**
+ * 获取待审核房源列表（优化版）
+ */
+export function getPendingReviewHomestays(
+  page: number = 1,
+  size: number = 10
+): Promise<PageResult<Homestay>> {
+  return request<{
+    content: any[];
+    totalElements: number;
+    totalPages: number;
+    page: number;
+    size: number;
+  }>({
+    url: "/api/admin/homestays/pending-review",
+    method: "get",
+    params: { page: page - 1, size },
+  }).then((response) => {
+    return adaptPageResponse<Homestay>(response, adaptHomestayItem);
+  });
+}
+
+/**
+ * 批量审核房源
+ */
+export function batchReviewHomestays(
+  ids: number[],
+  reviewData: ReviewRequest
+): Promise<{ successCount: number; failureCount: number; results: any[] }> {
+  return request<{
+    successCount: number;
+    failureCount: number;
+    results: any[];
+  }>({
+    url: "/api/homestays/batch/review",
+    method: "post",
+    data: {
+      homestayIds: ids,
+      ...reviewData,
+    },
+  });
+}
+
+/**
+ * 获取所有审核历史记录
+ */
+export function getAllAuditHistory(params: {
+  page: number;
+  size: number;
+  actionType?: string;
+  reviewerName?: string;
+  homestayId?: string;
+  startTime?: string;
+  endTime?: string;
+}): Promise<PageResult<AuditLog>> {
+  return request<{
+    content: AuditLog[];
+    totalElements: number;
+    totalPages: number;
+    page: number;
+    size: number;
+  }>({
+    url: `/api/admin/audit/history`,
+    method: "get",
+    params: {
+      ...params,
+      page: params.page - 1, // 后端是0开始的分页
+    },
+  }).then((response) => {
+    return {
+      list: response.content,
+      total: response.totalElements,
+      totalPages: response.totalPages,
+      currentPage: response.page + 1,
+      pageSize: response.size,
+    };
+  });
+}
+
+/**
+ * 获取详细审核统计数据
+ */
+export function getDetailedAuditStatistics(
+  startDate?: string,
+  endDate?: string
+): Promise<{
+  totalReviews: number;
+  approvedCount: number;
+  rejectedCount: number;
+  approvalRate: number;
+  rejectionRate: number;
+  avgProcessTime: number;
+  reviewerStats: any[];
+  reviewerList: any[];
+  rejectionReasons: any[];
+  efficiencyStats: any;
+}> {
+  return request({
+    url: `/api/admin/audit/detailed-statistics`,
+    method: "get",
+    params: {
+      startDate,
+      endDate,
+    },
+  });
+}
+
+// 导出新增的类型定义
+export type { AuditLog, ReviewRequest, AuditStatistics };

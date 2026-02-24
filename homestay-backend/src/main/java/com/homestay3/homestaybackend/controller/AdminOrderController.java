@@ -165,6 +165,69 @@ public class AdminOrderController {
     }
 
     /**
+     * 管理员批准退款申请
+     */
+    @PostMapping("/{id}/refund/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> approveRefund(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        logger.info("管理员批准退款申请，订单ID: {}", id);
+        try {
+            String refundNote = request.getOrDefault("refundNote", "");
+            OrderDTO updatedOrder = orderService.approveRefund(id, refundNote);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("批准退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "批准退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 管理员拒绝退款申请
+     */
+    @PostMapping("/{id}/refund/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> rejectRefund(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        logger.info("管理员拒绝退款申请，订单ID: {}", id);
+        try {
+            String rejectReason = request.getOrDefault("rejectReason", "");
+            OrderDTO updatedOrder = orderService.rejectRefund(id, rejectReason);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("拒绝退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "拒绝退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 管理员完成退款处理
+     */
+    @PostMapping("/{id}/refund/complete")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> completeRefund(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        logger.info("管理员完成退款处理，订单ID: {}", id);
+        try {
+            String refundTransactionId = request.getOrDefault("refundTransactionId", "");
+            OrderDTO updatedOrder = orderService.completeRefund(id, refundTransactionId);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("完成退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "完成退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 删除订单
      */
     @DeleteMapping("/{id}")

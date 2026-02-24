@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.service;
 
-import com.homestay3.homestaybackend.dto.NotificationDto;
+import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.entity.Notification;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
@@ -32,7 +32,7 @@ public interface NotificationService {
      * @param pageable 分页信息
      * @return 通知 DTO 的分页结果
      */
-    Page<NotificationDto> getNotificationsForUser(Long userId, Boolean isRead, NotificationType type, Pageable pageable);
+    Page<NotificationDTO> getNotificationsForUser(Long userId, Boolean isRead, NotificationType type, Pageable pageable);
 
     /**
      * 获取指定用户的未读通知数量

@@ -84,27 +84,10 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/upload-avatar")
-    public ResponseEntity<Map<String, String>> uploadAvatar(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "username", required = false) String username) {
-        
-        log.info("上传头像请求: username={}, filename={}, size={}KB", 
-                username, file.getOriginalFilename(), file.getSize() / 1024);
-        
-        try {
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "文件为空"));
-            }
-            
-            String avatarUrl = authService.uploadAvatar(file, username);
-            return ResponseEntity.ok(Map.of("url", avatarUrl));
-        } catch (IOException e) {
-            log.error("上传头像失败: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "上传头像失败: " + e.getMessage()));
-        }
-    }
+    /**
+     * 头像上传功能已迁移到FileController统一处理
+     * 请使用 /api/files/upload?type=avatar 端点
+     */
 
     @GetMapping("/user-info")
     public ResponseEntity<AuthResponse> getUserInfo(@RequestParam String username) {
@@ -189,5 +172,7 @@ public class AuthController {
                             .build());
         }
     }
+    
+
 
 } 

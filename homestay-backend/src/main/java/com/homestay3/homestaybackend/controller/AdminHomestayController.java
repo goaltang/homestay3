@@ -57,13 +57,53 @@ public class AdminHomestayController {
     }
 
     /**
+     * 获取待审核房源列表 - 必须在 /{id} 路由之前定义
+     */
+    @GetMapping("/pending-review")
+    public ResponseEntity<?> getPendingReviewHomestays(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        logger.info("管理员获取待审核房源列表，页码: {}, 每页数量: {}", page, size);
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        Page<HomestayDTO> homestays = homestayService.getAdminHomestays(pageable, null, "PENDING", null);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", homestays.getContent());
+        response.put("totalElements", homestays.getTotalElements());
+        response.put("totalPages", homestays.getTotalPages());
+        response.put("page", homestays.getNumber());
+        response.put("size", homestays.getSize());
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 获取房源详情
      */
     @GetMapping("/{id}")
     public ResponseEntity<?> getHomestayDetail(@PathVariable Long id) {
         logger.info("管理员获取房源详情，ID: {}", id);
-        HomestayDTO homestay = homestayService.getHomestayById(id);
+        HomestayDTO homestay = homestayService.getHomestayById(id, null);
         return ResponseEntity.ok(homestay);
+    }
+
+    /**
+     * 获取房源详情（包含完整房东信息）
+     */
+    @GetMapping("/{id}/with-owner")
+    public ResponseEntity<?> getHomestayDetailWithOwner(@PathVariable Long id) {
+        logger.info("管理员获取带完整房东信息的房源详情，ID: {}", id);
+        
+        try {
+            HomestayDTO homestay = homestayService.getHomestayWithOwnerDetails(id);
+            return ResponseEntity.ok(homestay);
+        } catch (Exception e) {
+            logger.error("获取带房东信息的房源详情失败，ID: {}, 错误: {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "获取房源详情失败: " + e.getMessage()));
+        }
     }
 
     /**
@@ -142,6 +182,7 @@ public class AdminHomestayController {
      * 批量更新房源状态
      */
     @PutMapping("/batch/status")
+    @SuppressWarnings("unchecked")
     public ResponseEntity<?> batchUpdateHomestayStatus(@RequestBody Map<String, Object> request) {
         List<Long> ids = (List<Long>) request.get("ids");
         String status = (String) request.get("status");
@@ -170,4 +211,5 @@ public class AdminHomestayController {
                 .body(Map.of("error", e.getMessage()));
         }
     }
+
 } 

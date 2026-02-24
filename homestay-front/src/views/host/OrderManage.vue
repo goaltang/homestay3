@@ -38,6 +38,86 @@
             </el-col>
         </el-row>
 
+        <!-- 自动状态管理统计 -->
+        <el-row :gutter="20" class="stat-row auto-status-row">
+            <el-col :span="5">
+                <el-card shadow="hover" class="stat-card auto-status-card">
+                    <div class="stat-content">
+                        <div class="stat-title">
+                            <el-icon>
+                                <Clock />
+                            </el-icon>
+                            待自动入住
+                        </div>
+                        <div class="stat-value auto-checkin">{{ autoStatusStats.pendingAutoCheckIn || 0 }}</div>
+                        <div class="stat-desc">今日22:00后自动入住</div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="5">
+                <el-card shadow="hover" class="stat-card auto-status-card">
+                    <div class="stat-content">
+                        <div class="stat-title">
+                            <el-icon>
+                                <CircleCheck />
+                            </el-icon>
+                            待自动完成
+                        </div>
+                        <div class="stat-value auto-complete">{{ autoStatusStats.pendingAutoComplete || 0 }}</div>
+                        <div class="stat-desc">明日06:00后自动完成</div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="5">
+                <el-card shadow="hover" class="stat-card auto-status-card">
+                    <div class="stat-content">
+                        <div class="stat-title">
+                            <el-icon>
+                                <Warning />
+                            </el-icon>
+                            错过入住
+                        </div>
+                        <div class="stat-value missed-checkin">{{ autoStatusStats.missedCheckIn || 0 }}</div>
+                        <div class="stat-desc">需要特别关注的订单</div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="9">
+                <el-card shadow="hover" class="stat-card auto-status-card management-card">
+                    <div class="stat-content">
+                        <div class="stat-title">
+                            <el-icon>
+                                <Setting />
+                            </el-icon>
+                            自动状态管理
+                        </div>
+                        <div class="management-actions">
+                            <div class="action-group">
+                                <el-button type="primary" size="small" @click="showAutoStatusConfig" plain>
+                                    查看配置
+                                </el-button>
+                                <el-button type="success" size="small" @click="manualTriggerAutoStatus"
+                                    :loading="autoStatusLoading" plain>
+                                    手动执行
+                                </el-button>
+                                <el-button type="warning" size="small" @click="debugUserInfo" plain>
+                                    权限调试
+                                </el-button>
+                            </div>
+                            <div class="action-group">
+                                <el-button type="info" size="small" @click="analyzeHistoryOrders" plain>
+                                    分析历史订单
+                                </el-button>
+                                <el-button type="danger" size="small" @click="fixHistoryOrders" plain>
+                                    修复历史订单
+                                </el-button>
+                            </div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+        </el-row>
+
         <el-row :gutter="20" class="stat-row">
             <el-col :span="6">
                 <el-card shadow="hover" class="stat-card">
@@ -94,7 +174,12 @@
                         <el-option label="已入住" value="CHECKED_IN" />
                         <el-option label="已完成" value="COMPLETED" />
                         <el-option label="已取消" value="CANCELLED" />
+                        <el-option label="系统取消" value="CANCELLED_SYSTEM" />
+                        <el-option label="用户取消" value="CANCELLED_BY_USER" />
                         <el-option label="已拒绝" value="REJECTED" />
+                        <el-option label="退款中" value="REFUND_PENDING" />
+                        <el-option label="已退款" value="REFUNDED" />
+                        <el-option label="退款失败" value="REFUND_FAILED" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="入住日期">
@@ -160,7 +245,7 @@
                 <el-table-column label="订单状态" width="100" align="center">
                     <template #default="scope">
                         <el-tag :type="getStatusType(scope.row.status)" effect="plain">
-                            {{ getStatusText(scope.row.status) }}
+                            {{ getStatusText(scope.row) }}
                         </el-tag>
                     </template>
                 </el-table-column>
@@ -192,6 +277,10 @@
                                 v-if="(scope.row.status === 'PENDING' || scope.row.status === 'CONFIRMED') && scope.row.paymentStatus === 'UNPAID'"
                                 type="danger" size="small" @click="handleCancel(scope.row)">
                                 取消
+                            </el-button>
+                            <el-button v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
+                                type="danger" @click="handleCancel(scope.row)">
+                                取消订单（将退款）
                             </el-button>
                             <el-button type="warning" size="small" @click="handleDetails(scope.row)">
                                 详情
@@ -230,7 +319,7 @@
                     </el-descriptions-item>
                     <el-descriptions-item label="订单状态" :span="2">
                         <el-tag :type="getStatusType(currentOrder.status)">
-                            {{ getStatusText(currentOrder.status) }}
+                            {{ getStatusText(currentOrder) }}
                         </el-tag>
                     </el-descriptions-item>
                     <el-descriptions-item label="创建时间" :span="2">{{ currentOrder.createTime ||
@@ -263,6 +352,10 @@
                         v-if="(currentOrder.status === 'PENDING' || currentOrder.status === 'CONFIRMED') && currentOrder.paymentStatus === 'UNPAID'"
                         type="danger" @click="handleCancel(currentOrder)">
                         取消订单
+                    </el-button>
+                    <el-button v-if="currentOrder.status === 'PAID' || currentOrder.status === 'READY_FOR_CHECKIN'"
+                        type="danger" @click="handleCancel(currentOrder)">
+                        取消订单（将退款）
                     </el-button>
                     <el-button @click="detailsDialogVisible = false">关闭</el-button>
                 </div>
@@ -305,6 +398,42 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 自动状态配置对话框 -->
+        <el-dialog v-model="autoStatusConfigVisible" title="自动状态流转配置" width="60%">
+            <div v-if="autoStatusConfig" class="auto-config-content">
+                <el-descriptions title="配置信息" :column="2" border>
+                    <el-descriptions-item label="自动入住时间">{{ autoStatusConfig.autoCheckInTime }}</el-descriptions-item>
+                    <el-descriptions-item label="自动完成时间">{{ autoStatusConfig.autoCheckOutTime }}</el-descriptions-item>
+                    <el-descriptions-item label="错过入住处理时间">{{ autoStatusConfig.cancelMissedCheckInTime
+                        }}</el-descriptions-item>
+                    <el-descriptions-item label="检查频率">{{ autoStatusConfig.checkInterval }}</el-descriptions-item>
+                </el-descriptions>
+
+                <el-divider content-position="left">
+                    <strong>自动流转规则</strong>
+                </el-divider>
+
+                <div v-if="autoStatusConfig.rules" class="rules-content">
+                    <el-card v-for="(rule, key) in autoStatusConfig.rules" :key="key" class="rule-card" shadow="never">
+                        <template #header>
+                            <span class="rule-title">{{ key }}</span>
+                        </template>
+                        <p class="rule-description">{{ rule }}</p>
+                    </el-card>
+                </div>
+
+                <el-alert title="说明" type="info" :closable="false" style="margin-top: 20px;">
+                    <p>系统会根据上述规则自动处理订单状态流转，减少人工干预，提高效率。</p>
+                    <p>如有特殊情况需要人工处理，请及时联系系统管理员。</p>
+                </el-alert>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="autoStatusConfigVisible = false">关闭</el-button>
+                </span>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -312,7 +441,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Clock, CircleCheck, Warning, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import {
     getHostOrders,
@@ -343,6 +472,17 @@ interface HostOrderItem {
     createdTime?: string; // 兼容不同字段名
     remark?: string;
     remarks?: string; // 兼容不同字段名
+    // 退款相关字段
+    refundType?: string;
+    refundReason?: string;
+    refundAmount?: number;
+    refundInitiatedBy?: number;
+    refundInitiatedByName?: string;
+    refundInitiatedAt?: string;
+    refundProcessedBy?: number;
+    refundProcessedByName?: string;
+    refundProcessedAt?: string;
+    refundTransactionId?: string;
 }
 
 // 新增：定义房源选项接口
@@ -362,6 +502,18 @@ const orderStats = reactive({
     cancelled: 0,
     rejected: 0
 })
+
+// 自动状态统计数据
+const autoStatusStats = reactive({
+    pendingAutoCheckIn: 0,
+    pendingAutoComplete: 0,
+    missedCheckIn: 0
+})
+
+// 自动状态管理相关
+const autoStatusLoading = ref(false)
+const autoStatusConfigVisible = ref(false)
+const autoStatusConfig = ref<any>({})
 
 // 筛选表单
 const filterForm = reactive({
@@ -414,17 +566,60 @@ const resetFilter = () => {
     fetchOrders()
 }
 
-// 获取状态文本
-const getStatusText = (status: string) => {
+// 获取状态文本（包含退款类型信息）
+const getStatusText = (order: HostOrderItem | string) => {
+    let status: string;
+    let refundType: string | undefined;
+
+    if (typeof order === 'string') {
+        status = order;
+        refundType = undefined;
+    } else {
+        status = order.status;
+        refundType = order.refundType;
+    }
+
+    // 处理退款状态，显示退款类型
+    if (status === 'REFUNDED') {
+        if (refundType) {
+            const refundTypeMap: Record<string, string> = {
+                'USER_REQUESTED': '已退款（用户申请）',
+                'HOST_CANCELLED': '已退款（房东取消）',
+                'ADMIN_INITIATED': '已退款（管理员发起）',
+                'SYSTEM_AUTOMATIC': '已退款（系统自动）'
+            };
+            return refundTypeMap[refundType] || '已退款';
+        }
+        return '已退款';
+    }
+
+    if (status === 'REFUND_PENDING') {
+        if (refundType) {
+            const refundTypeMap: Record<string, string> = {
+                'USER_REQUESTED': '退款中（用户申请）',
+                'HOST_CANCELLED': '退款中（房东取消）',
+                'ADMIN_INITIATED': '退款中（管理员发起）',
+                'SYSTEM_AUTOMATIC': '退款中（系统自动）'
+            };
+            return refundTypeMap[refundType] || '退款中';
+        }
+        return '退款中';
+    }
+
     const statusMap: Record<string, string> = {
         'PENDING': '待确认',
         'CONFIRMED': '已确认',
         'PAYMENT_PENDING': '待支付',
+        'PAID': '已支付',
+        'READY_FOR_CHECKIN': '待入住',
         'CHECKED_IN': '已入住',
         'COMPLETED': '已完成',
         'CANCELLED': '已取消',
+        'CANCELLED_SYSTEM': '系统取消',
+        'CANCELLED_BY_USER': '用户取消',
+        'CANCELLED_BY_HOST': '房东取消',
         'REJECTED': '已拒绝',
-        'PAID': '已支付'
+        'REFUND_FAILED': '退款失败'
     }
     return statusMap[status] || status
 }
@@ -435,11 +630,18 @@ const getStatusType = (status: string) => {
         'PENDING': 'warning',
         'CONFIRMED': 'primary',
         'PAYMENT_PENDING': 'warning',
+        'PAID': 'success',
+        'READY_FOR_CHECKIN': 'primary',
         'CHECKED_IN': 'primary',
         'COMPLETED': 'info',
         'CANCELLED': 'danger',
+        'CANCELLED_SYSTEM': 'danger',
+        'CANCELLED_BY_USER': 'danger',
+        'CANCELLED_BY_HOST': 'danger',
         'REJECTED': 'danger',
-        'PAID': 'success'
+        'REFUND_PENDING': 'warning',
+        'REFUNDED': 'info',
+        'REFUND_FAILED': 'danger'
     }
     return statusMap[status] || ''
 }
@@ -745,7 +947,7 @@ const updateStats = async () => {
             orderStats.checked_in = orders.value.filter(item => item.status === 'CHECKED_IN').length;
             orderStats.paid = orders.value.filter(item => item.status === 'PAID').length;
             orderStats.completed = orders.value.filter(item => item.status === 'COMPLETED').length;
-            orderStats.cancelled = orders.value.filter(item => item.status === 'CANCELLED').length;
+            orderStats.cancelled = orders.value.filter(item => ['CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER'].includes(item.status)).length;
             orderStats.rejected = orders.value.filter(item => item.status === 'REJECTED').length;
             orderStats.total = orders.value.length;
         }
@@ -757,7 +959,7 @@ const updateStats = async () => {
         orderStats.checked_in = orders.value.filter(item => item.status === 'CHECKED_IN').length;
         orderStats.paid = orders.value.filter(item => item.status === 'PAID').length;
         orderStats.completed = orders.value.filter(item => item.status === 'COMPLETED').length;
-        orderStats.cancelled = orders.value.filter(item => item.status === 'CANCELLED').length;
+        orderStats.cancelled = orders.value.filter(item => ['CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER'].includes(item.status)).length;
         orderStats.rejected = orders.value.filter(item => item.status === 'REJECTED').length;
         orderStats.total = orders.value.length;
     }
@@ -889,10 +1091,183 @@ const formatDateTime = (dateTimeString: string) => {
     return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
 }
 
+// 获取自动状态统计
+const fetchAutoStatusStats = async () => {
+    try {
+        const response = await request({
+            url: '/api/host/order-auto-status/stats',
+            method: 'get'
+        })
+        if (response && response.data) {
+            autoStatusStats.pendingAutoCheckIn = response.data.pendingAutoCheckIn || 0
+            autoStatusStats.pendingAutoComplete = response.data.pendingAutoComplete || 0
+            autoStatusStats.missedCheckIn = response.data.missedCheckIn || 0
+        }
+    } catch (error: any) {
+        console.error('获取自动状态统计失败:', error)
+        // 如果是403错误，说明权限不足，隐藏自动管理模块
+        if (error.response?.status === 403) {
+            console.warn('当前用户没有访问自动状态管理的权限')
+            // 可以设置一个标志来隐藏自动管理模块
+        }
+        // 不显示错误消息，避免干扰用户
+    }
+}
+
+// 显示自动状态配置
+const showAutoStatusConfig = async () => {
+    try {
+        const response = await request({
+            url: '/api/host/order-auto-status/config',
+            method: 'get'
+        })
+        if (response && response.data) {
+            autoStatusConfig.value = response.data
+            autoStatusConfigVisible.value = true
+        }
+    } catch (error) {
+        console.error('获取自动状态配置失败:', error)
+        ElMessage.error('获取配置信息失败')
+    }
+}
+
+// 调试：检查当前用户权限信息
+const debugUserInfo = async () => {
+    try {
+        const response = await request({
+            url: '/api/host/order-auto-status/debug/user-info',
+            method: 'get'
+        })
+        console.log('🔍 当前用户权限信息:', response.data)
+        ElMessage.info('权限信息已输出到控制台')
+    } catch (error: any) {
+        console.error('获取用户权限信息失败:', error)
+        console.log('错误状态码:', error.response?.status)
+    }
+}
+
+// 手动触发自动状态流转
+const manualTriggerAutoStatus = async () => {
+    ElMessageBox.confirm('确认手动执行一次自动状态流转吗？', '手动执行', {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'info'
+    }).then(async () => {
+        autoStatusLoading.value = true
+        try {
+            await request({
+                url: '/api/host/order-auto-status/trigger',
+                method: 'post'
+            })
+            ElMessage.success('自动状态流转执行完成')
+            // 刷新统计数据
+            fetchAutoStatusStats()
+            fetchOrders()
+            updateStats()
+        } catch (error: any) {
+            console.error('手动触发自动状态流转失败:', error)
+            ElMessage.error(error.response?.data?.error || '执行失败，请重试')
+        } finally {
+            autoStatusLoading.value = false
+        }
+    }).catch(() => { })
+}
+
+// 分析历史订单
+const analyzeHistoryOrders = async () => {
+    autoStatusLoading.value = true
+    try {
+        const response = await request({
+            url: '/api/host/order-auto-status/analyze-history',
+            method: 'get'
+        })
+
+        if (response && response.data) {
+            const data = response.data
+            ElMessageBox.alert(
+                `分析结果：
+                
+需要修复入住状态的订单：${data.shouldBeCheckedInCount} 个
+需要修复完成状态的订单：${data.shouldBeCompletedCount} 个
+总计问题订单：${data.totalIssues} 个
+
+建议：${data.recommendation}`,
+                '历史订单分析结果',
+                {
+                    confirmButtonText: '了解',
+                    type: data.totalIssues > 0 ? 'warning' : 'success'
+                }
+            )
+        }
+    } catch (error: any) {
+        console.error('分析历史订单失败:', error)
+        ElMessage.error(error.response?.data?.error || '分析失败，请重试')
+    } finally {
+        autoStatusLoading.value = false
+    }
+}
+
+// 修复历史订单
+const fixHistoryOrders = async () => {
+    ElMessageBox.confirm(
+        '此操作将自动修复过去100天内需要状态转换的历史订单。这可能会影响已支付但未入住的订单状态，确认执行吗？',
+        '修复历史订单',
+        {
+            confirmButtonText: '确认修复',
+            cancelButtonText: '取消',
+            type: 'warning'
+        }
+    ).then(async () => {
+        autoStatusLoading.value = true
+        try {
+            const response = await request({
+                url: '/api/host/order-auto-status/fix-history',
+                method: 'post'
+            })
+
+            if (response && response.data) {
+                const data = response.data
+                if (data.success) {
+                    ElMessage.success(data.message)
+                    // 刷新数据
+                    fetchAutoStatusStats()
+                    fetchOrders()
+                    updateStats()
+                } else {
+                    ElMessage.error(data.error || data.warning || '修复过程中出现问题')
+                }
+
+                // 显示详细结果
+                if (data.totalFixed > 0 || data.failedCount > 0) {
+                    ElMessageBox.alert(
+                        `修复完成：
+                        
+修复入住状态：${data.fixedCheckedIn} 个
+修复完成状态：${data.fixedCompleted} 个
+总计修复：${data.totalFixed} 个
+失败：${data.failedCount} 个`,
+                        '修复结果',
+                        {
+                            confirmButtonText: '了解',
+                            type: data.success ? 'success' : 'warning'
+                        }
+                    )
+                }
+            }
+        } catch (error: any) {
+            console.error('修复历史订单失败:', error)
+            ElMessage.error(error.response?.data?.error || '修复失败，请重试')
+        } finally {
+            autoStatusLoading.value = false
+        }
+    }).catch(() => { })
+}
+
 onMounted(() => {
     fetchHomestayOptions()
     fetchOrders()
     updateStats()
+    fetchAutoStatusStats()
 })
 </script>
 
@@ -987,5 +1362,118 @@ onMounted(() => {
 
 .price-value {
     font-weight: bold;
+}
+
+/* 自动状态管理样式 */
+.auto-status-row {
+    border-top: 2px solid #f0f2f5;
+    padding-top: 20px;
+    margin-top: 20px;
+}
+
+.auto-status-card {
+    border: 1px solid #e8f4fd;
+    background: linear-gradient(135deg, #f8fbff 0%, #f0f8ff 100%);
+    height: 140px;
+}
+
+.auto-status-card .el-card__body {
+    height: 100%;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.auto-status-card .stat-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: #1890ff;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 0;
+}
+
+.auto-status-card .stat-value {
+    margin: 5px 0;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.auto-status-card .stat-value.auto-checkin {
+    color: #52c41a;
+}
+
+.auto-status-card .stat-value.auto-complete {
+    color: #1890ff;
+}
+
+.auto-status-card .stat-value.missed-checkin {
+    color: #ff4d4f;
+}
+
+.stat-desc {
+    font-size: 11px;
+    color: #8c8c8c;
+    margin: 0;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.management-card {
+    height: 140px !important;
+}
+
+.management-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.action-group {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+}
+
+.management-actions .el-button {
+    flex: 1;
+    margin: 0;
+    padding: 6px 8px;
+    font-size: 11px;
+    height: 28px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* 配置对话框样式 */
+.auto-config-content {
+    padding: 10px 0;
+}
+
+.rules-content {
+    margin-top: 16px;
+}
+
+.rule-card {
+    margin-bottom: 12px;
+    border: 1px solid #e8f4fd;
+}
+
+.rule-title {
+    font-weight: 600;
+    color: #1890ff;
+}
+
+.rule-description {
+    margin: 0;
+    color: #666;
+    line-height: 1.6;
 }
 </style>

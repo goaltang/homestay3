@@ -80,6 +80,46 @@
                             </div>
                         </el-form-item>
 
+                        <el-form-item label="预订确认方式" prop="autoConfirm">
+                            <div class="booking-confirm-container">
+                                <el-radio-group v-model="homestayForm.autoConfirm" @change="handleConfirmModeChange">
+                                    <el-radio-button :value="true">
+                                        <el-icon style="margin-right: 5px;"><Lightning /></el-icon>
+                                        自动确认
+                                    </el-radio-button>
+                                    <el-radio-button :value="false">
+                                        <el-icon style="margin-right: 5px;"><User /></el-icon>
+                                        房东确认
+                                    </el-radio-button>
+                                </el-radio-group>
+                                
+                                <div class="confirm-mode-description">
+                                    <div v-if="homestayForm.autoConfirm" class="auto-confirm-info">
+                                        <el-icon class="info-icon"><InfoFilled /></el-icon>
+                                        <div class="info-content">
+                                            <p><strong>自动确认模式</strong>：客人预订后订单立即确认，可直接支付</p>
+                                            <ul>
+                                                <li>✅ 提高预订转化率，用户体验更好</li>
+                                                <li>✅ 减少客人等待时间，提升竞争力</li>
+                                                <li>⚠️ 适合价格在500元/晚以下的房源</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div v-else class="manual-confirm-info">
+                                        <el-icon class="info-icon"><InfoFilled /></el-icon>
+                                        <div class="info-content">
+                                            <p><strong>房东确认模式</strong>：客人预订后需要您确认才能支付</p>
+                                            <ul>
+                                                <li>✅ 您可以筛选客人，拒绝不合适的预订</li>
+                                                <li>✅ 适合高价房源或有特殊要求的房源</li>
+                                                <li>⚠️ 需要及时处理预订请求，避免客人流失</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-form-item>
+
                         <div class="guests-nights-container">
                             <el-form-item label="最大入住人数" prop="maxGuests" class="half-width">
                                 <div class="guest-selector">
@@ -273,7 +313,7 @@
                     <el-button @click="prevStep" :disabled="activeStep === 1 || loading">上一步</el-button>
                     <el-button v-if="activeStep < 5" type="primary" @click="nextStep">下一步</el-button>
                     <el-button v-else type="success" @click="handleSubmit" :loading="loading">
-                        {{ isEdit ? '保存修改' : '发布房源' }}
+                        {{ getSubmitButtonText() }}
                     </el-button>
                     <el-button type="info" @click="saveDraft" :loading="savingDraft">保存草稿</el-button>
 
@@ -334,14 +374,16 @@ import { regionData, codeToText } from 'element-china-area-data' // 导入省市
 import {
     Plus, Delete, Edit, Search, Setting, Location,
     Check, Star, HomeFilled, Van, SwitchButton,
-    Connection, Compass, Document, Picture
+    Connection, Compass, Document, Picture,
+    Lightning, User, InfoFilled
 } from '@element-plus/icons-vue'
 import {
     getHomestayById,
     getHomestayTypes, // 这个API可能不再需要，或者需要调整用途
     uploadHomestayImage,
     updateHomestay as updateHomestayApi,
-    createHomestay as createHomestayApi
+    createHomestay as createHomestayApi,
+    saveHomestayDraft
 } from '@/api/homestay'
 import {
     getAmenitiesByCategoryApi,
@@ -414,7 +456,7 @@ const homestayForm = reactive<Partial<Homestay> & { // 使用 Partial 允许部�
     title: '',
     type: '',
     price: '',
-    status: 'INACTIVE',
+    status: 'DRAFT', // 新房源默认为草稿状态
     maxGuests: 1,
     minNights: 1,
     provinceCode: '',
@@ -426,6 +468,7 @@ const homestayForm = reactive<Partial<Homestay> & { // 使用 Partial 允许部�
     coverImage: '',
     images: [],
     featured: false,
+    autoConfirm: false, // 默认为房东确认制
     highlights: '',
     surroundings: ''
 })
@@ -520,32 +563,32 @@ const prevStep = () => {
  * 预处理表单数据
  */
 const preprocessFormData = () => {
-    const processedData = JSON.parse(JSON.stringify(homestayForm)) as typeof homestayForm;
+    const processedData = JSON.parse(JSON.stringify(homestayForm)) as any;
 
-    // 添加用户名(所有者) - 逻辑保持不变
+    // 添加用户名(所有者)
     try {
         const userInfoStr = localStorage.getItem('userInfo')
         if (userInfoStr) {
             const userInfo = JSON.parse(userInfoStr)
             if (userInfo && userInfo.username) {
-                (processedData as any).ownerUsername = userInfo.username // 使用 any 断言避免 TS 错误
+                processedData.ownerUsername = userInfo.username
             } else {
-                (processedData as any).ownerUsername = '' // 确保字段存在
+                processedData.ownerUsername = ''
             }
         } else {
-            (processedData as any).ownerUsername = ''
+            processedData.ownerUsername = ''
         }
     } catch (e) {
         console.error('获取用户信息失败', e);
-        (processedData as any).ownerUsername = ''
+        processedData.ownerUsername = ''
     }
 
-    // 处理价格 - 逻辑保持不变
+    // 处理价格
     if (processedData.price && typeof processedData.price === 'string') {
         processedData.price = String(parseFloat(processedData.price))
     }
 
-    // 处理最大/最小入住 - 逻辑保持不变
+    // 处理最大/最小入住
     if (processedData.maxGuests) {
         processedData.maxGuests = Number(processedData.maxGuests)
     }
@@ -553,10 +596,10 @@ const preprocessFormData = () => {
         processedData.minNights = Number(processedData.minNights)
     }
 
-    // 处理设施数据 - 逻辑保持不变 (但需要修复 Linter Error)
+    // 处理设施数据
     if (processedData.amenities) {
         if (Array.isArray(processedData.amenities)) {
-            const amenityValues = processedData.amenities.map((amenity: any) => { // 添加类型注解
+            const amenityValues = processedData.amenities.map((amenity: any) => {
                 if (typeof amenity === 'string') return amenity
                 if (typeof amenity === 'object' && amenity !== null) return amenity.value || ''
                 return ''
@@ -569,16 +612,30 @@ const preprocessFormData = () => {
         processedData.amenities = []
     }
 
-    // 移除对旧地址字段的处理
-    // delete processedData.province;
-    // delete processedData.city;
-    // delete processedData.district;
-    // delete processedData.address;
-
-    // 确保发送的是 provinceCode, cityCode, districtCode, addressDetail
-    // 这些字段已经在 homestayForm 中，无需额外处理
+    // 确保必要字段有默认值，用于草稿保存
+    if (!processedData.title) processedData.title = '';
+    if (!processedData.type) processedData.type = '';
+    if (!processedData.description) processedData.description = '';
+    if (!processedData.status) processedData.status = 'DRAFT';
 
     return processedData
+}
+
+/**
+ * 获取提交按钮文本
+ */
+const getSubmitButtonText = () => {
+    if (isEdit.value) {
+        // 编辑模式：根据当前状态决定按钮文本
+        if (homestayForm.status === 'DRAFT') {
+            return '提交审核'
+        } else {
+            return '保存修改'
+        }
+    } else {
+        // 新建模式：直接提交审核
+        return '提交审核'
+    }
 }
 
 /**
@@ -586,31 +643,47 @@ const preprocessFormData = () => {
  */
 const saveDraft = async () => {
     try {
-        savingDraft.value = true; // 使用 savingDraft 而不是 loading
+        savingDraft.value = true;
+
+        // 获取处理后的表单数据，但不需要完整验证
         const processedData = preprocessFormData();
-        processedData.status = 'DRAFT';
 
-        let result;
-        if (isEdit.value && homestayId.value) {
-            result = await updateHomestayApi(Number(homestayId.value), processedData);
-        } else {
-            result = await createHomestayApi(processedData);
-        }
+        // 使用专门的草稿保存API
+        const result = await saveHomestayDraft(processedData);
 
-        if (result.data) { // 检查 result.data 是否存在
+        if (result.data) {
             ElMessage.success('房源草稿保存成功');
-            lastSaved.value = new Date(); // 更新保存时间
+            lastSaved.value = new Date();
+
+            // 如果是新创建的草稿，更新表单状态并导航到编辑页面
             if (!isEdit.value && result.data.id) {
-                // 如果是新创建的房源，导航到编辑页面，而不是直接修改 computed 属性
+                // 更新表单数据中的ID和状态
+                homestayForm.id = result.data.id;
+                homestayForm.status = 'DRAFT';
+
+                // 导航到编辑页面
                 router.replace(`/host/homestay/edit/${result.data.id}`);
             }
         } else {
-            ElMessage.error(result.message || '保存失败，请稍后重试');
+            ElMessage.error(result.message || '保存草稿失败，请稍后重试');
         }
     } catch (error) {
         console.error('保存草稿出错:', error);
-        // 修复 Linter Error: error 类型
-        ElMessage.error('保存失败: ' + ((error as Error).message || '未知错误'));
+
+        // 更详细的错误处理
+        let errorMessage = '保存草稿失败';
+        if (error instanceof Error) {
+            errorMessage += ': ' + error.message;
+        } else if (typeof error === 'object' && error !== null && 'response' in error) {
+            const axiosError = error as any;
+            if (axiosError.response?.data?.message) {
+                errorMessage += ': ' + axiosError.response.data.message;
+            } else if (axiosError.response?.status) {
+                errorMessage += ': HTTP ' + axiosError.response.status;
+            }
+        }
+
+        ElMessage.error(errorMessage);
     } finally {
         savingDraft.value = false;
     }
@@ -645,11 +718,21 @@ const handleSubmit = async () => {
 
         loading.value = true;
 
-        // 根据模式确定提交方法
+        // 根据模式和当前状态确定提交方法
+        let targetStatus = dataWithoutAmenities.status;
+
+        // 如果是草稿状态的房源，提交时改为待审核状态
+        if (homestayForm.status === 'DRAFT') {
+            targetStatus = 'PENDING';
+        } else if (!targetStatus) {
+            // 新建房源默认状态
+            targetStatus = 'PENDING';
+        }
+
         const formToSubmit = {
             ...dataWithoutAmenities,
             // 确保其他必要的字段存在
-            status: dataWithoutAmenities.status || "INACTIVE",
+            status: targetStatus,
             maxGuests: Number(dataWithoutAmenities.maxGuests) || 1,
             minNights: Number(dataWithoutAmenities.minNights) || 1
         };
@@ -722,7 +805,12 @@ const handleSubmit = async () => {
                     console.log('所有设施更新完成');
                 }
 
-                ElMessage.success('房源更新成功！');
+                // 根据状态显示不同的成功消息
+                if (homestayForm.status === 'DRAFT') {
+                    ElMessage.success('房源已提交审核！');
+                } else {
+                    ElMessage.success('房源更新成功！');
+                }
             } else {
                 // 新建模式 - 先提交不含设施的数据
                 console.log('创建新房源(不含设施)', formToSubmit);
@@ -755,7 +843,7 @@ const handleSubmit = async () => {
                     console.log('所有设施添加完成');
                 }
 
-                ElMessage.success('房源创建成功！');
+                ElMessage.success('房源已提交审核！');
             }
 
             console.log('服务器响应:', response);
@@ -765,8 +853,12 @@ const handleSubmit = async () => {
                 localStorage.removeItem('homestayDraft');
 
                 // 显示成功信息
+                const successMessage = homestayForm.status === 'DRAFT'
+                    ? '房源已提交审核！审核结果将在1-2个工作日内通知您。'
+                    : `房源${isEdit.value ? '更新' : '创建'}成功！您可以在房源管理页面查看并管理您的房源。`;
+
                 ElMessageBox.alert(
-                    `房源${isEdit.value ? '更新' : '创建'}成功！您可以在房源管理页面查看并管理您的房源。`,
+                    successMessage,
                     '操作成功',
                     {
                         confirmButtonText: '返回房源管理',
@@ -961,7 +1053,7 @@ const fetchHomestayDetail = async () => {
             homestayForm.title = homestay.title || '';
             homestayForm.type = homestay.type || '';
             homestayForm.price = typeof homestay.price === 'string' ? homestay.price : String(homestay.price || 0);
-            homestayForm.status = homestay.status || 'INACTIVE';
+            homestayForm.status = homestay.status || 'DRAFT';
             homestayForm.maxGuests = typeof homestay.maxGuests === 'number' ? homestay.maxGuests : 1;
             homestayForm.minNights = typeof homestay.minNights === 'number' ? homestay.minNights : 1;
             homestayForm.provinceCode = homestay.provinceCode || '';
@@ -1506,7 +1598,7 @@ const loadDraft = () => {
         } else {
             console.log('没有找到草稿数据');
             // 设置默认值
-            homestayForm.status = 'INACTIVE';
+            homestayForm.status = 'DRAFT';
             homestayForm.maxGuests = 1;
             homestayForm.minNights = 1;
         }
@@ -1922,6 +2014,30 @@ const handleAreaChange = (value: string[]) => {
     // 这里通常不需要额外操作，watch 已经处理了 code 的更新
     // 如果需要根据编码获取文本，可以在这里使用 codeToText
 };
+
+// 处理确认模式变化
+const handleConfirmModeChange = (value: boolean) => {
+    console.log('确认模式变化:', value ? '自动确认' : '房东确认');
+    
+    // 根据价格给出建议
+    const currentPrice = Number(homestayForm.price);
+    if (value && currentPrice > 500) {
+        ElMessageBox.confirm(
+            '您的房源价格较高（¥' + currentPrice + '/晚），建议使用房东确认制以便筛选客人。是否确定使用自动确认模式？',
+            '价格提醒',
+            {
+                confirmButtonText: '确定使用自动确认',
+                cancelButtonText: '改为房东确认',
+                type: 'warning',
+            }
+        ).catch(() => {
+            // 用户取消，改回房东确认制
+            homestayForm.autoConfirm = false;
+        });
+    } else if (!value && currentPrice <= 300) {
+        ElMessage.info('您的房源价格适中，使用自动确认可以提高预订转化率');
+    }
+};
 </script>
 
 <style scoped>
@@ -2336,5 +2452,77 @@ const handleAreaChange = (value: string[]) => {
 .step-title:hover {
     color: var(--el-color-primary);
     /* 鼠标悬停时改变颜色 */
+}
+
+/* 自动确认功能样式 */
+.booking-confirm-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.confirm-mode-description {
+    margin-top: 15px;
+}
+
+.auto-confirm-info,
+.manual-confirm-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: #fff;
+    border: 1px solid #e4e7ed;
+}
+
+.auto-confirm-info {
+    border-left: 4px solid #67c23a;
+}
+
+.manual-confirm-info {
+    border-left: 4px solid #409eff;
+}
+
+.info-icon {
+    color: #909399;
+    font-size: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.info-content {
+    flex: 1;
+}
+
+.info-content p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #303133;
+}
+
+.info-content ul {
+    margin: 0;
+    padding-left: 16px;
+    list-style: none;
+}
+
+.info-content li {
+    margin: 4px 0;
+    font-size: 13px;
+    color: #606266;
+    line-height: 1.4;
+}
+
+.info-content li:before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    background-color: currentColor;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
 }
 </style>

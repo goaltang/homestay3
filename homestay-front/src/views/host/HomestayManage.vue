@@ -14,10 +14,12 @@
             <el-form :inline="true" :model="filterForm" class="filter-form">
                 <el-form-item label="房源状态">
                     <el-select v-model="filterForm.status" placeholder="全部状态" clearable>
-                        <el-option label="已上线" value="ACTIVE" />
+                        <el-option label="草稿" value="DRAFT" />
                         <el-option label="待审核" value="PENDING" />
+                        <el-option label="已上线" value="ACTIVE" />
                         <el-option label="已下架" value="INACTIVE" />
                         <el-option label="审核拒绝" value="REJECTED" />
+                        <el-option label="已暂停" value="SUSPENDED" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="房源类型">
@@ -79,21 +81,136 @@
                     </el-tag>
                 </template>
             </el-table-column>
-            <el-table-column width="220" label="操作" fixed="right">
+            <el-table-column width="260" label="操作" fixed="right">
                 <template #default="{ row }">
                     <div class="action-buttons">
-                        <el-button v-if="row.status === 'ACTIVE'" size="small" type="warning"
-                            @click="handleDeactivate(row.id)">
-                            下架
-                        </el-button>
-                        <el-button v-if="row.status === 'INACTIVE' || row.status === 'PENDING'" size="small"
-                            type="success" @click="handleActivate(row.id)">
-                            上线
-                        </el-button>
-                        <el-button size="small" type="primary" @click="handleEdit(row.id)">
-                            编辑
-                        </el-button>
-                        <el-dropdown trigger="click">
+                        <!-- 草稿状态：可以编辑、提交审核 -->
+                        <template v-if="row.status === 'DRAFT'">
+                            <el-button size="small" type="primary" @click="handleEdit(row.id)">
+                                <el-icon>
+                                    <Edit />
+                                </el-icon>
+                                编辑
+                            </el-button>
+                            <!-- 信息完整时显示提交审核按钮 -->
+                            <el-button v-if="isHomestayComplete(row)" size="small" type="success"
+                                @click="handleSubmitForReview(row.id)">
+                                <el-icon>
+                                    <Upload />
+                                </el-icon>
+                                提交审核
+                            </el-button>
+                            <!-- 信息不完整时显示完善信息按钮 -->
+                            <el-tooltip v-else placement="top">
+                                <template #content>
+                                    <div style="max-width: 250px;">
+                                        <strong>信息不完整，无法提交审核</strong><br />
+                                        缺失以下必要信息：<br />
+                                        <span v-for="field in getMissingFields(row)" :key="field"
+                                            style="color: #F56C6C;">
+                                            • {{ field }}<br />
+                                        </span>
+                                        <br />请先完善这些信息后再提交审核
+                                    </div>
+                                </template>
+                                <el-button size="small" type="warning" @click="handleCompleteInfo(row.id)">
+                                    <el-icon>
+                                        <Warning />
+                                    </el-icon>
+                                    完善信息
+                                </el-button>
+                            </el-tooltip>
+                        </template>
+
+                        <!-- 待审核状态：可以撤回审核申请 -->
+                        <template v-else-if="row.status === 'PENDING'">
+                            <el-tooltip content="撤回审核申请，房源将回到草稿状态，您可以修改后重新提交" placement="top">
+                                <el-button size="small" type="warning" @click="handleWithdrawReview(row.id)">
+                                    <el-icon>
+                                        <RefreshRight />
+                                    </el-icon>
+                                    撤回申请
+                                </el-button>
+                            </el-tooltip>
+                            <el-tooltip placement="top">
+                                <template #content>
+                                    <div style="max-width: 200px;">
+                                        <strong>审核状态说明：</strong><br />
+                                        • 房源正在管理员审核中<br />
+                                        • 审核期间无法修改房源信息<br />
+                                        • 您可以撤回申请后重新编辑<br />
+                                        • 通常审核需要1-3个工作日
+                                    </div>
+                                </template>
+                                <el-button size="small" type="info" disabled>
+                                    <el-icon>
+                                        <Edit />
+                                    </el-icon>
+                                    审核中
+                                </el-button>
+                            </el-tooltip>
+                        </template>
+
+                        <!-- 已上线状态：可以下架 -->
+                        <template v-else-if="row.status === 'ACTIVE'">
+                            <el-button size="small" type="warning" @click="handleDeactivate(row.id)">
+                                下架
+                            </el-button>
+                            <el-button size="small" type="primary" @click="handleEdit(row.id)">
+                                <el-icon>
+                                    <Edit />
+                                </el-icon>
+                                编辑
+                            </el-button>
+                        </template>
+
+                        <!-- 已下架状态：可以重新上线 -->
+                        <template v-else-if="row.status === 'INACTIVE'">
+                            <el-button size="small" type="success" @click="handleActivate(row.id)">
+                                上线
+                            </el-button>
+                            <el-button size="small" type="primary" @click="handleEdit(row.id)">
+                                <el-icon>
+                                    <Edit />
+                                </el-icon>
+                                编辑
+                            </el-button>
+                        </template>
+
+                        <!-- 已拒绝状态：可以编辑修改后重新提交 -->
+                        <template v-else-if="row.status === 'REJECTED'">
+                            <el-button size="small" type="primary" @click="handleEdit(row.id)">
+                                <el-icon>
+                                    <Edit />
+                                </el-icon>
+                                修改
+                            </el-button>
+                            <el-button size="small" type="success" @click="handleSubmitForReview(row.id)">
+                                <el-icon>
+                                    <Upload />
+                                </el-icon>
+                                重新提交
+                            </el-button>
+                        </template>
+
+                        <!-- 已暂停状态：可以申请重新上架 -->
+                        <template v-else-if="row.status === 'SUSPENDED'">
+                            <el-button size="small" type="warning" @click="handleRequestReactivation(row.id)">
+                                <el-icon>
+                                    <RefreshRight />
+                                </el-icon>
+                                申请恢复
+                            </el-button>
+                            <el-button size="small" type="info" @click="handleEdit(row.id)" disabled>
+                                <el-icon>
+                                    <Edit />
+                                </el-icon>
+                                已暂停
+                            </el-button>
+                        </template>
+
+                        <!-- 更多操作下拉菜单 -->
+                        <el-dropdown trigger="click" style="margin-left: 8px;">
                             <el-button size="small">
                                 更多<el-icon class="el-icon--right">
                                     <ArrowDown />
@@ -101,12 +218,26 @@
                             </el-button>
                             <template #dropdown>
                                 <el-dropdown-menu>
-                                    <el-dropdown-item @click="handleViewOrders(row.id)">
+                                    <el-dropdown-item @click="handleViewOrders(row.id)"
+                                        :disabled="row.status === 'DRAFT' || row.status === 'PENDING'">
                                         <el-icon>
                                             <Document />
                                         </el-icon> 查看订单
                                     </el-dropdown-item>
-                                    <el-dropdown-item @click="handleDelete(row.id)" divided>
+                                    <el-dropdown-item @click="handleViewAuditHistory(row.id)"
+                                        v-if="row.status !== 'DRAFT'">
+                                        <el-icon>
+                                            <Document />
+                                        </el-icon> 审核记录
+                                    </el-dropdown-item>
+                                    <el-dropdown-item @click="handleWithdrawReview(row.id)"
+                                        v-if="row.status === 'PENDING'">
+                                        <el-icon>
+                                            <RefreshRight />
+                                        </el-icon> 撤回审核申请
+                                    </el-dropdown-item>
+                                    <el-dropdown-item @click="handleDelete(row.id)" divided
+                                        :disabled="row.status === 'ACTIVE' || row.status === 'PENDING'">
                                         <el-icon>
                                             <Delete />
                                         </el-icon> 删除
@@ -130,6 +261,162 @@
                 layout="total, sizes, prev, pager, next, jumper" :total="total" @size-change="handleSizeChange"
                 @current-change="handleCurrentChange" />
         </div>
+
+        <!-- 审核记录对话框 -->
+        <el-dialog v-model="auditHistoryDialogVisible" title="房源审核记录" width="70%" top="5vh"
+            :close-on-click-modal="false">
+            <div v-if="currentAuditHomestayId" class="audit-history-content">
+                <!-- 房源基本信息 -->
+                <el-card class="homestay-info-card" shadow="never" style="margin-bottom: 20px;">
+                    <template #header>
+                        <div class="card-header">
+                            <el-icon>
+                                <House />
+                            </el-icon>
+                            <span>房源信息</span>
+                        </div>
+                    </template>
+                    <el-descriptions :column="3" border v-if="currentAuditHomestay">
+                        <el-descriptions-item label="房源ID">{{ currentAuditHomestayId }}</el-descriptions-item>
+                        <el-descriptions-item label="房源名称">
+                            <strong>{{ currentAuditHomestay.title }}</strong>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="当前状态">
+                            <el-tag :type="getStatusType(currentAuditHomestay.status)">
+                                {{ getStatusText(currentAuditHomestay.status) }}
+                            </el-tag>
+                        </el-descriptions-item>
+                        <el-descriptions-item label="房源类型">{{ getHomestayTypeLabel(currentAuditHomestay.type)
+                        }}</el-descriptions-item>
+                        <el-descriptions-item label="价格">¥{{ currentAuditHomestay.price }}/晚</el-descriptions-item>
+                        <el-descriptions-item label="最大入住">{{ currentAuditHomestay.maxGuests }}人</el-descriptions-item>
+                    </el-descriptions>
+                </el-card>
+
+                <!-- 审核记录 -->
+                <el-card shadow="never">
+                    <template #header>
+                        <div class="card-header">
+                            <el-icon>
+                                <Document />
+                            </el-icon>
+                            <span>审核历史记录</span>
+                            <div style="margin-left: auto; display: flex; gap: 8px;">
+                                <el-button type="text" size="small" @click="refreshCurrentAuditHistory">
+                                    <el-icon>
+                                        <Refresh />
+                                    </el-icon>
+                                    刷新
+                                </el-button>
+                                <el-button type="text" size="small" @click="showDataQualityInfo = !showDataQualityInfo">
+                                    <el-icon>
+                                        <InfoFilled />
+                                    </el-icon>
+                                    数据说明
+                                </el-button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- 数据质量说明 -->
+                    <el-alert v-if="showDataQualityInfo" title="数据说明" type="info" :closable="false"
+                        style="margin-bottom: 16px;">
+                        <template #default>
+                            <p>系统已自动过滤以下类型的记录：</p>
+                            <ul style="margin: 8px 0; padding-left: 20px;">
+                                <li>✅ 系统数据迁移记录</li>
+                                <li>✅ 测试账户的操作记录</li>
+                                <li>✅ 无效的历史数据</li>
+                            </ul>
+                            <p style="color: #909399; font-size: 12px;">只显示真实有效的审核操作记录。</p>
+                        </template>
+                    </el-alert>
+
+                    <!-- 审核记录列表 -->
+                    <div v-loading="loadingAuditHistory">
+                        <div v-if="auditRecords.length > 0" class="audit-timeline">
+                            <el-timeline>
+                                <el-timeline-item v-for="record in auditRecords" :key="record.id"
+                                    :type="getTimelineType(record.actionType)"
+                                    :timestamp="formatDateTime(record.createdAt)" placement="top">
+                                    <div class="timeline-item">
+                                        <div class="timeline-header">
+                                            <div class="action-info">
+                                                <strong>{{ getActionText(record.actionType) }}</strong>
+                                                <el-tag v-if="record.actionType === 'APPROVE'" type="success"
+                                                    size="small">
+                                                    已通过
+                                                </el-tag>
+                                                <el-tag v-else-if="record.actionType === 'REJECT'" type="danger"
+                                                    size="small">
+                                                    已拒绝
+                                                </el-tag>
+                                                <el-tag v-else-if="record.actionType === 'SUBMIT'" type="primary"
+                                                    size="small">
+                                                    已提交
+                                                </el-tag>
+                                                <el-tag v-else-if="record.actionType === 'RESUBMIT'" type="primary"
+                                                    size="small">
+                                                    重新提交
+                                                </el-tag>
+                                                <el-tag v-else-if="record.actionType === 'WITHDRAW'" type="warning"
+                                                    size="small">
+                                                    已撤回
+                                                </el-tag>
+                                                <el-tag v-else type="info" size="small">
+                                                    {{ record.actionType }}
+                                                </el-tag>
+                                            </div>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <div class="reviewer-info" v-if="record.reviewerName">
+                                                <el-icon>
+                                                    <User />
+                                                </el-icon>
+                                                <span><strong>操作人：</strong>{{ record.reviewerName }}</span>
+                                                <span v-if="record.reviewerId" class="reviewer-id">
+                                                    (ID: {{ record.reviewerId }})
+                                                </span>
+                                            </div>
+                                            <div v-if="record.reviewReason" class="reason-info">
+                                                <el-icon>
+                                                    <InfoFilled />
+                                                </el-icon>
+                                                <span><strong>原因：</strong>{{ record.reviewReason }}</span>
+                                            </div>
+                                            <div v-if="record.reviewNotes" class="notes-info">
+                                                <el-icon>
+                                                    <Document />
+                                                </el-icon>
+                                                <span><strong>备注：</strong>{{ record.reviewNotes }}</span>
+                                            </div>
+                                            <div v-if="record.oldStatus && record.newStatus" class="status-change">
+                                                <el-icon>
+                                                    <TrendCharts />
+                                                </el-icon>
+                                                <span><strong>状态变化：</strong>{{ formatStatus(record.oldStatus) }} → {{
+                                                    formatStatus(record.newStatus) }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </el-timeline-item>
+                            </el-timeline>
+                        </div>
+                        <div v-else class="no-audit-history">
+                            <div class="empty-state">
+                                <el-icon size="48" color="#c0c4cc">
+                                    <Document />
+                                </el-icon>
+                                <p style="margin: 12px 0 4px;">暂无审核记录</p>
+                                <p style="color: #909399; font-size: 12px;">
+                                    该房源尚未进行过审核，或审核记录已被系统清理
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </el-card>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
@@ -145,11 +432,15 @@ import {
     batchDeactivateHomestays,
     batchDeleteHomestays,
     createHomestay,
-    getHomestayTypesForFilter
+    getHomestayTypesForFilter,
+    submitHomestayForReview,
+    withdrawHomestayReview,
+    requestReactivation,
+    getHomestayAuditHistory
 } from '@/api/homestay';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import type { HomestayStatus } from '@/types';
-import { ArrowDown, Document, Delete } from '@element-plus/icons-vue';
+import { ArrowDown, Document, Delete, Upload, Edit, RefreshRight, House, User, InfoFilled, TrendCharts, Refresh, Warning } from '@element-plus/icons-vue';
 
 interface Homestay {
     id: number;
@@ -159,6 +450,8 @@ interface Homestay {
     price: number;
     maxGuests: number;
     status: HomestayStatus;
+    description?: string;
+    address?: string;
 }
 
 const router = useRouter();
@@ -313,6 +606,180 @@ const handleViewOrders = (id: number) => {
     router.push(`/host/orders?homestayId=${id}`);
 };
 
+// 提交房源审核
+const handleSubmitForReview = async (id: number) => {
+    try {
+        await ElMessageBox.confirm(
+            '房源信息检查完整！\n\n确认要提交此房源进行审核吗？提交后将无法修改，直到审核完成。',
+            '提交审核确认',
+            {
+                confirmButtonText: '确认提交',
+                cancelButtonText: '取消',
+                type: 'info'
+            }
+        );
+
+        loading.value = true;
+        await submitHomestayForReview(id);
+
+        ElMessage.success('房源已提交审核，请耐心等待审核结果');
+        fetchHomestays();
+    } catch (error: any) {
+        if (error === 'cancel' || error.toString().includes('cancel')) {
+            return;
+        }
+        console.error('提交审核失败', error);
+
+        // 根据错误类型提供更具体的错误信息
+        let errorMessage = '提交审核失败';
+        if (error.response) {
+            const status = error.response.status;
+            const data = error.response.data;
+
+            if (status === 400) {
+                errorMessage = data?.message || '房源信息不完整，无法提交审核';
+            } else if (status === 403) {
+                errorMessage = '您没有权限操作此房源';
+            } else if (status === 409) {
+                errorMessage = '房源当前状态不允许提交审核';
+            } else {
+                errorMessage = data?.message || '提交审核失败，请稍后重试';
+            }
+        }
+
+        ElMessage.error(errorMessage);
+    } finally {
+        loading.value = false;
+    }
+};
+
+// 撤回审核申请
+const handleWithdrawReview = async (id: number) => {
+    try {
+        await ElMessageBox.confirm(
+            '确认要撤回此房源的审核申请吗？撤回后房源状态将变为草稿，您可以修改后重新提交。',
+            '撤回审核申请',
+            {
+                confirmButtonText: '确认撤回',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }
+        );
+
+        loading.value = true;
+        await withdrawHomestayReview(id);
+
+        ElMessage.success('审核申请已撤回，房源状态已变为草稿');
+        fetchHomestays();
+    } catch (error: any) {
+        if (error === 'cancel' || error.toString().includes('cancel')) {
+            return;
+        }
+        console.error('撤回审核申请失败', error);
+
+        // 根据错误类型提供更具体的错误信息
+        let errorMessage = '撤回审核申请失败';
+        if (error.response) {
+            const status = error.response.status;
+            const data = error.response.data;
+
+            if (status === 400) {
+                errorMessage = data?.message || '房源当前状态不允许撤回审核';
+            } else if (status === 403) {
+                errorMessage = '您没有权限操作此房源';
+            } else if (status === 409) {
+                errorMessage = '房源当前状态不允许撤回审核';
+            } else {
+                errorMessage = data?.message || '撤回审核申请失败，请稍后重试';
+            }
+        }
+
+        ElMessage.error(errorMessage);
+    } finally {
+        loading.value = false;
+    }
+};
+
+// 申请重新上架
+const handleRequestReactivation = async (id: number) => {
+    try {
+        const { value: reason } = await ElMessageBox.prompt(
+            '请说明申请重新上架的原因：',
+            '申请重新上架',
+            {
+                confirmButtonText: '提交申请',
+                cancelButtonText: '取消',
+                inputType: 'textarea',
+                inputPlaceholder: '请详细说明您已经解决的问题或申请重新上架的理由...',
+                inputValidator: (value) => {
+                    if (!value || value.trim().length < 10) {
+                        return '申请理由不能少于10个字符';
+                    }
+                    return true;
+                }
+            }
+        );
+
+        loading.value = true;
+        await requestReactivation(id, reason);
+
+        ElMessage.success('重新上架申请已提交，管理员将尽快处理');
+        fetchHomestays();
+    } catch (error: any) {
+        if (error === 'cancel' || error.toString().includes('cancel')) {
+            return;
+        }
+        console.error('申请重新上架失败', error);
+
+        // 根据错误类型提供更具体的错误信息
+        let errorMessage = '申请重新上架失败';
+        if (error.response) {
+            const status = error.response.status;
+            const data = error.response.data;
+
+            if (status === 400) {
+                errorMessage = data?.message || '申请信息有误';
+            } else if (status === 403) {
+                errorMessage = '您没有权限操作此房源';
+            } else if (status === 409) {
+                errorMessage = '房源当前状态不允许申请重新上架';
+            } else {
+                errorMessage = data?.message || '申请重新上架失败，请稍后重试';
+            }
+        }
+
+        ElMessage.error(errorMessage);
+    } finally {
+        loading.value = false;
+    }
+};
+
+// 查看审核历史
+const handleViewAuditHistory = async (id: number) => {
+    try {
+        // 找到对应的房源信息
+        const homestay = homestays.value.find(h => h.id === id);
+        if (!homestay) {
+            ElMessage.error('房源信息不存在');
+            return;
+        }
+
+        // 设置当前房源信息
+        currentAuditHomestayId.value = id;
+        currentAuditHomestay.value = homestay;
+        showDataQualityInfo.value = false;
+
+        // 显示对话框
+        auditHistoryDialogVisible.value = true;
+
+        // 加载审核历史
+        await refreshCurrentAuditHistory();
+    } catch (error: any) {
+        console.error('查看审核历史失败', error);
+        ElMessage.error('查看审核历史失败');
+    }
+};
+
 // 删除房源
 const handleDelete = async (id: number) => {
     try {
@@ -408,10 +875,12 @@ const handleDelete = async (id: number) => {
 // 房源状态对应的标签类型
 const getStatusType = (status: HomestayStatus): string => {
     const types: Record<HomestayStatus, string> = {
-        ACTIVE: 'success',
+        DRAFT: 'info',
         PENDING: 'warning',
+        ACTIVE: 'success',
         INACTIVE: 'info',
-        REJECTED: 'danger'
+        REJECTED: 'danger',
+        SUSPENDED: 'danger'
     };
     return types[status] || 'info';
 };
@@ -419,10 +888,12 @@ const getStatusType = (status: HomestayStatus): string => {
 // 房源状态对应的文本
 const getStatusText = (status: HomestayStatus): string => {
     const texts: Record<HomestayStatus, string> = {
-        ACTIVE: '已上线',
+        DRAFT: '草稿',
         PENDING: '待审核',
+        ACTIVE: '已上线',
         INACTIVE: '已下架',
-        REJECTED: '已拒绝'
+        REJECTED: '已拒绝',
+        SUSPENDED: '已暂停'
     };
     return texts[status] || '未知状态';
 };
@@ -666,6 +1137,157 @@ const getHomestayTypeLabel = (typeCode: string): string => {
     return foundType ? foundType.label : typeCode; // 找不到时返回原始代码
 };
 
+// 审核记录对话框
+const auditHistoryDialogVisible = ref(false);
+const currentAuditHomestayId = ref<number | null>(null);
+const currentAuditHomestay = ref<Homestay | null>(null);
+const auditRecords = ref<any[]>([]);
+const loadingAuditHistory = ref(false);
+const showDataQualityInfo = ref(false);
+
+const getTimelineType = (actionType: string): 'primary' | 'success' | 'warning' | 'danger' | 'info' => {
+    const types: Record<string, 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
+        APPROVE: 'success',
+        REJECT: 'danger',
+        SUBMIT: 'primary',
+        RESUBMIT: 'primary',
+        WITHDRAW: 'warning',
+        REVIEW: 'warning'
+    };
+    return types[actionType] || 'info';
+};
+
+const getActionText = (actionType: string): string => {
+    const texts: Record<string, string> = {
+        APPROVE: '通过审核',
+        REJECT: '拒绝审核',
+        SUBMIT: '提交审核',
+        RESUBMIT: '重新提交',
+        WITHDRAW: '撤回审核',
+        REVIEW: '开始审核'
+    };
+    return texts[actionType] || actionType;
+};
+
+const formatDateTime = (timestamp: string): string => {
+    if (!timestamp) return '未知时间';
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (error) {
+        return '时间格式错误';
+    }
+};
+
+const formatStatus = (status: HomestayStatus): string => {
+    const texts: Record<HomestayStatus, string> = {
+        DRAFT: '草稿',
+        PENDING: '待审核',
+        ACTIVE: '已上线',
+        INACTIVE: '已下架',
+        REJECTED: '已拒绝',
+        SUSPENDED: '已暂停'
+    };
+    return texts[status] || '未知状态';
+};
+
+const refreshCurrentAuditHistory = async () => {
+    if (currentAuditHomestayId.value) {
+        try {
+            loadingAuditHistory.value = true;
+            const response = await getHomestayAuditHistory(currentAuditHomestayId.value, 0, 10);
+
+            if (response.data && response.data.content) {
+                // 过滤掉系统自动生成的迁移数据和测试数据
+                const filteredRecords = response.data.content.filter((record: any) => {
+                    // 过滤条件：排除明显的测试/迁移数据
+                    const isSystemMigration =
+                        record.reviewerName === 'tang' &&
+                        record.reviewReason === '系统数据迁移' &&
+                        record.reviewNotes === '从现有数据自动生成的审核记录';
+
+                    const isTestData = record.reviewerName?.includes('test') ||
+                        record.reviewerName?.includes('测试');
+
+                    return !isSystemMigration && !isTestData;
+                });
+
+                auditRecords.value = filteredRecords;
+                console.log('审核历史已加载，过滤后条目数:', filteredRecords.length);
+            } else {
+                auditRecords.value = [];
+            }
+        } catch (error: any) {
+            console.error('刷新审核历史失败', error);
+
+            let errorMessage = '获取审核历史失败';
+            if (error.response) {
+                const status = error.response.status;
+                const data = error.response.data;
+
+                if (status === 403) {
+                    errorMessage = '您没有权限查看此房源的审核历史';
+                } else if (status === 404) {
+                    errorMessage = '房源不存在';
+                } else {
+                    errorMessage = data?.message || '获取审核历史失败，请稍后重试';
+                }
+            }
+
+            ElMessage.error(errorMessage);
+            auditRecords.value = [];
+        } finally {
+            loadingAuditHistory.value = false;
+        }
+    }
+};
+
+// 检查房源信息是否完整
+const isHomestayComplete = (homestay: Homestay): boolean => {
+    return !!(
+        homestay.title && homestay.title.trim() !== '' &&
+        homestay.coverImage && homestay.coverImage.trim() !== '' &&
+        homestay.price && homestay.price > 0 &&
+        homestay.maxGuests && homestay.maxGuests > 0 &&
+        homestay.description && homestay.description.trim() !== '' &&
+        homestay.address && homestay.address.trim() !== ''
+    );
+};
+
+// 获取房源缺失字段
+const getMissingFields = (homestay: Homestay): string[] => {
+    const missingFields: string[] = [];
+    if (!homestay.title || homestay.title.trim() === '') {
+        missingFields.push('房源标题');
+    }
+    if (!homestay.coverImage || homestay.coverImage.trim() === '') {
+        missingFields.push('封面图片');
+    }
+    if (!homestay.price || homestay.price <= 0) {
+        missingFields.push('房源价格');
+    }
+    if (!homestay.maxGuests || homestay.maxGuests <= 0) {
+        missingFields.push('最大入住人数');
+    }
+    if (!homestay.description || homestay.description.trim() === '') {
+        missingFields.push('房源描述');
+    }
+    if (!homestay.address || homestay.address.trim() === '') {
+        missingFields.push('详细地址');
+    }
+    return missingFields;
+};
+
+// 处理完善信息
+const handleCompleteInfo = (id: number) => {
+    handleEdit(id);
+};
+
 onMounted(() => {
     fetchHomestays();
     fetchHomestayTypes();
@@ -723,5 +1345,104 @@ onMounted(() => {
 .batch-buttons {
     display: inline-block;
     margin-left: 15px;
+}
+
+/* 审核记录对话框样式 */
+.audit-history-content {
+    .homestay-info-card {
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+
+            .el-icon {
+                color: #409eff;
+            }
+        }
+    }
+
+    .audit-timeline {
+        .timeline-item {
+            .timeline-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 8px;
+
+                .action-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+            }
+
+            .timeline-content {
+                >div {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin: 6px 0;
+                    padding: 4px 0;
+                }
+
+                .reviewer-info,
+                .reason-info,
+                .notes-info,
+                .status-change {
+                    border-left: 3px solid #e4e7ed;
+                    padding-left: 8px;
+                    margin-left: 8px;
+                }
+
+                .reviewer-info {
+                    border-left-color: #409eff;
+                }
+
+                .reason-info {
+                    border-left-color: #e6a23c;
+                }
+
+                .notes-info {
+                    border-left-color: #909399;
+                }
+
+                .status-change {
+                    border-left-color: #67c23a;
+                }
+
+                .reviewer-id {
+                    color: #909399;
+                    font-size: 12px;
+                }
+            }
+        }
+    }
+
+    .no-audit-history {
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #909399;
+
+            p {
+                margin: 8px 0;
+            }
+        }
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+
+        .el-icon {
+            color: #409eff;
+        }
+    }
 }
 </style>

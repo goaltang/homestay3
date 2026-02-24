@@ -11,6 +11,22 @@
               <template #title>系统首页</template>
             </el-menu-item>
 
+            <!-- 审核管理 -->
+            <el-menu-item index="/audit/workbench">
+              <el-icon>
+                <Document />
+              </el-icon>
+              <template #title>审核工作台</template>
+            </el-menu-item>
+
+            <!-- 通知中心 -->
+            <el-menu-item index="/notifications">
+              <el-icon>
+                <Bell />
+              </el-icon>
+              <template #title>通知中心</template>
+            </el-menu-item>
+
             <!-- 房源管理 Sub Menu -->
             <el-sub-menu index="/homestay-management">
               <template #title>
@@ -122,7 +138,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, House, List, User, Fold, Expand, CaretBottom, Tickets, Collection, SetUp, ChatDotSquare } from '@element-plus/icons-vue'
+import { DataLine, House, List, User, Fold, Expand, CaretBottom, Tickets, Collection, SetUp, ChatDotSquare, Document, Bell } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 

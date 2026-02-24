@@ -36,6 +36,9 @@ public interface OrderService {
     // 带原因和类型的取消订单方法
     OrderDTO cancelOrderWithReason(Long id, String cancelType, String reason);
     
+    // 系统级取消订单方法（用于定时任务等不需要用户认证的场景）
+    OrderDTO systemCancelOrder(Long id, String cancelType, String reason);
+    
     // 支付订单
     OrderDTO payOrder(Long id);
     
@@ -70,6 +73,20 @@ public interface OrderService {
     
     // 管理员发起退款 (可能需要更复杂的参数)
     OrderDTO initiateRefund(Long id /*, RefundRequest refundRequest */);
+    
+    // 管理员处理退款申请 - 批准退款
+    OrderDTO approveRefund(Long id, String refundNote);
+    
+    // 管理员处理退款申请 - 拒绝退款
+    OrderDTO rejectRefund(Long id, String rejectReason);
+    
+    // 管理员完成退款处理 - 标记退款完成
+    OrderDTO completeRefund(Long id, String refundTransactionId);
+
+    /**
+     * 用户申请退款
+     */
+    OrderDTO requestUserRefund(Long id, String reason);
     
     // 管理员删除订单
     void deleteOrder(Long id);

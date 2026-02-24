@@ -129,7 +129,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 2. 检查特定路径模式 (与方法无关)
         if (path.contains("/uploads/") || 
             path.contains("/static/uploads/") ||
-            path.startsWith("/api/files/") || 
             path.startsWith("/api/locations/") || 
             path.startsWith("/api/v1/locations/") ||
             // 精确匹配公开的 homestay-types 路径，例如 categories
@@ -140,13 +139,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
         
-        // 3. 允许所有 OPTIONS 请求 (CORS 预检)
+        // 3. 检查文件相关API - 只允许GET方法公开访问（文件下载），POST需要认证（文件上传）
+        if (method.equals("GET") && path.startsWith("/api/files/")) {
+            log.debug("允许公开文件下载: GET {}", path);
+            return true;
+        }
+        
+        // 4. 允许所有 OPTIONS 请求 (CORS 预检)
         if ("OPTIONS".equals(method)) {
             log.debug("允许 OPTIONS 请求: {}", path);
             return true;
         }
 
-        // 4. 检查 homestays 相关的公开 API (区分 GET)
+        // 5. 检查 homestays 相关的公开 API (区分 GET)
         if (method.equals("GET")) { // 只检查 GET 方法
             if (path.equals("/api/homestays") || // GET 列表
                 path.equals("/api/v1/homestays") ||
@@ -164,7 +169,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         
-        // 5. 允许公开的 POST /search
+        // 6. 允许公开的 POST /search
         if (method.equals("POST") && 
            (path.equals("/api/homestays/search") || path.equals("/api/v1/homestays/search"))) {
              log.debug("匹配公开 POST API: {} {}", method, path);

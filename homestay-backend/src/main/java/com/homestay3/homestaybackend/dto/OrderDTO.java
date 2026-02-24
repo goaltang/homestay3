@@ -41,4 +41,16 @@ public class OrderDTO {
     private LocalDateTime updateTime;
     private boolean isReviewed;
     private ReviewDTO review;
+    
+    // 退款相关字段
+    private String refundType;
+    private String refundReason;
+    private BigDecimal refundAmount;
+    private Long refundInitiatedBy;
+    private String refundInitiatedByName;
+    private LocalDateTime refundInitiatedAt;
+    private Long refundProcessedBy;
+    private String refundProcessedByName;
+    private LocalDateTime refundProcessedAt;
+    private String refundTransactionId;
 } 

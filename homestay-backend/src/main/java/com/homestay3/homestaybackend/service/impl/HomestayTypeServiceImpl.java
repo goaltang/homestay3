@@ -2,8 +2,8 @@ package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.HomestayTypeDTO;
 import com.homestay3.homestaybackend.dto.TypeCategoryDTO;
-import com.homestay3.homestaybackend.model.HomestayType;
-import com.homestay3.homestaybackend.model.TypeCategory;
+import com.homestay3.homestaybackend.entity.HomestayType;
+import com.homestay3.homestaybackend.entity.TypeCategory;
 import com.homestay3.homestaybackend.repository.HomestayTypeRepository;
 import com.homestay3.homestaybackend.repository.TypeCategoryRepository;
 import com.homestay3.homestaybackend.service.HomestayTypeService;

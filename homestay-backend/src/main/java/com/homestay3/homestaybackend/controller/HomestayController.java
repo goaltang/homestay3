@@ -3,23 +3,16 @@ package com.homestay3.homestaybackend.controller;
 import com.homestay3.homestaybackend.dto.AmenityDTO;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
-import com.homestay3.homestaybackend.dto.UserDTO;
-import com.homestay3.homestaybackend.exception.ResourceInUseException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.entity.User;
-import com.homestay3.homestaybackend.model.Amenity;
-import com.homestay3.homestaybackend.model.Homestay;
+import com.homestay3.homestaybackend.entity.Amenity;
+// 注意：Amenity 已在 entity 包中
 import com.homestay3.homestaybackend.service.AmenityService;
+import com.homestay3.homestaybackend.service.HomestayRecommendationService;
 import com.homestay3.homestaybackend.service.HomestayService;
-import com.homestay3.homestaybackend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,6 +27,8 @@ import java.util.HashMap;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
+import java.util.Date;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping({"/api/homestays", "/api/v1/homestays"})
@@ -43,6 +38,7 @@ public class HomestayController {
     private static final Logger logger = LoggerFactory.getLogger(HomestayController.class);
 
     private final HomestayService homestayService;
+    private final HomestayRecommendationService homestayRecommendationService;
     
     @Autowired
     private AmenityService amenityService;
@@ -51,10 +47,29 @@ public class HomestayController {
      * 获取所有房源
      */
     @GetMapping
-    public ResponseEntity<List<HomestayDTO>> getAllHomestays() {
+    public ResponseEntity<?> getAllHomestays() {
         logger.info("获取所有民宿");
-        List<HomestayDTO> homestays = homestayService.getAllHomestays();
-        return ResponseEntity.ok(homestays);
+        
+        try {
+            List<HomestayDTO> homestays = homestayService.getAllHomestays();
+            logger.info("成功获取{}个房源", homestays.size());
+            return ResponseEntity.ok(homestays);
+        } catch (Exception e) {
+            logger.error("获取所有房源时发生错误: {}", e.getMessage(), e);
+            
+            // 返回错误响应而不是抛出异常
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "获取房源数据失败，请稍后重试");
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("timestamp", new java.util.Date());
+            errorResponse.put("path", "/api/homestays");
+            
+            // 即使出现错误，也返回200状态码和空列表，避免前端500错误
+            errorResponse.put("data", new ArrayList<>());
+            
+            return ResponseEntity.ok(errorResponse);
+        }
     }
 
     /**
@@ -63,7 +78,8 @@ public class HomestayController {
     @GetMapping("/featured")
     public ResponseEntity<List<HomestayDTO>> getFeaturedHomestays() {
         logger.info("获取推荐民宿");
-        List<HomestayDTO> featuredHomestays = homestayService.getFeaturedHomestays();
+        // 使用新的推荐服务替代已废弃的方法
+        List<HomestayDTO> featuredHomestays = homestayRecommendationService.getRecommendedHomestays(6);
         return ResponseEntity.ok(featuredHomestays);
     }
 
@@ -71,9 +87,22 @@ public class HomestayController {
      * 根据ID获取房源详情
      */
     @GetMapping("/{id}")
-    public ResponseEntity<HomestayDTO> getHomestayById(@PathVariable Long id) {
-        logger.info("获取民宿详情，ID: {}", id);
-        HomestayDTO homestay = homestayService.getHomestayById(id);
+    public ResponseEntity<HomestayDTO> getHomestayById(
+            @PathVariable Long id, 
+            @RequestParam(name = "referring_criteria", required = false) String referringCriteriaString) {
+        logger.info("获取民宿详情，ID: {}, 来源搜索条件: {}", id, referringCriteriaString);
+        
+        List<String> referringCriteria = null;
+        if (referringCriteriaString != null && !referringCriteriaString.isEmpty()) {
+            referringCriteria = Arrays.asList(referringCriteriaString.split(","));
+            // Trim whitespace from each criterion
+            if (referringCriteria != null) {
+                 referringCriteria = referringCriteria.stream().map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
+                 if (referringCriteria.isEmpty()) referringCriteria = null;
+            }
+        }
+        
+        HomestayDTO homestay = homestayService.getHomestayById(id, referringCriteria);
         return ResponseEntity.ok(homestay);
     }
 
@@ -101,7 +130,7 @@ public class HomestayController {
      * 创建新房源
      */
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<HomestayDTO> createHomestay(@RequestBody HomestayDTO homestayDTO) {
         logger.info("创建新民宿: {}", homestayDTO.getTitle());
         
@@ -132,6 +161,7 @@ public class HomestayController {
                         convertedAmenities.add(dto);
                     } else if (item instanceof Map) {
                         // 处理前端发送的对象格式
+                        @SuppressWarnings("unchecked")
                         Map<String, Object> map = (Map<String, Object>) item;
                         AmenityDTO dto = new AmenityDTO();
                         dto.setValue((String) map.get("value"));
@@ -177,7 +207,7 @@ public class HomestayController {
      * 更新房源信息
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_ADMIN')")
     public ResponseEntity<HomestayDTO> updateHomestay(
             @PathVariable Long id, 
             @RequestBody HomestayDTO homestayDTO,
@@ -248,7 +278,7 @@ public class HomestayController {
      * 删除房源
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_ADMIN')")
     public ResponseEntity<Map<String, Object>> deleteHomestay(@PathVariable Long id) {
         try {
             logger.info("收到删除房源请求, ID: {}", id);
@@ -305,7 +335,7 @@ public class HomestayController {
      * 更新房源状态
      */
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_ADMIN')")
     public ResponseEntity<HomestayDTO> updateHomestayStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> statusMap,
@@ -322,10 +352,49 @@ public class HomestayController {
     }
 
     /**
+     * 检查房源是否可以提交审核
+     */
+    @GetMapping("/{id}/check-review-ready")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_ADMIN')")
+    public ResponseEntity<Map<String, Object>> checkHomestayReadyForReview(@PathVariable Long id) {
+        try {
+            logger.info("检查房源审核就绪状态，ID: {}", id);
+            
+            boolean ready = homestayService.checkHomestayReadyForReview(id);
+            String details = homestayService.getHomestayReviewReadinessDetails(id);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("ready", ready);
+            response.put("details", details);
+            response.put("timestamp", new Date());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("检查房源审核就绪状态失败: {}", e.getMessage(), e);
+            
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("ready", false);
+            errorResponse.put("details", e.getMessage());
+            errorResponse.put("timestamp", new Date());
+            
+            HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+            if (e instanceof ResourceNotFoundException) {
+                status = HttpStatus.NOT_FOUND;
+            } else if (e instanceof AccessDeniedException) {
+                status = HttpStatus.FORBIDDEN;
+            }
+            
+            return ResponseEntity.status(status).body(errorResponse);
+        }
+    }
+
+    /**
      * 获取当前房东的房源列表
      */
     @GetMapping("/owner")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<?> getMyHomestays(
             Authentication authentication,
             @RequestParam(required = false, defaultValue = "") String status,
@@ -348,14 +417,38 @@ public class HomestayController {
             logger.info("获取房东的房源列表，用户名: {}, 状态: {}, 类型: {}, 页码: {}, 大小: {}",
                     username, status, type, page, size);
 
-            List<HomestayDTO> homestays = homestayService.getHomestaysByOwner(username);
+            List<HomestayDTO> homestays;
+            try {
+                homestays = homestayService.getHomestaysByOwner(username);
+                logger.info("从数据库获取到{}条房源记录", homestays != null ? homestays.size() : 0);
+            } catch (Exception e) {
+                logger.error("调用service获取房源列表时发生异常: {}", e.getMessage(), e);
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "获取房源数据失败: " + e.getMessage());
+                errorResponse.put("data", List.of());
+                errorResponse.put("total", 0);
+                errorResponse.put("page", page);
+                errorResponse.put("size", size);
+                errorResponse.put("pages", 0);
+                return ResponseEntity.ok(errorResponse);
+            }
+
+            // 如果获取到的homestays为null，处理为空列表
+            if (homestays == null) {
+                logger.warn("service返回null，处理为空列表");
+                homestays = new ArrayList<>();
+            }
 
             // 根据状态和类型过滤
             if (!status.isEmpty() || !type.isEmpty()) {
                 homestays = homestays.stream()
-                        .filter(h -> status.isEmpty() || h.getStatus().equalsIgnoreCase(status))
-                        .filter(h -> type.isEmpty() || h.getType().equalsIgnoreCase(type))
-                        .toList();
+                        .filter(h -> h != null) // 过滤掉null的记录
+                        .filter(h -> status.isEmpty() || (h.getStatus() != null && h.getStatus().equalsIgnoreCase(status)))
+                        .filter(h -> type.isEmpty() || (h.getType() != null && h.getType().equalsIgnoreCase(type)))
+                        .collect(Collectors.toList());
+                        
+                logger.info("过滤后剩余{}条房源记录", homestays.size());
             }
 
             // 处理分页
@@ -368,21 +461,35 @@ public class HomestayController {
                 : List.of();
 
             Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
             response.put("data", pagedResults);
             response.put("total", total);
             response.put("page", page);
             response.put("size", size);
             response.put("pages", (int) Math.ceil((double) total / size));
 
+            logger.info("成功返回房源列表，总计: {}, 当前页: {}, 页面大小: {}", total, page, size);
             return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            logger.error("获取房东房源列表失败", e);
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", e.getMessage(),
-                "success", false,
-                "data", List.of(),
-                "total", 0
-            ));
+            logger.error("获取房东房源列表时发生未预期的异常: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "系统处理失败，请重试");
+            errorResponse.put("data", List.of());
+            errorResponse.put("total", 0);
+            errorResponse.put("page", page);
+            errorResponse.put("size", size);
+            errorResponse.put("pages", 0);
+            
+            // 开发环境下返回详细错误信息
+            String activeProfile = System.getProperty("spring.profiles.active", "dev");
+            if ("dev".equals(activeProfile) || "development".equals(activeProfile)) {
+                errorResponse.put("error", e.getMessage());
+                errorResponse.put("errorType", e.getClass().getSimpleName());
+            }
+            
+            return ResponseEntity.ok(errorResponse);
         }
     }
 
@@ -441,7 +548,7 @@ public class HomestayController {
         
         try {
             // 检查房源是否存在
-            homestayService.getHomestayById(id);
+            homestayService.getHomestayById(id, null);
             
             // 调用设施服务获取该房源的设施
             List<Amenity> amenities = amenityService.getHomestayAmenities(id);
@@ -491,7 +598,7 @@ public class HomestayController {
      * 激活房源
      */
     @PatchMapping("/{id}/activate")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<HomestayDTO> activateHomestay(@PathVariable Long id, Authentication authentication) {
         String username = authentication.getName();
         logger.info("激活民宿，ID: {}, 用户: {}", id, username);
@@ -503,7 +610,7 @@ public class HomestayController {
      * 停用房源
      */
     @PatchMapping("/{id}/deactivate")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<HomestayDTO> deactivateHomestay(@PathVariable Long id, Authentication authentication) {
         String username = authentication.getName();
         logger.info("停用民宿，ID: {}, 用户: {}", id, username);
@@ -569,7 +676,7 @@ public class HomestayController {
      * 批量激活房源
      */
     @PostMapping("/batch/activate")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<?> batchActivateHomestays(
             @RequestBody Map<String, List<Long>> request,
             Authentication authentication) {
@@ -604,7 +711,7 @@ public class HomestayController {
      * 批量下架房源
      */
     @PostMapping("/batch/deactivate")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<?> batchDeactivateHomestays(
             @RequestBody Map<String, List<Long>> request,
             Authentication authentication) {
@@ -639,7 +746,7 @@ public class HomestayController {
      * 批量删除房源
      */
     @DeleteMapping("/batch")
-    @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_LANDLORD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
     public ResponseEntity<?> batchDeleteHomestays(
             @RequestBody Map<String, List<Long>> request,
             Authentication authentication) {
@@ -693,5 +800,38 @@ public class HomestayController {
         errorDTO.setDescription(errorData.get("message").toString());
         // 可以添加更多信息
         return errorDTO;
+    }
+
+    /**
+     * 获取房源不可用日期
+     * @param id 房源ID
+     * @return 不可用日期列表
+     */
+    @GetMapping("/{id}/unavailable-dates")
+    public ResponseEntity<Map<String, Object>> getUnavailableDates(@PathVariable Long id) {
+        logger.info("获取房源ID: {} 的不可用日期", id);
+        try {
+            List<LocalDate> unavailableDates = homestayService.getUnavailableDates(id);
+            
+            // 转换为字符串格式，确保前端能正确解析
+            List<String> dateStrings = unavailableDates.stream()
+                    .map(LocalDate::toString) // 格式为 YYYY-MM-DD
+                    .collect(Collectors.toList());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("data", dateStrings);
+            response.put("count", dateStrings.size());
+            response.put("homestayId", id);
+            
+            logger.info("房源ID: {} 共有 {} 个不可用日期: {}", id, dateStrings.size(), dateStrings);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("获取房源不可用日期时发生错误: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("data", new ArrayList<>());
+            errorResponse.put("count", 0);
+            errorResponse.put("error", "获取不可用日期失败: " + e.getMessage());
+            return ResponseEntity.ok(errorResponse); // 返回200状态码但包含错误信息
+        }
     }
 }

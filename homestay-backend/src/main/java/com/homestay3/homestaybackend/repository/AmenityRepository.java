@@ -7,8 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import com.homestay3.homestaybackend.model.Amenity;
-import com.homestay3.homestaybackend.model.AmenityCategory;
+import com.homestay3.homestaybackend.entity.Amenity;
+import com.homestay3.homestaybackend.entity.AmenityCategory;
 
 @Repository
 public interface AmenityRepository extends JpaRepository<Amenity, String> {

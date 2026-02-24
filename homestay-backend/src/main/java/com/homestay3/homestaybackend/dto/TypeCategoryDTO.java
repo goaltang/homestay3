@@ -18,6 +18,7 @@ public class TypeCategoryDTO {
     private String name;
     private String description;
     private int sortOrder;
+    @Builder.Default
     private List<HomestayTypeDTO> types = new ArrayList<>();
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

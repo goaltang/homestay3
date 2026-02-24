@@ -14,9 +14,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router' // 移除 useRouter, ElMessage, Menu 等 Header 相关的导入
 import { useUserStore } from './stores/user'
+import { useFavoritesStore } from './stores/favorites'
 // import { useAuthStore } from './stores/auth' // authStore 现在由 AppHeader 使用
 // import { getAvatarUrl, handleImageError } from './utils/image' // 这些现在由 AppHeader 处理
 import AppHeader from '@/components/AppHeader.vue'; // 导入新的 Header
@@ -25,6 +26,7 @@ import AppFooter from '@/components/AppFooter.vue'; // 导入新的 Footer
 // const router = useRouter() // router 现在由 AppHeader 使用
 const route = useRoute()
 const userStore = useUserStore()
+const favoritesStore = useFavoritesStore()
 // const authStore = useAuthStore() // authStore 现在由 AppHeader 使用
 
 // onMounted 获取用户信息的逻辑可以保留在 App.vue，因为它关系到整个应用的状态
@@ -39,6 +41,17 @@ onMounted(async () => {
     }
   }
 });
+
+// 监听用户认证状态变化，更新收藏数据
+watch(() => userStore.isAuthenticated, (newAuthState, oldAuthState) => {
+  console.log('App.vue: 用户认证状态发生变化:', {
+    old: oldAuthState,
+    new: newAuthState
+  });
+
+  // 当认证状态发生变化时，重新加载收藏数据
+  favoritesStore.loadFavorites();
+}, { immediate: true });
 
 // isLoggedIn, userAvatar, goToHome, handleCommand, handleAvatarError 这些逻辑都移到了 AppHeader.vue
 

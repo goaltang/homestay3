@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.time.format.DateTimeFormatter;
 
 @Data
 @Builder
@@ -57,7 +58,9 @@ public class HostDTO {
                 .occupation(user.getOccupation())
                 .introduction(user.getIntroduction())
                 // languages和companions需要JSON解析，在Service层处理
-                .hostSince(user.getHostSince() != null ? user.getHostSince().toString() : null)
+                .hostSince(user.getHostSince() != null ? 
+                    user.getHostSince().toString() : 
+                    (user.getCreatedAt() != null ? user.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null))
                 .hostRating(user.getHostRating() != null ? String.format("%.1f", user.getHostRating()) : null)
                 .hostAccommodations(user.getHostAccommodations() != null ? user.getHostAccommodations().toString() : null)
                 .hostYears(user.getHostYears() != null ? user.getHostYears().toString() : null)

@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.service.impl;
 
-import com.homestay3.homestaybackend.model.Order;
+import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.IOrderTimeoutService;
@@ -44,7 +44,6 @@ public class OrderTimeoutService implements IOrderTimeoutService {
      */
     @Override
     @Scheduled(fixedRate = 10 * 60 * 1000) // 每10分钟执行一次
-    @Transactional
     public void handleTimeoutOrders() {
         log.debug("开始处理超时订单...");
         
@@ -91,7 +90,6 @@ public class OrderTimeoutService implements IOrderTimeoutService {
      * 每分钟执行一次，处理最后几分钟的订单
      */
     @Scheduled(fixedRate = 60 * 1000) // 每分钟执行一次
-    @Transactional
     public void handleImminentTimeouts() {
         log.debug("开始处理即将超时的订单...");
         
@@ -120,7 +118,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
             
             for (Order order : timeoutOrders) {
                 try {
-                    orderService.cancelOrderWithReason(order.getId(), 
+                    orderService.systemCancelOrder(order.getId(), 
                         OrderStatus.CANCELLED_SYSTEM.name(), 
                         "系统自动取消：24小时内未确认");
                     log.info("已自动取消超时待确认订单: {}", order.getOrderNumber());
@@ -150,7 +148,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
             
             for (Order order : timeoutOrders) {
                 try {
-                    orderService.cancelOrderWithReason(order.getId(), 
+                    orderService.systemCancelOrder(order.getId(), 
                         OrderStatus.CANCELLED_SYSTEM.name(), 
                         "系统自动取消：2小时内未支付");
                     log.info("已自动取消超时未支付订单: {}", order.getOrderNumber());
@@ -180,7 +178,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
             
             for (Order order : timeoutOrders) {
                 try {
-                    orderService.cancelOrderWithReason(order.getId(), 
+                    orderService.systemCancelOrder(order.getId(), 
                         OrderStatus.CANCELLED_SYSTEM.name(), 
                         "系统自动取消：支付超时");
                     log.info("已自动取消支付超时订单: {}", order.getOrderNumber());

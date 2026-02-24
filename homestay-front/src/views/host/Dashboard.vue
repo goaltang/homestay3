@@ -53,19 +53,32 @@
                         </div>
                     </template>
                     <div v-if="recentOrders && recentOrders.length > 0">
-                        <el-table :data="recentOrders" style="width: 100%">
-                            <el-table-column prop="orderNumber" label="订单号" width="180" />
-                            <el-table-column prop="homestayTitle" label="房源名称" />
-                            <el-table-column prop="checkInDate" label="入住日期" width="120" />
-                            <el-table-column prop="checkOutDate" label="离店日期" width="120" />
-                            <el-table-column prop="totalAmount" label="金额" width="120">
+                        <el-table :data="recentOrders" style="width: 100%" stripe>
+                            <el-table-column prop="orderNumber" label="订单号" width="140" />
+                            <el-table-column label="房源名称" min-width="150">
                                 <template #default="{ row }">
-                                    ¥{{ row.totalAmount }}
+                                    <el-tooltip :content="row.homestayTitle || row.homestayName" placement="top">
+                                        <span class="ellipsis-text">{{ row.homestayTitle || row.homestayName }}</span>
+                                    </el-tooltip>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="status" label="状态" width="100">
+                            <el-table-column label="入住日期" width="200">
                                 <template #default="{ row }">
-                                    <el-tag :type="getOrderStatusType(row.status)">
+                                    <div class="date-range">
+                                        <span>{{ formatDate(row.checkInDate) }}</span>
+                                        <span class="date-separator">至</span>
+                                        <span>{{ formatDate(row.checkOutDate) }}</span>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="totalAmount" label="金额" width="100" align="right">
+                                <template #default="{ row }">
+                                    <span class="amount">¥{{ formatAmount(row.totalAmount) }}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="status" label="状态" width="100" align="center">
+                                <template #default="{ row }">
+                                    <el-tag :type="getOrderStatusType(row.status)" effect="plain">
                                         {{ getOrderStatusText(row.status) }}
                                     </el-tag>
                                 </template>
@@ -103,10 +116,14 @@ const getOrderStatusType = (status: string): string => {
         'PENDING': 'warning',
         'CONFIRMED': 'primary',
         'PAID': 'success',
+        'READY_FOR_CHECKIN': 'success',
         'CHECKED_IN': 'success',
         'COMPLETED': 'info',
         'CANCELLED': 'danger',
-        'REJECTED': 'danger'
+        'CANCELLED_BY_USER': 'danger',
+        'CANCELLED_SYSTEM': 'danger',
+        'REJECTED': 'danger',
+        'PAYMENT_PENDING': 'warning'
     }
     return types[status] || 'info'
 }
@@ -116,12 +133,31 @@ const getOrderStatusText = (status: string): string => {
         'PENDING': '待确认',
         'CONFIRMED': '已确认',
         'PAID': '已支付',
+        'READY_FOR_CHECKIN': '待入住',
         'CHECKED_IN': '已入住',
         'COMPLETED': '已完成',
         'CANCELLED': '已取消',
-        'REJECTED': '已拒绝'
+        'CANCELLED_BY_USER': '用户取消',
+        'CANCELLED_SYSTEM': '系统取消',
+        'REJECTED': '已拒绝',
+        'PAYMENT_PENDING': '待支付'
     }
     return texts[status] || status
+}
+
+const formatDate = (dateString: string): string => {
+    if (!dateString) return '-'
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return dateString
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${month}-${day}`
+}
+
+const formatAmount = (amount: number | string): string => {
+    if (amount === null || amount === undefined) return '0.00'
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount
+    return isNaN(num) ? '0.00' : num.toFixed(2)
 }
 
 const fetchDashboardData = async () => {
@@ -208,5 +244,29 @@ onMounted(() => {
     text-align: center;
     color: #909399;
     padding: 30px 0;
+}
+
+.ellipsis-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    display: inline-block;
+}
+
+.date-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.date-separator {
+    color: #909399;
+    font-size: 12px;
+}
+
+.amount {
+    font-weight: 600;
+    color: #E6A23C;
 }
 </style>

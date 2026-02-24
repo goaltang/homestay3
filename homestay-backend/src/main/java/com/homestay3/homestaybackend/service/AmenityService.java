@@ -5,8 +5,8 @@ import java.util.Map;
 
 import com.homestay3.homestaybackend.dto.AmenityCategoryDTO;
 import com.homestay3.homestaybackend.dto.AmenityDTO;
-import com.homestay3.homestaybackend.model.Amenity;
-import com.homestay3.homestaybackend.model.AmenityCategory;
+import com.homestay3.homestaybackend.entity.Amenity;
+import com.homestay3.homestaybackend.entity.AmenityCategory;
 
 public interface AmenityService {
     
@@ -98,4 +98,11 @@ public interface AmenityService {
      * @return 激活的设施数量
      */
     int activateAllAmenities();
+
+    /**
+     * 将 Amenity 实体转换为 AmenityDTO.
+     * @param amenity 要转换的 Amenity 实体
+     * @return 转换后的 AmenityDTO
+     */
+    AmenityDTO convertToDTO(Amenity amenity);
 } 

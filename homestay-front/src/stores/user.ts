@@ -25,6 +25,7 @@ interface ProfileUpdateRequest {
   phone?: string;
   realName?: string;
   idCard?: string;
+  avatar?: string; // 添加头像字段
 }
 
 interface PasswordChangeRequest {
@@ -205,24 +206,38 @@ export const useUserStore = defineStore("user", () => {
       return false;
     } catch (error: any) {
       console.error("登录失败:", error);
+
+      // 优先使用API拦截器中提取的错误信息
+      if (error.displayMessage) {
+        throw new Error(error.displayMessage);
+      }
+
       // 检查是否是 Axios 错误并且有响应
       if (error.response) {
         console.error("错误响应:", error.response.data);
-        // 如果是登录接口返回的 401 (或其他特定错误码)，抛出特定错误
-        if (error.response.status === 401) {
-          // 可以从 error.response.data 中提取更具体的后端错误信息
-          const message = error.response.data?.message || "用户名或密码错误";
-          throw new Error(message); // 抛出错误，让组件处理
+
+        // 提取后端返回的具体错误信息
+        let errorMessage = "登录失败，请重试";
+
+        if (error.response.data) {
+          if (typeof error.response.data === "string") {
+            errorMessage = error.response.data;
+          } else if (error.response.data.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.response.data.error) {
+            errorMessage = error.response.data.error;
+          }
         }
-        // 可以为其他状态码抛出不同的错误
-        // else if (error.response.status === 500) {
-        //    throw new Error("服务器内部错误，请稍后重试");
-        // }
+
+        throw new Error(errorMessage);
       }
-      // 对于非 Axios 错误或没有响应的错误 (如网络错误)，抛出通用错误
-      // 或者直接返回 false，让组件显示通用错误
-      // throw new Error("登录过程中发生错误，请检查网络或稍后重试");
-      return false; // 保持原有逻辑，让 Login.vue 的 else 分支处理通用失败
+
+      // 对于网络错误等其他情况
+      if (error.message) {
+        throw new Error(error.message);
+      }
+
+      throw new Error("登录过程中发生错误，请检查网络或稍后重试");
     }
   };
 
@@ -358,6 +373,7 @@ export const useUserStore = defineStore("user", () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userInfo");
     localStorage.removeItem("user");
+    localStorage.removeItem("favorites"); // 清除收藏数据，防止数据泄露
 
     // 清除API请求头中的Authorization
     delete api.defaults.headers.common["Authorization"];
@@ -455,31 +471,50 @@ export const useUserStore = defineStore("user", () => {
       if (userData) {
         console.log("解析到的用户数据:", userData);
 
-        // 处理头像URL，确保如果是完整URL带域名的，转换为相对路径
-        if (
-          userData.avatar &&
-          (userData.avatar.startsWith("http://") ||
-            userData.avatar.startsWith("https://"))
-        ) {
-          try {
-            const url = new URL(userData.avatar);
-            // 如果包含/uploads/avatars/或/uploads/avatar/路径，转换为/api/files/avatar/格式
-            if (
-              url.pathname.includes("/uploads/avatars/") ||
-              url.pathname.includes("/uploads/avatar/")
-            ) {
-              const filename = url.pathname.split("/").pop();
-              userData.avatar = `/api/files/avatar/${filename}`;
-              console.log("头像URL已转换为API路径:", userData.avatar);
+        // 处理头像URL，统一格式
+        if (userData.avatar) {
+          // 如果是完整URL带域名的，转换为相对路径
+          if (
+            userData.avatar.startsWith("http://") ||
+            userData.avatar.startsWith("https://")
+          ) {
+            try {
+              const url = new URL(userData.avatar);
+              // 如果包含/uploads/avatars/或/uploads/avatar/路径，转换为/api/files/avatar/格式
+              if (
+                url.pathname.includes("/uploads/avatars/") ||
+                url.pathname.includes("/uploads/avatar/")
+              ) {
+                const filename = url.pathname.split("/").pop();
+                userData.avatar = `/api/files/avatar/${filename}`;
+                console.log("头像URL已转换为API路径:", userData.avatar);
+              }
+              // 如果是其他/uploads/路径
+              else if (url.pathname.includes("/uploads/")) {
+                // 将完整URL转换为API路径
+                userData.avatar = `/api${url.pathname}`;
+                console.log("头像URL已转换为相对路径:", userData.avatar);
+              }
+            } catch (e) {
+              console.error("头像URL解析错误:", e);
             }
-            // 如果是其他/uploads/路径
-            else if (url.pathname.includes("/uploads/")) {
-              // 将完整URL转换为API路径
-              userData.avatar = `/api${url.pathname}`;
-              console.log("头像URL已转换为相对路径:", userData.avatar);
-            }
-          } catch (e) {
-            console.error("头像URL解析错误:", e);
+          }
+          // 如果是旧格式的/uploads/avatars/路径，也要转换
+          else if (
+            userData.avatar.startsWith("/uploads/avatars/") ||
+            userData.avatar.startsWith("/uploads/avatar/")
+          ) {
+            const filename = userData.avatar.split("/").pop();
+            userData.avatar = `/api/files/avatar/${filename}`;
+            console.log("旧格式头像URL已转换:", userData.avatar);
+          }
+          // 如果只是文件名，构建完整路径
+          else if (
+            !userData.avatar.startsWith("/api/files/avatar/") &&
+            !userData.avatar.includes("/")
+          ) {
+            userData.avatar = `/api/files/avatar/${userData.avatar}`;
+            console.log("文件名已转换为完整URL:", userData.avatar);
           }
         }
 
@@ -619,33 +654,25 @@ export const useUserStore = defineStore("user", () => {
         },
       });
 
-      // 处理响应
+      // 统一处理响应数据，与Profile组件保持一致
       let avatarPath = "";
 
       if (response.data) {
-        // 处理标准的成功响应格式
-        if (
-          response.data.success &&
-          response.data.data &&
-          response.data.data.url
-        ) {
-          avatarPath = response.data.data.url;
-          console.log("从标准响应中解析头像路径:", avatarPath);
-        }
-        // 处理直接返回字符串的情况
-        else if (typeof response.data === "string") {
+        // 统一的响应数据提取逻辑
+        if (response.data.data?.fileName) {
+          avatarPath = response.data.data.fileName;
+        } else if (response.data.fileName) {
+          avatarPath = response.data.fileName;
+        } else if (typeof response.data === "string") {
           avatarPath = response.data;
-          console.log("从字符串响应中解析头像路径:", avatarPath);
-        }
-        // 处理其他可能的格式
-        else if (response.data.path) {
+        } else if (response.data.data?.url) {
+          // 从URL中提取文件名
+          avatarPath = response.data.data.url.split("/").pop();
+        } else if (response.data.path) {
           avatarPath = response.data.path;
-        } else if (
-          response.data.data &&
-          typeof response.data.data === "string"
-        ) {
-          avatarPath = response.data.data;
         }
+
+        console.log("从响应中解析头像路径:", avatarPath);
       }
 
       if (!avatarPath) {
@@ -653,38 +680,20 @@ export const useUserStore = defineStore("user", () => {
         throw new Error("上传头像失败：无法解析服务器返回的头像路径");
       }
 
-      // 确保avatarPath格式正确
-      // 如果已经包含/api/前缀，则不需要进一步处理
-      if (!avatarPath.startsWith("/api/") && !avatarPath.startsWith("http")) {
-        // 如果以/开头但不是/api/开头，添加/api前缀
-        if (avatarPath.startsWith("/")) {
-          avatarPath = `/api${avatarPath}`;
-        } else {
-          // 没有前导斜杠，添加完整路径
-          avatarPath = `/api/files/avatar/${avatarPath}`;
-        }
-      }
+      console.log("头像上传成功，文件名:", avatarPath);
 
-      console.log("头像上传成功，标准化后的路径:", avatarPath);
-
-      // 更新用户头像
+      // 头像上传时，FileController会自动更新数据库中的用户头像
+      // 这里只需要更新本地用户信息
       if (userInfo.value) {
-        const oldAvatar = userInfo.value.avatar;
         userInfo.value.avatar = avatarPath;
-        console.log("用户头像已更新:", avatarPath);
-
-        // 保存当前用户状态到localStorage
         localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
-        console.log("用户信息已保存到本地存储");
+        console.log("用户头像已更新:", avatarPath);
       }
 
       await fetchUnreadCount();
-
       return avatarPath;
     } catch (error: any) {
       console.error("上传头像失败:", error);
-      // 不要在这里尝试刷新用户信息或重新登录
-      // 只是抛出错误，让调用者处理
       throw error;
     }
   };

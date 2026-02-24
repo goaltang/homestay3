@@ -1,25 +1,23 @@
 <template>
-    <div class="timeout-indicator" :class="urgencyClass">
-        <!-- 超时状态指示器 -->
-        <div class="timeout-status">
-            <el-icon :size="16" :color="statusColor">
-                <Clock v-if="!isTimedOut" />
-                <Warning v-else />
-            </el-icon>
-            <span class="status-text">{{ statusText }}</span>
+    <div class="countdown-container" :class="urgencyClass">
+        <div class="countdown-title">
+            {{ statusText }}倒计时
+        </div>
+        <div class="countdown-timer" :class="{ 'urgent': urgency === 'critical' || urgency === 'high' }">
+            {{ countdownText }}
+        </div>
+        <div class="countdown-desc">
+            {{ getTimeoutDescription() }}
         </div>
 
-        <!-- 倒计时显示 -->
-        <div class="countdown-display" v-if="!isTimedOut && remainingTime !== Infinity">
-            <span class="countdown-text">{{ countdownText }}</span>
-            <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: progressPercentage + '%', backgroundColor: statusColor }">
-                </div>
+        <!-- 进度条 -->
+        <div class="progress-bar" v-if="!isTimedOut && remainingTime !== Infinity">
+            <div class="progress-fill" :style="{ width: progressPercentage + '%', backgroundColor: statusColor }">
             </div>
         </div>
 
         <!-- 预警消息 -->
-        <div class="warning-message" v-if="showWarning">
+        <div class="warning-message" v-if="showWarning && warningMessage">
             <el-icon>
                 <InfoFilled />
             </el-icon>
@@ -30,7 +28,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watchEffect } from 'vue'
-import { Clock, Warning, InfoFilled } from '@element-plus/icons-vue'
+import { InfoFilled } from '@element-plus/icons-vue'
 import {
     calculateRemainingTime,
     getTimeoutCountdownText,
@@ -83,13 +81,13 @@ const statusText = computed(() => {
 
     switch (props.orderStatus) {
         case OrderStatus.PENDING:
-            return '等待确认'
+            return '订单确认'
         case OrderStatus.CONFIRMED:
-            return '等待支付'
+            return '支付'
         case OrderStatus.PAYMENT_PENDING:
-            return '支付处理中'
+            return '支付'
         default:
-            return '正常'
+            return '订单'
     }
 })
 
@@ -97,8 +95,8 @@ const countdownText = computed(() => {
     if (remainingTime.value === Infinity) return ''
     if (isTimedOut.value) return '已超时'
 
-    const showSeconds = urgency.value === 'critical' || urgency.value === 'high'
-    return getTimeoutCountdownText(remainingTime.value, showSeconds)
+    // 始终显示秒数
+    return getTimeoutCountdownText(remainingTime.value, true)
 })
 
 const progressPercentage = computed(() => {
@@ -125,6 +123,19 @@ const warningMessage = computed(() => {
             return ''
     }
 })
+
+// 获取超时描述文本
+function getTimeoutDescription(): string {
+    switch (props.orderStatus) {
+        case OrderStatus.PENDING:
+            return '超过24小时未确认，订单将自动取消'
+        case OrderStatus.CONFIRMED:
+        case OrderStatus.PAYMENT_PENDING:
+            return '超过2小时未支付，订单将自动取消'
+        default:
+            return ''
+    }
+}
 
 // 方法
 function getTotalTimeout(): number {
@@ -231,33 +242,35 @@ watchEffect(() => {
 </script>
 
 <style scoped>
-.timeout-indicator {
-    padding: 12px;
+.countdown-container {
+    margin-top: 15px;
+    padding: 20px;
     border-radius: 8px;
-    border: 1px solid #e4e7ed;
-    background-color: #fafafa;
+    background-color: #f8f9fa;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
 }
 
 .urgency-low {
-    border-color: #67c23a;
     background-color: #f0f9ff;
+    border: 1px solid #67c23a;
 }
 
 .urgency-medium {
-    border-color: #409eff;
     background-color: #ecf5ff;
+    border: 1px solid #409eff;
 }
 
 .urgency-high {
-    border-color: #e6a23c;
     background-color: #fdf6ec;
+    border: 1px solid #e6a23c;
     animation: pulse-warning 2s infinite;
 }
 
 .urgency-critical {
-    border-color: #f56c6c;
     background-color: #fef0f0;
+    border: 1px solid #f56c6c;
     animation: pulse-critical 1s infinite;
 }
 
@@ -285,58 +298,79 @@ watchEffect(() => {
     }
 }
 
-.timeout-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.status-text {
-    font-weight: 500;
-    font-size: 14px;
-}
-
-.countdown-display {
-    margin-bottom: 8px;
-}
-
-.countdown-text {
+.countdown-title {
     font-size: 16px;
     font-weight: 600;
-    color: #303133;
+    margin-bottom: 12px;
+    color: #333;
+}
+
+.countdown-timer {
+    font-size: 28px;
+    font-weight: bold;
+    color: #409eff;
+    margin-bottom: 12px;
+    transition: color 0.3s ease;
+}
+
+.countdown-timer.urgent {
+    color: #f56c6c;
+    animation: blink 1s infinite;
+}
+
+.countdown-desc {
+    font-size: 14px;
+    color: #606266;
+    margin-bottom: 12px;
 }
 
 .progress-bar {
     width: 100%;
-    height: 4px;
+    height: 6px;
     background-color: #e4e7ed;
-    border-radius: 2px;
-    margin-top: 8px;
+    border-radius: 3px;
+    margin-top: 12px;
     overflow: hidden;
 }
 
 .progress-fill {
     height: 100%;
     transition: width 0.3s ease, background-color 0.3s ease;
-    border-radius: 2px;
+    border-radius: 3px;
 }
 
 .warning-message {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     padding: 8px 12px;
+    margin-top: 12px;
     background-color: rgba(230, 162, 60, 0.1);
     border: 1px solid #e6a23c;
     border-radius: 4px;
     font-size: 13px;
     color: #e6a23c;
+    font-weight: 500;
 }
 
 .urgency-critical .warning-message {
     background-color: rgba(245, 108, 108, 0.1);
     border-color: #f56c6c;
     color: #f56c6c;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 </style>

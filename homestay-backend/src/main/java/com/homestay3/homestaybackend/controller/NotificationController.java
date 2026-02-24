@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.controller;
 
-import com.homestay3.homestaybackend.dto.NotificationDto;
+import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -55,7 +55,7 @@ public class NotificationController {
      * @return 通知分页结果
      */
     @GetMapping
-    public ResponseEntity<Page<NotificationDto>> getMyNotifications(
+    public ResponseEntity<Page<NotificationDTO>> getMyNotifications(
             @RequestParam(required = false) Boolean isRead,
             @RequestParam(required = false) NotificationType type,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -64,7 +64,7 @@ public class NotificationController {
         log.info("用户 ID {} (来自用户名 {}) 请求通知列表, isRead={}, type={}, page={}, size={}", 
                  currentUserId, UserUtil.getCurrentUsername(), isRead, type, pageable.getPageNumber(), pageable.getPageSize());
         
-        Page<NotificationDto> notificationPage = notificationService.getNotificationsForUser(currentUserId, isRead, type, pageable);
+        Page<NotificationDTO> notificationPage = notificationService.getNotificationsForUser(currentUserId, isRead, type, pageable);
         
         return ResponseEntity.ok(notificationPage);
     }

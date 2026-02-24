@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.homestay3.homestaybackend.dto.AmenityDTO;
+import com.homestay3.homestaybackend.dto.SuggestedFeatureDTO;
 
 @Data
 @Builder
@@ -19,6 +20,7 @@ public class HomestayDTO {
     private Long id;
     private String title;
     private String type;
+    private String propertyTypeName;
     private String price;
     private String status;
     private Integer maxGuests;
@@ -40,11 +42,29 @@ public class HomestayDTO {
     @Builder.Default
     private List<String> images = new ArrayList<>();
     
+    @Builder.Default
+    private List<SuggestedFeatureDTO> suggestedFeatures = new ArrayList<>();
+    
+    private Long ownerId;
     private String ownerUsername;
     private String ownerName;
     private String ownerAvatar;
     private Double ownerRating;
+    
+    // 扩展的房东信息字段
+    private String ownerPhone;
+    private String ownerEmail;
+    private String ownerRealName;
+    private String ownerNickname;
+    private String ownerOccupation;
+    private String ownerIntroduction;
+    private LocalDateTime ownerJoinDate;
+    private LocalDateTime ownerHostSince;
+    private Long ownerHomestayCount;
+    private Double ownerHostRating;
+    
     private Boolean featured;
+    private Boolean autoConfirm;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 

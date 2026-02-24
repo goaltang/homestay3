@@ -3,15 +3,20 @@ package com.homestay3.homestaybackend.service.impl;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestayRequest;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
+import com.homestay3.homestaybackend.dto.SuggestedFeatureDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.Homestay;
-import com.homestay3.homestaybackend.model.HomestayType;
+import com.homestay3.homestaybackend.entity.Homestay;
+import com.homestay3.homestaybackend.model.HomestayStatus;
+import com.homestay3.homestaybackend.entity.HomestayAuditLog;
+import com.homestay3.homestaybackend.entity.HomestayType;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
+import com.homestay3.homestaybackend.repository.HomestayAuditLogRepository;
 import com.homestay3.homestaybackend.repository.HomestayTypeRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.HomestayService;
 import com.homestay3.homestaybackend.service.AmenityService;
+import com.homestay3.homestaybackend.service.HomestayFeatureAnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,14 +40,17 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.Objects;
 
-import com.homestay3.homestaybackend.model.Amenity;
+import com.homestay3.homestaybackend.entity.Amenity;
 import com.homestay3.homestaybackend.repository.AmenityRepository;
 import com.homestay3.homestaybackend.dto.AmenityDTO;
+import com.homestay3.homestaybackend.util.ImageUrlUtil;
 import org.springframework.security.access.AccessDeniedException;
 import java.util.Optional;
 import com.homestay3.homestaybackend.repository.OrderRepository;
-import com.homestay3.homestaybackend.model.Order;
+import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -57,83 +65,101 @@ public class HomestayServiceImpl implements HomestayService {
     private final AmenityRepository amenityRepository;
     private final AmenityService amenityService;
     private final HomestayTypeRepository homestayTypeRepository;
+    private final HomestayAuditLogRepository homestayAuditLogRepository;
     private final OrderRepository orderRepository;
+    private final HomestayFeatureAnalysisService homestayFeatureAnalysisService;
+    private final ImageUrlUtil imageUrlUtil;
     private static final Logger log = LoggerFactory.getLogger(HomestayServiceImpl.class);
 
     @Override
     public List<HomestayDTO> getAllHomestays() {
-        log.info("获取所有房源");
+        log.info("开始获取所有房源");
         
-        // 只获取状态为ACTIVE的房源
-        List<Homestay> homestays = homestayRepository.findByStatus("ACTIVE");
-        
-        return homestays.stream()
-                .map(this::convertToDTO)
-                .map(this::addTestImageIfEmpty)
-                .collect(Collectors.toList());
+        try {
+            // 只获取状态为ACTIVE的房源
+            List<Homestay> homestays = homestayRepository.findByStatus(HomestayStatus.ACTIVE);
+            log.info("成功查询到{}个ACTIVE状态的房源", homestays.size());
+            
+            if (homestays.isEmpty()) {
+                log.warn("没有找到任何ACTIVE状态的房源");
+                return new ArrayList<>();
+            }
+            
+            List<HomestayDTO> result = new ArrayList<>();
+            for (Homestay homestay : homestays) {
+                try {
+                    HomestayDTO dto = convertToDTO(homestay, null);
+                    if (dto != null) {
+                        result.add(dto);
+                    }
+                } catch (Exception e) {
+                    log.error("转换房源{}为DTO时发生错误: {}", homestay.getId(), e.getMessage(), e);
+                    // 继续处理其他房源，不因单个房源错误而中断整个流程
+                }
+            }
+            
+            log.info("成功转换{}个房源为DTO", result.size());
+            return result;
+            
+        } catch (Exception e) {
+            log.error("获取所有房源时发生严重错误: {}", e.getMessage(), e);
+            
+            // 返回空列表而不是抛出异常，避免前端500错误
+            return new ArrayList<>();
+        }
     }
 
     @Override
+    @Deprecated
     public List<HomestayDTO> getFeaturedHomestays() {
         log.info("获取推荐房源");
         
         // 获取状态为ACTIVE且被标记为featured的房源，最多返回6个
-        List<Homestay> featuredHomestays = homestayRepository.findByStatusAndFeaturedTrue("ACTIVE");
+        List<Homestay> featuredHomestays = homestayRepository.findByStatusAndFeaturedTrue(HomestayStatus.ACTIVE);
         
+        List<Homestay> finalHomestayList = new ArrayList<>(); // Placeholder for actual logic
         if (featuredHomestays.size() < 6) {
-            // 如果推荐房源不足6个，补充一些普通房源
-            List<Homestay> regularHomestays = homestayRepository.findByStatusAndFeaturedFalse("ACTIVE");
+            List<Homestay> regularHomestays = homestayRepository.findByStatusAndFeaturedFalse(HomestayStatus.ACTIVE);
             int remaining = 6 - featuredHomestays.size();
-            
             if (regularHomestays.size() > remaining) {
                 regularHomestays = regularHomestays.subList(0, remaining);
             }
-            
-            featuredHomestays.addAll(regularHomestays);
+            finalHomestayList.addAll(featuredHomestays);
+            finalHomestayList.addAll(regularHomestays);
         } else if (featuredHomestays.size() > 6) {
-            // 如果推荐房源超过6个，只取前6个
-            featuredHomestays = featuredHomestays.subList(0, 6);
+            finalHomestayList.addAll(featuredHomestays.subList(0, 6));
+        } else {
+            finalHomestayList.addAll(featuredHomestays);
         }
         
-        return featuredHomestays.stream()
-                .map(this::convertToDTO)
-                .map(this::addTestImageIfEmpty)
+        return finalHomestayList.stream()
+                .map(homestay -> convertToDTO(homestay, null)) // Pass null for criteria
                 .collect(Collectors.toList());
     }
 
     @Override
-    public HomestayDTO getHomestayById(Long id) {
-        log.info("根据ID获取房源详情: id={}", id);
+    public HomestayDTO getHomestayById(Long id, List<String> referringSearchCriteria) { // Signature updated
+        log.info("根据ID获取房源详情: id={}, referringSearchCriteria={}", id, referringSearchCriteria);
         
-        // 使用新的查询方法，确保加载amenities
         Homestay homestay = homestayRepository.findByIdWithAmenities(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Homestay not found with id: " + id));
         
+        // Initialize amenities if needed (though findByIdWithAmenities should handle this)
         if (homestay.getAmenities() != null) {
-            log.info("房源 {} 关联的设施数量: {}", id, homestay.getAmenities().size());
-            // 确保amenities已初始化
             org.hibernate.Hibernate.initialize(homestay.getAmenities());
-            
-            // 记录每个设施的信息用于调试
-            homestay.getAmenities().forEach(amenity -> {
-                log.debug("设施: value={}, label={}, icon={}", 
-                    amenity.getValue(), amenity.getLabel(), amenity.getIcon());
-            });
-        } else {
-            log.warn("房源 {} 的amenities集合为null", id);
         }
         
-        return convertToDTO(homestay);
+        return convertToDTO(homestay, referringSearchCriteria); // Pass criteria to convertToDTO
     }
 
     @Override
     public List<HomestayDTO> getHomestaysByPropertyType(String propertyType) {
         log.info("根据房源类型获取房源列表: type={}", propertyType);
         
-        List<Homestay> homestays = homestayRepository.findByTypeAndStatus(propertyType, "ACTIVE");
+        List<Homestay> homestays = homestayRepository.findByTypeAndStatus(propertyType, HomestayStatus.ACTIVE);
         
         return homestays.stream()
-                .map(this::convertToDTO)
+                .map(homestay -> convertToDTO(homestay, null)) // Pass null for criteria
                 .collect(Collectors.toList());
     }
 
@@ -159,7 +185,7 @@ public class HomestayServiceImpl implements HomestayService {
         
         Specification<Homestay> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
+            predicates.add(criteriaBuilder.equal(root.get("status"), HomestayStatus.ACTIVE));
             
             // 关键词搜索（标题、描述 或 详细地址）
             if (request.getKeyword() != null && !request.getKeyword().isEmpty()) {
@@ -282,8 +308,22 @@ public class HomestayServiceImpl implements HomestayService {
         List<Homestay> homestays = homestayRepository.findAll(spec);
         log.info("搜索到 {} 个符合条件的房源", homestays.size());
         
+        // When searching, the request.getRequiredAmenities() or other parts of request 
+        // could form the basis for referringSearchCriteria if we want to highlight *why* these results matched.
+        // For now, passing null, but this is a point for future enhancement if needed for search results page.
+        List<String> criteriaFromSearch = new ArrayList<>();
+        if (request.getRequiredAmenities() != null && !request.getRequiredAmenities().isEmpty()) {
+            request.getRequiredAmenities().forEach(amenityCode -> criteriaFromSearch.add("AMENITY_" + amenityCode.toUpperCase().replace(" ", "_")));
+        }
+        if (typeCodeToSearch != null) {
+             criteriaFromSearch.add("PROPERTY_TYPE_" + typeCodeToSearch.toUpperCase());
+        }
+        // Potentially add other criteria based on request like keywords if they map to review keywords etc.
+
+        final List<String> finalCriteriaFromSearch = criteriaFromSearch.isEmpty() ? null : Collections.unmodifiableList(criteriaFromSearch);
+        
         return homestays.stream()
-                .map(this::convertToDTO)
+                .map(homestay -> convertToDTO(homestay, finalCriteriaFromSearch)) // Pass criteria from search request
                 .collect(Collectors.toList());
     }
 
@@ -315,17 +355,65 @@ public class HomestayServiceImpl implements HomestayService {
 
     @Override
     public Page<HomestayDTO> getHomestaysByPage(Pageable pageable) {
-        return homestayRepository.findAll(pageable).map(this::convertToDTO);
+        return homestayRepository.findAll(pageable)
+                                 .map(homestay -> convertToDTO(homestay, null)); // Pass null for criteria
     }
 
     @Override
     public List<HomestayDTO> getHomestaysByOwner(String username) {
-        User owner = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+        log.info("开始获取用户{}的房源列表", username);
         
-        return homestayRepository.findByOwner(owner).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        try {
+            // 查找用户
+            User owner = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+            
+            log.info("找到用户: ID={}, 用户名={}", owner.getId(), owner.getUsername());
+            
+            // 查找房源
+            List<Homestay> homestays = homestayRepository.findByOwner(owner);
+            log.info("从数据库获取到{}条房源记录", homestays != null ? homestays.size() : 0);
+            
+            if (homestays == null || homestays.isEmpty()) {
+                log.info("用户{}暂无房源", username);
+                return new ArrayList<>();
+            }
+            
+            // 转换为DTO
+            List<HomestayDTO> result = new ArrayList<>();
+            for (int i = 0; i < homestays.size(); i++) {
+                Homestay homestay = homestays.get(i);
+                try {
+                    if (homestay == null) {
+                        log.warn("发现null房源记录，跳过处理");
+                        continue;
+                    }
+                    
+                    log.debug("正在转换房源{}为DTO", homestay.getId());
+                    HomestayDTO dto = convertToDTO(homestay, null);
+                    
+                    if (dto != null) {
+                        result.add(dto);
+                        log.debug("成功转换房源{}", homestay.getId());
+                    } else {
+                        log.warn("房源{}转换为DTO失败，返回null", homestay.getId());
+                    }
+                } catch (Exception e) {
+                    log.error("转换房源{}为DTO时发生异常: {}", homestay != null ? homestay.getId() : "null", e.getMessage(), e);
+                    // 继续处理其他房源，不因为单个房源出错而影响整体
+                }
+            }
+            
+            log.info("成功转换{}条房源为DTO，用户: {}", result.size(), username);
+            return result;
+            
+        } catch (ResourceNotFoundException e) {
+            log.error("用户不存在: {}", username);
+            throw e; // 重新抛出用户不存在异常
+        } catch (Exception e) {
+            log.error("获取用户{}房源列表时发生未预期异常: {}", username, e.getMessage(), e);
+            throw new RuntimeException("获取房源列表失败: " + e.getMessage(), e);
+        }
     }
 
     @Override
@@ -333,25 +421,87 @@ public class HomestayServiceImpl implements HomestayService {
     public HomestayDTO createHomestay(HomestayDTO homestayDTO, String username) {
         log.info("准备创建新的房源: {} by {}", homestayDTO.getTitle(), username);
         
+        // 确定是否为草稿模式
+        boolean isDraft = homestayDTO.getStatus() != null && 
+                         "DRAFT".equalsIgnoreCase(homestayDTO.getStatus());
+        
+        // 根据是否为草稿进行不同的验证
+        validateHomestayDTO(homestayDTO, isDraft);
+        
         // 获取房东信息
         User owner = userRepository.findByUsername(username).orElseThrow(() -> 
             new ResourceNotFoundException("用户不存在: " + username));
         
+        // 确定房源状态：支持传入状态，默认为草稿
+        HomestayStatus initialStatus = HomestayStatus.DRAFT; // 默认为草稿状态
+        if (homestayDTO.getStatus() != null && !homestayDTO.getStatus().isEmpty()) {
+            try {
+                initialStatus = HomestayStatus.valueOf(homestayDTO.getStatus().toUpperCase());
+                log.info("使用传入的房源状态: {}", initialStatus);
+            } catch (IllegalArgumentException e) {
+                log.warn("无效的房源状态: {}, 使用默认状态: {}", homestayDTO.getStatus(), initialStatus);
+            }
+        }
+        
+        // 处理草稿模式下的默认值
+        String title = homestayDTO.getTitle();
+        String type = homestayDTO.getType();
+        BigDecimal price;
+        String addressDetail = homestayDTO.getAddressDetail();
+        String description = homestayDTO.getDescription();
+        Integer maxGuests = homestayDTO.getMaxGuests();
+        Integer minNights = homestayDTO.getMinNights();
+        Boolean featured = homestayDTO.getFeatured();
+        
+        if (isDraft) {
+            // 草稿模式下提供默认值
+            if (title == null || title.isEmpty()) {
+                title = "未命名房源";
+            }
+            if (type == null || type.isEmpty()) {
+                type = "整套房子";
+            }
+            try {
+                price = homestayDTO.getPrice() != null ? new BigDecimal(homestayDTO.getPrice()) : BigDecimal.ZERO;
+            } catch (NumberFormatException e) {
+                price = BigDecimal.ZERO;
+            }
+            if (addressDetail == null || addressDetail.isEmpty()) {
+                addressDetail = "";
+            }
+            if (description == null || description.isEmpty()) {
+                description = "";
+            }
+            if (maxGuests == null || maxGuests <= 0) {
+                maxGuests = 1;
+            }
+            if (minNights == null || minNights <= 0) {
+                minNights = 1;
+            }
+            if (featured == null) {
+                featured = false;
+            }
+            log.info("草稿模式：已设置默认值");
+        } else {
+            // 非草稿模式：正常解析
+            price = new BigDecimal(homestayDTO.getPrice());
+        }
+        
         // 实体构建
         Homestay homestay = Homestay.builder()
-            .title(homestayDTO.getTitle())
-            .type(homestayDTO.getType())
-            .price(new BigDecimal(homestayDTO.getPrice()))
-            .status("PENDING")
-            .maxGuests(homestayDTO.getMaxGuests())
-            .minNights(homestayDTO.getMinNights())
+            .title(title)
+            .type(type)
+            .price(price)
+            .status(initialStatus)
+            .maxGuests(maxGuests)
+            .minNights(minNights)
             .provinceCode(homestayDTO.getProvinceCode())
             .cityCode(homestayDTO.getCityCode())
             .districtCode(homestayDTO.getDistrictCode())
-            .addressDetail(homestayDTO.getAddressDetail())
-            .description(homestayDTO.getDescription())
+            .addressDetail(addressDetail)
+            .description(description)
             .coverImage(homestayDTO.getCoverImage())
-            .featured(homestayDTO.getFeatured())
+            .featured(featured)
             .owner(owner)
             .build();
         
@@ -374,7 +524,8 @@ public class HomestayServiceImpl implements HomestayService {
         
         // 保存房源基本信息
         Homestay savedHomestay = homestayRepository.save(homestay);
-        log.info("房源基本信息已保存，ID: {}", savedHomestay.getId());
+        log.info("房源基本信息已保存，ID: {}, 状态: {}, 标题: {}", 
+                savedHomestay.getId(), savedHomestay.getStatus(), savedHomestay.getTitle());
         
         // 处理设施数据
         if (homestayDTO.getAmenities() != null && !homestayDTO.getAmenities().isEmpty()) {
@@ -424,7 +575,7 @@ public class HomestayServiceImpl implements HomestayService {
         }
         
         // 转换为DTO并返回
-        HomestayDTO result = convertToDTO(savedHomestay);
+        HomestayDTO result = convertToDTO(savedHomestay, null);
         result.setOwnerUsername(owner.getUsername());
         result.setOwnerName(owner.getFullName());
         
@@ -578,7 +729,7 @@ public class HomestayServiceImpl implements HomestayService {
             
             // 如果DTO有状态值，则更新
             if (homestayDTO.getStatus() != null) {
-                homestay.setStatus(homestayDTO.getStatus());
+                homestay.setStatus(HomestayStatus.valueOf(homestayDTO.getStatus()));
             }
             
             // 如果DTO有featured值，则更新
@@ -591,7 +742,7 @@ public class HomestayServiceImpl implements HomestayService {
             log.info("房源更新成功: ID={}, 标题={}", updatedHomestay.getId(), updatedHomestay.getTitle());
             
             // 转换为DTO返回
-            HomestayDTO resultDTO = convertToDTO(updatedHomestay);
+            HomestayDTO resultDTO = convertToDTO(updatedHomestay, null);
             
             // 添加额外的所有者信息
             if (updatedHomestay.getOwner() != null) {
@@ -655,58 +806,20 @@ public class HomestayServiceImpl implements HomestayService {
     public List<HomestayDTO> searchHomestays(String keyword, String provinceCode, String cityCode,
                                             Integer minPrice, Integer maxPrice, 
                                             Integer guests, String type) {
-        // 创建动态查询条件
-        Specification<Homestay> spec = (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            
-            // 只查询状态为ACTIVE的房源
-            predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
-            
-            // 关键词搜索（标题或描述）
-            if (keyword != null && !keyword.isEmpty()) {
-                String keywordPattern = "%" + keyword + "%";
-                predicates.add(criteriaBuilder.or(
-                        criteriaBuilder.like(root.get("title"), keywordPattern),
-                        criteriaBuilder.like(root.get("description"), keywordPattern)
-                ));
-            }
-            
-            // 省份编码筛选 (修改)
-            if (provinceCode != null && !provinceCode.isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("provinceCode"), provinceCode)); // <-- 修改实体字段名
-            }
-            
-            // 城市编码筛选 (修改)
-            if (cityCode != null && !cityCode.isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("cityCode"), cityCode)); // <-- 修改实体字段名
-            }
-            
-            // 价格范围
-            if (minPrice != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("price"), new BigDecimal(minPrice)));
-            }
-            if (maxPrice != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"), new BigDecimal(maxPrice)));
-            }
-            
-            // 入住人数
-            if (guests != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("maxGuests"), guests));
-            }
-            
-            // 房源类型
-            if (type != null && !type.isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("type"), type));
-            }
-            
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-        };
-        
-        // 执行查询
-        List<Homestay> homestays = homestayRepository.findAll(spec);
-        
+        // This is an older search method, less structured. 
+        // It might be harder to derive specific referringSearchCriteria here compared to HomestaySearchRequest.
+        // For now, pass null.
+        // Convert Integer prices to BigDecimal for repository call
+        BigDecimal minPriceDecimal = minPrice != null ? BigDecimal.valueOf(minPrice) : null;
+        BigDecimal maxPriceDecimal = maxPrice != null ? BigDecimal.valueOf(maxPrice) : null;
+
+        // The 'keyword' likely maps to 'location' in the repository method.
+        // 'provinceCode' and 'cityCode' are not directly in the repository's searchHomestays signature,
+        // that method uses a general 'location' string.
+        // For simplicity, we'll use the keyword as location and pass other compatible params.
+        List<Homestay> homestays = homestayRepository.searchHomestays(keyword, minPriceDecimal, maxPriceDecimal, guests, type);
         return homestays.stream()
-                .map(this::convertToDTO)
+                        .map(homestay -> convertToDTO(homestay, null))
                 .collect(Collectors.toList());
     }
 
@@ -778,10 +891,10 @@ public class HomestayServiceImpl implements HomestayService {
         } catch (Exception e) {
             log.error("删除房源时发生异常，ID: {}, 错误: {}", id, e.getMessage(), e);
             
-            // 尝试将房源标记为DELETED
+            // 尝试将房源标记为INACTIVE
             try {
-                log.info("尝试将房源标记为DELETED状态");
-                homestay.setStatus("DELETED");
+                log.info("尝试将房源标记为INACTIVE状态");
+                homestay.setStatus(HomestayStatus.INACTIVE);
                 homestayRepository.save(homestay);
                 log.info("房源已标记为DELETED状态");
             } catch (Exception ex) {
@@ -806,11 +919,11 @@ public class HomestayServiceImpl implements HomestayService {
         validateHomestayStatus(status);
         
         // 更新状态
-        homestay.setStatus(status);
+        homestay.setStatus(HomestayStatus.valueOf(status));
         homestay.setUpdatedAt(LocalDateTime.now());
         
         Homestay updatedHomestay = homestayRepository.save(homestay);
-        return convertToDTO(updatedHomestay);
+        return convertToDTO(updatedHomestay, null);
     }
     
     @Override
@@ -823,7 +936,7 @@ public class HomestayServiceImpl implements HomestayService {
         validateHomestayStatus(status);
         
         // 更新状态
-        homestay.setStatus(status);
+        homestay.setStatus(HomestayStatus.valueOf(status));
         homestay.setUpdatedAt(LocalDateTime.now());
         
         homestayRepository.save(homestay);
@@ -842,7 +955,12 @@ public class HomestayServiceImpl implements HomestayService {
             
             // 状态筛选
             if (status != null && !status.isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("status"), status));
+                try {
+                    HomestayStatus statusEnum = HomestayStatus.valueOf(status);
+                    predicates.add(criteriaBuilder.equal(root.get("status"), statusEnum));
+                } catch (IllegalArgumentException e) {
+                    log.warn("无效的状态值: {}", status);
+                }
             }
             
             // 类型筛选
@@ -871,7 +989,7 @@ public class HomestayServiceImpl implements HomestayService {
         // ---- End Detailed Logging ----
         
         // Convert to DTO
-        Page<HomestayDTO> dtoPage = homestaysPage.map(this::convertToDTO);
+        Page<HomestayDTO> dtoPage = homestaysPage.map(homestay -> convertToDTO(homestay, null)); // Pass null for criteria
 
         // Optional: Log DTOs after conversion
         // log.info("Converted HomestayDTOs (Page {}):", dtoPage.getNumber());
@@ -883,65 +1001,149 @@ public class HomestayServiceImpl implements HomestayService {
     /**
      * 将实体转换为DTO
      */
-    private HomestayDTO convertToDTO(Homestay homestay) {
-        // 处理图片路径，确保是完整的URL
-        List<String> processedImages = new ArrayList<>();
-        if (homestay.getImages() != null && !homestay.getImages().isEmpty()) {
-            processedImages = homestay.getImages().stream()
-                    .map(this::ensureCompleteImageUrl)
-                    .collect(Collectors.toList());
+    private HomestayDTO convertToDTO(Homestay homestay, List<String> referringSearchCriteria) { // Signature updated
+        if (homestay == null) {
+            log.warn("尝试转换null的Homestay实体为DTO");
+            return null;
         }
         
-        // 处理设施集合，避免空指针异常
-        List<AmenityDTO> amenitiesList = new ArrayList<>();
-        if (homestay.getAmenities() != null && !homestay.getAmenities().isEmpty()) {
-            log.info("处理房源设施，ID: {}, 设施数量: {}", homestay.getId(), homestay.getAmenities().size());
-            amenitiesList = homestay.getAmenities().stream()
-                    .map(amenity -> {
-                        com.homestay3.homestaybackend.dto.AmenityDTO dto = new com.homestay3.homestaybackend.dto.AmenityDTO();
-                        dto.setValue(amenity.getValue());
-                        dto.setLabel(amenity.getLabel());
-                        dto.setDescription(amenity.getDescription());
-                        dto.setIcon(amenity.getIcon());
-                        dto.setActive(amenity.isActive());
-                        dto.setUsageCount(amenity.getUsageCount());
-                        if (amenity.getCategory() != null) {
-                            dto.setCategoryCode(amenity.getCategory().getCode());
-                            dto.setCategoryName(amenity.getCategory().getName());
-                            dto.setCategoryIcon(amenity.getCategory().getIcon());
-                        }
-                        return dto;
-                    })
-                    .collect(Collectors.toList());
-            log.info("房源 {} 的设施已转换完成，转换后数量: {}", homestay.getId(), amenitiesList.size());
-        } else {
-            log.warn("房源 {} 没有关联的设施", homestay.getId());
+        try {
+            log.debug("开始转换房源{}为DTO", homestay.getId());
+            
+            HomestayDTO dto = new HomestayDTO();
+            dto.setId(homestay.getId());
+            dto.setTitle(homestay.getTitle());
+            dto.setType(homestay.getType()); // type code
+
+            // Set Property Type Name with enhanced error handling
+            try {
+                if (homestay.getType() != null && !homestay.getType().isEmpty()) {
+                    Optional<HomestayType> typeEntityOpt = homestayTypeRepository.findByCode(homestay.getType());
+                    if (typeEntityOpt.isPresent()) {
+                        dto.setPropertyTypeName(typeEntityOpt.get().getName());
+                    } else {
+                        dto.setPropertyTypeName(homestay.getType()); // 使用类型代码作为默认值
+                        log.warn("找不到类型代码 {} 对应的房源类型实体", homestay.getType());
+                    }
+                } else {
+                    dto.setPropertyTypeName("未知类型");
+                }
+            } catch (Exception e) {
+                log.error("设置房源类型名称时发生错误: {}", e.getMessage());
+                dto.setPropertyTypeName("未知类型");
+            }
+
+            // Price handling with null check
+            if (homestay.getPrice() != null) {
+                dto.setPrice(homestay.getPrice().toString());
+            } else {
+                dto.setPrice("0"); // 默认价格
+            }
+            
+            dto.setStatus(homestay.getStatus() != null ? homestay.getStatus().name() : "UNKNOWN");
+            dto.setMaxGuests(homestay.getMaxGuests() != null ? homestay.getMaxGuests() : 1);
+            dto.setMinNights(homestay.getMinNights() != null ? homestay.getMinNights() : 1);
+            dto.setProvinceText(homestay.getProvinceText());
+            dto.setCityText(homestay.getCityText());
+            dto.setDistrictText(homestay.getDistrictText());
+            dto.setAddressDetail(homestay.getAddressDetail());
+            dto.setProvinceCode(homestay.getProvinceCode());
+            dto.setCityCode(homestay.getCityCode());
+            dto.setDistrictCode(homestay.getDistrictCode());
+            dto.setDescription(homestay.getDescription());
+            
+            // 图片URL处理 - 增强异常处理
+            try {
+                if (imageUrlUtil != null) {
+                    dto.setCoverImage(imageUrlUtil.ensureCompleteImageUrl(homestay.getCoverImage()));
+                    if (homestay.getImages() != null) {
+                        dto.setImages(imageUrlUtil.ensureCompleteImageUrls(homestay.getImages()));
+                    }
+                } else {
+                    log.warn("ImageUrlUtil为null，跳过图片URL处理");
+                    dto.setCoverImage(homestay.getCoverImage());
+                    dto.setImages(homestay.getImages());
+                }
+            } catch (Exception e) {
+                log.error("处理图片URL时发生错误: {}", e.getMessage());
+                dto.setCoverImage(homestay.getCoverImage());
+                dto.setImages(homestay.getImages());
+            }
+
+            // Owner信息处理 - 增强空指针检查
+            try {
+                if (homestay.getOwner() != null) {
+                    dto.setOwnerId(homestay.getOwner().getId());
+                    dto.setOwnerUsername(homestay.getOwner().getUsername());
+                    
+                    String ownerName = homestay.getOwner().getFullName();
+                    if (ownerName == null || ownerName.isEmpty()) {
+                        ownerName = homestay.getOwner().getNickname();
+                    }
+                    if (ownerName == null || ownerName.isEmpty()) {
+                        ownerName = homestay.getOwner().getUsername();
+                    }
+                    dto.setOwnerName(ownerName);
+                    
+                    if (imageUrlUtil != null) {
+                        dto.setOwnerAvatar(imageUrlUtil.ensureCompleteImageUrl(homestay.getOwner().getAvatar()));
+                    } else {
+                        dto.setOwnerAvatar(homestay.getOwner().getAvatar());
+                    }
+                } else {
+                    log.warn("房源 {} 的Owner为null", homestay.getId());
+                }
+            } catch (Exception e) {
+                log.error("处理房源所有者信息时发生错误: {}", e.getMessage());
+            }
+
+            dto.setFeatured(homestay.getFeatured() != null ? homestay.getFeatured() : false);
+            dto.setAutoConfirm(homestay.getAutoConfirm() != null ? homestay.getAutoConfirm() : false);
+            dto.setCreatedAt(homestay.getCreatedAt());
+            dto.setUpdatedAt(homestay.getUpdatedAt());
+
+            // 设施转换 - 增强异常处理
+            try {
+                if (homestay.getAmenities() != null && amenityService != null) {
+                    dto.setAmenities(homestay.getAmenities().stream()
+                            .filter(Objects::nonNull) // 过滤null的设施
+                            .map(amenity -> {
+                                try {
+                                    return amenityService.convertToDTO(amenity);
+                                } catch (Exception e) {
+                                    log.error("转换设施 {} 为DTO时发生错误: {}", amenity.getValue(), e.getMessage());
+                                    return null;
+                                }
+                            })
+                            .filter(Objects::nonNull) // 过滤转换失败的设施
+                            .collect(Collectors.toList()));
+                } else {
+                    dto.setAmenities(new ArrayList<>());
+                }
+            } catch (Exception e) {
+                log.error("处理房源设施时发生错误: {}", e.getMessage());
+                dto.setAmenities(new ArrayList<>());
+            }
+            
+            // 特征分析 - 增强异常处理
+            try {
+                if (homestayFeatureAnalysisService != null) {
+                    dto.setSuggestedFeatures(homestayFeatureAnalysisService.analyzeFeatures(homestay, referringSearchCriteria));
+                } else {
+                    dto.setSuggestedFeatures(new ArrayList<>());
+                }
+            } catch (Exception e) {
+                log.error("分析房源特征时发生错误: {}", e.getMessage());
+                dto.setSuggestedFeatures(new ArrayList<>());
+            }
+            
+            log.debug("成功转换房源{}为DTO", homestay.getId());
+            return dto;
+            
+        } catch (Exception e) {
+            log.error("转换房源{}为DTO时发生严重错误: {}", homestay.getId(), e.getMessage(), e);
+            return null;
         }
-        
-        return HomestayDTO.builder()
-                .id(homestay.getId())
-                .title(homestay.getTitle())
-                .type(homestay.getType())
-                .price(homestay.getPrice().toString())
-                .status(homestay.getStatus())
-                .maxGuests(homestay.getMaxGuests())
-                .minNights(homestay.getMinNights())
-                .provinceCode(homestay.getProvinceCode())
-                .cityCode(homestay.getCityCode())
-                .districtCode(homestay.getDistrictCode())
-                .addressDetail(homestay.getAddressDetail())
-                .amenities(amenitiesList)
-                .description(homestay.getDescription())
-                .coverImage(ensureCompleteImageUrl(homestay.getCoverImage()))
-                .images(processedImages)
-                .ownerUsername(homestay.getOwner().getUsername())
-                .ownerName(homestay.getOwner().getFullName())
-                .ownerAvatar(ensureCompleteImageUrl(homestay.getOwner().getAvatar()))
-                .ownerRating(homestay.getOwner().getHostRating())
-                .featured(homestay.getFeatured())
-                .createdAt(homestay.getCreatedAt())
-                .updatedAt(homestay.getUpdatedAt())
-                .build();
     }
     
     /**
@@ -991,34 +1193,43 @@ public class HomestayServiceImpl implements HomestayService {
         }
     }
 
-    /**
-     * 为没有图片的房源添加测试图片
-     */
-    private HomestayDTO addTestImageIfEmpty(HomestayDTO homestayDTO) {
-        if (homestayDTO.getImages() == null || homestayDTO.getImages().isEmpty()) {
-            List<String> testImages = new ArrayList<>();
-            // 添加一个本地测试图片路径（确保uploads/homestays目录中存在此文件）
-            testImages.add("/uploads/homestays/fcefb873-2ed7-4284-b1b9-b9145dc2188a.jpg");
-            homestayDTO.setImages(testImages);
-            
-            // 如果封面图片也为空，也设置一个
-            if (homestayDTO.getCoverImage() == null || homestayDTO.getCoverImage().isEmpty()) {
-                homestayDTO.setCoverImage("/uploads/homestays/fcefb873-2ed7-4284-b1b9-b9145dc2188a.jpg");
-            }
-        }
-        return homestayDTO;
-    }
+
 
     // 验证房源状态是否有效
     private void validateHomestayStatus(String status) {
-        List<String> validStatuses = Arrays.asList("PENDING", "ACTIVE", "INACTIVE", "REJECTED");
-        if (!validStatuses.contains(status)) {
+        try {
+            HomestayStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("无效的房源状态: " + status);
+        }
+    }
+    
+    // 验证房源状态枚举是否有效
+    private void validateHomestayStatus(HomestayStatus status) {
+        if (status == null) {
+            throw new IllegalArgumentException("房源状态不能为空");
         }
     }
     
     // 验证房源DTO是否包含必填字段
     private void validateHomestayDTO(HomestayDTO dto) {
+        validateHomestayDTO(dto, false);
+    }
+    
+    // 验证房源DTO是否包含必填字段（支持草稿模式）
+    private void validateHomestayDTO(HomestayDTO dto, boolean isDraft) {
+        if (dto == null) {
+            throw new IllegalArgumentException("房源数据不能为空");
+        }
+        
+        // 草稿模式下，只验证基本字段存在即可，允许为空
+        if (isDraft) {
+            // 草稿状态下只需要确保字段存在，内容可以为空
+            log.info("草稿模式验证：允许部分字段为空");
+            return;
+        }
+        
+        // 非草稿模式下的完整验证
         if (dto.getTitle() == null || dto.getTitle().isEmpty()) {
             throw new IllegalArgumentException("房源标题不能为空");
         }
@@ -1027,6 +1238,12 @@ public class HomestayServiceImpl implements HomestayService {
         }
         if (dto.getPrice() == null) {
             throw new IllegalArgumentException("房源价格不能为空");
+        }
+        if (dto.getAddressDetail() == null || dto.getAddressDetail().isEmpty()) {
+            throw new IllegalArgumentException("详细地址不能为空");
+        }
+        if (dto.getDescription() == null || dto.getDescription().isEmpty()) {
+            throw new IllegalArgumentException("房源描述不能为空");
         }
     }
     
@@ -1103,6 +1320,7 @@ public class HomestayServiceImpl implements HomestayService {
         
         homestay.setCoverImage(dto.getCoverImage());
         homestay.setFeatured(dto.getFeatured());
+        homestay.setAutoConfirm(dto.getAutoConfirm());
         log.info("Homestay对象更新完成");
     }
 
@@ -1132,6 +1350,241 @@ public class HomestayServiceImpl implements HomestayService {
         } catch (Exception e) {
             log.error("检查管理员权限时发生错误: {}", e.getMessage(), e);
             return false;
+        }
+    }
+    
+    /**
+     * 验证房源是否可以从草稿状态提交审核
+     */
+    private boolean isHomestayReadyForReview(Homestay homestay) {
+        if (homestay == null) {
+            return false;
+        }
+        
+        // 检查必填字段
+        if (homestay.getTitle() == null || homestay.getTitle().isEmpty() || homestay.getTitle().equals("未命名房源")) {
+            log.warn("房源标题未设置，无法提交审核");
+            return false;
+        }
+        
+        if (homestay.getPrice() == null || homestay.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("房源价格未设置或无效，无法提交审核");
+            return false;
+        }
+        
+        if (homestay.getAddressDetail() == null || homestay.getAddressDetail().isEmpty()) {
+            log.warn("房源地址未设置，无法提交审核");
+            return false;
+        }
+        
+        if (homestay.getDescription() == null || homestay.getDescription().isEmpty()) {
+            log.warn("房源描述未设置，无法提交审核");
+            return false;
+        }
+        
+        if (homestay.getCoverImage() == null || homestay.getCoverImage().isEmpty()) {
+            log.warn("房源封面图片未设置，无法提交审核");
+            return false;
+        }
+        
+        log.info("房源ID: {} 满足提交审核的条件", homestay.getId());
+        return true;
+    }
+    
+    /**
+     * 获取房源审核就绪状态的详细信息
+     */
+    private String getHomestayReviewReadinessDetails(Homestay homestay) {
+        if (homestay == null) {
+            return "房源不存在";
+        }
+        
+        List<String> missingItems = new ArrayList<>();
+        
+        if (homestay.getTitle() == null || homestay.getTitle().isEmpty() || homestay.getTitle().equals("未命名房源")) {
+            missingItems.add("房源标题");
+        }
+        
+        if (homestay.getPrice() == null || homestay.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            missingItems.add("房源价格");
+        }
+        
+        if (homestay.getAddressDetail() == null || homestay.getAddressDetail().isEmpty()) {
+            missingItems.add("详细地址");
+        }
+        
+        if (homestay.getDescription() == null || homestay.getDescription().isEmpty()) {
+            missingItems.add("房源描述");
+        }
+        
+        if (homestay.getCoverImage() == null || homestay.getCoverImage().isEmpty()) {
+            missingItems.add("封面图片");
+        }
+        
+        if (missingItems.isEmpty()) {
+            return "房源信息完整，可以提交审核";
+        } else {
+            return "缺少必要信息：" + String.join("、", missingItems);
+        }
+    }
+    
+    @Override
+    public boolean checkHomestayReadyForReview(Long homestayId) {
+        log.info("检查房源是否可以提交审核，ID: {}", homestayId);
+        
+        Homestay homestay = homestayRepository.findById(homestayId)
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + homestayId));
+        
+        // 验证权限：只有房源所有者或管理员可以检查
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            String currentUsername = authentication.getName();
+            boolean isAdmin = isAdminUser();
+            boolean isOwner = homestay.getOwner() != null && 
+                             homestay.getOwner().getUsername().equals(currentUsername);
+            
+            if (!isAdmin && !isOwner) {
+                throw new AccessDeniedException("您没有权限查看此房源的审核状态");
+            }
+        }
+        
+        return isHomestayReadyForReview(homestay);
+    }
+    
+    @Override
+    public String getHomestayReviewReadinessDetails(Long homestayId) {
+        log.info("获取房源审核就绪状态详情，ID: {}", homestayId);
+        
+        Homestay homestay = homestayRepository.findById(homestayId)
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + homestayId));
+        
+        // 验证权限：只有房源所有者或管理员可以查看
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            String currentUsername = authentication.getName();
+            boolean isAdmin = isAdminUser();
+            boolean isOwner = homestay.getOwner() != null && 
+                             homestay.getOwner().getUsername().equals(currentUsername);
+            
+            if (!isAdmin && !isOwner) {
+                throw new AccessDeniedException("您没有权限查看此房源的审核状态");
+            }
+        }
+        
+        return getHomestayReviewReadinessDetails(homestay);
+    }
+    
+    @Override
+    public HomestayDTO getHomestayWithOwnerDetails(Long id) {
+        log.info("获取房源详情（包含完整房东信息），ID: {}", id);
+        
+        Homestay homestay = homestayRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + id));
+        
+        // 基础转换
+        HomestayDTO dto = convertToDTO(homestay, null);
+        
+        // 增强房东信息
+        if (homestay.getOwner() != null) {
+            User owner = homestay.getOwner();
+            
+            // 基本房东信息（已在convertToDTO中设置）
+            dto.setOwnerId(owner.getId());
+            dto.setOwnerUsername(owner.getUsername());
+            dto.setOwnerName(owner.getRealName() != null ? owner.getRealName() : 
+                           (owner.getNickname() != null ? owner.getNickname() : owner.getUsername()));
+            dto.setOwnerAvatar(imageUrlUtil.ensureCompleteImageUrl(owner.getAvatar()));
+            
+            // 设置扩展的房东信息字段
+            dto.setOwnerPhone(owner.getPhone());
+            dto.setOwnerEmail(owner.getEmail());
+            dto.setOwnerRealName(owner.getRealName());
+            dto.setOwnerNickname(owner.getNickname());
+            dto.setOwnerOccupation(owner.getOccupation());
+            dto.setOwnerIntroduction(owner.getIntroduction());
+            dto.setOwnerJoinDate(owner.getCreatedAt());
+            dto.setOwnerHostSince(owner.getHostSince());
+            dto.setOwnerHostRating(owner.getHostRating());
+            
+            // 统计房东的房源数量
+            Long homestayCount = homestayRepository.countByOwnerId(owner.getId());
+            dto.setOwnerHomestayCount(homestayCount);
+            
+            // 计算房东评分（如果有评价系统）
+            try {
+                // 这里可以从ReviewRepository获取房东的平均评分
+                // Double avgRating = reviewRepository.getAverageRatingByHostId(owner.getId());
+                // if (avgRating != null) {
+                //     dto.setOwnerRating(avgRating);
+                // }
+            } catch (Exception e) {
+                log.warn("无法获取房东评分: {}", e.getMessage());
+            }
+            
+            log.info("房东完整信息 - ID: {}, 用户名: {}, 真实姓名: {}, 手机: {}, 房源数量: {}", 
+                    owner.getId(), owner.getUsername(), owner.getRealName(), 
+                    owner.getPhone(), homestayCount);
+            
+            // 设置房东评分到现有字段
+            if (owner.getHostRating() != null) {
+                dto.setOwnerRating(owner.getHostRating());
+            }
+        }
+        
+        log.info("房源详情（包含房东信息）获取成功，房源ID: {}, 房东信息: {}", 
+                id, dto.getOwnerName());
+        
+        return dto;
+    }
+
+    @Override
+    public List<LocalDate> getUnavailableDates(Long homestayId) {
+        log.info("[HomestayService] 获取房源ID: {} 的不可用日期", homestayId);
+        
+        try {
+            // 验证房源是否存在
+            if (!homestayRepository.existsById(homestayId)) {
+                log.warn("[HomestayService] 房源不存在，ID: {}", homestayId);
+                return new ArrayList<>();
+            }
+            
+            // 查询该房源所有已确认和已支付的订单
+            List<OrderStatus> targetStatuses = Arrays.asList(OrderStatus.CONFIRMED, OrderStatus.PAID, OrderStatus.CHECKED_IN, OrderStatus.READY_FOR_CHECKIN);
+            List<Order> confirmedOrders = orderRepository.findByHomestayIdAndStatusInOrderByCheckInDate(
+                homestayId, 
+                targetStatuses
+            );
+            
+            log.info("[HomestayService] 房源ID: {} 共有 {} 个已确认/已支付订单", homestayId, confirmedOrders.size());
+            
+            // 将所有订单的日期范围转换为不可用日期列表
+            List<LocalDate> unavailableDates = confirmedOrders.stream()
+                .filter(order -> order.getCheckInDate() != null && order.getCheckOutDate() != null)
+                .flatMap(order -> {
+                    LocalDate start = order.getCheckInDate();
+                    LocalDate end = order.getCheckOutDate();
+                    
+                    // 验证日期有效性
+                    if (start.isAfter(end)) {
+                        log.warn("[HomestayService] 订单日期无效，入住日期晚于退房日期: 订单ID={}, 入住={}, 退房={}", 
+                                order.getId(), start, end);
+                        return Stream.empty();
+                    }
+                    
+                    // 生成从入住日期到退房日期前一天的所有日期
+                    return start.datesUntil(end);
+                })
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+                
+            log.info("[HomestayService] 房源ID: {} 不可用日期总数: {}", homestayId, unavailableDates.size());
+            return unavailableDates;
+            
+        } catch (Exception e) {
+            log.error("[HomestayService] 获取房源不可用日期时发生错误: {}", e.getMessage(), e);
+            // 返回空列表而不是抛出异常，避免前端500错误
+            return new ArrayList<>();
         }
     }
 }

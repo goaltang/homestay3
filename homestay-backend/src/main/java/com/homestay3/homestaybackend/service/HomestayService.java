@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface HomestayService {
@@ -17,14 +18,19 @@ public interface HomestayService {
     List<HomestayDTO> getAllHomestays();
     
     /**
-     * 获取推荐房源
+     * 获取推荐房源 (已废弃，请使用HomestayRecommendationService)
+     * @deprecated 使用 HomestayRecommendationService.getRecommendedHomestays() 替代
      */
+    @Deprecated
     List<HomestayDTO> getFeaturedHomestays();
     
     /**
      * 根据ID获取房源详情
+     * @param id 房源ID
+     * @param referringSearchCriteria 用户找到此房源时使用的搜索条件，用于优先显示匹配的特色
+     * @return 房源DTO
      */
-    HomestayDTO getHomestayById(Long id);
+    HomestayDTO getHomestayById(Long id, List<String> referringSearchCriteria);
     
     /**
      * 根据房源类型获取房源列表
@@ -92,4 +98,28 @@ public interface HomestayService {
      * 管理员更新民宿状态
      */
     void updateHomestayStatus(Long id, String status);
+    
+    /**
+     * 检查房源是否可以提交审核
+     */
+    boolean checkHomestayReadyForReview(Long homestayId);
+    
+    /**
+     * 获取房源审核就绪状态的详细信息
+     */
+    String getHomestayReviewReadinessDetails(Long homestayId);
+    
+    /**
+     * 获取房源详情（包含完整房东信息）
+     * @param id 房源ID
+     * @return 包含完整房东信息的房源DTO
+     */
+    HomestayDTO getHomestayWithOwnerDetails(Long id);
+    
+    /**
+     * 获取房源不可用日期
+     * @param homestayId 房源ID
+     * @return 不可用日期列表
+     */
+    List<LocalDate> getUnavailableDates(Long homestayId);
 } 

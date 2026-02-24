@@ -19,6 +19,12 @@ export function adaptPageParams(params: any) {
     delete adaptedParams.pageSize;
   }
 
+  // 处理用户类型字段映射 userType -> role
+  if ("userType" in adaptedParams && adaptedParams.userType) {
+    adaptedParams.role = adaptedParams.userType;
+    delete adaptedParams.userType;
+  }
+
   return adaptedParams;
 }
 
@@ -143,6 +149,24 @@ export function adaptHomestayItem(item: any): Homestay {
     } as Homestay;
   }
 
+  // 打印原始数据以便调试房东信息
+  console.log("原始房源数据:", {
+    id: item.id,
+    title: item.title,
+    ownerInfo: {
+      ownerName: item.ownerName,
+      ownerUsername: item.ownerUsername,
+      ownerPhone: item.ownerPhone,
+      ownerId: item.ownerId,
+      owner: item.owner,
+      user: item.user,
+      host: item.host,
+      hostId: item.hostId,
+      hostName: item.hostName,
+    },
+    allFields: Object.keys(item),
+  });
+
   const originalImages = Array.isArray(item.images)
     ? item.images.filter(
         (img: any) =>
@@ -151,6 +175,54 @@ export function adaptHomestayItem(item: any): Homestay {
           img !== item.coverImage
       )
     : [];
+
+  // 尝试从多个可能的字段中获取房东信息（增强版）
+  const ownerInfo = {
+    ownerId: item.ownerId || item.owner?.id || item.user?.id || item.hostId,
+    ownerName:
+      item.ownerName ||
+      item.owner?.realName ||
+      item.owner?.nickname ||
+      item.user?.realName ||
+      item.user?.nickname ||
+      item.hostName ||
+      item.owner?.username ||
+      item.user?.username,
+    ownerUsername:
+      item.ownerUsername || item.owner?.username || item.user?.username,
+    ownerPhone: item.ownerPhone || item.owner?.phone || item.user?.phone,
+    ownerEmail: item.ownerEmail || item.owner?.email || item.user?.email,
+    ownerRealName:
+      item.ownerRealName || item.owner?.realName || item.user?.realName,
+    ownerNickname:
+      item.ownerNickname || item.owner?.nickname || item.user?.nickname,
+    ownerOccupation:
+      item.ownerOccupation || item.owner?.occupation || item.user?.occupation,
+    ownerIntroduction:
+      item.ownerIntroduction ||
+      item.owner?.introduction ||
+      item.user?.introduction,
+    ownerJoinDate:
+      item.ownerJoinDate ||
+      item.owner?.createdAt ||
+      item.user?.createdAt ||
+      item.owner?.createTime ||
+      item.user?.createTime,
+    ownerHostSince:
+      item.ownerHostSince || item.owner?.hostSince || item.user?.hostSince,
+    ownerHomestayCount:
+      item.ownerHomestayCount ||
+      item.owner?.homestayCount ||
+      item.user?.homestayCount,
+    ownerHostRating:
+      item.ownerHostRating || item.owner?.hostRating || item.user?.hostRating,
+    ownerAvatar: item.ownerAvatar || item.owner?.avatar || item.user?.avatar,
+    ownerRating:
+      item.ownerRating ||
+      item.owner?.rating ||
+      item.user?.rating ||
+      item.ownerHostRating,
+  };
 
   return {
     id: item.id,
@@ -171,12 +243,12 @@ export function adaptHomestayItem(item: any): Homestay {
     featured: !!item.featured,
     rating: item.rating,
     reviewCount: item.reviewCount,
-    hostId: item.hostId || item.owner?.id,
-    hostName: item.hostName || item.owner?.username,
+    hostId: ownerInfo.ownerId,
+    hostName: ownerInfo.ownerName,
     updatedAt: item.updatedAt || "",
     minNights: item.minNights,
-    ownerName: item.ownerName,
-    ownerUsername: item.ownerUsername,
+    // 增强的房东信息映射
+    ...ownerInfo,
     provinceCode: item.provinceCode,
     cityCode: item.cityCode,
     districtCode: item.districtCode,
@@ -203,21 +275,37 @@ export function adaptOrderItem(item: any) {
 export function adaptUserItem(item: any) {
   if (!item) return null;
 
-  // Directly use the boolean `enabled` status from the backend item
+  // Convert backend enabled boolean to frontend status string
   const backendEnabled = item.enabled;
-  console.log(`Adapting user ${item.id}, backend enabled: ${backendEnabled}`);
+  const frontendStatus = backendEnabled ? "1" : "0";
+  console.log(
+    `Adapting user ${item.id}, backend enabled: ${backendEnabled}, frontend status: ${frontendStatus}`
+  );
+  console.log(`User ${item.id} raw data:`, {
+    phone: item.phone,
+    role: item.role,
+    lastLogin: item.lastLogin,
+    nickname: item.nickname,
+    fullName: item.fullName,
+    realName: item.realName,
+  });
 
   return {
     id: item.id,
     username: item.username || "",
-    nickname: item.nickname || "",
-    phone: item.phoneNumber || "",
+    nickname: item.nickname || item.fullName || item.realName || "", // 兼容性处理：如果没有nickname，使用fullName或realName
+    phone: item.phone || "", // 修复：后端字段是 phone，不是 phoneNumber
     email: item.email || "",
-    // Use the boolean value directly, potentially rename for clarity
-    enabled: backendEnabled,
-    createTime: item.createdAt || "",
-    // Include other fields if needed
-    role: item.role,
-    avatar: item.avatar,
+    status: frontendStatus, // Convert boolean to string for frontend
+    createTime: item.createdAt ? new Date(item.createdAt).toLocaleString() : "", // 格式化创建时间
+    userType: item.role || "", // 后端字段是 role
+    verificationStatus: item.verificationStatus
+      ? item.verificationStatus.toString()
+      : "UNVERIFIED",
+    realName: item.realName || "",
+    avatar: item.avatar || "",
+    lastLoginTime: item.lastLogin
+      ? new Date(item.lastLogin).toLocaleString()
+      : "", // 修复：后端字段是 lastLogin，格式化时间显示
   };
 }

@@ -144,6 +144,42 @@ const routes: RouteRecordRaw[] = [
             return import("@/views/error/404.vue");
           }),
       },
+      {
+        path: "/notifications",
+        name: "notifications",
+        meta: {
+          title: "通知中心",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/notifications/index.vue"),
+      },
+      {
+        path: "/audit/workbench",
+        name: "auditWorkbench",
+        meta: {
+          title: "审核工作台",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/audit/workbench.vue"),
+      },
+      {
+        path: "/audit/history",
+        name: "auditHistory",
+        meta: {
+          title: "审核历史",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/audit/history.vue"),
+      },
+      {
+        path: "/audit/statistics",
+        name: "auditStatistics",
+        meta: {
+          title: "审核统计",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/audit/statistics.vue"),
+      },
     ],
   },
   {

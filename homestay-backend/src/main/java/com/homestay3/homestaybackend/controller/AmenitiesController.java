@@ -11,8 +11,8 @@ import com.homestay3.homestaybackend.dto.AmenityDTO;
 import com.homestay3.homestaybackend.exception.ResourceAlreadyExistsException;
 import com.homestay3.homestaybackend.exception.ResourceInUseException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.Amenity;
-import com.homestay3.homestaybackend.model.AmenityCategory;
+import com.homestay3.homestaybackend.entity.Amenity;
+import com.homestay3.homestaybackend.entity.AmenityCategory;
 import com.homestay3.homestaybackend.service.AmenityService;
 import com.homestay3.homestaybackend.repository.AmenityRepository;
 

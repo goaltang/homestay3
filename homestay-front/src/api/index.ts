@@ -62,10 +62,21 @@ api.interceptors.response.use(
 
       // 处理401错误（未授权）
       if (error.response.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("userInfo");
-        window.location.href = "/login";
+        // 如果是登录接口本身的 401，不进行全局处理，让错误继续传递
+        if (error.config?.url?.includes("/api/auth/login")) {
+          console.warn("登录接口返回 401，跳过全局处理，让组件处理");
+          // 不做任何操作，让错误继续传递到调用者
+        } else {
+          // 对于其他接口的 401，清除认证信息并跳转
+          console.warn("非登录接口返回 401，清除认证信息并跳转");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("userInfo");
+          // 使用路由跳转而不是强制刷新页面
+          import("@/router").then(({ default: router }) => {
+            router.push("/login");
+          });
+        }
       }
 
       // 处理其他错误

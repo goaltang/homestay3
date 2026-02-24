@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.controller;
 
-import com.homestay3.homestaybackend.dto.VerificationDto;
+import com.homestay3.homestaybackend.dto.VerificationDTO;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.VerificationStatus;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -69,7 +69,7 @@ public class AdminVerificationController {
             }
             
             // 转换为DTO并打印日志
-            List<VerificationDto> verificationDtos = usersPage.getContent().stream()
+            List<VerificationDTO> verificationDtos = usersPage.getContent().stream()
                     .map(this::convertToDto)
                     .collect(Collectors.toList());
             
@@ -114,7 +114,7 @@ public class AdminVerificationController {
                         .body(Map.of("error", "该用户没有身份验证信息"));
             }
             
-            VerificationDto verificationDto = convertToDto(user);
+            VerificationDTO verificationDto = convertToDto(user);
             return ResponseEntity.ok(verificationDto);
         }
         
@@ -215,9 +215,9 @@ public class AdminVerificationController {
     }
 
     /**
-     * 将User转换为VerificationDto
+     * 将User转换为VerificationDTO
      */
-    private VerificationDto convertToDto(User user) {
+    private VerificationDTO convertToDto(User user) {
         if (user == null) {
             return null;
         }
@@ -233,7 +233,7 @@ public class AdminVerificationController {
             }
         }
         
-        return VerificationDto.builder()
+        return VerificationDTO.builder()
                 .id(user.getId())
                 .userId(user.getId())
                 .username(user.getUsername())

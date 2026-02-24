@@ -37,6 +37,11 @@ const router = createRouter({
       component: () => import("../views/HomestayDetail.vue"),
     },
     {
+      path: "/test-public-access",
+      name: "test-public-access",
+      component: () => import("../views/TestPublicAccess.vue"),
+    },
+    {
       path: "/profile",
       name: "profile",
       component: () => import("../views/user/Profile.vue"),
@@ -53,41 +58,6 @@ const router = createRouter({
       name: "forgot-password",
       component: () => import("../views/ForgotPassword.vue"),
     },
-
-    // // 房源管理路由
-    // {
-    //   path: "/homestay",
-    //   component: () => import("@/layouts/DefaultLayout.vue"),
-    //   children: [
-    //     {
-    //       path: "list",
-    //       name: "HomestayList",
-    //       component: () => import("@/views/homestay/HomestayList.vue"),
-    //       meta: {
-    //         title: "房源管理",
-    //         requiresAuth: true,
-    //       },
-    //     },
-    //     {
-    //       path: "create",
-    //       name: "HomestayCreate",
-    //       component: () => import("@/views/homestay/HomestayForm.vue"),
-    //       meta: {
-    //         title: "创建房源",
-    //         requiresAuth: true,
-    //       },
-    //     },
-    //     {
-    //       path: "edit/:id",
-    //       name: "HomestayEdit",
-    //       component: () => import("@/views/homestay/HomestayForm.vue"),
-    //       meta: {
-    //         title: "编辑房源",
-    //         requiresAuth: true,
-    //       },
-    //     },
-    //   ],
-    // },
 
     // 房东中心路由
     {
@@ -228,6 +198,24 @@ const router = createRouter({
       meta: { title: "订单支付", requiresAuth: true },
     },
     {
+      path: "/orders/:id/pay-success",
+      name: "OrderPaySuccess",
+      component: () => import("../views/order/OrderPaySuccess.vue"),
+      meta: { title: "支付成功", requiresAuth: true },
+    },
+    {
+      path: "/payment-test",
+      name: "PaymentTest",
+      component: () => import("../views/order/PaymentTest.vue"),
+      meta: { title: "支付测试", requiresAuth: true, hideInMenu: true },
+    },
+    {
+      path: "/order-debug",
+      name: "OrderDebug",
+      component: () => import("../views/order/OrderDebug.vue"),
+      meta: { title: "订单调试", requiresAuth: true, hideInMenu: true },
+    },
+    {
       path: "/orders/submit-success/:id",
       name: "OrderSubmitSuccess",
       component: OrderSubmitSuccess,
@@ -275,7 +263,7 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
   const userStore = useUserStore();
 
@@ -317,13 +305,55 @@ router.beforeEach((to, from, next) => {
     storedAuthUser: !!userFromAuth,
   });
 
-  // 根据实际 token 和用户信息判断权限，而不是只依赖 store
+  // 定义公开访问的页面（无需登录）
+  const publicPages = [
+    "/",
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+    "/homestays",
+    "/homestay/:id",
+    "/homestays/:id",
+  ];
+
+  // 检查当前页面是否为公开页面
+  const isPublicPage = publicPages.some((page) => {
+    if (page.includes(":")) {
+      // 处理动态路由参数
+      const pattern = page.replace(/:[^/]+/g, "[^/]+");
+      const regex = new RegExp(`^${pattern}$`);
+      return regex.test(to.path);
+    }
+    return to.path === page;
+  });
+
+  // 处理需要认证的页面
   if (to.meta.requiresAuth && !isAuthenticated) {
     console.warn("需要登录权限，重定向到登录页");
-    next({ name: "login", query: { redirect: to.fullPath } });
-  } else if (
+
+    // 如果是从受保护页面直接访问，提供友好的消息
+    if (!from.name || from.name === "home") {
+      // 这是直接访问受保护页面的情况
+      next({
+        name: "login",
+        query: {
+          redirect: to.fullPath,
+          message: "请先登录后再访问此页面",
+        },
+      });
+    } else {
+      // 正常的导航情况
+      next({ name: "login", query: { redirect: to.fullPath } });
+    }
+    return;
+  }
+
+  // 处理角色权限检查
+  if (
     to.meta.roles &&
     Array.isArray(to.meta.roles) &&
+    isAuthenticated &&
     userRole && // 确保有角色信息
     !to.meta.roles.some((role) => {
       // 完全匹配
@@ -365,11 +395,26 @@ router.beforeEach((to, from, next) => {
       userRole: userRole,
       requiredRoles: to.meta.roles,
     });
-    next({ name: "home" });
-  } else {
-    console.log("导航允许通过");
-    next();
+
+    // 提供更友好的错误提示
+    next({
+      name: "home",
+      query: {
+        error: "您没有权限访问此页面",
+      },
+    });
+    return;
   }
+
+  // 处理已登录用户访问登录/注册页面的情况
+  if (isAuthenticated && (to.name === "login" || to.name === "register")) {
+    console.log("已登录用户尝试访问登录/注册页面，重定向到首页");
+    next({ name: "home" });
+    return;
+  }
+
+  console.log("导航允许通过");
+  next();
 });
 
 export default router;

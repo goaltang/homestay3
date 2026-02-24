@@ -28,8 +28,8 @@ const handleCollapse = (val: boolean) => {
 <style scoped>
 .common-layout {
     position: relative;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
 }
 
 .content-box {
@@ -41,11 +41,14 @@ const handleCollapse = (val: boolean) => {
     padding: 20px;
     transition: left 0.3s ease-in-out;
     background: #f0f2f5;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .content {
     width: 100%;
-    height: 100%;
+    min-height: 100%;
     padding: 20px;
     box-sizing: border-box;
     background: #fff;

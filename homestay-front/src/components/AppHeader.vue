@@ -63,12 +63,17 @@ const handleCommand = (command: string) => {
     console.log('Header 命令执行:', command);
     switch (command) {
         case 'profile':
+            if (!isLoggedIn.value) {
+                ElMessage.info('请先登录后再访问个人中心');
+                router.push('/login?message=请先登录后再访问个人中心');
+                return;
+            }
             router.push('/user/profile');
             break;
         case 'host':
             if (!isLoggedIn.value) {
-                ElMessage.warning('请先登录');
-                router.push('/login');
+                ElMessage.info('请先登录后再访问房东中心');
+                router.push('/login?message=请先登录后再访问房东中心');
                 return;
             }
             if (authStore.isLandlord || userStore.isLandlord) {
@@ -81,10 +86,20 @@ const handleCommand = (command: string) => {
             }
             break;
         case 'favorites':
+            if (!isLoggedIn.value) {
+                ElMessage.info('请先登录后再查看收藏');
+                router.push('/login?message=请先登录后再查看收藏');
+                return;
+            }
             router.push('/user/favorites');
             break;
         case 'orders':
-            router.push('/user/orders');
+            if (!isLoggedIn.value) {
+                ElMessage.info('请先登录后再查看订单');
+                router.push('/login?message=请先登录后再查看订单');
+                return;
+            }
+            router.push('/user/bookings');
             break;
         case 'login':
             router.push('/login');

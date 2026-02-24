@@ -29,14 +29,12 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
-    minify: "terser",
+    minify: "esbuild",
     cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ["vue", "vue-router", "element-plus"],
-          api: ["./src/api"],
-          stores: ["./src/stores"],
         },
       },
     },

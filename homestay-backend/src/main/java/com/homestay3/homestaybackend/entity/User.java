@@ -1,7 +1,7 @@
 package com.homestay3.homestaybackend.entity;
 
 import com.homestay3.homestaybackend.model.VerificationStatus;
-import com.homestay3.homestaybackend.model.Homestay;
+import com.homestay3.homestaybackend.entity.Homestay;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;

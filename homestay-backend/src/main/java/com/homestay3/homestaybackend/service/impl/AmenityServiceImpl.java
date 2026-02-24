@@ -20,9 +20,9 @@ import com.homestay3.homestaybackend.dto.AmenityDTO;
 import com.homestay3.homestaybackend.exception.ResourceAlreadyExistsException;
 import com.homestay3.homestaybackend.exception.ResourceInUseException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.Amenity;
-import com.homestay3.homestaybackend.model.AmenityCategory;
-import com.homestay3.homestaybackend.model.Homestay;
+import com.homestay3.homestaybackend.entity.Amenity;
+import com.homestay3.homestaybackend.entity.AmenityCategory;
+import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.repository.AmenityCategoryRepository;
 import com.homestay3.homestaybackend.repository.AmenityRepository;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
@@ -408,7 +408,10 @@ public class AmenityServiceImpl implements AmenityService {
         }
     }
     
-    private AmenityDTO convertToDTO(Amenity amenity) {
+    // Helper method to convert Amenity entity to AmenityDTO
+    // This method is now public to implement the interface method
+    @Override
+    public AmenityDTO convertToDTO(Amenity amenity) {
         if (amenity == null) return null;
         
         AmenityDTO dto = new AmenityDTO();

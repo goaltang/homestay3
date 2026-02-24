@@ -125,6 +125,39 @@ export function initiateRefund(orderId: number) {
   });
 }
 
+// 管理员批准退款申请
+export function approveRefund(orderId: number, refundNote?: string) {
+  return request<AdminOrderListItem>({
+    url: `/api/admin/orders/${orderId}/refund/approve`,
+    method: "post",
+    data: {
+      refundNote: refundNote || "",
+    },
+  });
+}
+
+// 管理员拒绝退款申请
+export function rejectRefund(orderId: number, rejectReason: string) {
+  return request<AdminOrderListItem>({
+    url: `/api/admin/orders/${orderId}/refund/reject`,
+    method: "post",
+    data: {
+      rejectReason: rejectReason,
+    },
+  });
+}
+
+// 管理员完成退款处理
+export function completeRefund(orderId: number, refundTransactionId?: string) {
+  return request<AdminOrderListItem>({
+    url: `/api/admin/orders/${orderId}/refund/complete`,
+    method: "post",
+    data: {
+      refundTransactionId: refundTransactionId || "",
+    },
+  });
+}
+
 // 删除订单
 export function deleteOrder(id: number) {
   return request({

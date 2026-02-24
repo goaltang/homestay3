@@ -1,12 +1,12 @@
 package com.homestay3.homestaybackend.service.impl;
 
-import com.homestay3.homestaybackend.dto.NotificationDto;
+import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.entity.Notification;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.Homestay;
-import com.homestay3.homestaybackend.model.Order;
-import com.homestay3.homestaybackend.model.Review;
+import com.homestay3.homestaybackend.entity.Homestay;
+import com.homestay3.homestaybackend.entity.Order;
+import com.homestay3.homestaybackend.entity.Review;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.*; // 导入所有 repository
@@ -81,7 +81,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional(readOnly = true) // 只读事务，提高性能
-    public Page<NotificationDto> getNotificationsForUser(Long userId, Boolean isRead, NotificationType type, Pageable pageable) {
+    public Page<NotificationDTO> getNotificationsForUser(Long userId, Boolean isRead, NotificationType type, Pageable pageable) {
         Page<Notification> notificationPage;
         
         // 根据 isRead 和 type 参数选择不同的查询方法
@@ -109,7 +109,7 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
-        // 将 Page<Notification> 转换为 Page<NotificationDto>
+        // 将 Page<Notification> 转换为 Page<NotificationDTO>
         // 注意: map 操作内部调用 convertToDto，可能涉及多次数据库查询，考虑性能优化 (如批量查询)
         return notificationPage.map(this::convertToDto);
     }
@@ -184,9 +184,9 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     // --- 私有辅助方法 ---
-    private NotificationDto convertToDto(Notification notification) {
+    private NotificationDTO convertToDto(Notification notification) {
         // log.info("[NotificationService] Converting notification ID: {}, isRead from entity: {}", notification.getId(), notification.isRead()); 
-        NotificationDto dto = new NotificationDto();
+        NotificationDTO dto = new NotificationDTO();
         dto.setId(notification.getId());
         dto.setUserId(notification.getUserId());
         dto.setActorId(notification.getActorId());

@@ -1,11 +1,18 @@
 // 房源状态
-export type HomestayStatus = "ACTIVE" | "PENDING" | "INACTIVE" | "REJECTED";
+export type HomestayStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "ACTIVE"
+  | "INACTIVE"
+  | "REJECTED"
+  | "SUSPENDED";
 
 // 订单状态
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
   | "PAID"
+  | "PAYMENT_PENDING"
   | "PAYMENT_FAILED"
   | "CHECKED_IN"
   | "COMPLETED"
@@ -13,10 +20,21 @@ export type OrderStatus =
   | "CANCELLED_BY_USER"
   | "CANCELLED_BY_HOST"
   | "CANCELLED_SYSTEM"
-  | "REJECTED";
+  | "REJECTED"
+  | "REFUND_PENDING"
+  | "REFUNDED"
+  | "REFUND_FAILED"
+  | "READY_FOR_CHECKIN";
 
 // 支付状态 (新增)
-export type PaymentStatus = "UNPAID" | "PAID" | "REFUNDED" | "FAILED"; // 根据实际情况调整
+export type PaymentStatus =
+  | "UNPAID"
+  | "PAID"
+  | "PAYMENT_FAILED"
+  | "REFUNDED"
+  | "REFUND_PENDING"
+  | "REFUND_FAILED"
+  | "PARTIALLY_REFUNDED"; // 根据实际情况调整
 
 // 支付方式 (新增)
 export type PaymentMethod = "ALIPAY" | "WECHAT_PAY" | "OTHER"; // 根据实际情况调整

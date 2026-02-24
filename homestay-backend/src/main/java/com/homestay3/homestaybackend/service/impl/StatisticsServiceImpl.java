@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.repository.HomestayRepository;
+import com.homestay3.homestaybackend.repository.HomestayAuditLogRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +32,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
+    private final HomestayAuditLogRepository auditLogRepository;
     
     @Override
     public Map<String, Object> getAdminStatistics(LocalDate startDate, LocalDate endDate) {
@@ -201,6 +204,78 @@ public class StatisticsServiceImpl implements StatisticsService {
         
         result.put("provinces", provinces);
         result.put("counts", counts);
+        
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> getAuditStatistics(LocalDate startDate, LocalDate endDate) {
+        logger.info("获取审核统计数据，开始日期：{}，结束日期：{}", startDate, endDate);
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        // 转换日期为时间
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+        
+        // 获取审核统计数据
+        List<Object[]> auditStatData = auditLogRepository.countByActionTypeAndDateRange(startDateTime, endDateTime);
+        
+        long totalPending = 0;
+        long totalApproved = 0;
+        long totalRejected = 0;
+        
+        // 统计各种操作类型的数量
+        for (Object[] data : auditStatData) {
+            Object actionTypeObj = data[0];
+            Long count = (Long) data[1];
+            
+            // 安全地处理枚举到字符串的转换
+            String actionType;
+if (actionTypeObj instanceof com.homestay3.homestaybackend.entity.HomestayAuditLog.AuditActionType) {
+                actionType = ((com.homestay3.homestaybackend.entity.HomestayAuditLog.AuditActionType) actionTypeObj).name();
+            } else if (actionTypeObj instanceof String) {
+                actionType = (String) actionTypeObj;
+            } else {
+                actionType = actionTypeObj.toString();
+            }
+            
+            switch (actionType) {
+                case "APPROVE":
+                    totalApproved = count;
+                    break;
+                case "REJECT":
+                    totalRejected = count;
+                    break;
+                case "SUBMIT":
+                    totalPending += count;
+                    break;
+            }
+        }
+        
+        // 计算平均处理时间（分钟）
+        double averageProcessTime = 0;
+        try {
+            // 这里可以根据实际需求实现更复杂的平均处理时间计算
+            // 暂时使用简单的估算：审核完成的房源数量 * 平均审核时间（假设60分钟）
+            if (totalApproved + totalRejected > 0) {
+                averageProcessTime = 60; // 默认60分钟
+            }
+        } catch (Exception e) {
+            logger.warn("计算平均处理时间失败", e);
+        }
+        
+        // 计算通过率
+        double approvalRate = 0;
+        if (totalApproved + totalRejected > 0) {
+            approvalRate = (double) totalApproved / (totalApproved + totalRejected) * 100;
+        }
+        
+        result.put("totalPending", totalPending);
+        result.put("totalApproved", totalApproved);
+        result.put("totalRejected", totalRejected);
+        result.put("averageProcessTime", averageProcessTime);
+        result.put("approvalRate", approvalRate);
         
         return result;
     }

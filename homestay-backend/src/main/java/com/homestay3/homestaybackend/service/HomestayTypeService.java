@@ -2,7 +2,7 @@ package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.HomestayTypeDTO;
 import com.homestay3.homestaybackend.dto.TypeCategoryDTO;
-import com.homestay3.homestaybackend.model.HomestayType;
+import com.homestay3.homestaybackend.entity.HomestayType;
 
 import java.util.List;
 import java.util.Map;

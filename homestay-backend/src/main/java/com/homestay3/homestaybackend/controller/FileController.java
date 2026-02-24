@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.service.FileService;
+import com.homestay3.homestaybackend.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,8 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -45,6 +48,9 @@ public class FileController {
     @Autowired
     private FileService fileService;
     
+    @Autowired
+    private UserService userService;
+    
     /**
      * 上传单个文件
      * @param file 文件
@@ -79,6 +85,31 @@ public class FileController {
             
             String fileName = fileService.storeFile(file, type);
             logger.info("文件已成功存储: 新文件名={}", fileName);
+            
+            // 如果是头像上传，更新用户头像信息到数据库
+            if ("avatar".equals(type)) {
+                logger.info("检测到头像上传，准备更新数据库...");
+                try {
+                    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                    logger.info("认证信息: {}", authentication != null ? authentication.getName() : "null");
+                    
+                    if (authentication != null && authentication.isAuthenticated() && 
+                        !"anonymousUser".equals(authentication.getName())) {
+                        String username = authentication.getName();
+                        // 构建完整的头像URL路径
+                        String avatarUrl = "/api/files/" + type + "/" + fileName;
+                        
+                        logger.info("准备调用updateAvatar: username={}, avatarUrl={}", username, avatarUrl);
+                        userService.updateAvatar(username, avatarUrl);
+                        logger.info("用户头像已成功更新到数据库: username={}, avatarUrl={}", username, avatarUrl);
+                    } else {
+                        logger.warn("用户未认证或为匿名用户，跳过数据库更新");
+                    }
+                } catch (Exception e) {
+                    logger.error("更新用户头像信息失败，但文件上传成功: {}", e.getMessage(), e);
+                    // 不影响文件上传的响应，只记录错误
+                }
+            }
             
             // 构建文件访问URL
             String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()

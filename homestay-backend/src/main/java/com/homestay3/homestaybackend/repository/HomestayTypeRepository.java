@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.repository;
 
-import com.homestay3.homestaybackend.model.HomestayType;
+import com.homestay3.homestaybackend.entity.HomestayType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

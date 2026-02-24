@@ -43,9 +43,8 @@ public interface UserService {
     void deleteUser(Long id);
     
     /**
-     * 上传头像
+     * 头像上传功能已迁移到FileController统一处理
      */
-    String uploadAvatar(MultipartFile file, String username);
     
     /**
      * 更新用户角色

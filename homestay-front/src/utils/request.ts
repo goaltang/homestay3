@@ -22,7 +22,7 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || "";
 // 创建 axios 实例
 const request: AxiosInstance = axios.create({
   baseURL,
-  timeout: 15000,
+  timeout: 30000, // 增加到30秒，支付接口需要更长时间
   headers: {
     "Content-Type": "application/json",
   },
@@ -37,6 +37,13 @@ const whiteList = [
   "/uploads/", // 静态资源路径
   "/api/uploads/", // API静态资源路径
   "/api/files/", // 文件资源路径
+  "/api/homestays/search", // 房源搜索
+  "/api/homestay-types", // 房源类型
+  "/api/homestays/amenities", // 房源设施
+  "/api/amenities/", // 设施相关API
+  "/api/homestays/", // 房源详情、列表和不可用日期（GET请求）
+  "/api/recommendations/", // 推荐相关API
+  "/api/locations/", // 地区信息API
 ];
 
 // 请求拦截器
@@ -50,7 +57,31 @@ request.interceptors.request.use(
     console.log(`准备发送请求: ${method} ${url}`);
 
     // 检查路径是否在白名单中
-    const isPathWhitelisted = whiteList.some((path) => url.startsWith(path));
+    let isPathWhitelisted = whiteList.some((path) => url.startsWith(path));
+
+    // 特殊处理：某些路径只有GET请求才在白名单中，POST/PUT/DELETE需要认证
+    const readOnlyPaths = ["/api/files/", "/api/homestays/"];
+    if (
+      readOnlyPaths.some((path) => url.startsWith(path)) &&
+      method !== "GET"
+    ) {
+      isPathWhitelisted = false;
+      console.log(`写入操作需要认证: ${method} ${url}`);
+    }
+
+    // 需要认证的特殊路径，即使匹配白名单也要求认证
+    const authRequiredPaths = [
+      "/api/homestays/owner", // 房东房源列表
+      "/api/homestays/batch/", // 批量操作
+      "/api/homestays/submit-review", // 提交审核
+      "/api/homestays/withdraw-review", // 撤回审核
+    ];
+
+    if (authRequiredPaths.some((path) => url.includes(path))) {
+      isPathWhitelisted = false;
+      console.log(`强制要求认证的路径: ${url}`);
+    }
+
     console.log(
       `请求路径白名单状态: ${isPathWhitelisted ? "在白名单中" : "需要认证"}`
     );
@@ -151,7 +182,7 @@ request.interceptors.response.use(
       `数据预览: ${JSON.stringify(response.data).substring(0, 100)}...`
     );
 
-    return response;
+    return response; // 返回完整的response对象
   },
   (error) => {
     if (error.response) {

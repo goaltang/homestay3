@@ -146,7 +146,7 @@ export function getHostStatistics(): Promise<HostStatisticsData> {
 // 上传房东头像
 export function uploadHostAvatar(data: FormData) {
   return request({
-    url: "/api/host/avatar",
+    url: "/api/files/upload?type=avatar",
     method: "post",
     data,
     headers: {

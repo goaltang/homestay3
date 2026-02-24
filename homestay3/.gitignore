@@ -33,4 +33,7 @@ Thumbs.db
 # 上传文件和绘图目录
 homestay-backend/uploads/
 draw/
-new_draw/ 
+new_draw/
+
+# 文档目录
+@/docs/ 

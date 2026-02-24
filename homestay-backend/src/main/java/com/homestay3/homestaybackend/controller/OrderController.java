@@ -2,7 +2,7 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.Order;
+import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
@@ -25,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.List;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -62,7 +64,7 @@ public class OrderController {
             
             // 根据用户角色返回不同的订单列表
             String role = authentication.getAuthorities().iterator().next().getAuthority();
-            if (role.equals("ROLE_HOST") || role.equals("ROLE_LANDLORD")) {
+            if (role.equals("ROLE_HOST")) {
                 String username = authentication.getName();
                 orders = orderService.getOwnerOrders(username, params, pageable);
             } else {
@@ -477,6 +479,110 @@ public class OrderController {
         }
     }
     
+    /**
+     * 用户申请退款
+     */
+    @PostMapping("/{id}/refund")
+    public ResponseEntity<?> requestRefund(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> requestBody) {
+        log.info("用户申请退款，订单ID: {}", id);
+        
+        try {
+            String reason = null;
+            if (requestBody != null) {
+                reason = requestBody.get("reason");
+            }
+            
+            OrderDTO orderDTO = orderService.requestUserRefund(id, reason);
+            return ResponseEntity.ok(orderDTO);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("申请退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "申请退款失败，请稍后重试"));
+        }
+    }
+
+    /**
+     * 获取订单退款详情
+     */
+    @GetMapping("/{id}/refund-details")
+    public ResponseEntity<?> getRefundDetails(@PathVariable Long id) {
+        log.info("获取订单退款详情，订单ID: {}", id);
+        
+        try {
+            OrderDTO orderDTO = orderService.getOrderById(id);
+            return ResponseEntity.ok(orderDTO);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 检查日期可用性（调试用）
+     */
+    @PostMapping("/check-availability")
+    public ResponseEntity<?> checkDateAvailability(@RequestBody Map<String, Object> request) {
+        try {
+            Long homestayId = Long.valueOf(request.get("homestayId").toString());
+            String checkInDate = request.get("checkInDate").toString();
+            String checkOutDate = request.get("checkOutDate").toString();
+            
+            log.info("检查房源 {} 在 {} 至 {} 的可用性", homestayId, checkInDate, checkOutDate);
+            
+            // 查询该房源的所有订单
+            List<Order> allOrders = orderRepository.findByHomestayIdAndStatusInOrderByCheckInDate(
+                homestayId,
+                List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAID, OrderStatus.CHECKED_IN)
+            );
+            
+            log.info("房源 {} 共有 {} 个有效订单", homestayId, allOrders.size());
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("homestayId", homestayId);
+            result.put("checkInDate", checkInDate);
+            result.put("checkOutDate", checkOutDate);
+            result.put("totalOrders", allOrders.size());
+            
+            List<Map<String, Object>> orderDetails = allOrders.stream()
+                .map(order -> {
+                    Map<String, Object> detail = new HashMap<>();
+                    detail.put("orderNumber", order.getOrderNumber());
+                    detail.put("status", order.getStatus());
+                    detail.put("checkInDate", order.getCheckInDate());
+                    detail.put("checkOutDate", order.getCheckOutDate());
+                    detail.put("guestCount", order.getGuestCount());
+                    return detail;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            
+            result.put("existingOrders", orderDetails);
+            
+            // 检查是否有冲突
+            LocalDate requestCheckIn = LocalDate.parse(checkInDate);
+            LocalDate requestCheckOut = LocalDate.parse(checkOutDate);
+            
+            List<Order> conflictOrders = allOrders.stream()
+                .filter(o -> !(o.getCheckOutDate().isBefore(requestCheckIn) || 
+                              o.getCheckInDate().isAfter(requestCheckOut)))
+                .collect(java.util.stream.Collectors.toList());
+            
+            result.put("hasConflict", !conflictOrders.isEmpty());
+            result.put("conflictOrders", conflictOrders.stream()
+                .map(o -> String.format("%s[%s] (%s至%s)", 
+                    o.getOrderNumber(), o.getStatus(), o.getCheckInDate(), o.getCheckOutDate()))
+                .collect(java.util.stream.Collectors.toList()));
+            
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            log.error("检查日期可用性失败: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // Helper method to convert Order to OrderDTO
     private OrderDTO convertToDTO(Order order) {
         return OrderDTO.builder()

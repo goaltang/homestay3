@@ -90,39 +90,8 @@ public class UserServiceImpl implements UserService {
         userRepository.deleteById(id);
     }
 
-    @Override
-    @Transactional
-    public String uploadAvatar(MultipartFile file, String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
-        
-        try {
-            // 确保上传目录存在
-            String uploadDir = "uploads/avatars";
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-            
-            // 生成唯一文件名
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            String filename = System.currentTimeMillis() + "_" + (int)(Math.random() * 1000) + extension;
-            
-            // 保存文件
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath);
-            
-            // 更新用户头像
-            String avatarPath = "/uploads/avatars/" + filename;
-            user.setAvatar(avatarPath);
-            userRepository.save(user);
-            
-            return avatarPath;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to upload avatar", e);
-        }
-    }
+    // 头像上传功能已迁移到FileController统一处理
+    // 请使用 /api/files/upload?type=avatar 端点
 
     @Override
     @Transactional
@@ -273,10 +242,32 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateAvatar(String username, String avatarUrl) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
-        user.setAvatar(avatarUrl);
-        userRepository.save(user);
+        System.out.println("=== UserServiceImpl.updateAvatar 开始 ===");
+        System.out.println("参数: username=" + username + ", avatarUrl=" + avatarUrl);
+        
+        try {
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("用户不存在: " + username));
+            
+            System.out.println("找到用户: id=" + user.getId() + ", username=" + user.getUsername() + ", 当前头像=" + user.getAvatar());
+            
+            String oldAvatar = user.getAvatar();
+            user.setAvatar(avatarUrl);
+            user.setUpdatedAt(LocalDateTime.now());
+            
+            System.out.println("准备保存用户，头像从 [" + oldAvatar + "] 更新为 [" + avatarUrl + "]");
+            
+            User savedUser = userRepository.save(user);
+            
+            System.out.println("用户保存成功: id=" + savedUser.getId() + ", 保存后的头像=" + savedUser.getAvatar() + ", 更新时间=" + savedUser.getUpdatedAt());
+            System.out.println("=== UserServiceImpl.updateAvatar 成功完成 ===");
+            
+        } catch (Exception e) {
+            System.err.println("=== UserServiceImpl.updateAvatar 发生异常 ===");
+            System.err.println("异常信息: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
     
     @Override

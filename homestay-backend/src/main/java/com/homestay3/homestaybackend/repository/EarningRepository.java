@@ -1,10 +1,10 @@
 package com.homestay3.homestaybackend.repository;
 
-import com.homestay3.homestaybackend.model.Earning;
+import com.homestay3.homestaybackend.entity.Earning;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.dto.DailyEarningDTO;
 import com.homestay3.homestaybackend.dto.MonthlyEarningDTO;
-import com.homestay3.homestaybackend.model.Order;
+import com.homestay3.homestaybackend.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

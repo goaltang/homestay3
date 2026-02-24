@@ -21,7 +21,7 @@
 
 ### 后端
 
-- Spring Boot 2.7
+- Spring Boot 3.0.2
 - Java 17
 - MySQL 8.0
 - Spring Data JPA

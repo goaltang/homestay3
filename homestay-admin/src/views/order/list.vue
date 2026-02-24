@@ -52,8 +52,8 @@
                 <template #default>
                     已选择 <strong>{{ selectedRows.length }}</strong> 项
                     <div class="batch-buttons">
-                        <el-button size="small" type="success" @click="handleBatchComplete">批量完成</el-button>
-                        <el-button size="small" type="danger" @click="handleBatchCancel">批量取消</el-button>
+                        <el-button size="small" type="warning" @click="handleBatchRefund">批量发起退款</el-button>
+                        <el-button size="small" type="danger" @click="handleBatchCancel">批量强制取消</el-button>
                         <el-button size="small" type="primary" @click="handleBatchExport">批量导出</el-button>
                     </div>
                 </template>
@@ -64,56 +64,124 @@
             @selection-change="handleSelectionChange" @sort-change="handleSortChange"
             :default-sort="{ prop: 'createTime', order: 'descending' }">
             <el-table-column type="selection" width="50" align="center" />
-            <el-table-column prop="orderNumber" label="订单号" width="190" sortable="custom" />
-            <el-table-column prop="homestayTitle" label="房源名称" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="hostName" label="房东名称" width="120" sortable="custom" show-overflow-tooltip />
-            <el-table-column prop="guestName" label="住客名称" width="120" sortable="custom" show-overflow-tooltip />
-            <el-table-column prop="totalAmount" label="总金额" width="110" sortable="custom">
+
+            <!-- 订单基础信息 -->
+            <el-table-column prop="orderNumber" label="订单号" width="160" sortable="custom" show-overflow-tooltip />
+
+            <!-- 房源和人员信息 -->
+            <el-table-column label="房源信息" min-width="200" show-overflow-tooltip>
                 <template #default="scope">
-                    ¥{{ scope.row.totalAmount?.toFixed(2) }}
+                    <div class="homestay-info">
+                        <div class="homestay-title">{{ scope.row.homestayTitle }}</div>
+                        <div class="host-info">房东：{{ scope.row.hostName }}</div>
+                    </div>
                 </template>
             </el-table-column>
-            <el-table-column prop="status" label="订单状态" width="110" sortable="custom">
+
+            <!-- 客人信息 -->
+            <el-table-column label="客人信息" width="130" show-overflow-tooltip>
                 <template #default="scope">
-                    <el-tag :type="getOrderStatusType(scope.row.status)" size="small">
-                        {{ getOrderStatusText(scope.row.status) }}
-                    </el-tag>
+                    <div class="guest-info">
+                        <div class="guest-name">{{ scope.row.guestName }}</div>
+                        <div class="guest-count">{{ scope.row.guestCount }}位客人</div>
+                    </div>
                 </template>
             </el-table-column>
-            <el-table-column prop="paymentStatus" label="支付状态" width="110" sortable="custom">
+
+            <!-- 入住信息 -->
+            <el-table-column label="入住信息" width="140" prop="checkInDate" sortable="custom"
+                :sort-orders="['descending', 'ascending']">
                 <template #default="scope">
-                    <el-tag :type="getPaymentStatusType(scope.row.paymentStatus)" size="small">
-                        {{ getPaymentStatusText(scope.row.paymentStatus) }}
-                    </el-tag>
+                    <div class="checkin-info">
+                        <div class="date-range">{{ scope.row.checkInDate }} 至</div>
+                        <div class="date-range">{{ scope.row.checkOutDate }}</div>
+                        <div class="nights">{{ scope.row.nights }}晚</div>
+                    </div>
                 </template>
             </el-table-column>
-            <el-table-column prop="paymentMethod" label="支付方式" width="120" sortable="custom" show-overflow-tooltip />
-            <el-table-column prop="checkInDate" label="入住日期" width="120" sortable="custom" />
-            <el-table-column prop="checkOutDate" label="退房日期" width="120" sortable="custom" />
-            <el-table-column prop="createTime" label="创建时间" width="170" sortable="custom">
+
+            <!-- 订单金额 -->
+            <el-table-column prop="totalAmount" label="订单金额" width="120" sortable="custom" align="right">
                 <template #default="scope">
-                    {{ format(new Date(scope.row.createTime), 'yyyy-MM-dd HH:mm:ss') }}
+                    <div class="amount-info">
+                        <div class="total-amount">¥{{ scope.row.totalAmount?.toFixed(2) }}</div>
+                        <div class="unit-price">¥{{ scope.row.price }}/晚</div>
+                    </div>
                 </template>
             </el-table-column>
-            <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
-            <el-table-column label="操作" width="180" fixed="right" align="center">
+
+            <!-- 状态信息 -->
+            <el-table-column label="状态" width="140" prop="status" sortable="custom">
                 <template #default="scope">
+                    <div class="status-info">
+                        <el-tag :type="getOrderStatusType(scope.row.status)" size="small" class="status-tag">
+                            {{ getOrderStatusText(scope.row.status) }}
+                        </el-tag>
+                        <el-tag :type="getPaymentStatusType(scope.row.paymentStatus)" size="small" class="payment-tag">
+                            {{ getPaymentStatusText(scope.row.paymentStatus) }}
+                        </el-tag>
+                    </div>
+                </template>
+            </el-table-column>
+
+            <!-- 创建时间 -->
+            <el-table-column prop="createTime" label="创建时间" width="140" sortable="custom">
+                <template #default="scope">
+                    <div class="time-info">
+                        <div class="date">{{ format(new Date(scope.row.createTime), 'MM-dd') }}</div>
+                        <div class="time">{{ format(new Date(scope.row.createTime), 'HH:mm') }}</div>
+                    </div>
+                </template>
+            </el-table-column>
+
+            <!-- 备注 -->
+            <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip>
+                <template #default="scope">
+                    <span v-if="scope.row.remark">{{ scope.row.remark }}</span>
+                    <span v-else class="text-gray">无</span>
+                </template>
+            </el-table-column>
+
+            <!-- 操作 -->
+            <el-table-column label="操作" width="200" fixed="right" align="center">
+                <template #default="scope">
+                    <!-- 基础功能：查看详情 -->
                     <el-button type="primary" link size="small" @click="handleDetail(scope.row)">详情</el-button>
+
+                    <!-- 支付异常处理：确认支付 -->
                     <el-button type="success" link size="small" @click="handleConfirmPayment(scope.row)"
                         v-if="scope.row.paymentStatus === 'UNPAID'">
                         确认支付
                     </el-button>
+
+                    <!-- 退款管理：发起退款 -->
                     <el-button type="warning" link size="small" @click="handleRefund(scope.row)"
-                        v-if="scope.row.paymentStatus === 'PAID'">
+                        v-if="scope.row.paymentStatus === 'PAID' && !['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(scope.row.status)">
                         发起退款
                     </el-button>
-                    <el-button type="primary" link size="small" @click="handleComplete(scope.row)"
-                        v-if="scope.row.status === 'PAID' || scope.row.status === 'CHECKED_IN'">
-                        完成
+
+                    <!-- 退款管理：批准退款申请 -->
+                    <el-button type="success" link size="small" @click="handleApproveRefund(scope.row)"
+                        v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
+                        批准退款
                     </el-button>
+
+                    <!-- 退款管理：拒绝退款申请 -->
+                    <el-button type="danger" link size="small" @click="handleRejectRefund(scope.row)"
+                        v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
+                        拒绝退款
+                    </el-button>
+
+                    <!-- 异常处理：强制完成订单（仅针对已入住但未完成的订单） -->
+                    <el-button type="primary" link size="small" @click="handleComplete(scope.row)"
+                        v-if="scope.row.status === 'CHECKED_IN'">
+                        强制完成
+                    </el-button>
+
+                    <!-- 异常处理：强制取消订单 -->
                     <el-button type="danger" link size="small" @click="handleCancel(scope.row)"
-                        v-if="['PENDING', 'CONFIRMED', 'PAID'].includes(scope.row.status) && scope.row.paymentStatus !== 'REFUNDED'">
-                        取消
+                        v-if="!['COMPLETED', 'CANCELLED', 'REFUNDED', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST', 'CANCELLED_SYSTEM'].includes(scope.row.status) && scope.row.paymentStatus !== 'REFUNDED'">
+                        强制取消
                     </el-button>
                 </template>
             </el-table-column>
@@ -141,7 +209,9 @@ import {
     deleteOrder,
     batchDeleteOrders,
     confirmPayment,
-    initiateRefund
+    initiateRefund,
+    approveRefund,
+    rejectRefund
 } from '@/api/order'
 
 // 定义后端返回的 Order 数据类型 (需要与 OrderDTO.java 对应)
@@ -328,53 +398,73 @@ const handleDetail = (row: any) => {
     ElMessage.info('订单详情功能开发中')
 }
 
-// 完成订单
+// 强制完成订单（管理员异常处理）
 const handleComplete = async (row: AdminOrder) => {
     try {
         await ElMessageBox.confirm(
-            `确认要完成订单 ${row.orderNumber} 吗？`,
-            '完成订单',
+            `确认要强制完成订单 ${row.orderNumber} 吗？<br/><small>此操作通常用于处理异常情况，请谨慎操作</small>`,
+            '强制完成订单',
             {
                 confirmButtonText: '确定完成',
                 cancelButtonText: '取消',
-                type: 'success'
+                type: 'warning',
+                dangerouslyUseHTMLString: true
             }
         );
-        loading.value = true; // 开始加载
-        await updateOrderStatus(row.id, 'COMPLETED'); // 使用后端状态 'COMPLETED'
-        ElMessage.success('订单已成功标记为完成');
-        // 更新本地数据或重新获取
-        // fetchData(); // 简单起见，重新获取数据
-        // 或者更精细地更新本地数据
+        loading.value = true;
+        await updateOrderStatus(row.id, 'COMPLETED');
+        ElMessage.success('订单已强制标记为完成');
         const index = tableData.value.findIndex(item => item.id === row.id);
         if (index !== -1) {
             tableData.value[index].status = 'COMPLETED';
         }
-    } catch (error) { // 捕获包括取消在内的所有错误
-        if (error !== 'cancel') { // 如果不是用户取消操作
-            console.error('完成订单失败:', error);
-            // 尝试从 error 对象获取后端返回的错误信息
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('强制完成订单失败:', error);
             const message = (error as any)?.response?.data?.message || (error as Error)?.message || '操作失败，请重试';
-            ElMessage.error(`完成订单失败: ${message}`);
+            ElMessage.error(`强制完成订单失败: ${message}`);
         }
     } finally {
-        loading.value = false; // 结束加载
+        loading.value = false;
     }
 }
 
-// 取消订单
-const handleCancel = async (row: any) => {
+// 强制取消订单（管理员异常处理）
+const handleCancel = async (row: AdminOrder) => {
     try {
-        await ElMessageBox.confirm('确认要取消该订单吗？', '提示', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        })
-        await updateOrderStatus(row.id || parseInt(row.orderNumber.substring(1)), '2')
-        ElMessage.success('操作成功')
-        row.status = '2'
+        const { value: cancelReason } = await ElMessageBox.prompt(
+            `确认要强制取消订单 ${row.orderNumber} 吗？<br/><small>此操作通常用于处理违规、纠纷等异常情况</small>`,
+            '强制取消订单',
+            {
+                confirmButtonText: '确定取消',
+                cancelButtonText: '取消',
+                inputPlaceholder: '请输入取消原因（必填）',
+                inputType: 'textarea',
+                type: 'warning',
+                dangerouslyUseHTMLString: true,
+                inputValidator: (value: string) => {
+                    if (!value || value.trim() === '') {
+                        return '请输入取消原因'
+                    }
+                    return true
+                }
+            }
+        )
+        loading.value = true;
+        await updateOrderStatus(row.id, 'CANCELLED_SYSTEM');
+        ElMessage.success('订单已强制取消');
+        const index = tableData.value.findIndex(item => item.id === row.id);
+        if (index !== -1) {
+            tableData.value[index].status = 'CANCELLED_SYSTEM';
+        }
     } catch (error) {
-        console.error('操作失败:', error)
+        if (error !== 'cancel') {
+            console.error('强制取消订单失败:', error);
+            const message = (error as any)?.response?.data?.message || (error as Error)?.message || '操作失败';
+            ElMessage.error(`强制取消订单失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
     }
 }
 
@@ -407,63 +497,102 @@ const handleExport = async () => {
     }
 }
 
-// 批量完成订单
-const handleBatchComplete = async () => {
+// 批量发起退款
+const handleBatchRefund = async () => {
     if (selectedRows.value.length === 0) {
         ElMessage.warning('请至少选择一项')
         return
     }
 
-    // 筛选出可以完成的订单（已支付状态）
-    const validOrders = selectedRows.value.filter(item => item.status === '1')
+    // 筛选出可以退款的订单（已支付且未完成/取消的订单）
+    const validOrders = selectedRows.value.filter(item =>
+        item.paymentStatus === 'PAID' &&
+        !['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(item.status)
+    )
+
     if (validOrders.length === 0) {
-        ElMessage.warning('所选订单中没有可以完成的订单（已支付状态）')
+        ElMessage.warning('所选订单中没有可以发起退款的订单（需要已支付且未完成状态）')
         return
     }
 
     try {
-        await ElMessageBox.confirm(`确认要批量完成选中的 ${validOrders.length} 个订单吗？`, '批量操作', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        })
+        await ElMessageBox.confirm(
+            `确认要为选中的 ${validOrders.length} 个订单批量发起退款吗？<br/><small>此操作将把这些订单标记为退款处理中</small>`,
+            '批量发起退款',
+            {
+                confirmButtonText: '确定发起',
+                cancelButtonText: '取消',
+                type: 'warning',
+                dangerouslyUseHTMLString: true
+            }
+        )
 
-        const ids = validOrders.map(item => item.id)
-        await batchUpdateOrderStatus(ids, '3')
-        ElMessage.success('批量完成成功')
+        loading.value = true
+        // 这里需要调用批量退款API，暂时使用循环调用单个退款API
+        for (const order of validOrders) {
+            await initiateRefund(order.id)
+        }
+        ElMessage.success(`成功为 ${validOrders.length} 个订单发起退款`)
         fetchData()
     } catch (error) {
-        console.error('批量完成失败:', error)
+        if (error !== 'cancel') {
+            console.error('批量发起退款失败:', error)
+            ElMessage.error('批量发起退款失败')
+        }
+    } finally {
+        loading.value = false
     }
 }
 
-// 批量取消订单
+// 批量强制取消订单
 const handleBatchCancel = async () => {
     if (selectedRows.value.length === 0) {
         ElMessage.warning('请至少选择一项')
         return
     }
 
-    // 筛选出可以取消的订单（待支付状态）
-    const validOrders = selectedRows.value.filter(item => item.status === '0')
+    // 筛选出可以取消的订单（未完成/未取消的订单）
+    const validOrders = selectedRows.value.filter(item =>
+        !['COMPLETED', 'CANCELLED', 'REFUNDED', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST', 'CANCELLED_SYSTEM'].includes(item.status)
+    )
+
     if (validOrders.length === 0) {
-        ElMessage.warning('所选订单中没有可以取消的订单（待支付状态）')
+        ElMessage.warning('所选订单中没有可以取消的订单')
         return
     }
 
     try {
-        await ElMessageBox.confirm(`确认要批量取消选中的 ${validOrders.length} 个订单吗？`, '批量操作', {
-            confirmButtonText: '确定',
-            cancelButtonText: '取消',
-            type: 'warning'
-        })
+        const { value: cancelReason } = await ElMessageBox.prompt(
+            `确认要批量强制取消选中的 ${validOrders.length} 个订单吗？<br/><small>此操作通常用于处理违规、纠纷等异常情况</small>`,
+            '批量强制取消',
+            {
+                confirmButtonText: '确定取消',
+                cancelButtonText: '取消',
+                inputPlaceholder: '请输入取消原因（必填）',
+                inputType: 'textarea',
+                type: 'warning',
+                dangerouslyUseHTMLString: true,
+                inputValidator: (value: string) => {
+                    if (!value || value.trim() === '') {
+                        return '请输入取消原因'
+                    }
+                    return true
+                }
+            }
+        )
 
+        loading.value = true
         const ids = validOrders.map(item => item.id)
-        await batchUpdateOrderStatus(ids, '2')
-        ElMessage.success('批量取消成功')
+        await batchUpdateOrderStatus(ids, 'CANCELLED_SYSTEM')
+        ElMessage.success(`成功强制取消 ${validOrders.length} 个订单`)
         fetchData()
     } catch (error) {
-        console.error('批量取消失败:', error)
+        if (error !== 'cancel') {
+            console.error('批量强制取消失败:', error)
+            ElMessage.error('批量强制取消失败')
+        }
+    } finally {
+        loading.value = false
     }
 }
 
@@ -550,6 +679,69 @@ const handleRefund = async (row: AdminOrder) => {
     }
 }
 
+// 批准退款申请
+const handleApproveRefund = async (row: AdminOrder) => {
+    try {
+        const { value: refundNote } = await ElMessageBox.prompt(
+            `确认批准订单 ${row.orderNumber} 的退款申请吗？<br/><small>批准后将自动完成退款处理</small>`,
+            '批准退款',
+            {
+                confirmButtonText: '批准退款',
+                cancelButtonText: '取消',
+                inputPlaceholder: '请输入批准备注（可选）',
+                inputType: 'textarea',
+                dangerouslyUseHTMLString: true
+            }
+        )
+        loading.value = true;
+        await approveRefund(row.id, refundNote || '');
+        ElMessage.success('退款申请已批准并完成处理');
+        fetchData();
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('批准退款失败:', error);
+            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+            ElMessage.error(`批准退款失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
+// 拒绝退款申请
+const handleRejectRefund = async (row: AdminOrder) => {
+    try {
+        const { value: rejectReason } = await ElMessageBox.prompt(
+            `确认拒绝订单 ${row.orderNumber} 的退款申请吗？`,
+            '拒绝退款',
+            {
+                confirmButtonText: '拒绝',
+                cancelButtonText: '取消',
+                inputPlaceholder: '请输入拒绝原因（必填）',
+                inputType: 'textarea',
+                inputValidator: (value: string) => {
+                    if (!value || value.trim() === '') {
+                        return '请输入拒绝原因'
+                    }
+                    return true
+                }
+            }
+        )
+        loading.value = true;
+        await rejectRefund(row.id, rejectReason);
+        ElMessage.success('退款申请已拒绝');
+        fetchData();
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('拒绝退款失败:', error);
+            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+            ElMessage.error(`拒绝退款失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
 // 处理表格选择变化
 const handleSelectionChange = (selection: AdminOrder[]) => {
     selectedRows.value = selection
@@ -583,6 +775,95 @@ onMounted(() => {
         margin-top: 8px;
         display: flex;
         gap: 10px;
+    }
+
+    /* 表格内容样式优化 */
+    .homestay-info {
+        .homestay-title {
+            font-weight: 500;
+            margin-bottom: 2px;
+            color: #303133;
+        }
+
+        .host-info {
+            font-size: 12px;
+            color: #909399;
+        }
+    }
+
+    .guest-info {
+        .guest-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+            color: #303133;
+        }
+
+        .guest-count {
+            font-size: 12px;
+            color: #909399;
+        }
+    }
+
+    .checkin-info {
+        font-size: 13px;
+
+        .date-range {
+            margin-bottom: 1px;
+            color: #606266;
+        }
+
+        .nights {
+            font-size: 12px;
+            color: #409eff;
+            font-weight: 500;
+        }
+    }
+
+    .amount-info {
+        .total-amount {
+            font-weight: 600;
+            font-size: 14px;
+            color: #e6a23c;
+            margin-bottom: 2px;
+        }
+
+        .unit-price {
+            font-size: 12px;
+            color: #909399;
+        }
+    }
+
+    .status-info {
+        .status-tag {
+            display: block;
+            margin-bottom: 4px;
+            width: fit-content;
+        }
+
+        .payment-tag {
+            display: block;
+            width: fit-content;
+        }
+    }
+
+    .time-info {
+        text-align: center;
+
+        .date {
+            font-weight: 500;
+            margin-bottom: 2px;
+            color: #303133;
+        }
+
+        .time {
+            font-size: 12px;
+            color: #909399;
+        }
+    }
+
+    .text-gray {
+        color: #c0c4cc;
+        font-style: italic;
     }
 
     /* 确保 tooltip 生效 */

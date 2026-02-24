@@ -26,6 +26,9 @@ public enum NotificationType {
     // 房源相关 (房东/管理员)
     HOMESTAY_APPROVED,    // 房源审核通过
     HOMESTAY_REJECTED,    // 房源审核被拒
+    HOMESTAY_SUBMITTED,   // 房源提交审核
+
+
 
     // 系统通知
     SYSTEM_ANNOUNCEMENT,  // 系统公告
@@ -37,5 +40,11 @@ public enum NotificationType {
     ORDER_CANCELLED_BY_HOST, // 订单被房东取消 (给用户) // (逻辑包含在 BOOKING_CANCELLED 中)
     ORDER_CANCELLED_BY_GUEST, // 订单被用户取消 (给房东) // (逻辑包含在 BOOKING_CANCELLED 中)
     ORDER_COMPLETED,      // 订单已完成 (给双方)
-    ORDER_STATUS_CHANGED  // 添加订单状态变更通知类型
+    ORDER_STATUS_CHANGED, // 添加订单状态变更通知类型
+    
+    // 退款相关
+    REFUND_REQUESTED,     // 退款申请已提交 (给用户)
+    REFUND_APPROVED,      // 退款审核通过 (给用户)
+    REFUND_REJECTED,      // 退款被拒绝 (给用户)
+    REFUND_COMPLETED      // 退款已完成 (给用户)
 } 

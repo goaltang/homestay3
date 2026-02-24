@@ -5,7 +5,12 @@
             <el-button type="primary" @click="handleSubmit" :loading="loading">保存修改</el-button>
         </div>
 
-        <div class="profile-layout">
+        <!-- 页面加载状态 -->
+        <div v-if="loading && !formData.username" class="page-loading">
+            <el-skeleton :rows="8" animated />
+        </div>
+
+        <div v-if="!loading || formData.username" class="profile-layout">
             <!-- 左侧列 - 头像和统计信息 -->
             <div class="profile-left-column">
                 <!-- 头像卡片 -->
@@ -150,6 +155,15 @@
                                     </el-form-item>
                                 </el-col>
                             </el-row>
+
+                            <el-row :gutter="20">
+                                <el-col :span="12">
+                                    <el-form-item label="出生日期" prop="birthday">
+                                        <el-date-picker v-model="formData.birthday" type="date" placeholder="请选择出生日期"
+                                            style="width: 100%" format="YYYY-MM-DD" value-format="YYYY-MM-DD" />
+                                    </el-form-item>
+                                </el-col>
+                            </el-row>
                         </el-form>
                     </el-tab-pane>
 
@@ -215,96 +229,141 @@
                     </el-tab-pane>
 
                     <el-tab-pane label="身份认证" name="identity">
-                        <div v-if="needVerification" class="verification-alert">
-                            <el-alert title="您尚未完成身份认证" type="warning" description="完成身份认证可以增加您的可信度，提高预订率"
-                                :closable="false" show-icon />
+                        <!-- 认证状态概览 -->
+                        <div class="verification-status-overview">
+                            <el-alert :title="getVerificationAlertTitle" :type="getVerificationAlertType"
+                                :description="getVerificationAlertDescription" :closable="false" show-icon />
                         </div>
 
-                        <el-form ref="verifyFormRef" :model="verifyForm" :rules="verifyRules" label-width="120px"
-                            class="profile-form">
-                            <el-form-item label="身份证号码" prop="idCard">
-                                <el-input v-model="verifyForm.idCard" placeholder="请输入您的身份证号码"
-                                    :disabled="formData.verificationStatus === 'VERIFIED'">
-                                </el-input>
-                                <div v-if="verifyForm.idCard && formData.verificationStatus" class="id-card-masked">
-                                    <el-tag type="info">您的身份证号: {{ maskedIdCard }}</el-tag>
-                                </div>
-                            </el-form-item>
-
-                            <el-form-item label="身份证正面照片" prop="idCardFront">
-                                <el-upload :http-request="handleCustomUpload('idCardFront')"
-                                    :file-list="idCardFrontFileList" list-type="picture-card" :limit="1"
-                                    :disabled="formData.verificationStatus === 'VERIFIED'">
-                                    <el-icon v-if="formData.verificationStatus !== 'VERIFIED'">
-                                        <Plus />
-                                    </el-icon>
-                                    <template #tip>
-                                        <div class="upload-tip">请上传清晰的身份证人像面照片</div>
-                                    </template>
-                                </el-upload>
-                                <!-- 预览已上传图片 -->
-                                <div v-if="verifyForm.idCardFront" class="uploaded-preview privacy-protected">
-                                    <div class="image-blur-container">
-                                        <el-image :src="formatAvatar(verifyForm.idCardFront)" fit="cover"
-                                            class="blurred-image" @error="(e: Event) => handleImageError(e, '身份证正面')" />
-                                        <div class="privacy-overlay">
-                                            <el-button type="primary" size="small" @click="previewIdCard('front')">
-                                                点击查看
-                                            </el-button>
-                                            <div class="privacy-text">为保护您的隐私，图片已模糊处理</div>
-                                        </div>
+                        <!-- 已认证用户显示的内容 -->
+                        <div v-if="formData.verificationStatus === 'VERIFIED'" class="verified-user-content">
+                            <el-result icon="success" title="身份认证已通过" sub-title="您的身份信息已验证，可以正常使用所有功能">
+                                <template #extra>
+                                    <div class="verified-info">
+                                        <el-descriptions title="认证信息" :column="2" border>
+                                            <el-descriptions-item label="认证状态">
+                                                <el-tag type="success">已认证</el-tag>
+                                            </el-descriptions-item>
+                                            <el-descriptions-item label="身份证号">
+                                                {{ maskedIdCard }}
+                                            </el-descriptions-item>
+                                            <el-descriptions-item label="认证时间">
+                                                {{ hostSince || '未知' }}
+                                            </el-descriptions-item>
+                                            <el-descriptions-item label="有效期">
+                                                永久有效
+                                            </el-descriptions-item>
+                                        </el-descriptions>
                                     </div>
-                                </div>
-                            </el-form-item>
+                                </template>
+                            </el-result>
 
-                            <el-form-item label="身份证背面照片" prop="idCardBack">
-                                <el-upload :http-request="handleCustomUpload('idCardBack')"
-                                    :file-list="idCardBackFileList" list-type="picture-card" :limit="1"
-                                    :disabled="formData.verificationStatus === 'VERIFIED'">
-                                    <el-icon v-if="formData.verificationStatus !== 'VERIFIED'">
-                                        <Plus />
+                            <div class="verified-actions">
+                                <el-button type="info" plain @click="showVerifiedImagePreview">
+                                    <el-icon>
+                                        <View />
                                     </el-icon>
-                                    <template #tip>
-                                        <div class="upload-tip">请上传清晰的身份证国徽面照片</div>
-                                    </template>
-                                </el-upload>
-                                <!-- 预览已上传图片 -->
-                                <div v-if="verifyForm.idCardBack" class="uploaded-preview privacy-protected">
-                                    <div class="image-blur-container">
-                                        <el-image :src="formatAvatar(verifyForm.idCardBack)" fit="cover"
-                                            class="blurred-image" @error="(e: Event) => handleImageError(e, '身份证背面')" />
-                                        <div class="privacy-overlay">
-                                            <el-button type="primary" size="small" @click="previewIdCard('back')">
-                                                点击查看
-                                            </el-button>
-                                            <div class="privacy-text">为保护您的隐私，图片已模糊处理</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </el-form-item>
-
-                            <div class="id-verify-note">
-                                <el-alert title="您的信息安全将受到严格保护" type="info"
-                                    description="您上传的身份证信息将被加密存储，仅用于身份验证，平台不会将您的身份信息透露给任何第三方。您的照片在页面上已进行模糊处理，只有您点击查看时才会显示原图。"
-                                    :closable="false" show-icon />
-                                <div class="privacy-tips">
-                                    <h4>身份信息保护提示:</h4>
-                                    <ul>
-                                        <li>您的身份证号码仅会显示前6位和后4位，中间8位以*号替代</li>
-                                        <li>身份证照片采用模糊处理技术，保护您的个人隐私</li>
-                                        <li>查看原图时会有二次确认，防止他人窥视</li>
-                                        <li>我们采用高强度加密技术存储您的身份信息</li>
-                                        <li>身份认证通过后，您将无法再编辑身份证信息，以确保安全</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            <el-form-item v-if="formData.verificationStatus !== 'VERIFIED'">
-                                <el-button type="primary" @click="submitVerification" :loading="verifyLoading">
-                                    {{ getVerificationButtonText }}
+                                    查看认证资料
                                 </el-button>
-                            </el-form-item>
-                        </el-form>
+                                <el-button type="warning" plain @click="showContactSupport">
+                                    <el-icon>
+                                        <Service />
+                                    </el-icon>
+                                    联系客服
+                                </el-button>
+                            </div>
+                        </div>
+
+                        <!-- 未认证/待审核/被拒绝用户显示的表单 -->
+                        <div v-else class="unverified-user-content">
+                            <el-form ref="verifyFormRef" :model="verifyForm" :rules="verifyRules" label-width="120px"
+                                class="profile-form">
+                                <el-form-item label="身份证号码" prop="idCard">
+                                    <el-input v-model="verifyForm.idCard" placeholder="请输入您的身份证号码"
+                                        :disabled="formData.verificationStatus === 'VERIFIED'">
+                                    </el-input>
+                                    <div v-if="verifyForm.idCard && formData.verificationStatus" class="id-card-masked">
+                                        <el-tag type="info">您的身份证号: {{ maskedIdCard }}</el-tag>
+                                    </div>
+                                </el-form-item>
+
+                                <el-form-item label="身份证正面照片" prop="idCardFront">
+                                    <el-upload :http-request="handleCustomUpload('idCardFront')"
+                                        :file-list="idCardFrontFileList" list-type="picture-card" :limit="1"
+                                        :disabled="formData.verificationStatus === 'VERIFIED'">
+                                        <el-icon v-if="formData.verificationStatus !== 'VERIFIED'">
+                                            <Plus />
+                                        </el-icon>
+                                        <template #tip>
+                                            <div class="upload-tip">请上传清晰的身份证人像面照片</div>
+                                        </template>
+                                    </el-upload>
+                                    <!-- 预览已上传图片 -->
+                                    <div v-if="verifyForm.idCardFront" class="uploaded-preview privacy-protected">
+                                        <div class="image-blur-container">
+                                            <el-image :src="formatAvatar(verifyForm.idCardFront)" fit="cover"
+                                                class="blurred-image"
+                                                @error="(e: Event) => handleImageError(e, '身份证正面')" />
+                                            <div class="privacy-overlay">
+                                                <el-button type="primary" size="small" @click="previewIdCard('front')">
+                                                    点击查看
+                                                </el-button>
+                                                <div class="privacy-text">为保护您的隐私，图片已模糊处理</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </el-form-item>
+
+                                <el-form-item label="身份证背面照片" prop="idCardBack">
+                                    <el-upload :http-request="handleCustomUpload('idCardBack')"
+                                        :file-list="idCardBackFileList" list-type="picture-card" :limit="1"
+                                        :disabled="formData.verificationStatus === 'VERIFIED'">
+                                        <el-icon v-if="formData.verificationStatus !== 'VERIFIED'">
+                                            <Plus />
+                                        </el-icon>
+                                        <template #tip>
+                                            <div class="upload-tip">请上传清晰的身份证国徽面照片</div>
+                                        </template>
+                                    </el-upload>
+                                    <!-- 预览已上传图片 -->
+                                    <div v-if="verifyForm.idCardBack" class="uploaded-preview privacy-protected">
+                                        <div class="image-blur-container">
+                                            <el-image :src="formatAvatar(verifyForm.idCardBack)" fit="cover"
+                                                class="blurred-image"
+                                                @error="(e: Event) => handleImageError(e, '身份证背面')" />
+                                            <div class="privacy-overlay">
+                                                <el-button type="primary" size="small" @click="previewIdCard('back')">
+                                                    点击查看
+                                                </el-button>
+                                                <div class="privacy-text">为保护您的隐私，图片已模糊处理</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </el-form-item>
+
+                                <div class="id-verify-note">
+                                    <el-alert title="您的信息安全将受到严格保护" type="info"
+                                        description="您上传的身份证信息将被加密存储，仅用于身份验证，平台不会将您的身份信息透露给任何第三方。您的照片在页面上已进行模糊处理，只有您点击查看时才会显示原图。"
+                                        :closable="false" show-icon />
+                                    <div class="privacy-tips">
+                                        <h4>身份信息保护提示:</h4>
+                                        <ul>
+                                            <li>您的身份证号码仅会显示前6位和后4位，中间8位以*号替代</li>
+                                            <li>身份证照片采用模糊处理技术，保护您的个人隐私</li>
+                                            <li>查看原图时会有二次确认，防止他人窥视</li>
+                                            <li>我们采用高强度加密技术存储您的身份信息</li>
+                                            <li>身份认证通过后，您将无法再编辑身份证信息，以确保安全</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <el-form-item v-if="formData.verificationStatus !== 'VERIFIED'">
+                                    <el-button type="primary" @click="submitVerification" :loading="verifyLoading">
+                                        {{ getVerificationButtonText }}
+                                    </el-button>
+                                </el-form-item>
+                            </el-form>
+                        </div>
                     </el-tab-pane>
 
                     <el-tab-pane label="密码设置" name="password">
@@ -344,7 +403,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, FormInstance, FormRules } from 'element-plus'
-import { Upload, House, Calendar, Document, ChatDotRound, Star, Delete, Plus } from '@element-plus/icons-vue'
+import { Upload, House, Calendar, Document, ChatDotRound, Star, Delete, Plus, View, Service } from '@element-plus/icons-vue'
 import { getHostInfo, updateHostInfo, getHostProfile, updateHostProfile, uploadHostAvatar } from '@/api/host'
 import { useUserStore, UserInfo } from '@/stores/user'
 import { getAvatarUrl, addTimestampToUrl } from '@/utils/image'
@@ -386,6 +445,7 @@ const formData = reactive({
     idCard: '',
     gender: '',
     avatar: '',
+    birthday: '',
     introduction: '',
     occupation: '',
     languages: [] as string[],
@@ -449,6 +509,48 @@ const getVerificationButtonText = computed(() => {
     }
 })
 
+// 获取验证状态提醒标题
+const getVerificationAlertTitle = computed(() => {
+    switch (formData.verificationStatus) {
+        case 'VERIFIED':
+            return '身份认证已通过';
+        case 'PENDING':
+            return '身份认证审核中';
+        case 'REJECTED':
+            return '身份认证被拒绝';
+        default:
+            return '请完成身份认证';
+    }
+})
+
+// 获取验证状态提醒类型
+const getVerificationAlertType = computed(() => {
+    switch (formData.verificationStatus) {
+        case 'VERIFIED':
+            return 'success';
+        case 'PENDING':
+            return 'warning';
+        case 'REJECTED':
+            return 'error';
+        default:
+            return 'info';
+    }
+})
+
+// 获取验证状态提醒描述
+const getVerificationAlertDescription = computed(() => {
+    switch (formData.verificationStatus) {
+        case 'VERIFIED':
+            return '您的身份信息已通过审核，可以正常使用所有功能';
+        case 'PENDING':
+            return '您的身份认证信息正在审核中，通常在1-3个工作日内完成';
+        case 'REJECTED':
+            return '您的身份认证被拒绝，请重新提交正确的身份信息';
+        default:
+            return '完成身份认证可以增加您的可信度，提高预订率';
+    }
+})
+
 // 显示脱敏的身份证号
 const maskedIdCard = computed(() => {
     const idCard = verifyForm.idCard;
@@ -480,7 +582,7 @@ const rules = reactive<FormRules>({
         { required: true, message: '请输入真实姓名', trigger: 'blur' }
     ],
     nickname: [
-        { required: true, message: '请输入昵称', trigger: 'blur' }
+        { required: false, message: '请输入昵称', trigger: 'blur' }
     ],
     gender: [
         { required: true, message: '请选择性别', trigger: 'change' }
@@ -555,10 +657,13 @@ const handleAvatarError = (e: Event) => {
 
 // 获取房东信息
 const fetchHostInfo = async () => {
+    loading.value = true;
     try {
         // 使用getHostProfile获取更完整的用户信息
         const profileData = await getHostProfile();
-        console.log('获取到的用户资料:', profileData);
+        if (import.meta.env.DEV) {
+            console.log('获取到的用户资料:', profileData);
+        }
 
         if (profileData) {
             // 填充基本表单数据
@@ -569,6 +674,7 @@ const fetchHostInfo = async () => {
             formData.realName = profileData.realName || '';
             formData.idCard = profileData.idCard || '';
             formData.avatar = profileData.avatar || '';
+            formData.birthday = profileData.birthday || '';
             formData.introduction = profileData.introduction || '';
             formData.occupation = profileData.occupation || '';
             formData.gender = profileData.gender || '';
@@ -598,15 +704,22 @@ const fetchHostInfo = async () => {
             statistics.reviewCount = profileData.reviewCount || 0;
             statistics.rating = profileData.rating || 0;
 
-            // 如果未完成身份认证，自动切换到身份认证标签页
+            // 根据身份认证状态给出相应提示
             if (needVerification.value) {
                 ElMessage.warning('您尚未完成身份认证，请完善身份认证信息');
+                activeTab.value = 'identity';
+            } else if (formData.verificationStatus === 'PENDING') {
+                ElMessage.info('您的身份认证正在审核中');
+            } else if (formData.verificationStatus === 'REJECTED') {
+                ElMessage.warning('您的身份认证被拒绝，请重新提交');
                 activeTab.value = 'identity';
             }
         }
     } catch (error) {
         console.error('获取房东信息失败:', error);
         ElMessage.error('获取房东信息失败');
+    } finally {
+        loading.value = false;
     }
 }
 
@@ -618,18 +731,26 @@ const handleSubmit = async () => {
         if (valid) {
             loading.value = true;
             try {
-                // 使用新的API提交更新
-                await updateHostProfile({
-                    nickname: formData.nickname,
-                    email: formData.email,
-                    phone: formData.phone,
-                    realName: formData.realName,
+                // 数据预处理和验证
+                const updateData = {
+                    nickname: formData.nickname || '',
+                    email: formData.email.trim(),
+                    phone: formData.phone.trim(),
+                    realName: formData.realName.trim(),
                     gender: formData.gender,
-                    introduction: formData.introduction,
-                    occupation: formData.occupation,
-                    languages: formData.languages,
-                    companions: formData.companions
-                });
+                    birthday: formData.birthday || null,
+                    introduction: formData.introduction?.trim() || '',
+                    occupation: formData.occupation?.trim() || '',
+                    languages: formData.languages || [],
+                    companions: formData.companions.filter(c => c.name.trim()) || []
+                };
+
+                if (import.meta.env.DEV) {
+                    console.log('提交的个人资料数据:', updateData);
+                }
+
+                // 使用新的API提交更新
+                await updateHostProfile(updateData);
                 ElMessage.success('资料更新成功');
 
                 // 更新用户存储中的用户信息
@@ -638,9 +759,10 @@ const handleSubmit = async () => {
                     userInfo.nickname = formData.nickname;
                     userInfo.avatar = formData.avatar;
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error('更新资料失败:', error);
-                ElMessage.error('更新资料失败');
+                const errorMessage = error?.response?.data?.message || error?.message || '更新资料失败，请重试';
+                ElMessage.error(errorMessage);
             } finally {
                 loading.value = false;
             }
@@ -749,46 +871,64 @@ const handleAvatarSuccess = (response: any) => {
     console.log('头像上传响应:', response);
     let avatarUrl = '';
 
-    if (response.data && response.data.url) {
+    // 处理新的统一文件上传API响应格式
+    if (response.data && response.data.fileName) {
+        // 新格式: { data: { fileName: "xxx.jpg" } }
+        avatarUrl = `/api/files/avatar/${response.data.fileName}`;
+        console.log('解析到的头像URL (新格式):', avatarUrl);
+    } else if (response.fileName) {
+        // 直接的fileName字段
+        avatarUrl = `/api/files/avatar/${response.fileName}`;
+        console.log('解析到的头像URL (fileName):', avatarUrl);
+    } else if (response.data && response.data.url) {
+        // 旧格式保持兼容
         avatarUrl = response.data.url;
+        console.log('解析到的头像URL (旧格式):', avatarUrl);
     } else if (response.url) {
         avatarUrl = response.url;
+        console.log('解析到的头像URL (url):', avatarUrl);
     } else if (typeof response === 'string') {
         avatarUrl = response;
-    } else if (response.code === 200 && response.data) {
-        avatarUrl = typeof response.data === 'string' ? response.data : (response.data.url || '');
+        console.log('解析到的头像URL (字符串):', avatarUrl);
     }
 
     if (avatarUrl) {
-        console.log('解析到的头像URL:', avatarUrl);
+        console.log('最终解析到的头像URL:', avatarUrl);
 
-        // 不需要额外处理URL，存储原始URL
+        // 更新表单数据
         formData.avatar = avatarUrl;
         ElMessage.success('头像上传成功');
 
-        // 立即更新头像信息到服务器
-        updateHostProfile({ avatar: avatarUrl }).then(() => {
-            // 更新用户存储中的用户信息，确保全局状态同步
-            if (userStore.userInfo) {
-                userStore.userInfo.avatar = avatarUrl;
-                // 保存到localStorage确保刷新页面后仍能显示
-                localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo));
-            }
+        // 更新用户存储中的用户信息，确保全局状态同步
+        if (userStore.userInfo) {
+            userStore.userInfo.avatar = avatarUrl;
+            // 保存到localStorage确保刷新页面后仍能显示
+            localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo));
+        }
 
-            // 强制刷新头像显示
-            setTimeout(() => {
-                // 替换头像src为新的URL（带时间戳）
-                const avatarElement = document.querySelector('.avatar-image') as HTMLImageElement;
-                if (avatarElement) {
-                    avatarElement.src = formatAvatar(avatarUrl);
-                }
-            }, 500);
-        }).catch(error => {
-            console.error('更新头像信息失败:', error);
-        });
+        // 强制刷新头像显示
+        setTimeout(() => {
+            // 替换头像src为新的URL（带时间戳）
+            const avatarElement = document.querySelector('.avatar-image') as HTMLImageElement;
+            if (avatarElement) {
+                avatarElement.src = formatAvatar(avatarUrl);
+            }
+        }, 500);
+
+        // 重新获取用户信息以确保头像更新正确显示
+        setTimeout(() => {
+            userStore.fetchUserInfo();
+        }, 1000);
     } else {
         ElMessage.error('头像上传失败，返回格式不正确');
         console.error('无法解析头像URL:', response);
+        // 添加详细的调试信息
+        console.error('响应详细信息:', {
+            hasData: !!response.data,
+            dataKeys: response.data ? Object.keys(response.data) : [],
+            responseKeys: Object.keys(response || {}),
+            response: response
+        });
     }
 };
 
@@ -894,12 +1034,12 @@ const handleCustomUpload = (type: 'idCardFront' | 'idCardBack') => {
                 console.log('上传成功，原始响应:', result); // 增加日志，看原始响应
 
                 let photoUrl = '';
-                
+
                 // 优先检查 result.url 是否存在且为非空字符串 (根据用户提供的响应)
                 if (result && typeof result.url === 'string' && result.url.trim() !== '') {
                     photoUrl = result.url;
                     console.log('成功提取 URL (方式1: result.url):', photoUrl);
-                } 
+                }
                 // 可选：添加一个备用检查，以防万一后端有时会嵌套在 data 里
                 else if (result && result.data && typeof result.data.url === 'string' && result.data.url.trim() !== '') {
                     photoUrl = result.data.url;
@@ -912,7 +1052,7 @@ const handleCustomUpload = (type: 'idCardFront' | 'idCardBack') => {
                 if (photoUrl) {
                     console.log('最终解析到的照片URL:', photoUrl);
                     ElMessage.success(`${type === 'idCardFront' ? '身份证正面' : '身份证背面'}上传成功`);
-                    
+
                     // 创建符合 el-upload 要求的 file 对象
                     const fileData = {
                         name: `${type === 'idCardFront' ? '身份证正面' : '身份证背面'}.jpg`, // 可以设置一个默认名字
@@ -929,11 +1069,11 @@ const handleCustomUpload = (type: 'idCardFront' | 'idCardBack') => {
                         verifyForm.idCardBack = photoUrl;
                         idCardBackFileList.value = [fileData]; // 使用新的 fileData 更新
                     }
-                    
+
                     // 可以在这里尝试不调用 onSuccess(result) 看是否解决问题
                     // 如果 el-upload 在 :http-request 模式下不需要这个回调来更新UI
                     // onSuccess(result); 
-                    
+
                     // 或者确保 onSuccess 被调用，让 el-upload 内部处理
                     onSuccess(fileData); // 尝试传递我们构造的 fileData 给 onSuccess
 
@@ -1022,13 +1162,55 @@ const previewIdCard = (type: 'front' | 'back') => {
     });
 };
 
+// 已认证用户查看认证资料
+const showVerifiedImagePreview = () => {
+    ElMessageBox.confirm(
+        '您确定要查看您的身份认证资料吗？请确保您处于私密环境。',
+        '查看认证资料',
+        {
+            confirmButtonText: '确定查看',
+            cancelButtonText: '取消',
+            type: 'warning'
+        }
+    ).then(() => {
+        // 显示认证资料对话框
+        ElMessageBox.alert(
+            `认证状态：已通过\n身份证号：${maskedIdCard.value}\n认证时间：${hostSince.value}`,
+            '认证资料信息',
+            {
+                confirmButtonText: '知道了',
+                type: 'success'
+            }
+        );
+    }).catch(() => {
+        // 用户取消
+    });
+};
+
+// 联系客服
+const showContactSupport = () => {
+    ElMessageBox.alert(
+        '如果您需要修改身份认证信息或遇到其他问题，请联系客服：\n\n客服电话：400-123-4567\n客服邮箱：support@homestay.com\n工作时间：9:00-18:00（工作日）',
+        '联系客服',
+        {
+            confirmButtonText: '知道了',
+            type: 'info'
+        }
+    );
+};
+
 // 初始化
 onMounted(async () => {
-    console.log('房东个人资料页面初始化...');
+    if (import.meta.env.DEV) {
+        console.log('房东个人资料页面初始化...');
+    }
+
     try {
         // 获取房东信息
         await fetchHostInfo();
-        console.log('初始化完成: 用户信息已加载', formData);
+        if (import.meta.env.DEV) {
+            console.log('初始化完成: 用户信息已加载', formData);
+        }
     } catch (error) {
         console.error('初始化失败:', error);
         ElMessage.error('加载用户信息失败，请刷新页面重试');
@@ -1475,5 +1657,38 @@ onMounted(async () => {
 .profile-form {
     padding: 16px 8px;
     max-width: 800px;
+}
+
+/* 身份认证页面样式 */
+.verification-status-overview {
+    margin-bottom: 24px;
+}
+
+.verified-user-content {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.verified-info {
+    margin-top: 24px;
+    text-align: left;
+}
+
+.verified-actions {
+    margin-top: 32px;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.unverified-user-content {
+    padding: 0;
+}
+
+@media (max-width: 768px) {
+    .verified-actions {
+        flex-direction: column;
+        align-items: center;
+    }
 }
 </style>

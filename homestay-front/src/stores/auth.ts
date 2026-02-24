@@ -149,6 +149,21 @@ export const useAuthStore = defineStore("auth", () => {
       "是否房东:",
       data.user.role === "ROLE_HOST"
     );
+
+    // 登录成功后同步收藏数据
+    syncFavoritesAfterLogin();
+  }
+
+  // 登录后同步收藏数据
+  async function syncFavoritesAfterLogin() {
+    try {
+      // 动态导入避免循环依赖
+      const { useFavoritesStore } = await import("./favorites");
+      const favoritesStore = useFavoritesStore();
+      await favoritesStore.syncFavorites();
+    } catch (error) {
+      console.error("登录后同步收藏数据失败:", error);
+    }
   }
 
   function logout() {

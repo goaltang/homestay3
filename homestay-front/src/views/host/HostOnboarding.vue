@@ -97,6 +97,7 @@
 
                     <div class="step-actions">
                         <el-button @click="prevStep" :icon="ArrowLeft">上一步</el-button>
+                        <el-button @click="skipVerification" plain>暂时跳过</el-button>
                         <el-button type="primary" @click="validateAndNext(1)" :icon="Check">提交验证</el-button>
                     </div>
                 </div>
@@ -134,7 +135,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { ElMessage, type FormInstance } from 'element-plus';
+import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { updateHostProfile, getHostProfile } from '@/api/host';
@@ -187,7 +188,7 @@ const introRules = {
     ],
     introduction: [
         { required: true, message: '请输入自我介绍', trigger: 'blur' },
-        { min: 50, message: '自我介绍不能少于50个字符', trigger: 'blur' }
+        { min: 20, message: '自我介绍不能少于50个字符', trigger: 'blur' }
     ]
 };
 
@@ -322,6 +323,36 @@ const prevStep = () => {
     if (activeStep.value > 0) {
         activeStep.value -= 1;
     }
+};
+
+const skipVerification = () => {
+    ElMessageBox.confirm(
+        '跳过身份验证可能会影响您的信誉度和房源审核速度。您可以稍后在个人资料中完成身份验证。确定要跳过吗？',
+        '跳过身份验证',
+        {
+            confirmButtonText: '确定跳过',
+            cancelButtonText: '继续验证',
+            type: 'warning',
+        }
+    ).then(async () => {
+        try {
+            // 标记用户选择跳过身份验证
+            await updateHostProfile({
+                verificationStatus: 'SKIPPED',
+                skipVerificationTime: new Date().toISOString()
+            });
+
+            ElMessage.success('已暂时跳过身份验证，您可以稍后在个人资料中完成');
+
+            // 直接跳转到房东中心
+            router.push('/host');
+        } catch (error) {
+            console.error('跳过验证设置失败:', error);
+            ElMessage.error('操作失败，请重试');
+        }
+    }).catch(() => {
+        // 用户取消跳过，继续停留在当前页面
+    });
 };
 
 // 完成后的导航

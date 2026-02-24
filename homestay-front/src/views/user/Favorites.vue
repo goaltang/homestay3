@@ -17,51 +17,21 @@
         </div>
 
         <div v-else class="homestay-grid">
-            <div v-for="homestay in favorites" :key="homestay.id" class="homestay-card"
-                @click="viewHomestayDetails(homestay.id)">
-                <div class="homestay-image-container" @click.stop="() => { }">
-                    <el-carousel height="220px" indicator-position="none" arrow="hover">
-                        <el-carousel-item v-for="(image, index) in getHomestayImages(homestay)" :key="index">
-                            <img :src="image" :alt="homestay.title" class="homestay-image" />
-                        </el-carousel-item>
-                    </el-carousel>
-                    <div class="favorite-button" @click.stop="toggleFavorite(homestay.id)">
-                        <el-icon :size="24" color="#ff385c">
-                            <StarFilled />
-                        </el-icon>
-                    </div>
-                </div>
-
-                <div class="homestay-info">
-                    <div class="homestay-header">
-                        <h3 class="homestay-title">{{ homestay.title }}</h3>
-                        <div class="homestay-rating" v-if="homestay.rating">
-                            <el-icon>
-                                <Star />
-                            </el-icon>
-                            <span>{{ homestay.rating ? homestay.rating.toFixed(1) : '暂无评分' }}</span>
-                        </div>
-                    </div>
-
-                    <div class="homestay-location">{{ getHomestayLocation(homestay) }}</div>
-                    <div class="homestay-distance">距离市中心{{ homestay.distanceFromCenter }}公里</div>
-                    <div class="homestay-price">
-                        <span class="price">¥{{ calculatePrice(homestay) }}</span>
-                        <span class="night">/晚</span>
-                    </div>
-                </div>
-            </div>
+            <HomestayCard v-for="homestay in favorites" :key="homestay.id" :homestay="homestay" :homestay-types="[]"
+                @card-click="viewHomestayDetails" />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Star, StarFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { getHomestaysByIds } from '@/api/homestay'
+import { getUserFavorites } from '@/api/favorites'
+import { useFavoritesStore } from '@/stores/favorites'
+import HomestayCard from '@/components/homestay/HomestayCard.vue'
 
 // 定义类型
 interface Homestay {
@@ -93,33 +63,51 @@ interface Homestay {
 }
 
 const router = useRouter()
+const favoritesStore = useFavoritesStore()
 const loading = ref(false)
 const favorites = ref<Homestay[]>([])
-const favoriteIds = ref<number[]>([])
+
+// 计算属性，从store获取收藏ID列表
+const favoriteIds = computed(() => favoritesStore.favoriteIds)
 
 onMounted(async () => {
-    loadFavoriteIds()
     await fetchFavorites()
 })
 
-const loadFavoriteIds = () => {
-    const saved = localStorage.getItem('favorites')
-    if (saved) {
-        favoriteIds.value = JSON.parse(saved)
+const fetchFavorites = async () => {
+    loading.value = true
+    try {
+        // 优先使用新的收藏API
+        const response = await getUserFavorites()
+        console.log("获取收藏民宿成功:", response.data)
+
+        if (response.data && response.data.success && Array.isArray(response.data.data)) {
+            favorites.value = response.data.data
+            // 同步收藏ID到store
+            favoritesStore.favoriteIds = response.data.data.map((h: any) => h.id)
+            favoritesStore.saveFavorites()
+        } else {
+            console.warn("从收藏API返回的数据格式不正确，尝试旧方法")
+            await fetchFavoritesLegacy()
+        }
+    } catch (error) {
+        console.error('获取收藏民宿失败，尝试旧方法:', error)
+        await fetchFavoritesLegacy()
+    } finally {
+        loading.value = false
     }
 }
 
-const fetchFavorites = async () => {
+const fetchFavoritesLegacy = async () => {
     if (favoriteIds.value.length === 0) {
         favorites.value = []
         return
     }
 
-    loading.value = true
     try {
-        // 尝试从后端获取收藏的民宿
+        // 使用旧方法获取民宿详情
         const response = await getHomestaysByIds(favoriteIds.value)
-        console.log("获取收藏民宿成功:", response.data)
+        console.log("获取收藏民宿成功(旧方法):", response.data)
 
         if (Array.isArray(response.data)) {
             favorites.value = response.data
@@ -132,8 +120,6 @@ const fetchFavorites = async () => {
     } catch (error) {
         console.error('获取收藏民宿失败，使用模拟数据:', error)
         useMockData()
-    } finally {
-        loading.value = false
     }
 }
 
@@ -216,94 +202,8 @@ const useMockData = () => {
     favorites.value = mockData.filter(homestay => favoriteIds.value.includes(homestay.id))
 }
 
-const getHomestayImages = (homestay: Homestay) => {
-    const defaultImage = 'https://picsum.photos/300x200';
-
-    // 如果没有图片数组或者图片数组为空
-    if (!homestay.images || homestay.images.length === 0) {
-        console.log(`房源ID ${homestay.id} 没有图片，使用默认图片`);
-        return [defaultImage];
-    }
-
-    console.log(`房源ID ${homestay.id} 的图片:`, homestay.images);
-
-    return homestay.images.map((image: string) => {
-        if (!image) {
-            console.warn(`房源ID ${homestay.id} 的图片路径为空，使用默认图片`);
-            return defaultImage;
-        }
-
-        // 处理不同类型的图片路径
-        if (typeof image === 'string') {
-            // 如果已经是完整URL则直接返回
-            if (image.startsWith('http')) {
-                return image;
-            }
-            // 处理相对于后端的路径
-            else if (image.startsWith('/uploads/')) {
-                return `/api${image}`;
-            }
-            // 处理avatars目录的图片
-            else if (image.startsWith('/avatars/')) {
-                return `/api/uploads${image}`;
-            }
-            // 处理homestays目录下的图片
-            else if (image.startsWith('/homestays/')) {
-                return `/api${image}`;
-            }
-            // 处理直接是文件名的情况
-            else if (!image.startsWith('/')) {
-                if (image.includes('avatars')) {
-                    return `/api/uploads/avatars/${image.split('/').pop()}`;
-                } else {
-                    return `/api/uploads/homestays/${image}`;
-                }
-            }
-            // 其他以/开头的路径
-            else {
-                return `/api${image}`;
-            }
-        }
-
-        // 最后的默认情况
-        return defaultImage;
-    });
-}
-
-const viewHomestayDetails = (id: number) => {
-    router.push(`/homestays/${id}`)
-}
-
-const toggleFavorite = (id: number) => {
-    // 从收藏中移除
-    favoriteIds.value = favoriteIds.value.filter(fav => fav !== id)
-    favorites.value = favorites.value.filter(homestay => homestay.id !== id)
-
-    // 保存到本地存储
-    localStorage.setItem('favorites', JSON.stringify(favoriteIds.value))
-
-    ElMessage.success('已从收藏中移除')
-}
-
-const getHomestayLocation = (homestay: Homestay) => {
-    const parts = []
-
-    if (homestay.province) parts.push(homestay.province)
-    if (homestay.city) parts.push(homestay.city)
-    if (homestay.district) parts.push(homestay.district)
-
-    if (parts.length > 0) return parts.join(' · ')
-
-    // 兼容旧数据结构
-    if (homestay.location) return homestay.location
-    if (homestay.city && homestay.country) return `${homestay.city}, ${homestay.country}`
-
-    return '未知位置'
-}
-
-const calculatePrice = (homestay: Homestay) => {
-    // 适配不同价格字段
-    return homestay.price || homestay.pricePerNight || 0;
+const viewHomestayDetails = (homestay: any) => {
+    router.push(`/homestays/${homestay.id}`)
 }
 </script>
 
@@ -333,91 +233,7 @@ const calculatePrice = (homestay: Homestay) => {
     gap: 24px;
 }
 
-.homestay-card {
-    border-radius: 12px;
-    overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
-    cursor: pointer;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
 
-.homestay-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
-}
-
-.homestay-image-container {
-    position: relative;
-    height: 220px;
-}
-
-.homestay-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.favorite-button {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 10;
-    cursor: pointer;
-    background-color: rgba(0, 0, 0, 0.3);
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.homestay-info {
-    padding: 16px;
-}
-
-.homestay-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-}
-
-.homestay-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-}
-
-.homestay-rating {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.homestay-location,
-.homestay-distance {
-    color: #717171;
-    font-size: 14px;
-    margin-bottom: 4px;
-}
-
-.homestay-price {
-    margin-top: 8px;
-    font-size: 16px;
-}
-
-.homestay-price .price {
-    font-weight: 600;
-}
-
-.homestay-price .night {
-    font-weight: normal;
-}
 
 @media (max-width: 768px) {
     .homestay-grid {

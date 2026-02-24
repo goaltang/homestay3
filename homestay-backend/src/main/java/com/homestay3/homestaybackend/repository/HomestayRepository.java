@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.repository;
 
-import com.homestay3.homestaybackend.model.Homestay;
+import com.homestay3.homestaybackend.entity.Homestay;
+import com.homestay3.homestaybackend.model.HomestayStatus;
 import com.homestay3.homestaybackend.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -17,6 +20,15 @@ import java.util.Optional;
 
 @Repository
 public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSpecificationExecutor<Homestay> {
+    
+    /**
+     * 根据ID查找房源并加悲观锁（防止并发预订）
+     * @param id 房源ID
+     * @return 房源
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT h FROM Homestay h WHERE h.id = :id")
+    Optional<Homestay> findByIdWithLock(@Param("id") Long id);
     
     /**
      * 根据ID查找房源并加载设施
@@ -31,21 +43,37 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
      * @param status 状态
      * @return 房源列表
      */
-    List<Homestay> findByStatus(String status);
+    List<Homestay> findByStatus(HomestayStatus status);
+    
+    /**
+     * 根据状态查找房源并按创建时间倒序排列
+     * @param status 状态
+     * @return 房源列表
+     */
+    List<Homestay> findByStatusOrderByCreatedAtDesc(HomestayStatus status);
+    
+    /**
+     * 根据省份、城市和状态查找房源
+     * @param provinceCode 省份代码
+     * @param cityCode 城市代码  
+     * @param status 状态
+     * @return 房源列表
+     */
+    List<Homestay> findByProvinceCodeAndCityCodeAndStatus(String provinceCode, String cityCode, HomestayStatus status);
     
     /**
      * 根据状态和是否推荐查找房源
      * @param status 状态
      * @return 房源列表
      */
-    List<Homestay> findByStatusAndFeaturedTrue(String status);
+    List<Homestay> findByStatusAndFeaturedTrue(HomestayStatus status);
     
     /**
      * 根据状态和是否推荐查找房源
      * @param status 状态
      * @return 房源列表
      */
-    List<Homestay> findByStatusAndFeaturedFalse(String status);
+    List<Homestay> findByStatusAndFeaturedFalse(HomestayStatus status);
     
     /**
      * 根据类型和状态查找房源
@@ -53,7 +81,7 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
      * @param status 状态
      * @return 房源列表
      */
-    List<Homestay> findByTypeAndStatus(String type, String status);
+    List<Homestay> findByTypeAndStatus(String type, HomestayStatus status);
     
     /**
      * 查找推荐房源
@@ -181,4 +209,132 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
     
     @Query("SELECT h.provinceCode, COUNT(h) FROM Homestay h GROUP BY h.provinceCode")
     List<Object[]> countByProvince();
+
+    /**
+     * 计算指定位置和类型的房源的平均价格，排除特定房源ID。
+     * @param cityCode 城市代码 (必须)
+     * @param districtCode 区域代码 (可选, 如果为null则不区区域)
+     * @param propertyType 房源类型 (必须)
+     * @param excludeHomestayId 要排除的房源ID (避免自身比较)
+     * @param status 房源状态 (例如 "PUBLISHED" 或 "ACTIVE")
+     * @return 平均价格，如果没有符合条件的房源则返回null
+     */
+    @Query("SELECT AVG(h.price) FROM Homestay h " +
+           "WHERE h.cityCode = :cityCode " +
+           "AND (:districtCode IS NULL OR h.districtCode = :districtCode) " +
+           "AND h.type = :propertyType " +
+           "AND h.id != :excludeHomestayId " +
+           "AND h.status = :status " +
+           "AND h.price IS NOT NULL AND h.price > 0")
+    Double findAveragePriceForComparableHomestays(
+            @Param("cityCode") String cityCode,
+            @Param("districtCode") String districtCode,
+            @Param("propertyType") String propertyType,
+            @Param("excludeHomestayId") Long excludeHomestayId,
+            @Param("status") HomestayStatus status
+    );
+
+    /**
+     * 获取详细的价格统计数据 - 多维度匹配
+     * @param cityCode 城市代码
+     * @param districtCode 区域代码 (可选)
+     * @param propertyType 房源类型
+     * @param minGuests 最少容纳人数
+     * @param maxGuests 最多容纳人数
+     * @param excludeHomestayId 排除的房源ID
+     * @param status 房源状态
+     * @return 价格列表用于统计分析
+     */
+    @Query("SELECT h.price FROM Homestay h " +
+           "WHERE h.cityCode = :cityCode " +
+           "AND (:districtCode IS NULL OR h.districtCode = :districtCode) " +
+           "AND (:propertyType IS NULL OR h.type = :propertyType) " +
+           "AND h.maxGuests >= :minGuests " +
+           "AND h.maxGuests <= :maxGuests " +
+           "AND h.id != :excludeHomestayId " +
+           "AND h.status = :status " +
+           "AND h.price IS NOT NULL AND h.price > 0 " +
+           "ORDER BY h.price")
+    List<BigDecimal> findPricesForDetailedComparison(
+            @Param("cityCode") String cityCode,
+            @Param("districtCode") String districtCode,
+            @Param("propertyType") String propertyType,
+            @Param("minGuests") Integer minGuests,
+            @Param("maxGuests") Integer maxGuests,
+            @Param("excludeHomestayId") Long excludeHomestayId,
+            @Param("status") HomestayStatus status
+    );
+
+    /**
+     * 获取相似房源的价格统计 - 包含设施权重
+     * @param cityCode 城市代码
+     * @param districtCode 区域代码
+     * @param propertyType 房源类型
+     * @param maxGuests 容纳人数
+     * @param excludeHomestayId 排除的房源ID
+     * @param status 房源状态
+     * @return 包含设施数量的价格数据
+     */
+    @Query("SELECT h.price, SIZE(h.amenities) as amenityCount FROM Homestay h " +
+           "WHERE h.cityCode = :cityCode " +
+           "AND (:districtCode IS NULL OR h.districtCode = :districtCode) " +
+           "AND h.type = :propertyType " +
+           "AND ABS(h.maxGuests - :maxGuests) <= 2 " +
+           "AND h.id != :excludeHomestayId " +
+           "AND h.status = :status " +
+           "AND h.price IS NOT NULL AND h.price > 0")
+    List<Object[]> findPricesWithAmenityCount(
+            @Param("cityCode") String cityCode,
+            @Param("districtCode") String districtCode,
+            @Param("propertyType") String propertyType,
+            @Param("maxGuests") Integer maxGuests,
+            @Param("excludeHomestayId") Long excludeHomestayId,
+            @Param("status") HomestayStatus status
+    );
+
+    /**
+     * 获取特定月份的价格趋势 (如果有时间相关的价格数据)
+     * @param cityCode 城市代码
+     * @param propertyType 房源类型
+     * @param month 月份
+     * @param status 房源状态
+     * @return 特定月份的平均价格
+     */
+    @Query("SELECT AVG(h.price) FROM Homestay h " +
+           "WHERE h.cityCode = :cityCode " +
+           "AND h.type = :propertyType " +
+           "AND h.status = :status " +
+           "AND h.price IS NOT NULL AND h.price > 0")
+    Double findAveragePriceByMonth(
+            @Param("cityCode") String cityCode,
+            @Param("propertyType") String propertyType,
+            @Param("status") HomestayStatus status
+    );
+
+    /**
+     * 统计低于指定价格的房源数量百分比
+     * @param cityCode 城市代码
+     * @param districtCode 区域代码
+     * @param propertyType 房源类型
+     * @param targetPrice 目标价格
+     * @param excludeHomestayId 排除的房源ID
+     * @param status 房源状态
+     * @return 低于目标价格的房源数量
+     */
+    @Query("SELECT COUNT(h) FROM Homestay h " +
+           "WHERE h.cityCode = :cityCode " +
+           "AND (:districtCode IS NULL OR h.districtCode = :districtCode) " +
+           "AND h.type = :propertyType " +
+           "AND h.price < :targetPrice " +
+           "AND h.id != :excludeHomestayId " +
+           "AND h.status = :status " +
+           "AND h.price IS NOT NULL AND h.price > 0")
+    Long countHomestaysBelowPrice(
+            @Param("cityCode") String cityCode,
+            @Param("districtCode") String districtCode,
+            @Param("propertyType") String propertyType,
+            @Param("targetPrice") BigDecimal targetPrice,
+            @Param("excludeHomestayId") Long excludeHomestayId,
+            @Param("status") HomestayStatus status
+    );
 } 

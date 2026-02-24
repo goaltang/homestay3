@@ -5,11 +5,13 @@ import com.homestay3.homestaybackend.dto.ReviewDTO;
 import com.homestay3.homestaybackend.dto.EarningDTO;
 import com.homestay3.homestaybackend.exception.AccessDeniedException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
-import com.homestay3.homestaybackend.model.Homestay;
-import com.homestay3.homestaybackend.model.Order;
-import com.homestay3.homestaybackend.model.Review;
+import com.homestay3.homestaybackend.entity.Homestay;
+import com.homestay3.homestaybackend.entity.Order;
+import com.homestay3.homestaybackend.entity.Review;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
+import com.homestay3.homestaybackend.model.RefundType;
+import com.homestay3.homestaybackend.model.HomestayStatus;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
@@ -20,6 +22,7 @@ import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.EarningService;
+import com.homestay3.homestaybackend.service.BookingConflictService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +34,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -51,47 +56,87 @@ public class OrderServiceImpl implements OrderService {
     private final NotificationService notificationService;
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
+    private final BookingConflictService bookingConflictService;
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
     
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderDTO createOrder(OrderDTO orderDTO) {
-        log.info("开始创建订单，请求信息: {}", orderDTO);
-        // 获取当前登录用户
+        log.info("开始创建订单: 用户={}, 房源={}, 入住日期={}, 退房日期={}", 
+                 getCurrentUser().getUsername(), orderDTO.getHomestayId(), 
+                 orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
+
         User currentUser = getCurrentUser();
-        log.info("当前下单用户: id={}, username={}", currentUser.getId(), currentUser.getUsername());
-        
-        // 获取房源信息
-        Homestay homestay = homestayRepository.findById(orderDTO.getHomestayId())
+
+        // 1. 获取房源信息（使用悲观锁）
+        Homestay homestay = homestayRepository.findByIdWithLock(orderDTO.getHomestayId())
                 .orElseThrow(() -> new ResourceNotFoundException("房源不存在"));
-        log.info("关联房源信息: id={}, title={}, 房东ID: {}", homestay.getId(), homestay.getTitle(), homestay.getOwner().getId());
-        
-        // 检查日期是否有效
+
+        if (!homestay.getStatus().equals(HomestayStatus.ACTIVE)) {
+            throw new IllegalArgumentException("房源当前不可预订");
+        }
+
+        // 2. 验证日期
         if (orderDTO.getCheckInDate().isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("入住日期不能早于今天");
         }
         if (orderDTO.getCheckOutDate().isBefore(orderDTO.getCheckInDate())) {
             throw new IllegalArgumentException("退房日期不能早于入住日期");
         }
-        
-        // 计算住宿天数
+
+        // 3. 计算住宿天数
         long nights = ChronoUnit.DAYS.between(orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
         if (nights < homestay.getMinNights()) {
             throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
         }
-        
-        // 检查是否有重叠的预订
-        boolean hasOverlap = orderRepository.existsOverlappingBooking(
+
+        // 4. 使用专业的并发控制服务检查冲突
+        boolean hasConflict = bookingConflictService.checkAndPreventConflict(
                 homestay.getId(), orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
-        if (hasOverlap) {
+        if (hasConflict) {
+            // 查询具体冲突的订单信息，便于调试
+            log.error("房源 {} 在日期 {} 至 {} 存在预订冲突，用户：{}", 
+                     homestay.getId(), orderDTO.getCheckInDate(), orderDTO.getCheckOutDate(), 
+                     getCurrentUser().getUsername());
+            
+            // 查询冲突订单详情
+            try {
+                var conflictOrders = orderRepository.findByHomestayIdAndStatusInOrderByCheckInDate(
+                    homestay.getId(), 
+                    List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAID, OrderStatus.CHECKED_IN)
+                );
+                
+                String conflictDetails = conflictOrders.stream()
+                    .filter(o -> !(o.getCheckOutDate().isBefore(orderDTO.getCheckInDate()) || 
+                                  o.getCheckInDate().isAfter(orderDTO.getCheckOutDate())))
+                    .map(o -> String.format("订单%s[%s] (%s至%s)", 
+                        o.getOrderNumber(), o.getStatus(), o.getCheckInDate(), o.getCheckOutDate()))
+                    .collect(java.util.stream.Collectors.joining(", "));
+                
+                log.error("冲突订单详情: {}", conflictDetails.isEmpty() ? "未找到冲突订单(可能是并发问题)" : conflictDetails);
+                
+            } catch (Exception e) {
+                log.error("查询冲突订单详情失败: {}", e.getMessage());
+            }
+            
             throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
         }
-        
-        // 计算总价
+
+        // 5. 计算总价
         BigDecimal totalAmount = homestay.getPrice().multiply(BigDecimal.valueOf(nights));
         log.info("计算订单总价: {} ({} 晚 x ￥{})", totalAmount, nights, homestay.getPrice());
-        
-        // 创建订单
+
+        // 6. 根据房源自动确认设置决定初始订单状态
+        String initialStatus;
+        if (homestay.getAutoConfirm() != null && homestay.getAutoConfirm()) {
+            initialStatus = OrderStatus.CONFIRMED.name();
+            log.info("房源 {} 开启自动确认，订单将直接进入已确认状态", homestay.getId());
+        } else {
+            initialStatus = OrderStatus.PENDING.name();
+            log.info("房源 {} 采用房东确认制，订单进入待确认状态", homestay.getId());
+        }
+
+        // 7. 创建订单对象
         Order order = Order.builder()
                 .orderNumber(generateOrderNumber())
                 .homestay(homestay)
@@ -103,42 +148,74 @@ public class OrderServiceImpl implements OrderService {
                 .guestCount(orderDTO.getGuestCount())
                 .price(homestay.getPrice())
                 .totalAmount(totalAmount)
-                .status(OrderStatus.PENDING.name())
+                .status(initialStatus)
                 .remark(orderDTO.getRemark())
                 .build();
-        
-        Order savedOrder = orderRepository.save(order);
-        log.info("订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
-        
-        // --- 添加：发送新预订请求通知给房东 ---
-        try {
-            User host = homestay.getOwner(); // 获取房东用户对象
-            String notificationContent = String.format(
-                "您收到了来自用户 %s 的新预订请求 (订单 %s)，请及时处理。",
-                currentUser.getUsername(), // 房客用户名
-                savedOrder.getOrderNumber() // 订单号
-            );
 
-            notificationService.createNotification(
-                    host.getId(),             // 接收者: 房东
-                    currentUser.getId(),      // 触发者: 房客
-                    NotificationType.BOOKING_REQUEST, // 类型: 新预订请求
-                    EntityType.BOOKING,       // 关联实体类型: 预订
-                    String.valueOf(savedOrder.getId()), // 关联实体ID: 订单ID
-                    notificationContent         // 内容
-            );
-            log.info("已为房东 {} (民宿 {}) 发送新预订请求通知 (订单 {})", host.getUsername(), homestay.getTitle(), savedOrder.getOrderNumber());
+        try {
+            // 8. 使用安全的创建方法（带锁保护）
+            Order savedOrder = bookingConflictService.safeCreateOrder(order);
+            log.info("订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
+
+            // 9. 根据订单状态发送不同的通知
+            try {
+                User host = homestay.getOwner();
+                if (OrderStatus.CONFIRMED.name().equals(savedOrder.getStatus())) {
+                    // 自动确认房源：通知房东有新订单，通知客人可以支付
+                    String hostNotificationContent = String.format(
+                        "您收到了来自用户 %s 的新订单 (订单 %s)，该订单已自动确认，等待用户支付。",
+                        currentUser.getUsername(), savedOrder.getOrderNumber()
+                    );
+                    notificationService.createNotification(
+                            host.getId(), currentUser.getId(),
+                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
+                            String.valueOf(savedOrder.getId()), hostNotificationContent
+                    );
+                    
+                    String guestNotificationContent = String.format(
+                        "您的预订 (订单 %s) 已自动确认，请在2小时内完成支付。",
+                        savedOrder.getOrderNumber()
+                    );
+                    notificationService.createNotification(
+                            currentUser.getId(), host.getId(),
+                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
+                            String.valueOf(savedOrder.getId()), guestNotificationContent
+                    );
+                    
+                    log.info("已发送自动确认订单通知 - 房东: {}, 客人: {}, 订单: {}", 
+                             host.getUsername(), currentUser.getUsername(), savedOrder.getOrderNumber());
+                } else {
+                    // 房东确认制：通知房东有新预订请求
+                    String notificationContent = String.format(
+                        "您收到了来自用户 %s 的新预订请求 (订单 %s)，请及时处理。",
+                        currentUser.getUsername(), savedOrder.getOrderNumber()
+                    );
+                    notificationService.createNotification(
+                            host.getId(), currentUser.getId(),
+                            NotificationType.BOOKING_REQUEST, EntityType.BOOKING,
+                            String.valueOf(savedOrder.getId()), notificationContent
+                    );
+                    
+                    log.info("已为房东 {} 发送新预订请求通知 (订单 {})", 
+                             host.getUsername(), savedOrder.getOrderNumber());
+                }
+            } catch (Exception e) {
+                log.error("发送通知失败: {}", e.getMessage());
+            }
+
+            // 10. 设置支付状态
+            savedOrder.setPaymentStatus(PaymentStatus.UNPAID);
+            savedOrder = orderRepository.save(savedOrder);
+
+            return convertToDTO(savedOrder);
+            
+        } catch (DataIntegrityViolationException e) {
+            log.error("订单创建失败，可能存在日期冲突: {}", e.getMessage());
+            throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
         } catch (Exception e) {
-            log.error("为房东 {} 发送新预订请求通知失败 (订单 {}): {}", homestay.getOwner().getUsername(), savedOrder.getOrderNumber(), e.getMessage(), e);
-            // 发送通知失败不应中断订单创建流程
+            log.error("订单创建过程中发生异常: {}", e.getMessage(), e);
+            throw new RuntimeException("订单创建失败，请稍后重试");
         }
-        // --- 通知发送结束 ---
-        
-        // 设置初始支付状态
-        savedOrder.setPaymentStatus(PaymentStatus.UNPAID);
-        savedOrder = orderRepository.save(savedOrder); // 保存更新后的状态
-        
-        return convertToDTO(savedOrder);
     }
     
     @Override
@@ -461,34 +538,42 @@ public class OrderServiceImpl implements OrderService {
             OrderStatus.PAID // 直接支付也可以
         ));
         
-        // 支付中状态可以转换为：已支付、支付失败、用户取消
+        // 支付中状态可以转换为：已支付、支付失败、用户取消、系统取消
         transitions.put(OrderStatus.PAYMENT_PENDING, Arrays.asList(
             OrderStatus.PAID,
             OrderStatus.PAYMENT_FAILED,
             OrderStatus.CANCELLED_BY_USER,
-            OrderStatus.CANCELLED // 系统取消
+            OrderStatus.CANCELLED, // 系统取消
+            OrderStatus.CANCELLED_SYSTEM // 系统自动取消（用于超时处理）
         ));
         
-        // 支付失败状态可以转换为：支付中、已取消、用户取消
+        // 支付失败状态可以转换为：支付中、已取消、用户取消、系统取消
         transitions.put(OrderStatus.PAYMENT_FAILED, Arrays.asList(
             OrderStatus.PAYMENT_PENDING,
             OrderStatus.CANCELLED,
-            OrderStatus.CANCELLED_BY_USER
+            OrderStatus.CANCELLED_BY_USER,
+            OrderStatus.CANCELLED_SYSTEM // 系统自动取消
         ));
         
-        // 已支付状态可以转换为：待入住、退款中、房东取消、已入住
+        // 已支付状态可以转换为：待入住、退款中、各种取消状态、已入住
         transitions.put(OrderStatus.PAID, Arrays.asList(
             OrderStatus.READY_FOR_CHECKIN,
             OrderStatus.REFUND_PENDING,
             OrderStatus.CANCELLED_BY_HOST,
+            OrderStatus.CANCELLED_BY_USER, // 用户取消
+            OrderStatus.CANCELLED_SYSTEM,  // 系统取消
+            OrderStatus.CANCELLED,         // 通用取消
             OrderStatus.CHECKED_IN // 直接入住也可以
         ));
         
-        // 待入住状态可以转换为：已入住、退款中、房东取消
+        // 待入住状态可以转换为：已入住、退款中、各种取消状态
         transitions.put(OrderStatus.READY_FOR_CHECKIN, Arrays.asList(
             OrderStatus.CHECKED_IN,
             OrderStatus.REFUND_PENDING,
-            OrderStatus.CANCELLED_BY_HOST
+            OrderStatus.CANCELLED_BY_HOST,
+            OrderStatus.CANCELLED_BY_USER, // 用户取消
+            OrderStatus.CANCELLED_SYSTEM,  // 系统取消
+            OrderStatus.CANCELLED          // 通用取消
         ));
         
         // 已入住状态只能转换为：已完成
@@ -601,7 +686,7 @@ public class OrderServiceImpl implements OrderService {
             // 如果取消类型无效，使用默认取消状态
             targetStatus = OrderStatus.CANCELLED;
         }
-        
+
         // 检查取消状态是否是一种取消状态
         if (targetStatus != OrderStatus.CANCELLED &&
             targetStatus != OrderStatus.CANCELLED_BY_USER &&
@@ -609,27 +694,85 @@ public class OrderServiceImpl implements OrderService {
             targetStatus != OrderStatus.CANCELLED_SYSTEM) {
             throw new IllegalArgumentException("无效的取消状态");
         }
-        
-        // 验证状态流转是否合法
-        if (!isValidStatusTransition(currentStatus, targetStatus)) {
-            throw new IllegalArgumentException(
-                String.format("不允许从当前状态 [%s] 取消订单", currentStatus.getDescription())
-            );
-        }
-        
-        // 更新订单状态和备注
-        order.setStatus(targetStatus.name());
-        if (reason != null && !reason.isEmpty()) {
-            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-                order.setRemark(order.getRemark() + "\n取消原因: " + reason);
+
+        // 特殊处理：如果是已支付订单被取消，应该进入退款流程
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            log.info("已支付订单被取消，将进入退款流程，订单号: {}", order.getOrderNumber());
+            
+            // 已支付订单取消时，状态应该是REFUND_PENDING，而不是各种取消状态
+            targetStatus = OrderStatus.REFUND_PENDING;
+            
+            // 验证状态流转是否合法（PAID -> REFUND_PENDING）
+            if (!isValidStatusTransition(currentStatus, targetStatus)) {
+                throw new IllegalArgumentException(
+                    String.format("不允许从当前状态 [%s] 进入退款流程", currentStatus.getDescription())
+                );
+            }
+            
+            // 更新订单状态和支付状态
+            order.setStatus(targetStatus.name());
+            order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+            
+            // 设置退款相关信息
+            User currentUser = null;
+            try {
+                currentUser = getCurrentUser();
+            } catch (Exception e) {
+                log.warn("无法获取当前用户，可能是系统调用: {}", e.getMessage());
+            }
+            
+            // 确定退款类型和发起者
+            RefundType refundType;
+            if (targetStatus == OrderStatus.CANCELLED_BY_USER || 
+                (currentUser != null && isOrderGuest(order, currentUser))) {
+                refundType = RefundType.USER_REQUESTED;
+            } else if (targetStatus == OrderStatus.CANCELLED_BY_HOST || 
+                      (currentUser != null && isOrderOwner(order, currentUser))) {
+                refundType = RefundType.HOST_CANCELLED;
             } else {
-                order.setRemark("取消原因: " + reason);
+                refundType = RefundType.ADMIN_INITIATED;
+            }
+            
+            order.setRefundType(refundType);
+            order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "订单取消申请退款");
+            order.setRefundAmount(order.getTotalAmount()); // 默认全额退款
+            order.setRefundInitiatedBy(currentUser != null ? currentUser.getId() : null);
+            order.setRefundInitiatedAt(LocalDateTime.now());
+            
+            // 添加退款原因到备注
+            String refundNote = String.format("退款申请 - 类型: %s, 原因: %s", 
+                refundType.getDescription(),
+                reason != null && !reason.isEmpty() ? reason : "订单取消");
+            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                order.setRemark(order.getRemark() + "\n" + refundNote);
+            } else {
+                order.setRemark(refundNote);
+            }
+            
+            log.info("已支付订单 {} 状态已更新为退款中，退款类型: {}", order.getOrderNumber(), refundType.getDescription());
+        } else {
+            // 未支付订单的正常取消流程
+            // 验证状态流转是否合法
+            if (!isValidStatusTransition(currentStatus, targetStatus)) {
+                throw new IllegalArgumentException(
+                    String.format("不允许从当前状态 [%s] 取消订单", currentStatus.getDescription())
+                );
+            }
+            
+            // 更新订单状态和备注
+            order.setStatus(targetStatus.name());
+            if (reason != null && !reason.isEmpty()) {
+                if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                    order.setRemark(order.getRemark() + "\n取消原因: " + reason);
+                } else {
+                    order.setRemark("取消原因: " + reason);
+                }
             }
         }
-        
+
         Order cancelledOrder = orderRepository.save(order);
 
-        // --- 添加：发送订单取消通知 ---
+        // --- 发送订单取消/退款通知 ---
         try {
             User guest = cancelledOrder.getGuest();
             User actor = null; 
@@ -641,53 +784,43 @@ public class OrderServiceImpl implements OrderService {
             }
 
             if (guest != null) {
-                String notificationContent = String.format(
-                        "您的订单 %s (房源: %s) 已被取消。状态从 %s 变为 %s。原因: %s",
-                        cancelledOrder.getOrderNumber(),
-                        cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
-                        currentStatus.getDescription(), // 使用 currentStatus 的描述
-                        targetStatus.getDescription(),  // 使用 targetStatus 的描述
-                        reason != null && !reason.isEmpty() ? reason : "未提供原因"
-                );
+                String notificationContent;
+                if (cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())) {
+                    // 退款通知
+                    notificationContent = String.format(
+                            "您的订单 %s (房源: %s) 退款申请已提交，我们将在1-3个工作日内处理。原因: %s",
+                            cancelledOrder.getOrderNumber(),
+                            cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
+                            reason != null && !reason.isEmpty() ? reason : "未提供原因"
+                    );
+                } else {
+                    // 取消通知
+                    notificationContent = String.format(
+                            "您的订单 %s (房源: %s) 已被取消。状态从 %s 变为 %s。原因: %s",
+                            cancelledOrder.getOrderNumber(),
+                            cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
+                            currentStatus.getDescription(),
+                            OrderStatus.valueOf(cancelledOrder.getStatus()).getDescription(),
+                            reason != null && !reason.isEmpty() ? reason : "未提供原因"
+                    );
+                }
 
                 notificationService.createNotification(
                         guest.getId(),
                         actor != null ? actor.getId() : null,
-                        NotificationType.ORDER_STATUS_CHANGED, // 或更具体的如 ORDER_CANCELLED
+                        cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name()) ? 
+                            NotificationType.REFUND_REQUESTED : NotificationType.ORDER_STATUS_CHANGED,
                         EntityType.ORDER,
                         String.valueOf(cancelledOrder.getId()),
                         notificationContent
                 );
-                log.info("已为用户 {} 发送订单 {} 取消通知", guest.getUsername(), cancelledOrder.getOrderNumber());
+                log.info("已为用户 {} 发送订单 {} 处理通知", guest.getUsername(), cancelledOrder.getOrderNumber());
             }
              // (可选) 如果也需要通知房东，请在此处添加类似逻辑
 
         } catch (Exception e) {
-            log.error("发送订单取消通知失败: {}", e.getMessage(), e);
-            // 通知发送失败不应影响订单取消流程
-        }
-        
-        // --- 添加：如果是已支付订单被取消，需要触发退款流程 ---
-        if (cancelledOrder.getPaymentStatus() == PaymentStatus.PAID) {
-            log.info("已支付订单被取消，需要执行退款流程，订单号: {}", cancelledOrder.getOrderNumber());
-            try {
-                // 标记退款状态
-                cancelledOrder.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-                cancelledOrder = orderRepository.save(cancelledOrder);
-                
-                // 如果是房东取消，根据业务规则可能需要罚金
-                if (targetStatus == OrderStatus.CANCELLED_BY_HOST) {
-                    log.info("房东取消已支付订单，可能需要处理罚金，订单号: {}", cancelledOrder.getOrderNumber());
-                    // 这里可以添加罚金处理逻辑
-                }
-                
-                // 实际触发退款可以是异步的或者需要管理员手动处理
-                // initiateRefund(cancelledOrder.getId());
-            } catch (Exception e) {
-                log.error("标记订单退款状态失败: {}", e.getMessage(), e);
-                // 我们不想因为退款标记失败而导致整个取消过程失败
-                // 此处可以发送告警让管理员手动处理
-            }
+            log.error("发送订单处理通知失败: {}", e.getMessage(), e);
+            // 通知发送失败不应影响订单处理流程
         }
         
         return convertToDTO(cancelledOrder);
@@ -1119,6 +1252,259 @@ public class OrderServiceImpl implements OrderService {
     
     @Override
     @Transactional
+    public OrderDTO approveRefund(Long id, String refundNote) {
+        log.info("管理员批准退款申请，订单ID: {}, 备注: {}", id, refundNote);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
+        
+        // 检查当前状态
+        if (order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
+            throw new IllegalStateException("只有退款中的订单才能批准退款");
+        }
+        
+        // 这里应该调用实际的支付网关退款API
+        try {
+            // 模拟调用支付网关
+            // PaymentGatewayResult result = paymentGatewayService.processRefund(order);
+            
+            // 批准退款后直接标记为已退款
+            order.setPaymentStatus(PaymentStatus.REFUNDED);
+            
+            // 如果订单状态也是退款中，更新为已退款
+            if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus())) {
+                order.setStatus(OrderStatus.REFUNDED.name());
+            }
+            
+            // 记录退款处理信息
+            User currentUser = getCurrentUser();
+            order.setRefundProcessedBy(currentUser.getId());
+            order.setRefundProcessedAt(LocalDateTime.now());
+            
+            log.info("退款申请已批准并完成，订单 {} 状态更新为已退款", order.getOrderNumber());
+            
+            // 添加批准备注
+            String approvalNote = String.format("退款申请已批准并完成 - 管理员: %s, 备注: %s", 
+                currentUser.getUsername(),
+                refundNote != null && !refundNote.isEmpty() ? refundNote : "无");
+            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                order.setRemark(order.getRemark() + "\n" + approvalNote);
+            } else {
+                order.setRemark(approvalNote);
+            }
+            
+            Order updatedOrder = orderRepository.save(order);
+            
+            // 发送退款批准通知
+            try {
+                User guest = order.getGuest();
+                if (guest != null) {
+                    String notificationContent = String.format(
+                        "好消息！您的订单 %s 退款申请已批准并完成，款项已原路退回，请注意查收。",
+                        order.getOrderNumber()
+                    );
+                    
+                    notificationService.createNotification(
+                        guest.getId(),
+                        getCurrentUser().getId(),
+                        NotificationType.REFUND_COMPLETED,
+                        EntityType.ORDER,
+                        String.valueOf(order.getId()),
+                        notificationContent
+                    );
+                }
+            } catch (Exception e) {
+                log.error("发送退款批准通知失败: {}", e.getMessage(), e);
+            }
+            
+            return convertToDTO(updatedOrder);
+            
+        } catch (Exception e) {
+            log.error("批准退款失败，订单ID: {}", id, e);
+            throw new RuntimeException("批准退款失败: " + e.getMessage());
+        }
+    }
+    
+    @Override
+    @Transactional
+    public OrderDTO rejectRefund(Long id, String rejectReason) {
+        log.info("管理员拒绝退款申请，订单ID: {}, 原因: {}", id, rejectReason);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
+        
+        // 检查当前状态
+        if (order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
+            throw new IllegalStateException("只有退款中的订单才能拒绝退款");
+        }
+        
+        // 拒绝退款，恢复为已支付状态
+        order.setPaymentStatus(PaymentStatus.PAID);
+        
+        // 如果订单状态也是退款中，也需要恢复
+        if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus())) {
+            order.setStatus(OrderStatus.PAID.name());
+        }
+        
+        // 添加拒绝原因到备注
+        String rejectionNote = String.format("退款申请被拒绝 - 原因: %s", 
+            rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
+        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+            order.setRemark(order.getRemark() + "\n" + rejectionNote);
+        } else {
+            order.setRemark(rejectionNote);
+        }
+        
+        Order updatedOrder = orderRepository.save(order);
+        
+        // 发送退款拒绝通知
+        try {
+            User guest = order.getGuest();
+            if (guest != null) {
+                String notificationContent = String.format(
+                    "很抱歉，您的订单 %s 退款申请被拒绝。原因: %s。如有疑问请联系客服。",
+                    order.getOrderNumber(),
+                    rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因"
+                );
+                
+                notificationService.createNotification(
+                    guest.getId(),
+                    getCurrentUser().getId(),
+                    NotificationType.REFUND_REJECTED,
+                    EntityType.ORDER,
+                    String.valueOf(order.getId()),
+                    notificationContent
+                );
+            }
+        } catch (Exception e) {
+            log.error("发送退款拒绝通知失败: {}", e.getMessage(), e);
+        }
+        
+        log.info("订单 {} 退款申请已被拒绝", order.getOrderNumber());
+        return convertToDTO(updatedOrder);
+    }
+    
+    @Override
+    @Transactional
+    public OrderDTO completeRefund(Long id, String refundTransactionId) {
+        log.info("管理员完成退款处理，订单ID: {}, 退款交易号: {}", id, refundTransactionId);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
+        
+        // 检查当前状态
+        if (order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
+            throw new IllegalStateException("只有退款中的订单才能完成退款");
+        }
+        
+        // 标记退款完成
+        order.setPaymentStatus(PaymentStatus.REFUNDED);
+        
+        // 如果订单状态也是退款中，更新为已退款
+        if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus())) {
+            order.setStatus(OrderStatus.REFUNDED.name());
+        }
+        
+        // 记录退款处理信息
+        User currentUser = getCurrentUser();
+        order.setRefundProcessedBy(currentUser.getId());
+        order.setRefundProcessedAt(LocalDateTime.now());
+        order.setRefundTransactionId(refundTransactionId);
+        
+        // 添加退款完成信息到备注
+        String completionNote = String.format("退款已完成 - 处理人: %s, 交易号: %s", 
+            currentUser.getUsername(),
+            refundTransactionId != null && !refundTransactionId.isEmpty() ? refundTransactionId : "无");
+        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+            order.setRemark(order.getRemark() + "\n" + completionNote);
+        } else {
+            order.setRemark(completionNote);
+        }
+        
+        Order updatedOrder = orderRepository.save(order);
+        
+        // 发送退款完成通知
+        try {
+            User guest = order.getGuest();
+            if (guest != null) {
+                String notificationContent = String.format(
+                    "好消息！您的订单 %s 退款已完成，款项已原路退回，请注意查收。退款交易号: %s",
+                    order.getOrderNumber(),
+                    refundTransactionId != null && !refundTransactionId.isEmpty() ? refundTransactionId : "请查看银行流水"
+                );
+                
+                notificationService.createNotification(
+                    guest.getId(),
+                    getCurrentUser().getId(),
+                    NotificationType.REFUND_COMPLETED,
+                    EntityType.ORDER,
+                    String.valueOf(order.getId()),
+                    notificationContent
+                );
+            }
+        } catch (Exception e) {
+            log.error("发送退款完成通知失败: {}", e.getMessage(), e);
+        }
+        
+        log.info("订单 {} 退款已完成", order.getOrderNumber());
+        return convertToDTO(updatedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO requestUserRefund(Long id, String reason) {
+        log.info("用户申请退款，订单ID: {}, 退款原因: {}", id, reason);
+        
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
+                
+        // 检查当前状态是否允许申请退款
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new IllegalStateException("只有已支付的订单才能申请退款");
+        }
+        
+        // 检查是否已经在退款流程中
+        if (order.getStatus().equals(OrderStatus.REFUND_PENDING.name()) || 
+            order.getStatus().equals(OrderStatus.REFUNDED.name())) {
+            throw new IllegalStateException("订单已在退款流程中，请勿重复申请");
+        }
+        
+        // 更新订单状态为退款中
+        order.setStatus(OrderStatus.REFUND_PENDING.name());
+        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+        
+        // 设置退款相关信息
+        User currentUser = getCurrentUser();
+        order.setRefundType(RefundType.USER_REQUESTED);
+        order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "用户申请退款");
+        order.setRefundAmount(order.getTotalAmount()); // 默认全额退款
+        order.setRefundInitiatedBy(currentUser.getId());
+        order.setRefundInitiatedAt(LocalDateTime.now());
+        
+        // 添加退款申请记录到备注
+        String refundNote = String.format("退款申请 - 类型: %s, 原因: %s, 申请人: %s", 
+            RefundType.USER_REQUESTED.getDescription(),
+            reason != null && !reason.isEmpty() ? reason : "用户申请退款",
+            currentUser.getUsername());
+        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+            order.setRemark(order.getRemark() + "\n" + refundNote);
+        } else {
+            order.setRemark(refundNote);
+        }
+        
+        Order updatedOrder = orderRepository.save(order);
+        
+        // 发送退款申请通知给管理员
+        try {
+            // 这里可以发送通知给管理员，告知有新的退款申请
+            log.info("退款申请已提交，订单号: {}, 等待管理员处理", order.getOrderNumber());
+        } catch (Exception e) {
+            log.error("发送退款申请通知失败: {}", e.getMessage(), e);
+        }
+        
+        log.info("用户退款申请已提交，订单号: {}", order.getOrderNumber());
+        return convertToDTO(updatedOrder);
+    }
+    
+    @Override
+    @Transactional
     public void deleteOrder(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("订单不存在，ID: " + id));
@@ -1302,6 +1688,26 @@ public class OrderServiceImpl implements OrderService {
         String guestName = guest != null ? (guest.getNickname() != null ? guest.getNickname() : guest.getUsername()) : null;
         Long guestId = guest != null ? guest.getId() : null;
         
+        // 获取退款相关的用户名
+        String refundInitiatedByName = null;
+        String refundProcessedByName = null;
+        
+        if (order.getRefundInitiatedBy() != null) {
+            Optional<User> initiatorOpt = userRepository.findById(order.getRefundInitiatedBy());
+            if (initiatorOpt.isPresent()) {
+                User initiator = initiatorOpt.get();
+                refundInitiatedByName = initiator.getNickname() != null ? initiator.getNickname() : initiator.getUsername();
+            }
+        }
+        
+        if (order.getRefundProcessedBy() != null) {
+            Optional<User> processorOpt = userRepository.findById(order.getRefundProcessedBy());
+            if (processorOpt.isPresent()) {
+                User processor = processorOpt.get();
+                refundProcessedByName = processor.getNickname() != null ? processor.getNickname() : processor.getUsername();
+            }
+        }
+
         // 构建 OrderDTO
         return OrderDTO.builder()
                 .id(order.getId())
@@ -1327,6 +1733,17 @@ public class OrderServiceImpl implements OrderService {
                 .updateTime(order.getUpdatedAt())
                 .isReviewed(isReviewed)
                 .review(reviewDTO)
+                // 退款相关字段
+                .refundType(order.getRefundType() != null ? order.getRefundType().name() : null)
+                .refundReason(order.getRefundReason())
+                .refundAmount(order.getRefundAmount())
+                .refundInitiatedBy(order.getRefundInitiatedBy())
+                .refundInitiatedByName(refundInitiatedByName)
+                .refundInitiatedAt(order.getRefundInitiatedAt())
+                .refundProcessedBy(order.getRefundProcessedBy())
+                .refundProcessedByName(refundProcessedByName)
+                .refundProcessedAt(order.getRefundProcessedAt())
+                .refundTransactionId(order.getRefundTransactionId())
                 .build();
     }
     

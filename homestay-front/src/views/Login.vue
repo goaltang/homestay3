@@ -18,32 +18,37 @@
           <p class="login-subtitle">请登录您的账号</p>
 
           <el-card class="login-card">
-            <el-form ref="loginFormRef" :model="loginForm" :rules="rules" label-position="top"
-              @submit.prevent="handleLogin">
-              <el-form-item label="用户名" prop="username">
-                <el-input v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User" :disabled="loading"
-                  @keyup.enter="handleLogin" />
-              </el-form-item>
+            <div class="login-form-wrapper">
+              <el-form ref="loginFormRef" :model="loginForm" :rules="rules" label-position="top"
+                :validate-on-rule-change="false">
+                <el-form-item label="用户名" prop="username">
+                  <el-input ref="usernameInputRef" v-model="loginForm.username" placeholder="请输入用户名" prefix-icon="User"
+                    :disabled="loading" @keyup.enter.stop.prevent="handleLogin" @blur="validateField('username')"
+                    clearable />
+                </el-form-item>
 
-              <el-form-item label="密码" prop="password">
-                <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock"
-                  show-password :disabled="loading" @keyup.enter="handleLogin" />
-              </el-form-item>
+                <el-form-item label="密码" prop="password">
+                  <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock"
+                    show-password :disabled="loading" @keyup.enter.stop.prevent="handleLogin"
+                    @blur="validateField('password')" clearable />
+                </el-form-item>
 
-              <div class="remember-forgot">
-                <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-                <el-button type="text" @click="goToForgotPassword">忘记密码？</el-button>
-              </div>
+                <div class="remember-forgot">
+                  <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
+                  <el-button type="text" @click.stop.prevent="goToForgotPassword" :disabled="loading">忘记密码？</el-button>
+                </div>
 
-              <el-button type="primary" class="submit-btn" :loading="loading" @click="handleLogin">
-                {{ loading ? '登录中...' : '登录' }}
-              </el-button>
+                <el-button type="primary" class="submit-btn" :loading="loading" @click.stop.prevent="handleLogin"
+                  :disabled="!isFormValid">
+                  {{ loading ? '登录中...' : '登录' }}
+                </el-button>
 
-              <div class="register-link">
-                还没有账号？
-                <el-button type="text" @click="goToRegister">立即注册</el-button>
-              </div>
-            </el-form>
+                <div class="register-link">
+                  还没有账号？
+                  <el-button type="text" @click.stop.prevent="goToRegister" :disabled="loading">立即注册</el-button>
+                </div>
+              </el-form>
+            </div>
           </el-card>
         </div>
       </div>
@@ -52,17 +57,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from "vue";
-import { useRouter } from "vue-router";
+import { ref, reactive, onMounted, computed, nextTick } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import type { FormInstance } from "element-plus";
-import { ElMessage, ElLoading } from "element-plus";
+import { ElMessage } from "element-plus";
 import Logo from "@/components/Logo.vue";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const loginFormRef = ref<FormInstance>();
+const usernameInputRef = ref();
 const loading = ref(false);
+const lastLoginAttempt = ref(0);
 
 const loginForm = reactive({
   username: "",
@@ -70,104 +78,236 @@ const loginForm = reactive({
   remember: false
 });
 
+// 表单验证规则
 const rules = {
   username: [
     { required: true, message: "请输入用户名", trigger: "blur" },
-    { min: 3, max: 20, message: "长度在 3 到 20 个字符", trigger: "blur" },
+    { min: 3, max: 20, message: "用户名长度应在 3-20 个字符之间", trigger: "blur" },
+    { pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/, message: "用户名只能包含字母、数字、下划线和中文", trigger: "blur" }
   ],
   password: [
     { required: true, message: "请输入密码", trigger: "blur" },
-    { min: 6, max: 20, message: "长度在 6 到 20 个字符", trigger: "blur" },
+    { min: 6, max: 20, message: "密码长度应在 6-20 个字符之间", trigger: "blur" },
   ],
 };
 
-const handleLogin = async () => {
-  if (!loginFormRef.value) return;
+// 计算表单是否有效
+const isFormValid = computed(() => {
+  return loginForm.username.length >= 3 &&
+    loginForm.password.length >= 6 &&
+    loginForm.username.length <= 20 &&
+    loginForm.password.length <= 20;
+});
 
-  let loadingInstance: any = null;
+// 单个字段验证
+const validateField = async (prop: string) => {
+  if (!loginFormRef.value) return;
+  try {
+    await loginFormRef.value.validateField(prop);
+  } catch {
+    // 验证失败时不做任何操作，错误信息已经显示
+  }
+};
+
+// 处理登录
+const handleLogin = async (event?: Event) => {
+  // 阻止任何可能的默认行为
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  // 防抖机制：防止快速重复点击
+  const now = Date.now();
+  if (now - lastLoginAttempt.value < 1000) {
+    return false;
+  }
+  lastLoginAttempt.value = now;
+
+  if (!loginFormRef.value || loading.value) {
+    return false;
+  }
 
   try {
+    // 验证表单
     await loginFormRef.value.validate();
-    loadingInstance = ElLoading.service({
-        lock: true,
-        text: '正在登录...',
-        background: 'rgba(0, 0, 0, 0.7)',
-    });
 
-    console.log("表单验证通过，正在尝试登录:", loginForm);
+    loading.value = true;
+    console.log("开始登录验证:", { username: loginForm.username });
 
     const success = await userStore.login(loginForm.username, loginForm.password);
 
     if (success) {
-      console.log("登录成功，准备获取用户信息:", userStore.userInfo);
+      console.log("登录成功，获取用户信息中...");
 
       try {
-        // 登录成功后立即获取完整的用户信息
+        // 获取完整用户信息
         await userStore.fetchUserInfo();
-        console.log("已成功获取完整用户信息:", userStore.userInfo);
-        loadingInstance?.close();
-        ElMessage.success("登录成功");
+        console.log("用户信息获取成功:", userStore.userInfo);
 
-        // 获取最新的用户角色信息 (从 store 获取更可靠)
-        const role = userStore.userInfo?.role || ''; // 使用 userStore 的最新数据
-        const isLandlord = ['ROLE_LANDLORD', 'ROLE_HOST', 'LANDLORD', 'HOST'].includes(role.toUpperCase());
-
-        console.log("登录后导航检查:", {
-          role: role,
-          isLandlord,
-          redirectPath: router.currentRoute.value.query.redirect
+        ElMessage.success({
+          message: `欢迎回来，${userStore.userInfo?.realName || userStore.userInfo?.username || '用户'}！`,
+          duration: 2000
         });
 
-        // 使用 Vue Router 进行导航
-        if (isLandlord) {
-          console.log("导航到房东中心: /host");
-          router.push('/host');
+        // 如果选择了记住我，保存用户名
+        if (loginForm.remember) {
+          localStorage.setItem('rememberedUsername', loginForm.username);
         } else {
-          const redirectPath = router.currentRoute.value.query.redirect as string | undefined;
-          if (redirectPath) {
-            console.log("导航到重定向路径:", redirectPath);
-            router.push(redirectPath);
-          } else {
-            console.log("导航到首页: /");
-            router.push('/');
-          }
+          localStorage.removeItem('rememberedUsername');
         }
 
+        // 导航逻辑
+        await handleLoginSuccess();
+
       } catch (fetchError) {
-        // 获取用户信息失败，很可能是 token 问题
-        console.error("登录后获取用户信息失败:", fetchError);
-        loadingInstance?.close();
+        console.error("获取用户信息失败:", fetchError);
         ElMessage.error("获取用户信息失败，请重新登录");
         userStore.logout();
       }
 
     } else {
-      // userStore.login 本身返回 false (例如后端返回 401 或其他错误)
-      loadingInstance?.close();
-      ElMessage.error("登录失败：无法连接到服务器或发生未知错误");
+      ElMessage.error("登录失败，请检查用户名和密码");
     }
+
   } catch (error: any) {
-    loadingInstance?.close();
-    console.error("登录出错:", error);
-    if (error.message && error.message.includes("用户名或密码错误")) {
-        ElMessage.error(error.message);
-    } else {
-        ElMessage.error(error.message || "登录失败，请检查输入或稍后重试");
+    console.error("登录过程中出错:", error);
+
+    // 确保即使发生错误也阻止页面刷新
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    // 根据错误类型提供更具体的错误信息
+    try {
+      // 优先使用后端返回的具体错误信息
+      let errorMessage = "登录失败，请重试";
+
+      if (error.response?.data) {
+        // 尝试从不同可能的字段获取错误信息
+        if (typeof error.response.data === "string") {
+          errorMessage = error.response.data;
+        } else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.data.error) {
+          errorMessage = error.response.data.error;
+        } else if (error.displayMessage) {
+          errorMessage = error.displayMessage;
+        }
+      }
+
+      // 如果后端没有返回具体错误信息，则根据状态码判断
+      if (errorMessage === "登录失败，请重试") {
+        if (error.response?.status === 401) {
+          errorMessage = "用户名或密码错误，请重新输入";
+        } else if (error.response?.status === 404) {
+          errorMessage = "用户不存在，请检查用户名或先注册账号";
+        } else if (error.response?.status === 429) {
+          errorMessage = "登录尝试过于频繁，请稍后再试";
+        } else if (error.response?.status >= 500) {
+          errorMessage = "服务器暂时无法连接，请稍后重试";
+        } else if (error.message?.includes("Network Error")) {
+          errorMessage = "网络连接失败，请检查网络设置";
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+
+      // 如果是用户不存在的错误，提供注册建议
+      if (errorMessage.includes("用户不存在") || errorMessage.includes("请检查用户名或先注册账号")) {
+        ElMessage({
+          message: errorMessage,
+          type: 'error',
+          duration: 4000,
+          showClose: true
+        });
+
+        // 延迟显示注册提示
+        setTimeout(() => {
+          ElMessage({
+            message: '还没有账号？点击下方"立即注册"创建新账号',
+            type: 'info',
+            duration: 3000,
+            showClose: true
+          });
+        }, 1000);
+      } else {
+        ElMessage.error(errorMessage);
+      }
+    } catch (messageError) {
+      console.error("显示错误消息失败:", messageError);
+      // 兜底错误处理
+      try {
+        ElMessage.error("登录失败，请重试");
+      } catch {
+        alert("登录失败，请重试");
+      }
     }
   } finally {
-    if (loadingInstance) {
-        loadingInstance.close();
+    loading.value = false;
+  }
+
+  return false; // 确保不会触发任何默认提交行为
+};
+
+// 处理登录成功后的导航
+const handleLoginSuccess = async () => {
+  await nextTick(); // 确保 DOM 更新完成
+
+  const role = userStore.userInfo?.role || '';
+  const isLandlord = ['ROLE_LANDLORD', 'ROLE_HOST', 'LANDLORD', 'HOST'].includes(role.toUpperCase());
+
+  console.log("导航决策:", { role, isLandlord });
+
+  if (isLandlord) {
+    await router.push('/host');
+  } else {
+    const redirectPath = route.query.redirect as string;
+    if (redirectPath && !redirectPath.includes('login') && !redirectPath.includes('register')) {
+      await router.push(redirectPath);
+    } else {
+      await router.push('/');
     }
   }
 };
 
+// 跳转到注册页
 const goToRegister = () => {
+  if (loading.value) return;
   router.push("/register");
 };
 
+// 跳转到忘记密码页
 const goToForgotPassword = () => {
+  if (loading.value) return;
   router.push("/forgot-password");
 };
+
+
+
+// 页面加载完成后的初始化
+onMounted(async () => {
+  // 处理路由消息
+  if (route.query.message) {
+    ElMessage.info(route.query.message as string);
+  }
+
+  // 自动聚焦到用户名输入框
+  await nextTick();
+  if (usernameInputRef.value) {
+    usernameInputRef.value.focus();
+  }
+
+  // 恢复记住的用户名
+  const rememberedUsername = localStorage.getItem('rememberedUsername');
+  if (rememberedUsername) {
+    loginForm.username = rememberedUsername;
+    loginForm.remember = true;
+  }
+
+
+});
 </script>
 
 <style scoped>

@@ -128,4 +128,28 @@ public class JwtTokenProvider {
             return false;
         }
     }
-} 
+
+    /**
+     * 验证token是否有效（与UserDetails一起验证）
+     * @param token JWT token
+     * @param userDetails 用户信息
+     * @return 是否有效
+     */
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = getUsernameFromToken(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            return claims.getExpiration().before(new Date());
+        } catch (Exception e) {
+            return true;
+        }
+    }
+}

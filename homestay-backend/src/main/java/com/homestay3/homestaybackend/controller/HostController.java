@@ -51,18 +51,9 @@ public class HostController {
     }
 
     /**
-     * 上传房东头像
+     * 头像上传功能已迁移到FileController统一处理
+     * 请使用 /api/files/upload?type=avatar 端点
      */
-    @PostMapping("/avatar")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
-    public ResponseEntity<Map<String, String>> uploadAvatar(
-            @RequestParam("file") MultipartFile file,
-            Authentication authentication) {
-        String username = authentication.getName();
-        logger.info("上传房东头像，用户名: {}", username);
-        String fileUrl = hostService.uploadAvatar(file, username);
-        return ResponseEntity.ok(Map.of("url", fileUrl));
-    }
 
     /**
      * 获取房东统计数据

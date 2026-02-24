@@ -11,10 +11,10 @@ export function createOrder(data: {
   checkInDate: string;
   checkOutDate: string;
   guestCount: number;
-  totalPrice: number;
+  totalAmount: number;
   guestName: string;
   guestPhone: string;
-  message?: string;
+  remark?: string;
 }) {
   console.log("创建订单，参数:", data);
   return request({
@@ -369,7 +369,7 @@ export function createOrderPreview(data: {
   checkOutDate: string;
   guestCount: number;
   guestPhone?: string;
-  message?: string;
+  remark?: string;
 }) {
   console.log("创建订单预览，参数:", data);
   return request({
@@ -402,9 +402,9 @@ export function generatePaymentQRCode(data: {
   method: string;
 }) {
   return request({
-    url: `/api/orders/${data.orderId}/payment/qrcode`,
+    url: `/api/payment/${data.orderId}/create?method=${data.method}`,
     method: "post",
-    data: { method: data.method },
+    timeout: 60000, // 支付接口使用60秒超时
   }).catch((error) => {
     handleApiError(error, "生成支付二维码失败");
     throw error;
@@ -414,21 +414,10 @@ export function generatePaymentQRCode(data: {
 // 检查支付状态
 export function checkPayment(orderId: number) {
   return request({
-    url: `/api/orders/${orderId}/payment/status`,
+    url: `/api/payment/${orderId}/status`,
     method: "get",
   }).catch((error) => {
     handleApiError(error, "检查支付状态失败");
-    throw error;
-  });
-}
-
-// 模拟支付成功（仅用于测试）
-export function mockPayment(orderId: number) {
-  return request({
-    url: `/api/orders/${orderId}/payment/mock`,
-    method: "post",
-  }).catch((error) => {
-    handleApiError(error, "模拟支付失败");
     throw error;
   });
 }
@@ -603,9 +592,8 @@ export function getMyOrders(params?: {
 export function mockPaymentSuccess(orderId: number) {
   console.log(`[测试] 模拟订单 ${orderId} 支付成功...`);
   return request({
-    url: `/api/orders/${orderId}/payment/mock`,
+    url: `/api/payment/${orderId}/mock-success`,
     method: "post",
-    // 这个接口后端不需要 data
   })
     .then((response) => {
       console.log(`[测试] 模拟订单 ${orderId} 支付成功完成:`, response.data);

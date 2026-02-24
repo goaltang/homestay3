@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class VerificationDto {
+public class VerificationDTO {
     private Long id;
     private Long userId;
     private String username;

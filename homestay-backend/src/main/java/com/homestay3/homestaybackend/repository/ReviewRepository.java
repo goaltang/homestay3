@@ -1,9 +1,9 @@
 package com.homestay3.homestaybackend.repository;
 
-import com.homestay3.homestaybackend.model.Homestay;
-import com.homestay3.homestaybackend.model.Review;
+import com.homestay3.homestaybackend.entity.Homestay;
+import com.homestay3.homestaybackend.entity.Review;
 import com.homestay3.homestaybackend.entity.User;
-import com.homestay3.homestaybackend.model.Order;
+import com.homestay3.homestaybackend.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -124,4 +125,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     // 根据评价ID查找关联的房源标题
     @Query("SELECT r.homestay.title FROM Review r WHERE r.id = :reviewId")
     Optional<String> findHomestayTitleByReviewId(@Param("reviewId") Long reviewId);
+    
+    // 统计指定房源的评价数量
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.homestay.id = :homestayId")
+    Long countByHomestayId(@Param("homestayId") Long homestayId);
+    
+    // 统计指定房源在指定时间后的评价数量
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.homestay.id = :homestayId AND r.createTime > :createdAtAfter")
+    Long countByHomestayIdAndCreatedAtAfter(@Param("homestayId") Long homestayId, @Param("createdAtAfter") LocalDateTime createdAtAfter);
 } 

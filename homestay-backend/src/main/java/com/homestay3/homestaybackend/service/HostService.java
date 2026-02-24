@@ -27,12 +27,9 @@ public interface HostService {
     HostDTO updateHostInfo(HostDTO hostDTO, String username);
     
     /**
-     * 上传房东头像
-     * @param file 头像文件
-     * @param username 用户名
-     * @return 头像URL
+     * 头像上传功能已迁移到FileController统一处理
+     * 请使用 /api/files/upload?type=avatar 端点
      */
-    String uploadAvatar(MultipartFile file, String username);
     
     /**
      * 获取房东统计数据

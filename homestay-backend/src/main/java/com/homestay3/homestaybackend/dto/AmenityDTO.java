@@ -1,7 +1,7 @@
 package com.homestay3.homestaybackend.dto;
 
 import java.time.LocalDateTime;
-import com.homestay3.homestaybackend.model.Amenity;
+import com.homestay3.homestaybackend.entity.Amenity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

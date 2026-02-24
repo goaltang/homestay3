@@ -44,6 +44,14 @@ public interface StatisticsService {
     Map<String, Object> getHomestayDistribution();
     
     /**
+     * 获取审核统计数据
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @return 审核统计数据
+     */
+    Map<String, Object> getAuditStatistics(LocalDate startDate, LocalDate endDate);
+    
+    /**
      * 导出统计数据
      */
     byte[] exportStatistics(LocalDate startDate, LocalDate endDate);

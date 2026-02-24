@@ -13,8 +13,7 @@ const AMAP_CONFIG = {
 };
 
 // 如果没有API Key，使用模拟模式
-const USE_MOCK_DATA =
-  AMAP_CONFIG.apiKey === "your-actual-api-key-here" || !AMAP_CONFIG.apiKey;
+const USE_MOCK_DATA = false; // 强制使用真实API，已有有效的API Key
 
 // 地理编码接口
 interface GeocodeResult {

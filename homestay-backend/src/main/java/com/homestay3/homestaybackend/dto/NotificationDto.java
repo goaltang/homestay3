@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * 通知数据传输对象 (用于 API 响应)
  */
 @Data
-public class NotificationDto {
+public class NotificationDTO {
     private Long id;
     private Long userId;
     private Long actorId;
