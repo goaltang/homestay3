@@ -355,17 +355,65 @@ public class OrderController {
     }
     
     /**
+     * 验证当前用户是否为订单所属房东
+     * @param order 订单DTO
+     * @param authentication 当前用户认证信息
+     */
+    private void verifyOrderOwnership(OrderDTO order, Authentication authentication) {
+        String currentUsername = authentication.getName();
+        
+        // 获取当前用户的ID（需要从数据库查询或从token中解析）
+        // 这里我们通过比较hostName来验证，更安全的方式是比较hostId
+        // 但由于Controller层没有直接访问UserService，我们使用hostName进行验证
+        // 注意：生产环境应该使用hostId进行验证
+        
+        // 从authentication中获取用户详细信息
+        Long currentUserId = null;
+        try {
+            // 尝试从principal中获取用户ID
+            if (authentication.getPrincipal() instanceof com.homestay3.homestaybackend.entity.User) {
+                com.homestay3.homestaybackend.entity.User user = 
+                    (com.homestay3.homestaybackend.entity.User) authentication.getPrincipal();
+                currentUserId = user.getId();
+            }
+        } catch (Exception e) {
+            log.warn("无法从authentication获取用户ID: {}", e.getMessage());
+        }
+        
+        // 验证：如果hostId不为null，比较hostId；否则回退到hostName比较
+        if (order.getHostId() != null && currentUserId != null) {
+            if (!order.getHostId().equals(currentUserId)) {
+                log.warn("用户 {} (ID: {}) 尝试操作不属于自己的订单 {} (房东ID: {})", 
+                    currentUsername, currentUserId, order.getId(), order.getHostId());
+                throw new AccessDeniedException("您无权操作此订单，该订单不属于您的房源");
+            }
+        } else if (order.getHostName() != null && !order.getHostName().equals(currentUsername)) {
+            // 回退方案：比较hostName
+            log.warn("用户 {} 尝试操作不属于自己的订单 {} (房东: {})", 
+                currentUsername, order.getId(), order.getHostName());
+            throw new AccessDeniedException("您无权操作此订单，该订单不属于您的房源");
+        }
+        
+        log.debug("订单所有权验证通过 - 用户: {}, 订单ID: {}, 房东ID: {}", 
+            currentUsername, order.getId(), order.getHostId());
+    }
+    
+    /**
      * 确认订单
      */
     @PutMapping("/{id}/confirm")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
-    public ResponseEntity<?> confirmOrder(@PathVariable Long id) {
+    public ResponseEntity<?> confirmOrder(@PathVariable Long id, Authentication authentication) {
         try {
             System.out.println("开始确认订单，订单ID: " + id);
-            // 获取当前用户信息用于日志
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             String username = authentication.getName();
             System.out.println("当前用户: " + username + ", 角色: " + authentication.getAuthorities());
+            
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
             
             OrderDTO confirmedOrder = orderService.updateOrderStatus(id, OrderStatus.CONFIRMED.name());
             System.out.println("订单确认成功，订单ID: " + id);
@@ -394,15 +442,25 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> rejectOrder(
             @PathVariable Long id, 
-            @RequestBody Map<String, String> reasonMap) {
+            @RequestBody Map<String, String> reasonMap,
+            Authentication authentication) {
         try {
             String reason = reasonMap.get("reason");
             if (reason == null || reason.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "拒绝原因不能为空"));
             }
             
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
+            
             OrderDTO rejectedOrder = orderService.rejectOrder(id, reason);
             return ResponseEntity.ok(rejectedOrder);
+        } catch (AccessDeniedException e) {
+            log.warn("拒绝订单权限检查失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -450,10 +508,19 @@ public class OrderController {
      */
     @PutMapping("/{id}/check-in")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
-    public ResponseEntity<?> checkIn(@PathVariable Long id) {
+    public ResponseEntity<?> checkIn(@PathVariable Long id, Authentication authentication) {
         try {
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
+            
             OrderDTO checkedInOrder = orderService.updateOrderStatus(id, OrderStatus.CHECKED_IN.name());
             return ResponseEntity.ok(checkedInOrder);
+        } catch (AccessDeniedException e) {
+            log.warn("办理入住权限检查失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
@@ -467,10 +534,19 @@ public class OrderController {
      */
     @PutMapping("/{id}/check-out")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
-    public ResponseEntity<?> checkOut(@PathVariable Long id) {
+    public ResponseEntity<?> checkOut(@PathVariable Long id, Authentication authentication) {
         try {
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
+            
             OrderDTO completedOrder = orderService.updateOrderStatus(id, OrderStatus.COMPLETED.name());
             return ResponseEntity.ok(completedOrder);
+        } catch (AccessDeniedException e) {
+            log.warn("办理退房权限检查失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", e.getMessage(),
