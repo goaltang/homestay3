@@ -94,6 +94,13 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
         }
 
+        if (orderDTO.getGuestCount() == null || orderDTO.getGuestCount() <= 0) {
+            throw new IllegalArgumentException("入住人数必须大于0");
+        }
+        if (orderDTO.getGuestCount() > homestay.getMaxGuests()) {
+            throw new IllegalArgumentException("入住人数不能超过房源最大入住人数" + homestay.getMaxGuests() + "人");
+        }
+
         // 4. 使用专业的并发控制服务检查冲突
         boolean hasConflict = bookingConflictService.checkAndPreventConflict(
                 homestay.getId(), orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
