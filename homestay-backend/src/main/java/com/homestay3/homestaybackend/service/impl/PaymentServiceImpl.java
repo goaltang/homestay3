@@ -192,7 +192,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public void handlePaymentNotify(PaymentNotifyResult result) {
         try {
-            log.info("开始处理支付回调，商户订单号: {}", result.getOutTradeNo());
+            log.debug("开始处理支付回调，商户订单号: {}", result.getOutTradeNo());
             
             // 查找支付记录
             PaymentRecord paymentRecord = paymentRecordRepository
@@ -201,7 +201,7 @@ public class PaymentServiceImpl implements PaymentService {
             
             // 防重复处理
             if ("SUCCESS".equals(paymentRecord.getStatus())) {
-                log.info("支付记录已处理，跳过: {}", result.getOutTradeNo());
+                log.debug("支付记录已处理，跳过: {}", result.getOutTradeNo());
                 return;
             }
             
@@ -214,7 +214,7 @@ public class PaymentServiceImpl implements PaymentService {
             // 更新订单状态
             updateOrderPaymentStatus(paymentRecord.getOrderId(), PaymentStatus.PAID);
             
-            log.info("支付回调处理成功: orderId={}, outTradeNo={}", 
+            log.debug("支付回调处理成功: orderId={}, outTradeNo={}", 
                 paymentRecord.getOrderId(), result.getOutTradeNo());
             
         } catch (Exception e) {

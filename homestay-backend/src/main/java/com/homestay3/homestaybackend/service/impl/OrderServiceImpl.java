@@ -1630,20 +1630,18 @@ public class OrderServiceImpl implements OrderService {
      * @return 如果用户有权访问此订单则返回true
      */
     private boolean isOrderAccessible(Order order, User user) {
-        // 添加日志输出，便于调试
-        System.out.println("检查订单访问权限 - 订单ID: " + order.getId() + 
-                          ", 用户: " + user.getUsername() + 
-                          ", 角色: " + user.getRole());
-        System.out.println("订单所属房东ID: " + order.getHomestay().getOwner().getId() + 
-                          ", 当前用户ID: " + user.getId());
-        System.out.println("订单客人ID: " + order.getGuest().getId());
+        log.debug("检查订单访问权限 - 订单ID: {}, 用户: {}, 角色: {}", 
+                  order.getId(), user.getUsername(), user.getRole());
+        log.debug("订单所属房东ID: {}, 当前用户ID: {}", 
+                  order.getHomestay().getOwner().getId(), user.getId());
+        log.debug("订单客人ID: {}", order.getGuest().getId());
         
         // 检查用户角色 - 考虑可能有前缀或不一致的情况
         boolean isAdmin = user.getRole().contains("ADMIN");
         
         // 管理员可以访问所有订单
         if (isAdmin) {
-            System.out.println("用户是管理员，允许访问");
+            log.debug("用户是管理员，允许访问");
             return true;
         }
         
@@ -1651,7 +1649,7 @@ public class OrderServiceImpl implements OrderService {
         boolean isHost = user.getRole().contains("HOST");
         if (isHost) {
             boolean isOwner = isOrderOwner(order, user);
-            System.out.println("用户是房东，是否为订单所属房东: " + isOwner);
+            log.debug("用户是房东，是否为订单所属房东: {}", isOwner);
             if (isOwner) {
                 return true;
             }
@@ -1661,13 +1659,13 @@ public class OrderServiceImpl implements OrderService {
         boolean isUser = user.getRole().contains("USER");
         if (isUser) {
             boolean isGuest = isOrderGuest(order, user);
-            System.out.println("用户是普通用户，是否为订单客人: " + isGuest);
+            log.debug("用户是普通用户，是否为订单客人: {}", isGuest);
             if (isGuest) {
                 return true;
             }
         }
         
-        System.out.println("权限检查失败，拒绝访问");
+        log.debug("权限检查失败，拒绝访问");
         return false;
     }
     

@@ -47,18 +47,9 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String username, String authorities) {
-        log.info("生成JWT Token: 用户={}, 权限={}", username, authorities);
+        log.debug("生成JWT Token: 用户={}", username);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
-        log.info("Token过期时间: {}", expiryDate);
-
-        // 创建 Claims Map 用于日志记录
-        Map<String, Object> claimsMap = new HashMap<>();
-        claimsMap.put("sub", username);
-        claimsMap.put("authorities", authorities);
-        claimsMap.put("iat", now);
-        claimsMap.put("exp", expiryDate);
-        log.info("构建 JWT Claims: {}", claimsMap);
 
         String token = Jwts.builder()
                 .setSubject(username)
@@ -68,7 +59,7 @@ public class JwtTokenProvider {
                 .signWith(getSigningKey())
                 .compact();
         
-        log.info("JWT Token生成成功, 长度: {}", token.length());
+        log.debug("JWT Token生成成功, 长度: {}", token.length());
         return token;
     }
 
@@ -81,15 +72,6 @@ public class JwtTokenProvider {
                     .getBody();
 
             String username = claims.getSubject();
-            log.debug("从Token解析出用户名: {}", username);
-
-            // 尝试获取并记录 "authorities" claim
-            Object authoritiesClaim = claims.get("authorities");
-            if (authoritiesClaim != null) {
-                log.debug("Token中的权限信息 (authorities): {}", authoritiesClaim);
-            } else {
-                log.warn("Token中未包含 'authorities' claim");
-            }
 
             return username;
         } catch (Exception e) {
@@ -107,7 +89,6 @@ public class JwtTokenProvider {
                     .getBody();
 
             String authorities = claims.get("authorities", String.class);
-            log.debug("从Token解析出权限: {}", authorities);
             return authorities;
         } catch (Exception e) {
             log.error("从Token解析权限失败: {}", e.getMessage());

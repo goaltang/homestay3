@@ -242,30 +242,26 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void updateAvatar(String username, String avatarUrl) {
-        System.out.println("=== UserServiceImpl.updateAvatar 开始 ===");
-        System.out.println("参数: username=" + username + ", avatarUrl=" + avatarUrl);
+        log.debug("updateAvatar开始 - username: {}, avatarUrl: {}", username, avatarUrl);
         
         try {
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("用户不存在: " + username));
             
-            System.out.println("找到用户: id=" + user.getId() + ", username=" + user.getUsername() + ", 当前头像=" + user.getAvatar());
+            log.debug("找到用户: id={}, username={}, 当前头像={}", user.getId(), user.getUsername(), user.getAvatar());
             
             String oldAvatar = user.getAvatar();
             user.setAvatar(avatarUrl);
             user.setUpdatedAt(LocalDateTime.now());
             
-            System.out.println("准备保存用户，头像从 [" + oldAvatar + "] 更新为 [" + avatarUrl + "]");
+            log.debug("准备保存用户，头像从 [{}] 更新为 [{}]", oldAvatar, avatarUrl);
             
             User savedUser = userRepository.save(user);
             
-            System.out.println("用户保存成功: id=" + savedUser.getId() + ", 保存后的头像=" + savedUser.getAvatar() + ", 更新时间=" + savedUser.getUpdatedAt());
-            System.out.println("=== UserServiceImpl.updateAvatar 成功完成 ===");
+            log.debug("用户保存成功: id={}, 保存后的头像={}, 更新时间={}", savedUser.getId(), savedUser.getAvatar(), savedUser.getUpdatedAt());
             
         } catch (Exception e) {
-            System.err.println("=== UserServiceImpl.updateAvatar 发生异常 ===");
-            System.err.println("异常信息: " + e.getMessage());
-            e.printStackTrace();
+            log.error("updateAvatar发生异常: {}", e.getMessage(), e);
             throw e;
         }
     }

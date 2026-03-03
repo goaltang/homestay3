@@ -31,11 +31,14 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
+@RestController
+@RequestMapping("/api/orders")
+@CrossOrigin(origins = "*")
 public class OrderController {
     
-    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
     private final OrderService orderService;
     private final OrderRepository orderRepository;
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
     
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody OrderDTO orderDTO) {
@@ -405,9 +408,9 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> confirmOrder(@PathVariable Long id, Authentication authentication) {
         try {
-            System.out.println("开始确认订单，订单ID: " + id);
+            log.debug("开始确认订单，订单ID: {}", id);
             String username = authentication.getName();
-            System.out.println("当前用户: " + username + ", 角色: " + authentication.getAuthorities());
+            log.debug("当前用户: {}, 角色: {}", username, authentication.getAuthorities());
             
             // 先获取订单信息
             OrderDTO order = orderService.getOrderById(id);
@@ -416,16 +419,16 @@ public class OrderController {
             verifyOrderOwnership(order, authentication);
             
             OrderDTO confirmedOrder = orderService.updateOrderStatus(id, OrderStatus.CONFIRMED.name());
-            System.out.println("订单确认成功，订单ID: " + id);
+            log.debug("订单确认成功，订单ID: {}", id);
             return ResponseEntity.ok(confirmedOrder);
         } catch (ResourceNotFoundException e) {
-            System.err.println("订单确认失败，订单不存在: " + id);
+            log.error("订单确认失败，订单不存在: {}", id);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (AccessDeniedException e) {
-            System.err.println("订单确认失败，权限不足: " + e.getMessage());
+            log.error("订单确认失败，权限不足: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
-            System.err.println("订单确认失败，参数错误: " + e.getMessage());
+            log.error("订单确认失败，参数错误: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             System.err.println("订单确认失败，未知错误: " + e.getMessage());
