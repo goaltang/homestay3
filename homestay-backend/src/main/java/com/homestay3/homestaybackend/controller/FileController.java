@@ -10,6 +10,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -34,13 +35,6 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/files")
-@CrossOrigin(
-    origins = {"*"}, 
-    allowCredentials = "false",
-    allowedHeaders = "*", 
-    exposedHeaders = {"Content-Disposition", "Access-Control-Allow-Origin"},
-    methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS}
-)
 public class FileController {
     
     private static final Logger logger = LoggerFactory.getLogger(FileController.class);
@@ -58,6 +52,7 @@ public class FileController {
      * @return 包含文件URL和详细信息的响应
      */
     @PostMapping("/upload")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "type", defaultValue = "common") String type,
@@ -160,6 +155,7 @@ public class FileController {
      * @return 包含多个文件URL和信息的响应
      */
     @PostMapping("/uploadMultiple")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> uploadMultipleFiles(
             @RequestParam("files") MultipartFile[] files,
             @RequestParam(value = "type", defaultValue = "common") String type) {
@@ -280,6 +276,7 @@ public class FileController {
      * @return 删除操作结果
      */
     @DeleteMapping("/{type}/{fileName:.+}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> deleteFile(
             @PathVariable String fileName,
             @PathVariable String type) {
