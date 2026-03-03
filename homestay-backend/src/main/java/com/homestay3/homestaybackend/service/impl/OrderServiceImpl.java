@@ -76,6 +76,10 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("房源当前不可预订");
         }
 
+        if (currentUser.getId().equals(homestay.getOwner().getId())) {
+            throw new IllegalArgumentException("不能预订自己的房源");
+        }
+
         // 2. 验证日期
         if (orderDTO.getCheckInDate().isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("入住日期不能早于今天");
