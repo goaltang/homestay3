@@ -3,6 +3,8 @@ package com.homestay3.homestaybackend.service.impl;
 import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.dto.ReviewDTO;
 import com.homestay3.homestaybackend.dto.EarningDTO;
+import com.homestay3.homestaybackend.dto.refund.RefundRequest;
+import com.homestay3.homestaybackend.dto.refund.RefundResponse;
 import com.homestay3.homestaybackend.exception.AccessDeniedException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Homestay;
@@ -23,6 +25,7 @@ import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.BookingConflictService;
+import com.homestay3.homestaybackend.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
     private final BookingConflictService bookingConflictService;
+    private final PaymentService paymentService;
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
     
     @Override
@@ -1273,10 +1277,24 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException("只有退款中的订单才能批准退款");
         }
         
-        // 这里应该调用实际的支付网关退款API
+        // 调用支付网关退款API
         try {
-            // 模拟调用支付网关
-            // PaymentGatewayResult result = paymentGatewayService.processRefund(order);
+            RefundRequest refundRequest = RefundRequest.builder()
+                .orderId(order.getId())
+                .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount())
+                .refundReason(order.getRefundReason())
+                .refundType(order.getRefundType())
+                .paymentMethod(order.getPaymentMethod())
+                .build();
+            
+            RefundResponse refundResponse = paymentService.processRefund(refundRequest);
+            
+            if (!refundResponse.isSuccess()) {
+                throw new RuntimeException("退款失败: " + refundResponse.getMessage());
+            }
+            
+            // 更新退款交易号
+            order.setRefundTransactionId(refundResponse.getRefundTradeNo());
             
             // 批准退款后直接标记为已退款
             order.setPaymentStatus(PaymentStatus.REFUNDED);
@@ -1291,7 +1309,8 @@ public class OrderServiceImpl implements OrderService {
             order.setRefundProcessedBy(currentUser.getId());
             order.setRefundProcessedAt(LocalDateTime.now());
             
-            log.info("退款申请已批准并完成，订单 {} 状态更新为已退款", order.getOrderNumber());
+            log.info("退款申请已批准并完成，订单 {} 状态更新为已退款，退款交易号: {}", 
+                order.getOrderNumber(), refundResponse.getRefundTradeNo());
             
             // 添加批准备注
             String approvalNote = String.format("退款申请已批准并完成 - 管理员: %s, 备注: %s", 

@@ -2,6 +2,8 @@ package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.dto.payment.PaymentNotifyResult;
+import com.homestay3.homestaybackend.dto.refund.RefundRequest;
+import com.homestay3.homestaybackend.dto.refund.RefundResponse;
 
 /**
  * 支付服务接口
@@ -29,9 +31,16 @@ public interface PaymentService {
      */
     OrderDTO mockSuccessPayment(Long orderId);
     
-    /**
+/**
      * 处理支付回调通知
      * @param result 支付回调结果
      */
     void handlePaymentNotify(PaymentNotifyResult result);
-} 
+    
+    /**
+     * 处理退款
+     * @param request 退款请求
+     * @return 退款响应
+     */
+    RefundResponse processRefund(RefundRequest request);
+}

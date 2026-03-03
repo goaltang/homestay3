@@ -1,6 +1,8 @@
 package com.homestay3.homestaybackend.service.gateway;
 
 import com.homestay3.homestaybackend.dto.payment.*;
+import com.homestay3.homestaybackend.dto.refund.RefundRequest;
+import com.homestay3.homestaybackend.dto.refund.RefundResponse;
 
 import java.util.Map;
 
@@ -24,8 +26,13 @@ public interface PaymentGateway {
      */
     boolean verifyNotify(Map<String, String> params);
     
-    /**
+/**
      * 处理支付回调
      */
     PaymentNotifyResult handleNotify(Map<String, String> params);
-} 
+    
+    /**
+     * 处理退款
+     */
+    RefundResponse processRefund(RefundRequest request);
+}

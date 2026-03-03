@@ -6,13 +6,18 @@ import com.homestay3.homestaybackend.dto.payment.PaymentNotifyResult;
 import com.homestay3.homestaybackend.dto.payment.PaymentRequest;
 import com.homestay3.homestaybackend.dto.payment.PaymentResponse;
 import com.homestay3.homestaybackend.dto.payment.PaymentStatusResponse;
+import com.homestay3.homestaybackend.dto.refund.RefundRequest;
+import com.homestay3.homestaybackend.dto.refund.RefundResponse;
+import com.homestay3.homestaybackend.entity.RefundRecord;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.entity.PaymentRecord;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
+import com.homestay3.homestaybackend.model.RefundStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.PaymentRecordRepository;
+import com.homestay3.homestaybackend.repository.RefundRecordRepository;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.PaymentService;
 import com.homestay3.homestaybackend.service.gateway.AlipayGateway;
@@ -33,6 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final OrderRepository orderRepository;
     private final PaymentRecordRepository paymentRecordRepository;
+    private final RefundRecordRepository refundRecordRepository;
     private final OrderService orderService;
     private final AlipayGateway alipayGateway;
 
@@ -280,6 +286,64 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.error("更新订单支付状态失败，订单ID: " + orderId, e);
             throw new RuntimeException("更新订单支付状态失败", e);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public RefundResponse processRefund(RefundRequest request) {
+        log.info("开始处理退款，订单ID: {}, 退款金额: {}", request.getOrderId(), request.getRefundAmount());
+        
+        try {
+            Order order = orderRepository.findById(request.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+            
+            if (order.getPaymentStatus() != PaymentStatus.PAID) {
+                throw new IllegalStateException("订单未支付，无法退款");
+            }
+            
+            PaymentRecord paymentRecord = paymentRecordRepository
+                .findTopByOrderIdOrderByCreatedAtDesc(request.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("支付记录不存在"));
+            
+            request.setOutTradeNo(paymentRecord.getOutTradeNo());
+            
+            PaymentGateway gateway = selectPaymentGateway(request.getPaymentMethod());
+            RefundResponse refundResponse = gateway.processRefund(request);
+            
+            RefundRecord refundRecord = RefundRecord.builder()
+                .orderId(request.getOrderId())
+                .paymentMethod(request.getPaymentMethod())
+                .outTradeNo(request.getOutTradeNo())
+                .tradeNo(paymentRecord.getTransactionId())
+                .refundAmount(request.getRefundAmount())
+                .refundReason(request.getRefundReason())
+                .refundType(request.getRefundType())
+                .refundStatus(refundResponse.isSuccess() ? RefundStatus.SUCCESS : RefundStatus.FAILED)
+                .requestParams(JSON.toJSONString(request))
+                .responseParams(JSON.toJSONString(refundResponse))
+                .build();
+            
+            if (refundResponse.isSuccess()) {
+                refundRecord.setRefundTradeNo(refundResponse.getRefundTradeNo());
+                refundRecord.setProcessedAt(LocalDateTime.now());
+                log.info("退款成功，订单ID: {}, 退款交易号: {}", request.getOrderId(), refundResponse.getRefundTradeNo());
+            } else {
+                refundRecord.setErrorMessage(refundResponse.getErrorMessage());
+                log.error("退款失败，订单ID: {}, 错误: {}", request.getOrderId(), refundResponse.getMessage());
+            }
+            
+            refundRecordRepository.save(refundRecord);
+            
+            return refundResponse;
+            
+        } catch (Exception e) {
+            log.error("处理退款异常，订单ID: " + request.getOrderId(), e);
+            return RefundResponse.builder()
+                .success(false)
+                .message("退款处理失败: " + e.getMessage())
+                .errorCode("REFUND_ERROR")
+                .build();
         }
     }
 } 

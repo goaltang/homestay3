@@ -8,10 +8,14 @@ import com.alipay.api.internal.util.AlipaySignature;
 import com.alipay.api.request.AlipayTradePrecreateRequest;
 import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.alipay.api.request.AlipayTradeQueryRequest;
+import com.alipay.api.request.AlipayTradeRefundRequest;
 import com.alipay.api.response.AlipayTradePrecreateResponse;
 import com.alipay.api.response.AlipayTradeQueryResponse;
+import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.homestay3.homestaybackend.config.PaymentConfig;
 import com.homestay3.homestaybackend.dto.payment.*;
+import com.homestay3.homestaybackend.dto.refund.RefundRequest;
+import com.homestay3.homestaybackend.dto.refund.RefundResponse;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -403,6 +407,78 @@ public class AlipayGateway implements PaymentGateway {
             default:
                 log.warn("未知的支付宝支付状态: {}", alipayStatus);
                 return PaymentStatus.UNPAID;
+        }
+    }
+    
+    @Override
+    public RefundResponse processRefund(RefundRequest request) {
+        log.info("开始处理支付宝退款，订单号: {}, 退款金额: {}", 
+            request.getOutTradeNo(), request.getRefundAmount());
+        
+        try {
+            AlipayTradeRefundRequest refundRequest = new AlipayTradeRefundRequest();
+            
+            Map<String, Object> bizContent = new HashMap<>();
+            bizContent.put("out_trade_no", request.getOutTradeNo());
+            bizContent.put("refund_amount", request.getRefundAmount().toString());
+            bizContent.put("refund_reason", request.getRefundReason() != null ? 
+                request.getRefundReason() : "正常退款");
+            
+            refundRequest.setBizContent(JSON.toJSONString(bizContent));
+            
+            log.info("支付宝退款请求参数: {}", JSON.toJSONString(bizContent));
+            
+            AlipayTradeRefundResponse response = alipayClient.execute(refundRequest);
+            
+            if (response.isSuccess()) {
+                log.info("支付宝退款成功，订单号: {}, 退款金额: {}, 退款交易号: {}", 
+                    request.getOutTradeNo(), 
+                    response.getRefundFee(),
+                    response.getTradeNo());
+                
+                return RefundResponse.builder()
+                    .success(true)
+                    .outTradeNo(request.getOutTradeNo())
+                    .refundTradeNo(response.getTradeNo())
+                    .refundAmount(new BigDecimal(response.getRefundFee()))
+                    .message("退款成功")
+                    .build();
+            } else {
+                log.error("支付宝退款失败，订单号: {}, code: {}, msg: {}, subCode: {}, subMsg: {}", 
+                    request.getOutTradeNo(), 
+                    response.getCode(), 
+                    response.getMsg(), 
+                    response.getSubCode(), 
+                    response.getSubMsg());
+                
+                return RefundResponse.builder()
+                    .success(false)
+                    .outTradeNo(request.getOutTradeNo())
+                    .message(response.getSubMsg() != null ? response.getSubMsg() : response.getMsg())
+                    .errorCode(response.getSubCode())
+                    .errorMessage(response.getSubMsg())
+                    .build();
+            }
+        } catch (AlipayApiException e) {
+            log.error("支付宝退款接口调用异常，订单号: {}", request.getOutTradeNo(), e);
+            
+            return RefundResponse.builder()
+                .success(false)
+                .outTradeNo(request.getOutTradeNo())
+                .message("退款失败: " + e.getMessage())
+                .errorCode("ALIPAY_API_ERROR")
+                .errorMessage(e.getMessage())
+                .build();
+        } catch (Exception e) {
+            log.error("支付宝退款未知异常，订单号: {}", request.getOutTradeNo(), e);
+            
+            return RefundResponse.builder()
+                .success(false)
+                .outTradeNo(request.getOutTradeNo())
+                .message("系统异常，请稍后重试")
+                .errorCode("SYSTEM_ERROR")
+                .errorMessage(e.getMessage())
+                .build();
         }
     }
 } 
