@@ -85,21 +85,13 @@
                     <h3>选择支付方式</h3>
                     <div class="payment-options">
                         <el-radio-group v-model="paymentMethod" @change="generateQRCode">
+                            <!-- 只保留支付宝支付 -->
                             <div class="payment-option">
                                 <el-radio-button label="alipay">
                                     <div class="payment-option-content">
                                         <i class="fab fa-alipay"></i>
-                                        <span>支付宝（推荐）</span>
+                                        <span>支付宝</span>
                                         <small>页面跳转支付</small>
-                                    </div>
-                                </el-radio-button>
-                            </div>
-                            <div class="payment-option">
-                                <el-radio-button label="wechat">
-                                    <div class="payment-option-content">
-                                        <i class="fab fa-weixin"></i>
-                                        <span>微信支付</span>
-                                        <small>扫码支付</small>
                                     </div>
                                 </el-radio-button>
                             </div>
@@ -159,7 +151,7 @@
                     <template #default>
                         <div class="tips-content">
                             <p>• 如果页面没有自动跳转到支付宝，请点击"重新生成支付"</p>
-                            <p>• 如果多次尝试仍无法跳转，建议使用"微信支付"扫码支付</p>
+                            <p>• 如果一直无法跳转，请取消订单重新尝试或联系客服</p>
                             <p>• 支付完成后请点击"我已完成支付"确认订单状态</p>
                         </div>
                     </template>
