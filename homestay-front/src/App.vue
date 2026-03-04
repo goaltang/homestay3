@@ -20,8 +20,8 @@ import { useUserStore } from './stores/user'
 import { useFavoritesStore } from './stores/favorites'
 // import { useAuthStore } from './stores/auth' // authStore 现在由 AppHeader 使用
 // import { getAvatarUrl, handleImageError } from './utils/image' // 这些现在由 AppHeader 处理
-import AppHeader from '@/components/AppHeader.vue'; // 导入新的 Header
-import AppFooter from '@/components/AppFooter.vue'; // 导入新的 Footer
+import AppHeader from '@/components/common/AppHeader.vue'; // 导入新的 Header
+import AppFooter from '@/components/common/AppFooter.vue'; // 导入新的 Footer
 
 // const router = useRouter() // router 现在由 AppHeader 使用
 const route = useRoute()

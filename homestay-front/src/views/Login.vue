@@ -62,7 +62,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import type { FormInstance } from "element-plus";
 import { ElMessage } from "element-plus";
-import Logo from "@/components/Logo.vue";
+import Logo from "@/components/common/Logo.vue";
 
 const router = useRouter();
 const route = useRoute();

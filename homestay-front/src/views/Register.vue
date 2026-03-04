@@ -149,7 +149,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import type { FormInstance } from 'element-plus';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import Logo from '@/components/Logo.vue';
+import Logo from '@/components/common/Logo.vue';
 import api from '@/api';
 import { debounce } from 'lodash-es';
 
