@@ -73,7 +73,12 @@
 
                 <!-- 二维码支付（微信或扫码模式） -->
                 <div class="qr-code-container" v-else-if="qrCode">
-                    <img :src="qrCode" alt="支付二维码" class="qr-code">
+                    <template v-if="qrCode.includes('api.qrserver.com') || qrCode.match(/\.(png|jpe?g|gif|svg)(\?.*)?$/i)">
+                        <img :src="qrCode" alt="支付二维码" class="qr-code">
+                    </template>
+                    <template v-else>
+                        <qrcode-vue :value="qrCode" :size="200" level="H" class="qr-code" />
+                    </template>
                     <p class="qr-tip">请使用{{ getPaymentMethodText(paymentMethod) }}扫码支付</p>
                     <div class="countdown" v-if="countdown > 0">
                         二维码有效期: {{ formatCountdown(countdown) }}
@@ -166,6 +171,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Promotion } from '@element-plus/icons-vue'
+import QrcodeVue from 'qrcode.vue'
 import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder, mockPaymentSuccess } from '../../api/order'
 
 interface OrderData {

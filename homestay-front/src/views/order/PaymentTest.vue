@@ -37,7 +37,7 @@
                 <h4>二维码生成结果：</h4>
                 <div class="qr-container">
                     <!-- 如果是图片URL则直接显示，否则由qrcode-vue生成 -->
-                    <img v-if="qrCode.startsWith('http')" :src="qrCode" alt="支付二维码" class="qr-image" />
+                    <img v-if="qrCode.includes('api.qrserver.com') || qrCode.match(/\.(png|jpe?g|gif|svg)(\?.*)?$/i)" :src="qrCode" alt="支付二维码" class="qr-image" />
                     <qrcode-vue v-else :value="qrCode" :size="200" level="H" />
                 </div>
                 <el-input v-model="qrCode" readonly type="textarea" :rows="2" class="mt-10" />
