@@ -28,6 +28,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
@@ -42,6 +43,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final RefundRecordRepository refundRecordRepository;
     private final OrderService orderService;
     private final AlipayGateway alipayGateway;
+    private final com.homestay3.homestaybackend.util.RedisLock redisLock;
 
     @Override
     @Transactional
@@ -182,9 +184,19 @@ public class PaymentServiceImpl implements PaymentService {
 
     /**
      * 处理支付回调通知
+     * 使用 Redis 分布式锁 + 乐观锁 双重防护，确保回调幂等性
      */
     @Transactional
     public void handlePaymentNotify(PaymentNotifyResult result) {
+        // 第零层防护：Redis 分布式锁，按商户订单号加锁
+        String lockKey = "payment:notify:" + result.getOutTradeNo();
+        String requestId = redisLock.generateRequestId();
+
+        if (!redisLock.tryLock(lockKey, requestId, Duration.ofSeconds(30))) {
+            log.info("支付回调正在被其他节点处理，跳过: {}", result.getOutTradeNo());
+            return;
+        }
+
         try {
             log.debug("开始处理支付回调，商户订单号: {}", result.getOutTradeNo());
 
@@ -193,7 +205,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .findByOutTradeNo(result.getOutTradeNo())
                     .orElseThrow(() -> new RuntimeException("支付记录不存在"));
 
-            // 防重复处理（第一层防护）
+            // 第一层防护：状态检查
             if ("SUCCESS".equals(paymentRecord.getStatus())) {
                 log.debug("支付记录已处理，跳过: {}", result.getOutTradeNo());
                 return;
@@ -217,6 +229,8 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.error("处理支付回调异常", e);
             throw new RuntimeException("处理支付回调失败", e);
+        } finally {
+            redisLock.unlock(lockKey, requestId);
         }
     }
 
