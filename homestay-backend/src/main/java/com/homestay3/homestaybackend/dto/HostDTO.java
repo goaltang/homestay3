@@ -36,13 +36,13 @@ public class HostDTO {
     private String hostYears;
     private String hostResponseRate;
     private String hostResponseTime;
-    
+
     // 统计数据
     private Integer homestayCount;
     private Integer orderCount;
     private Integer reviewCount;
     private Double rating;
-    
+
     // 从User实体构建DTO，必要的转换在Service层完成
     @JsonIgnore
     public static HostDTO fromUser(User user) {
@@ -58,14 +58,16 @@ public class HostDTO {
                 .occupation(user.getOccupation())
                 .introduction(user.getIntroduction())
                 // languages和companions需要JSON解析，在Service层处理
-                .hostSince(user.getHostSince() != null ? 
-                    user.getHostSince().toString() : 
-                    (user.getCreatedAt() != null ? user.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null))
+                .hostSince(user.getHostSince() != null ? user.getHostSince().toString()
+                        : (user.getCreatedAt() != null
+                                ? user.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                                : null))
                 .hostRating(user.getHostRating() != null ? String.format("%.1f", user.getHostRating()) : null)
-                .hostAccommodations(user.getHostAccommodations() != null ? user.getHostAccommodations().toString() : null)
+                .hostAccommodations(
+                        user.getHostAccommodations() != null ? user.getHostAccommodations().toString() : null)
                 .hostYears(user.getHostYears() != null ? user.getHostYears().toString() : null)
                 .hostResponseRate(user.getHostResponseRate())
                 .hostResponseTime(user.getHostResponseTime())
                 .build();
     }
-} 
+}

@@ -31,15 +31,13 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
-@RestController
-@RequestMapping("/api/orders")
 @CrossOrigin(origins = "*")
 public class OrderController {
-    
+
     private final OrderService orderService;
     private final OrderRepository orderRepository;
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
-    
+
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody OrderDTO orderDTO) {
         try {
@@ -49,7 +47,7 @@ public class OrderController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @GetMapping
     public ResponseEntity<?> getOrders(
             @RequestParam(defaultValue = "0") int page,
@@ -61,10 +59,10 @@ public class OrderController {
             if (status != null) {
                 params.put("status", status);
             }
-            
+
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
             Page<OrderDTO> orders;
-            
+
             // 根据用户角色返回不同的订单列表
             String role = authentication.getAuthorities().iterator().next().getAuthority();
             if (role.equals("ROLE_HOST")) {
@@ -73,13 +71,13 @@ public class OrderController {
             } else {
                 orders = orderService.getMyOrders(params, pageable);
             }
-            
+
             return ResponseEntity.ok(Map.of("data", orders));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @GetMapping("/{id}")
     public ResponseEntity<?> getOrderById(@PathVariable Long id) {
         try {
@@ -89,7 +87,7 @@ public class OrderController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @GetMapping("/number/{orderNumber}")
     public ResponseEntity<?> getOrderByNumber(@PathVariable String orderNumber) {
         try {
@@ -99,7 +97,7 @@ public class OrderController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> updateOrderStatus(
@@ -110,14 +108,14 @@ public class OrderController {
             if (status == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "状态参数不能为空"));
             }
-            
+
             OrderDTO updatedOrder = orderService.updateOrderStatus(id, status);
             return ResponseEntity.ok(updatedOrder);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelOrder(
             @PathVariable Long id,
@@ -125,28 +123,28 @@ public class OrderController {
             Authentication authentication) {
         try {
             String reason = requestBody != null ? requestBody.get("reason") : null;
-            
+
             // 获取用户角色，以确定是用户取消还是房东取消
             String role = authentication.getAuthorities().iterator().next().getAuthority();
             String cancelType;
-            
+
             if (role.equals("ROLE_HOST")) {
                 cancelType = OrderStatus.CANCELLED_BY_HOST.name();
             } else {
                 cancelType = OrderStatus.CANCELLED_BY_USER.name();
             }
-            
+
             OrderDTO cancelledOrder = orderService.cancelOrderWithReason(id, cancelType, reason);
             return ResponseEntity.ok(cancelledOrder);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
-                "error", e.getMessage(),
-                "errorCode", e instanceof IllegalArgumentException ? "ORDER_CANCELLATION_NOT_ALLOWED" : "INTERNAL_SERVER_ERROR"
-            ));
+                    "error", e.getMessage(),
+                    "errorCode", e instanceof IllegalArgumentException ? "ORDER_CANCELLATION_NOT_ALLOWED"
+                            : "INTERNAL_SERVER_ERROR"));
         }
     }
-    
-    @PutMapping("/{id}/pay")
+
+    @PostMapping("/{id}/pay")
     public ResponseEntity<?> payOrder(
             @PathVariable Long id,
             @RequestBody Map<String, String> requestBody) {
@@ -154,11 +152,12 @@ public class OrderController {
         try {
             String paymentMethod = requestBody.getOrDefault("paymentMethod", "default");
             log.debug("提取支付方式: {}", paymentMethod);
-            
+
             // 首先将订单状态设置为支付中 (这一步在业务逻辑中可能不是必需的，取决于具体流程)
-            // OrderDTO paymentPendingOrder = orderService.updateOrderStatus(id, OrderStatus.PAYMENT_PENDING.name());
+            // OrderDTO paymentPendingOrder = orderService.updateOrderStatus(id,
+            // OrderStatus.PAYMENT_PENDING.name());
             // log.debug("订单 {} 状态更新为 PENDING_PAYMENT (临时)", id);
-            
+
             // 然后处理支付
             log.info("准备调用 OrderService 处理订单 ID: {} 的支付...", id);
             OrderDTO paidOrder = orderService.payOrder(id, paymentMethod);
@@ -168,19 +167,17 @@ public class OrderController {
             // 处理业务逻辑或权限错误
             log.warn("处理订单 {} 支付失败 (业务/权限错误): {}", id, e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "error", e.getMessage(),
-                "errorCode", "PAYMENT_VALIDATION_ERROR"
-            ));
+                    "error", e.getMessage(),
+                    "errorCode", "PAYMENT_VALIDATION_ERROR"));
         } catch (Exception e) {
             // 处理其他意外错误
             log.error("处理订单 {} 支付时发生意外错误: {}", id, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "支付处理失败，请稍后重试",
-                "errorCode", "INTERNAL_SERVER_ERROR"
-            ));
+                    "error", "支付处理失败，请稍后重试",
+                    "errorCode", "INTERNAL_SERVER_ERROR"));
         }
     }
-    
+
     @GetMapping("/pending/count")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> getPendingOrderCount(Authentication authentication) {
@@ -192,7 +189,7 @@ public class OrderController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     /**
      * 创建订单预览，用于在用户确认前生成订单信息
      */
@@ -208,7 +205,7 @@ public class OrderController {
                     .body(Map.of("error", "创建订单预览失败: " + e.getMessage()));
         }
     }
-    
+
     /**
      * 模拟支付成功（仅用于测试）
      */
@@ -218,23 +215,22 @@ public class OrderController {
             // 直接查询订单并更新状态，跳过权限检查
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-            
+
             order.setStatus(OrderStatus.PAID.name());
             order.setPaymentStatus(PaymentStatus.PAID);
             Order updatedOrder = orderRepository.save(order);
-            
+
             OrderDTO orderDTO = convertToDTO(updatedOrder);
-            
+
             return ResponseEntity.ok(Map.of(
-                "message", "模拟支付成功", 
-                "paid", true,
-                "order", orderDTO
-            ));
+                    "message", "模拟支付成功",
+                    "paid", true,
+                    "order", orderDTO));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     /**
      * 生成支付二维码
      */
@@ -249,7 +245,7 @@ public class OrderController {
                 log.warn("订单 {} 生成二维码请求缺少支付方式", orderId);
                 return ResponseEntity.badRequest().body(Map.of("error", "支付方式不能为空"));
             }
-            
+
             // --- 新增：将订单状态更新为待支付 ---
             try {
                 log.info("准备将订单 ID: {} 状态更新为 PAYMENT_PENDING...", orderId);
@@ -261,31 +257,33 @@ public class OrderController {
                 // 不在此处中断流程，允许用户获取二维码
             }
             // --- 状态更新结束 ---
-            
+
             // 生成支付ID
             String paymentId = UUID.randomUUID().toString();
-            
+
             // 生成模拟二维码URL
             String qrCodeUrl;
             if ("wechat".equals(method)) {
-                qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=wechat:pay:" + orderId + ":" + paymentId + "&size=200x200";
+                qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=wechat:pay:" + orderId + ":" + paymentId
+                        + "&size=200x200";
             } else if ("alipay".equals(method)) {
-                qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=alipay:pay:" + orderId + ":" + paymentId + "&size=200x200";
+                qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=alipay:pay:" + orderId + ":" + paymentId
+                        + "&size=200x200";
             } else {
-                qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=unknown:pay:" + orderId + ":" + paymentId + "&size=200x200";
+                qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=unknown:pay:" + orderId + ":" + paymentId
+                        + "&size=200x200";
             }
             log.info("为订单 ID: {} 生成二维码 URL 成功: {}", orderId, qrCodeUrl);
-            
+
             return ResponseEntity.ok(Map.of("qrCode", qrCodeUrl));
         } catch (Exception e) {
             log.error("为订单 {} 生成支付二维码时发生意外错误: {}", orderId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "生成支付二维码失败，请稍后重试",
-                "errorCode", "QRCODE_GENERATION_ERROR"
-            ));
+                    "error", "生成支付二维码失败，请稍后重试",
+                    "errorCode", "QRCODE_GENERATION_ERROR"));
         }
     }
-    
+
     /**
      * 检查支付状态 (改造为确认支付)
      */
@@ -294,34 +292,41 @@ public class OrderController {
         log.info("收到检查订单 ID: {} 支付状态的请求", orderId);
         try {
             OrderDTO order = orderService.getOrderById(orderId); // 获取最新订单信息
-            log.debug("获取到订单 {} 的当前状态: status={}, paymentStatus={}", orderId, order.getStatus(), order.getPaymentStatus());
+            log.debug("获取到订单 {} 的当前状态: status={}, paymentStatus={}", orderId, order.getStatus(),
+                    order.getPaymentStatus());
 
             // --- 修改核心逻辑：只检查状态，不触发支付 ---
             boolean isPaid = OrderStatus.PAID.name().equals(order.getStatus()) ||
-                             (order.getPaymentStatus() != null && PaymentStatus.PAID.name().equals(order.getPaymentStatus())); // 检查 status 或 paymentStatus (添加 null 检查)
+                    (order.getPaymentStatus() != null && PaymentStatus.PAID.name().equals(order.getPaymentStatus())); // 检查
+                                                                                                                      // status
+                                                                                                                      // 或
+                                                                                                                      // paymentStatus
+                                                                                                                      // (添加
+                                                                                                                      // null
+                                                                                                                      // 检查)
 
             if (isPaid) {
                 log.info("订单 {} 状态已为 PAID，返回支付成功", orderId);
                 return ResponseEntity.ok(Map.of("paid", true));
             } else {
                 // 对于其他所有状态 (PENDING, CONFIRMED, PAYMENT_PENDING, FAILED, UNPAID, CANCELLED 等)
-                log.info("订单 {} 状态为 status={}, paymentStatus={}，返回支付未完成", orderId, order.getStatus(), order.getPaymentStatus());
+                log.info("订单 {} 状态为 status={}, paymentStatus={}，返回支付未完成", orderId, order.getStatus(),
+                        order.getPaymentStatus());
                 return ResponseEntity.ok(Map.of("paid", false));
             }
             // --- 移除原先处理 PAYMENT_PENDING 并调用 orderService.payOrder() 的逻辑 ---
 
         } catch (ResourceNotFoundException e) {
-             log.warn("检查支付状态失败，未找到订单 ID: {}", orderId);
-             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("paid", false, "error", "订单不存在"));
+            log.warn("检查支付状态失败，未找到订单 ID: {}", orderId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("paid", false, "error", "订单不存在"));
         } catch (Exception e) {
             log.error("检查订单 {} 支付状态时发生意外错误: {}", orderId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "paid", false,
-                "error", "检查支付状态失败，请稍后重试"
-            ));
+                    "paid", false,
+                    "error", "检查支付状态失败，请稍后重试"));
         }
     }
-    
+
     @GetMapping("/host")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> getHostOrders(
@@ -347,60 +352,61 @@ public class OrderController {
             if (endDate != null) {
                 params.put("endDate", endDate);
             }
-            
+
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
             Page<OrderDTO> orders = orderService.getOwnerOrders(username, params, pageable);
-            
+
             return ResponseEntity.ok(orders);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     /**
      * 验证当前用户是否为订单所属房东
-     * @param order 订单DTO
+     * 
+     * @param order          订单DTO
      * @param authentication 当前用户认证信息
      */
     private void verifyOrderOwnership(OrderDTO order, Authentication authentication) {
         String currentUsername = authentication.getName();
-        
+
         // 获取当前用户的ID（需要从数据库查询或从token中解析）
         // 这里我们通过比较hostName来验证，更安全的方式是比较hostId
         // 但由于Controller层没有直接访问UserService，我们使用hostName进行验证
         // 注意：生产环境应该使用hostId进行验证
-        
+
         // 从authentication中获取用户详细信息
         Long currentUserId = null;
         try {
             // 尝试从principal中获取用户ID
             if (authentication.getPrincipal() instanceof com.homestay3.homestaybackend.entity.User) {
-                com.homestay3.homestaybackend.entity.User user = 
-                    (com.homestay3.homestaybackend.entity.User) authentication.getPrincipal();
+                com.homestay3.homestaybackend.entity.User user = (com.homestay3.homestaybackend.entity.User) authentication
+                        .getPrincipal();
                 currentUserId = user.getId();
             }
         } catch (Exception e) {
             log.warn("无法从authentication获取用户ID: {}", e.getMessage());
         }
-        
+
         // 验证：如果hostId不为null，比较hostId；否则回退到hostName比较
         if (order.getHostId() != null && currentUserId != null) {
             if (!order.getHostId().equals(currentUserId)) {
-                log.warn("用户 {} (ID: {}) 尝试操作不属于自己的订单 {} (房东ID: {})", 
-                    currentUsername, currentUserId, order.getId(), order.getHostId());
+                log.warn("用户 {} (ID: {}) 尝试操作不属于自己的订单 {} (房东ID: {})",
+                        currentUsername, currentUserId, order.getId(), order.getHostId());
                 throw new AccessDeniedException("您无权操作此订单，该订单不属于您的房源");
             }
         } else if (order.getHostName() != null && !order.getHostName().equals(currentUsername)) {
             // 回退方案：比较hostName
-            log.warn("用户 {} 尝试操作不属于自己的订单 {} (房东: {})", 
-                currentUsername, order.getId(), order.getHostName());
+            log.warn("用户 {} 尝试操作不属于自己的订单 {} (房东: {})",
+                    currentUsername, order.getId(), order.getHostName());
             throw new AccessDeniedException("您无权操作此订单，该订单不属于您的房源");
         }
-        
-        log.debug("订单所有权验证通过 - 用户: {}, 订单ID: {}, 房东ID: {}", 
-            currentUsername, order.getId(), order.getHostId());
+
+        log.debug("订单所有权验证通过 - 用户: {}, 订单ID: {}, 房东ID: {}",
+                currentUsername, order.getId(), order.getHostId());
     }
-    
+
     /**
      * 确认订单
      */
@@ -411,13 +417,13 @@ public class OrderController {
             log.debug("开始确认订单，订单ID: {}", id);
             String username = authentication.getName();
             log.debug("当前用户: {}, 角色: {}", username, authentication.getAuthorities());
-            
+
             // 先获取订单信息
             OrderDTO order = orderService.getOrderById(id);
-            
+
             // 验证当前用户是否为该订单的房东
             verifyOrderOwnership(order, authentication);
-            
+
             OrderDTO confirmedOrder = orderService.updateOrderStatus(id, OrderStatus.CONFIRMED.name());
             log.debug("订单确认成功，订单ID: {}", id);
             return ResponseEntity.ok(confirmedOrder);
@@ -434,17 +440,17 @@ public class OrderController {
             System.err.println("订单确认失败，未知错误: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "确认订单时发生错误: " + e.getMessage()));
+                    .body(Map.of("error", "确认订单时发生错误: " + e.getMessage()));
         }
     }
-    
+
     /**
      * 拒绝订单
      */
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> rejectOrder(
-            @PathVariable Long id, 
+            @PathVariable Long id,
             @RequestBody Map<String, String> reasonMap,
             Authentication authentication) {
         try {
@@ -452,13 +458,13 @@ public class OrderController {
             if (reason == null || reason.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "拒绝原因不能为空"));
             }
-            
+
             // 先获取订单信息
             OrderDTO order = orderService.getOrderById(id);
-            
+
             // 验证当前用户是否为该订单的房东
             verifyOrderOwnership(order, authentication);
-            
+
             OrderDTO rejectedOrder = orderService.rejectOrder(id, reason);
             return ResponseEntity.ok(rejectedOrder);
         } catch (AccessDeniedException e) {
@@ -468,7 +474,7 @@ public class OrderController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     /**
      * 获取房东订单统计信息
      */
@@ -477,20 +483,25 @@ public class OrderController {
     public ResponseEntity<?> getHostOrderStats(Authentication authentication) {
         try {
             String username = authentication.getName();
-            
+
             // 获取不同状态的订单数量
             Map<String, Long> stats = new HashMap<>();
             Long pendingCount = orderService.getPendingOrderCount(username);
-            
+
             // 使用自定义查询获取各种状态的订单数量
             Long totalCount = orderRepository.countByHomestayOwnerUsername(username);
-            Long completedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.COMPLETED.name());
-            Long cancelledCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.CANCELLED.name());
-            Long rejectedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.REJECTED.name());
-            Long confirmedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.CONFIRMED.name());
-            Long checkedInCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.CHECKED_IN.name());
+            Long completedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
+                    OrderStatus.COMPLETED.name());
+            Long cancelledCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
+                    OrderStatus.CANCELLED.name());
+            Long rejectedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
+                    OrderStatus.REJECTED.name());
+            Long confirmedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
+                    OrderStatus.CONFIRMED.name());
+            Long checkedInCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
+                    OrderStatus.CHECKED_IN.name());
             Long paidCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.PAID.name());
-            
+
             stats.put("total", totalCount);
             stats.put("pending", pendingCount);
             stats.put("completed", completedCount);
@@ -499,13 +510,13 @@ public class OrderController {
             stats.put("confirmed", confirmedCount);
             stats.put("checkedIn", checkedInCount);
             stats.put("paid", paidCount);
-            
+
             return ResponseEntity.ok(stats);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    
+
     /**
      * 办理入住
      */
@@ -515,10 +526,10 @@ public class OrderController {
         try {
             // 先获取订单信息
             OrderDTO order = orderService.getOrderById(id);
-            
+
             // 验证当前用户是否为该订单的房东
             verifyOrderOwnership(order, authentication);
-            
+
             OrderDTO checkedInOrder = orderService.updateOrderStatus(id, OrderStatus.CHECKED_IN.name());
             return ResponseEntity.ok(checkedInOrder);
         } catch (AccessDeniedException e) {
@@ -526,12 +537,12 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
-                "error", e.getMessage(),
-                "errorCode", e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"
-            ));
+                    "error", e.getMessage(),
+                    "errorCode",
+                    e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"));
         }
     }
-    
+
     /**
      * 办理退房
      */
@@ -541,10 +552,10 @@ public class OrderController {
         try {
             // 先获取订单信息
             OrderDTO order = orderService.getOrderById(id);
-            
+
             // 验证当前用户是否为该订单的房东
             verifyOrderOwnership(order, authentication);
-            
+
             OrderDTO completedOrder = orderService.updateOrderStatus(id, OrderStatus.COMPLETED.name());
             return ResponseEntity.ok(completedOrder);
         } catch (AccessDeniedException e) {
@@ -552,12 +563,12 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
-                "error", e.getMessage(),
-                "errorCode", e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"
-            ));
+                    "error", e.getMessage(),
+                    "errorCode",
+                    e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"));
         }
     }
-    
+
     /**
      * 用户申请退款
      */
@@ -566,13 +577,13 @@ public class OrderController {
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> requestBody) {
         log.info("用户申请退款，订单ID: {}", id);
-        
+
         try {
             String reason = null;
             if (requestBody != null) {
                 reason = requestBody.get("reason");
             }
-            
+
             OrderDTO orderDTO = orderService.requestUserRefund(id, reason);
             return ResponseEntity.ok(orderDTO);
         } catch (IllegalArgumentException e) {
@@ -580,7 +591,7 @@ public class OrderController {
         } catch (Exception e) {
             log.error("申请退款失败，订单ID: {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "申请退款失败，请稍后重试"));
+                    .body(Map.of("error", "申请退款失败，请稍后重试"));
         }
     }
 
@@ -590,7 +601,7 @@ public class OrderController {
     @GetMapping("/{id}/refund-details")
     public ResponseEntity<?> getRefundDetails(@PathVariable Long id) {
         log.info("获取订单退款详情，订单ID: {}", id);
-        
+
         try {
             OrderDTO orderDTO = orderService.getOrderById(id);
             return ResponseEntity.ok(orderDTO);
@@ -608,54 +619,53 @@ public class OrderController {
             Long homestayId = Long.valueOf(request.get("homestayId").toString());
             String checkInDate = request.get("checkInDate").toString();
             String checkOutDate = request.get("checkOutDate").toString();
-            
+
             log.info("检查房源 {} 在 {} 至 {} 的可用性", homestayId, checkInDate, checkOutDate);
-            
+
             // 查询该房源的所有订单
             List<Order> allOrders = orderRepository.findByHomestayIdAndStatusInOrderByCheckInDate(
-                homestayId,
-                List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAID, OrderStatus.CHECKED_IN)
-            );
-            
+                    homestayId,
+                    List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAID, OrderStatus.CHECKED_IN));
+
             log.info("房源 {} 共有 {} 个有效订单", homestayId, allOrders.size());
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("homestayId", homestayId);
             result.put("checkInDate", checkInDate);
             result.put("checkOutDate", checkOutDate);
             result.put("totalOrders", allOrders.size());
-            
+
             List<Map<String, Object>> orderDetails = allOrders.stream()
-                .map(order -> {
-                    Map<String, Object> detail = new HashMap<>();
-                    detail.put("orderNumber", order.getOrderNumber());
-                    detail.put("status", order.getStatus());
-                    detail.put("checkInDate", order.getCheckInDate());
-                    detail.put("checkOutDate", order.getCheckOutDate());
-                    detail.put("guestCount", order.getGuestCount());
-                    return detail;
-                })
-                .collect(java.util.stream.Collectors.toList());
-            
+                    .map(order -> {
+                        Map<String, Object> detail = new HashMap<>();
+                        detail.put("orderNumber", order.getOrderNumber());
+                        detail.put("status", order.getStatus());
+                        detail.put("checkInDate", order.getCheckInDate());
+                        detail.put("checkOutDate", order.getCheckOutDate());
+                        detail.put("guestCount", order.getGuestCount());
+                        return detail;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
             result.put("existingOrders", orderDetails);
-            
+
             // 检查是否有冲突
             LocalDate requestCheckIn = LocalDate.parse(checkInDate);
             LocalDate requestCheckOut = LocalDate.parse(checkOutDate);
-            
+
             List<Order> conflictOrders = allOrders.stream()
-                .filter(o -> !(o.getCheckOutDate().isBefore(requestCheckIn) || 
-                              o.getCheckInDate().isAfter(requestCheckOut)))
-                .collect(java.util.stream.Collectors.toList());
-            
+                    .filter(o -> !(o.getCheckOutDate().isBefore(requestCheckIn) ||
+                            o.getCheckInDate().isAfter(requestCheckOut)))
+                    .collect(java.util.stream.Collectors.toList());
+
             result.put("hasConflict", !conflictOrders.isEmpty());
             result.put("conflictOrders", conflictOrders.stream()
-                .map(o -> String.format("%s[%s] (%s至%s)", 
-                    o.getOrderNumber(), o.getStatus(), o.getCheckInDate(), o.getCheckOutDate()))
-                .collect(java.util.stream.Collectors.toList()));
-            
+                    .map(o -> String.format("%s[%s] (%s至%s)",
+                            o.getOrderNumber(), o.getStatus(), o.getCheckInDate(), o.getCheckOutDate()))
+                    .collect(java.util.stream.Collectors.toList()));
+
             return ResponseEntity.ok(result);
-            
+
         } catch (Exception e) {
             log.error("检查日期可用性失败: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -684,4 +694,4 @@ public class OrderController {
                 .updateTime(order.getUpdatedAt())
                 .build();
     }
-} 
+}

@@ -24,6 +24,7 @@ import com.homestay3.homestaybackend.service.gateway.AlipayGateway;
 import com.homestay3.homestaybackend.service.gateway.PaymentGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -192,13 +193,13 @@ public class PaymentServiceImpl implements PaymentService {
                     .findByOutTradeNo(result.getOutTradeNo())
                     .orElseThrow(() -> new RuntimeException("支付记录不存在"));
 
-            // 防重复处理
+            // 防重复处理（第一层防护）
             if ("SUCCESS".equals(paymentRecord.getStatus())) {
                 log.debug("支付记录已处理，跳过: {}", result.getOutTradeNo());
                 return;
             }
 
-            // 更新支付记录
+            // 更新支付记录（乐观锁在 save 时生效，并发时只有一个线程成功）
             paymentRecord.setStatus("SUCCESS");
             paymentRecord.setTransactionId(result.getTransactionId());
             paymentRecord.setNotifyParams(JSON.toJSONString(result.getParams()));
@@ -210,6 +211,9 @@ public class PaymentServiceImpl implements PaymentService {
             log.debug("支付回调处理成功: orderId={}, outTradeNo={}",
                     paymentRecord.getOrderId(), result.getOutTradeNo());
 
+        } catch (ObjectOptimisticLockingFailureException e) {
+            // 乐观锁冲突：另一个线程已成功处理该回调，安全跳过
+            log.info("支付回调已被其他线程处理（乐观锁冲突），跳过: {}", result.getOutTradeNo());
         } catch (Exception e) {
             log.error("处理支付回调异常", e);
             throw new RuntimeException("处理支付回调失败", e);
@@ -280,8 +284,9 @@ public class PaymentServiceImpl implements PaymentService {
             Order order = orderRepository.findById(request.getOrderId())
                     .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
 
-            if (order.getPaymentStatus() != PaymentStatus.PAID) {
-                throw new IllegalStateException("订单未支付，无法退款");
+            if (order.getPaymentStatus() != PaymentStatus.PAID
+                    && order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
+                throw new IllegalStateException("订单支付状态不支持退款");
             }
 
             PaymentRecord paymentRecord = paymentRecordRepository

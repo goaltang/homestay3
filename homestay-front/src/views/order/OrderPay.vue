@@ -193,6 +193,9 @@ const qrCodeGenerated = ref(false) // 新增状态变量，标记二维码是否
 const isDev = ref(import.meta.env.DEV) // 开发环境标识
 const lastPaymentUrl = ref('') // 保存最后一次生成的支付URL
 let timer: NodeJS.Timeout | null = null
+let paymentStatusPollTimer: NodeJS.Timeout | null = null
+let pollCount = 0
+const MAX_POLL_COUNT = 120 // 最多轮询 120 次（约 6 分钟）
 
 // 获取订单详情
 const fetchOrderDetail = async () => {
@@ -240,6 +243,7 @@ const generateQRCode = async () => {
                 qrCodeGenerated.value = true
                 ElMessage.success('支付二维码生成成功，请使用支付宝扫码支付')
                 startCountdown()
+                startPaymentStatusPoll()
                 return
             }
 
@@ -320,6 +324,7 @@ const generateQRCode = async () => {
                         }, 1000)
 
                         qrCodeGenerated.value = true
+                        startPaymentStatusPoll()
                         return
                     } else {
                         console.log('未找到表单元素')
@@ -348,6 +353,7 @@ const generateQRCode = async () => {
                         // 立即提交表单
                         form.submit()
                         qrCodeGenerated.value = true
+                        startPaymentStatusPoll()
 
                         // 清理DOM
                         setTimeout(() => {
@@ -370,6 +376,7 @@ const generateQRCode = async () => {
                         newWindow.document.close()
                         ElMessage.success('支付页面已在新窗口打开，请完成支付')
                         qrCodeGenerated.value = true
+                        startPaymentStatusPoll()
                         return
                     }
                 } catch (error) {
@@ -418,6 +425,44 @@ const startCountdown = () => {
             if (timer) clearInterval(timer)
         }
     }, 1000)
+}
+
+// 启动支付状态轮询
+const startPaymentStatusPoll = () => {
+    if (paymentStatusPollTimer) clearInterval(paymentStatusPollTimer)
+    pollCount = 0
+    
+    paymentStatusPollTimer = setInterval(async () => {
+        if (!orderData.value) return
+        
+        pollCount++
+        if (pollCount > MAX_POLL_COUNT) {
+            clearInterval(paymentStatusPollTimer!)
+            paymentStatusPollTimer = null
+            console.log('支付状态轮询已达上限，停止轮询')
+            return
+        }
+        
+        try {
+            const response = await checkPayment(orderData.value.id)
+            if (response.data.success && response.data.isPaid) {
+                clearInterval(paymentStatusPollTimer!)
+                paymentStatusPollTimer = null
+                ElMessage.success('支付成功！')
+                router.push(`/orders/${orderData.value.id}/pay-success`)
+            }
+        } catch (error) {
+            console.error('轮询检查支付状态失败:', error)
+        }
+    }, 3000) // 每3秒轮询一次
+}
+
+// 停止支付状态轮询
+const stopPaymentStatusPoll = () => {
+    if (paymentStatusPollTimer) {
+        clearInterval(paymentStatusPollTimer)
+        paymentStatusPollTimer = null
+    }
 }
 
 // 格式化倒计时
@@ -675,11 +720,20 @@ onMounted(() => {
             orderData.value = { ...orderData.value };
         }
     }, 1000);
+
+    // 如果订单已在支付中状态（用户从支付宝返回或刷新页面），自动启动轮询
+    setTimeout(() => {
+        if (orderData.value && 
+            (orderData.value.status === 'PAYMENT_PENDING' || orderData.value.status === 'PENDING_PAYMENT')) {
+            startPaymentStatusPoll()
+        }
+    }, 1000);
 });
 
 onUnmounted(() => {
     if (timer) clearInterval(timer);
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    stopPaymentStatusPoll();
 });
 </script>
 

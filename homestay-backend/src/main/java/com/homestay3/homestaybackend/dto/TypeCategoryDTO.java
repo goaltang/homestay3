@@ -22,4 +22,4 @@ public class TypeCategoryDTO {
     private List<HomestayTypeDTO> types = new ArrayList<>();
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-} 
+}

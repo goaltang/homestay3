@@ -215,8 +215,9 @@ class OrderServiceImplTest {
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenReturn(order);
 
-        // 执行
-        OrderDTO result = orderService.cancelOrder(1L);
+        // 使用 CANCELLED_BY_USER 类型，因为当前用户是 ROLE_USER，
+        // 而 CANCELLED 类型需要管理员权限
+        OrderDTO result = orderService.cancelOrderWithReason(1L, "CANCELLED_BY_USER", "用户取消订单");
 
         // 验证
         assertNotNull(result);
@@ -252,7 +253,9 @@ class OrderServiceImplTest {
 
         // 验证
         assertNotNull(result);
-        assertEquals(new BigDecimal("400"), result.getTotalAmount()); // 200 * 2晚
+        // baseAmount=200*2=400, cleaningFee=200*0.1=20, serviceFee=400*0.15=60,
+        // total=480
+        assertEquals(0, new BigDecimal("480").compareTo(result.getTotalAmount()));
         assertEquals(2, result.getNights());
     }
 
@@ -260,6 +263,7 @@ class OrderServiceImplTest {
     void createOrderPreview_InvalidCheckInDate() {
         // 准备
         mockSecurityContext();
+        when(homestayRepository.findById(1L)).thenReturn(Optional.of(homestay));
         orderDTO.setCheckInDate(LocalDate.now().minusDays(1)); // 过去的日期
 
         // 执行和验证
@@ -272,6 +276,7 @@ class OrderServiceImplTest {
     void createOrderPreview_InvalidDateRange() {
         // 准备
         mockSecurityContext();
+        when(homestayRepository.findById(1L)).thenReturn(Optional.of(homestay));
         orderDTO.setCheckInDate(LocalDate.now().plusDays(3));
         orderDTO.setCheckOutDate(LocalDate.now().plusDays(1)); // 退房早于入住
 

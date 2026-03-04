@@ -26,8 +26,9 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
 
     // DTO转换方法
     private HomestayTypeDTO convertToDTO(HomestayType homestayType) {
-        if (homestayType == null) return null;
-        
+        if (homestayType == null)
+            return null;
+
         return HomestayTypeDTO.builder()
                 .id(homestayType.getId())
                 .code(homestayType.getCode())
@@ -42,10 +43,11 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
                 .updatedAt(homestayType.getUpdatedAt())
                 .build();
     }
-    
+
     private TypeCategoryDTO convertToCategoryDTO(TypeCategory category) {
-        if (category == null) return null;
-        
+        if (category == null)
+            return null;
+
         return TypeCategoryDTO.builder()
                 .id(category.getId())
                 .name(category.getName())
@@ -56,10 +58,11 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
                 .updatedAt(category.getUpdatedAt())
                 .build();
     }
-    
+
     private TypeCategoryDTO convertToCategoryDTOWithoutTypes(TypeCategory category) {
-        if (category == null) return null;
-        
+        if (category == null)
+            return null;
+
         return TypeCategoryDTO.builder()
                 .id(category.getId())
                 .name(category.getName())
@@ -69,7 +72,7 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
                 .updatedAt(category.getUpdatedAt())
                 .build();
     }
-    
+
     // 房源类型实现方法
     @Override
     @Transactional(readOnly = true)
@@ -110,9 +113,10 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
     public HomestayTypeDTO createHomestayType(HomestayTypeDTO homestayTypeDTO) {
         TypeCategory category = homestayTypeDTO.getCategoryId() != null
                 ? typeCategoryRepository.findById(homestayTypeDTO.getCategoryId())
-                        .orElseThrow(() -> new EntityNotFoundException("未找到ID为 " + homestayTypeDTO.getCategoryId() + " 的类别"))
+                        .orElseThrow(
+                                () -> new EntityNotFoundException("未找到ID为 " + homestayTypeDTO.getCategoryId() + " 的类别"))
                 : null;
-        
+
         HomestayType homestayType = HomestayType.builder()
                 .code(homestayTypeDTO.getCode())
                 .name(homestayTypeDTO.getName())
@@ -122,7 +126,7 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
                 .sortOrder(homestayTypeDTO.getSortOrder())
                 .category(category)
                 .build();
-        
+
         HomestayType savedType = homestayTypeRepository.save(homestayType);
         return convertToDTO(savedType);
     }
@@ -132,12 +136,13 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
     public HomestayTypeDTO updateHomestayType(Long id, HomestayTypeDTO homestayTypeDTO) {
         HomestayType existingType = homestayTypeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("未找到ID为 " + id + " 的房源类型"));
-        
+
         TypeCategory category = homestayTypeDTO.getCategoryId() != null
                 ? typeCategoryRepository.findById(homestayTypeDTO.getCategoryId())
-                        .orElseThrow(() -> new EntityNotFoundException("未找到ID为 " + homestayTypeDTO.getCategoryId() + " 的类别"))
+                        .orElseThrow(
+                                () -> new EntityNotFoundException("未找到ID为 " + homestayTypeDTO.getCategoryId() + " 的类别"))
                 : null;
-        
+
         existingType.setCode(homestayTypeDTO.getCode());
         existingType.setName(homestayTypeDTO.getName());
         existingType.setDescription(homestayTypeDTO.getDescription());
@@ -145,7 +150,7 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
         existingType.setActive(homestayTypeDTO.isActive());
         existingType.setSortOrder(homestayTypeDTO.getSortOrder());
         existingType.setCategory(category);
-        
+
         HomestayType updatedType = homestayTypeRepository.save(existingType);
         return convertToDTO(updatedType);
     }
@@ -185,7 +190,7 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
                 .description(categoryDTO.getDescription())
                 .sortOrder(categoryDTO.getSortOrder())
                 .build();
-        
+
         TypeCategory savedCategory = typeCategoryRepository.save(category);
         return convertToCategoryDTOWithoutTypes(savedCategory);
     }
@@ -195,11 +200,11 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
     public TypeCategoryDTO updateCategory(Long id, TypeCategoryDTO categoryDTO) {
         TypeCategory existingCategory = typeCategoryRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("未找到ID为 " + id + " 的类别"));
-        
+
         existingCategory.setName(categoryDTO.getName());
         existingCategory.setDescription(categoryDTO.getDescription());
         existingCategory.setSortOrder(categoryDTO.getSortOrder());
-        
+
         TypeCategory updatedCategory = typeCategoryRepository.save(existingCategory);
         return convertToCategoryDTOWithoutTypes(updatedCategory);
     }
@@ -219,18 +224,19 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
     public Map<String, List<HomestayTypeDTO>> getHomestayTypesByCategory() {
         List<TypeCategory> categories = typeCategoryRepository.findAllByOrderBySortOrderAsc();
         Map<String, List<HomestayTypeDTO>> result = new HashMap<>();
-        
+
         for (TypeCategory category : categories) {
-            List<HomestayTypeDTO> types = homestayTypeRepository.findByCategoryIdAndActiveTrueOrderBySortOrderAsc(category.getId())
+            List<HomestayTypeDTO> types = homestayTypeRepository
+                    .findByCategoryIdAndActiveTrueOrderBySortOrderAsc(category.getId())
                     .stream()
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
-            
+
             if (!types.isEmpty()) {
                 result.put(category.getName(), types);
             }
         }
-        
+
         return result;
     }
 
@@ -246,6 +252,6 @@ public class HomestayTypeServiceImpl implements HomestayTypeService {
     @Override
     public List<HomestayType> getAllTypes() {
         // 返回所有类型，可以根据需要添加排序逻辑，比如按 id 或 name 排序
-        return homestayTypeRepository.findAll(); 
+        return homestayTypeRepository.findAll();
     }
-} 
+}

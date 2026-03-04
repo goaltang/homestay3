@@ -17,6 +17,7 @@
     "element-china-area-data": "^6.1.0",
     "element-plus": "^2.4.3",
     "pinia": "^2.1.7",
+    "qrcode.vue": "^3.8.0",
     "vue": "^3.3.11",
     "vue-router": "^4.2.5"
   },
