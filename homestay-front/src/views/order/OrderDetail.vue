@@ -212,7 +212,7 @@
                     <el-button type="danger" plain v-if="canCancel" @click="confirmCancel">
                         取消订单
                     </el-button>
-                    <el-button type="primary" v-if="orderData.status === 'CONFIRMED'" @click="goToPayment">
+                    <el-button type="primary" v-if="orderData.status === 'CONFIRMED'" @click="showPaymentDialog">
                         立即支付
                     </el-button>
                     <el-button type="warning" plain v-if="canRequestRefund" @click="confirmRequestRefund">
@@ -230,6 +230,55 @@
             </div>
         </div>
 
+        <!-- 支付对话框 -->
+        <el-dialog v-model="paymentDialogVisible" title="订单支付" width="400px" :close-on-click-modal="false"
+            @close="handlePaymentDialogClose">
+            <div class="payment-dialog-content">
+                <template v-if="qrCodeLoading">
+                    <div class="qr-loading" v-loading="true" element-loading-text="正在生成支付二维码..."></div>
+                </template>
+                <template v-else-if="paymentQrCode">
+                    <div class="payment-qr-info">
+                        <p class="payment-amount">支付金额: <span>¥{{ orderData?.totalAmount }}</span></p>
+                        <div class="qr-code-wrapper">
+                            <!-- 动态渲染：支持图片URL和原始数据 -->
+                            <img v-if="paymentQrCode.startsWith('http')" :src="paymentQrCode" alt="支付二维码" class="qr-image" />
+                            <qrcode-vue v-else :value="paymentQrCode" :size="200" level="H" />
+                        </div>
+                        <p class="payment-tip">请使用支付宝扫描二维码完成支付</p>
+                        
+                        <!-- 模拟支付入口 -->
+                        <div class="mock-pay-section">
+                            <el-divider>测试专用</el-divider>
+                            <el-button type="success" @click="handleManualPay" :loading="payLoading" icon="CircleCheck">
+                                模拟直接支付 (调用 payOrder API)
+                            </el-button>
+                            <p class="mock-tip">提示：此按钮将显式触发后端支付确认逻辑</p>
+                        </div>
+
+                        <el-divider />
+                        <div class="payment-status-info">
+                            <el-icon class="is-loading" v-if="isPolling">
+                                <Loading />
+                            </el-icon>
+                            <span>{{ pollingStatusText }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template v-else>
+                    <el-empty description="二维码生成失败">
+                        <el-button type="primary" @click="generateQrCode">重试</el-button>
+                    </el-empty>
+                </template>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="paymentDialogVisible = false">取消支付</el-button>
+                    <el-button type="success" @click="checkPaymentStatus" :loading="checkingStatus">已完成支付</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
         <!-- Add Edit Modal -->
         <ReviewEditModal v-model:visible="isEditModalVisible" :review-data="currentEditingReview"
             @submitted="handleReviewUpdated" />
@@ -237,10 +286,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOrderDetail, cancelOrder } from '../../api/order'
+import { Loading } from '@element-plus/icons-vue'
+import QrcodeVue from 'qrcode.vue'
+import { getOrderDetail, cancelOrder, generatePaymentQRCode, checkPayment, payOrder } from '../../api/order'
 import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
@@ -314,6 +365,17 @@ const userStore = useUserStore()
 const loading = ref(true)
 const orderData = ref<OrderData | null>(null)
 const isDeletingReview = ref(false)
+
+// --- Add state for payment dialog ---
+const paymentDialogVisible = ref(false)
+const qrCodeLoading = ref(false)
+const paymentQrCode = ref('')
+const isPolling = ref(false)
+const pollingTimer = ref<number | null>(null)
+const pollingStatusText = ref('等待支付...')
+const checkingStatus = ref(false)
+const payLoading = ref(false)
+// --- End state ---
 
 // --- Add state for edit modal ---
 const isEditModalVisible = ref(false);
@@ -637,11 +699,134 @@ const confirmCancel = async () => {
     }
 }
 
-// 前往支付页面
-const goToPayment = () => {
+// 展示支付弹窗
+const showPaymentDialog = () => {
+    paymentDialogVisible.value = true
+    generateQrCode()
+}
+
+// 生成二维码
+const generateQrCode = async () => {
     if (!orderData.value) return
 
-    router.push(`/orders/${orderData.value.id}/pay`)
+    qrCodeLoading.value = true
+    paymentQrCode.value = ''
+
+    try {
+        const response = await generatePaymentQRCode({
+            orderId: orderData.value.id,
+            method: 'alipay'
+        })
+
+        if (response.data.success) {
+            paymentQrCode.value = response.data.qrCode
+            startPolling()
+        } else {
+            ElMessage.error(response.data.message || '生成支付二维码失败')
+        }
+    } catch (error) {
+        console.error('生成支付二维码异常:', error)
+    } finally {
+        qrCodeLoading.value = false
+    }
+}
+
+// 开始轮询支付状态
+const startPolling = () => {
+    stopPolling() // 先停止旧的
+    isPolling.value = true
+    pollingStatusText.value = '等待扫描支付...'
+
+    pollingTimer.value = window.setInterval(async () => {
+        if (!orderData.value) return
+
+        try {
+            const response = await checkPayment(orderData.value.id)
+            if (response.data.success && response.data.isPaid) {
+                stopPolling()
+                ElMessage.success('支付成功！')
+                paymentDialogVisible.value = false
+                fetchOrderDetail() // 刷新订单详情
+            }
+        } catch (error) {
+            console.error('轮询支付状态异常:', error)
+        }
+    }, 3000) // 每3秒查一次
+}
+
+// 停止轮询
+const stopPolling = () => {
+    isPolling.value = false
+    if (pollingTimer.value) {
+        clearInterval(pollingTimer.value)
+        pollingTimer.value = null
+    }
+}
+
+// 手动检查支付状态
+const checkPaymentStatus = async () => {
+    if (!orderData.value) return
+
+    checkingStatus.value = true
+    try {
+        const response = await checkPayment(orderData.value.id)
+        if (response.data.success && response.data.isPaid) {
+            ElMessage.success('支付已成功确认')
+            paymentDialogVisible.value = false
+            fetchOrderDetail()
+        } else {
+            ElMessage.warning('尚未检测到支付成功，请扫码支付')
+        }
+    } catch (error) {
+        ElMessage.error('查询支付状态失败')
+    } finally {
+        checkingStatus.value = false
+    }
+}
+
+// 处理手动直接支付（模拟）
+const handleManualPay = async () => {
+    if (!orderData.value) return
+
+    try {
+        await ElMessageBox.confirm(
+            '这将跳过实际支付流程，直接调用后端接口模拟支付成功。是否继续？',
+            '手动支付确认',
+            {
+                confirmButtonText: '确定支付',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }
+        )
+
+        payLoading.value = true
+        // 显式调用之前未被调用的 payOrder API
+        const response = await payOrder(orderData.value.id, 'ALIPAY')
+        
+        if (response.data.success) {
+            ElMessage.success('模拟支付操作成功！')
+            paymentDialogVisible.value = false
+            stopPolling()
+            // 延迟刷新以确保后端数据已同步更新
+            setTimeout(() => {
+                fetchOrderDetail()
+            }, 500)
+        } else {
+            ElMessage.error(response.data.message || '操作失败')
+        }
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            console.error('手动支付异常:', error)
+            ElMessage.error(error.message || '支付接口调用失败')
+        }
+    } finally {
+        payLoading.value = false
+    }
+}
+
+// 支付弹窗关闭逻辑
+const handlePaymentDialogClose = () => {
+    stopPolling()
 }
 
 // 前往订单列表
@@ -805,6 +990,10 @@ const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
 
 onMounted(() => {
     fetchOrderDetail()
+})
+
+onUnmounted(() => {
+    stopPolling()
 })
 </script>
 
@@ -1173,5 +1362,72 @@ h2::after {
     font-size: 12px;
     color: #909399;
     text-align: right;
+}
+
+/* 支付对话框样式 */
+.payment-dialog-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+}
+
+.payment-amount {
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+.payment-amount span {
+    color: #f56c6c;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.qr-code-wrapper {
+    padding: 15px;
+    background: white;
+    border: 1px solid #ebeef5;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    margin-bottom: 15px;
+}
+
+.payment-tip {
+    color: #606266;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.mock-pay-section {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.mock-tip {
+    font-size: 11px;
+    color: #909399;
+    margin-top: 8px;
+}
+
+.qr-image {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+}
+
+.payment-status-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #409eff;
+    font-size: 14px;
+}
+
+.qr-loading {
+    height: 230px;
+    width: 230px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 </style>

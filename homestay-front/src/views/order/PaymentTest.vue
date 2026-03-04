@@ -35,8 +35,13 @@
 
             <div v-if="qrCode" class="qr-result">
                 <h4>二维码生成结果：</h4>
-                <el-input v-model="qrCode" readonly type="textarea" :rows="3" />
-                <p class="tip">可以复制二维码URL到浏览器查看</p>
+                <div class="qr-container">
+                    <!-- 如果是图片URL则直接显示，否则由qrcode-vue生成 -->
+                    <img v-if="qrCode.startsWith('http')" :src="qrCode" alt="支付二维码" class="qr-image" />
+                    <qrcode-vue v-else :value="qrCode" :size="200" level="H" />
+                </div>
+                <el-input v-model="qrCode" readonly type="textarea" :rows="2" class="mt-10" />
+                <p class="tip">可以扫描上方二维码或复制URL到浏览器查看</p>
             </div>
 
             <div v-if="statusResult" class="status-result">
@@ -59,6 +64,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
+import QrcodeVue from 'qrcode.vue'
 import { generatePaymentQRCode, checkPayment, mockPaymentSuccess } from '../../api/order'
 
 const testForm = reactive({
@@ -197,6 +203,25 @@ const testMockPayment = async () => {
     padding: 15px;
     background-color: #f5f7fa;
     border-radius: 4px;
+}
+
+.qr-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.qr-image {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+}
+
+.mt-10 {
+    margin-top: 10px;
 }
 
 .tip {
