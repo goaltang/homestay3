@@ -1,13 +1,57 @@
-# ²âÊÔÁÙÊ±Êä³ö
-test_output*.txt
-*.log
+# --- ç³»ç»Ÿä¸ç¼–è¾‘å™¨ ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+*.swp
 
-# ÒÀÀµÄ¿Â¼
+# --- å‰ç«¯ (Vue/Vite) ---
 **/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+.env
+.env.*
+!.env.example
+vite.config.ts.timestamp-*
+*.tsbuildinfo
 
-# ±àÒëÓë¹¹½¨Êä³ö
-*compile_output.txt
-*build_output.txt
+# --- åç«¯ (Maven/Spring Boot) ---
+**/target/
+**/build/
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+**/uploads/
 
-# Í¨ÓÃ¹¹½¨Óë±àÒëÊä³ö
-*output*.txt
+# --- æ–‡æ¡£ä¸ç»˜å›¾ ---
+**/docs/resources/diagrams/draw/HomestayListingManagementFlowchart.drawio
+**/docs/resources/diagrams/draw/.$ReviewModuleERDiagram.drawio.bkp
+**/*.drawio.bkp
+**/.~$*.drawio
+**/.$*.drawio.bkp
+
+# --- æ„å»ºæ—¥å¿—ä¸ä¸´æ—¶äº§ç‰© ---
+*.log
+test_output*.txt
+compile_output*.txt
+build_output*.txt
+
+# --- å·¥å…·ä¸è„šæœ¬ ---
+tools/mcp/
+tools/code-stats/*.exe
+tools/code-stats/*.ps1
+tools/code-stats/*.bat
+
+# --- ç»˜å›¾æ–‡ä»¶æ‰©å±• ---
+**/*.drawio
+
+# --- å…¶ä»–å†—ä½™ ---
+homestay-backend/HELP.md
