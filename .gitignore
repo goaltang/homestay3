@@ -4,3 +4,7 @@ test_output*.txt
 
 # 依赖目录
 **/node_modules/
+
+# 编译与构建输出
+*compile_output.txt
+*build_output.txt
