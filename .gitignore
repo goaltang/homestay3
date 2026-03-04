@@ -8,3 +8,6 @@ test_output*.txt
 # 编译与构建输出
 *compile_output.txt
 *build_output.txt
+
+# 通用构建与编译输出
+*output*.txt
