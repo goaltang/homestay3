@@ -43,6 +43,21 @@
                   {{ loading ? '登录中...' : '登录' }}
                 </el-button>
 
+                <div class="fast-login-section">
+                  <el-divider content-position="center">测试账号一键登录</el-divider>
+                  <div class="fast-login-options">
+                    <el-button size="small" type="success" plain @click.stop.prevent="fastLogin('user', '111111')" :loading="loading">
+                      👤 普通用户
+                    </el-button>
+                    <el-button size="small" type="warning" plain @click.stop.prevent="fastLogin('host', '111111')" :loading="loading">
+                      🏠 房东账号
+                    </el-button>
+                    <el-button size="small" type="danger" plain @click.stop.prevent="fastLogin('admin', '111111')" :loading="loading">
+                      👑 管理员
+                    </el-button>
+                  </div>
+                </div>
+
                 <div class="register-link">
                   还没有账号？
                   <el-button type="text" @click.stop.prevent="goToRegister" :disabled="loading">立即注册</el-button>
@@ -284,7 +299,14 @@ const goToForgotPassword = () => {
   router.push("/forgot-password");
 };
 
-
+// 一键快速登录
+const fastLogin = async (username: string, password: string = '111111') => {
+  if (loading.value) return;
+  loginForm.username = username;
+  loginForm.password = password;
+  await nextTick();
+  handleLogin();
+};
 
 // 页面加载完成后的初始化
 onMounted(async () => {
@@ -424,6 +446,27 @@ onMounted(async () => {
 .submit-btn {
   width: 100%;
   margin-bottom: 20px;
+}
+
+.fast-login-section {
+  margin-bottom: 20px;
+}
+
+:deep(.el-divider__text) {
+  color: #909399;
+  font-size: 13px;
+  background-color: var(--el-bg-color);
+}
+
+.fast-login-options {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fast-login-options .el-button {
+  flex: 1;
+  padding: 8px 0;
 }
 
 .register-link {
