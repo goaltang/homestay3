@@ -88,7 +88,7 @@ public class Homestay {
 
     @Column(name = "auto_confirm")
     @Builder.Default
-    private Boolean autoConfirm = false;
+    private Boolean autoConfirm = true;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -108,11 +108,7 @@ public class Homestay {
     }
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-        name = "homestay_amenity",
-        joinColumns = @JoinColumn(name = "homestay_id"),
-        inverseJoinColumns = @JoinColumn(name = "amenity_id")
-    )
+    @JoinTable(name = "homestay_amenity", joinColumns = @JoinColumn(name = "homestay_id"), inverseJoinColumns = @JoinColumn(name = "amenity_id"))
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

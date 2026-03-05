@@ -85,7 +85,7 @@
                                 <el-radio-group v-model="homestayForm.autoConfirm" @change="handleConfirmModeChange">
                                     <el-radio-button :value="true">
                                         <el-icon style="margin-right: 5px;"><Lightning /></el-icon>
-                                        自动确认
+                                        自动确认 <el-tag size="small" type="danger" effect="dark" style="margin-left: 4px; border-radius: 10px;">推荐</el-tag>
                                     </el-radio-button>
                                     <el-radio-button :value="false">
                                         <el-icon style="margin-right: 5px;"><User /></el-icon>
@@ -468,7 +468,7 @@ const homestayForm = reactive<Partial<Homestay> & { // 使用 Partial 允许部�
     coverImage: '',
     images: [],
     featured: false,
-    autoConfirm: false, // 默认为房东确认制
+    autoConfirm: true, // 默认为自动确认机制（推荐）
     highlights: '',
     surroundings: ''
 })
