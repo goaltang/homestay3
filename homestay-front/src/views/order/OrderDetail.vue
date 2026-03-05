@@ -719,24 +719,61 @@ const generateQrCode = async () => {
         })
 
         if (response.data.success) {
-            paymentQrCode.value = response.data.qrCode
-            startPolling()
+            const data = response.data
+            // 检查是否为 HTML 表单跳转支付
+            if (data.paymentUrl && data.paymentUrl.includes('<form')) {
+                logInfo('检测到支付宝跳转表单，正在准备跳转...')
+                // 创建一个隐藏的 div 来存放表单
+                const div = document.createElement('div')
+                div.id = 'alipay-form-container'
+                div.style.display = 'none'
+                div.innerHTML = data.paymentUrl
+                document.body.appendChild(div)
+                
+                // 提交表单
+                const form = div.querySelector('form')
+                if (form) {
+                    form.submit()
+                    ElMessage.success('正在跳转至支付宝支付页面...')
+                } else {
+                    ElMessage.error('支付表单生成失败，请重试')
+                }
+                return
+            }
+
+            // 如果是二维码扫码支付
+            if (data.qrCode) {
+                paymentQrCode.value = data.qrCode
+                startPolling()
+            } else if (data.paymentUrl) {
+                // 如果是单纯的 URL 链接
+                window.location.href = data.paymentUrl
+            } else {
+                ElMessage.error('获取支付信息失败：返回结果异常')
+            }
         } else {
-            ElMessage.error(response.data.message || '生成支付二维码失败')
+            ElMessage.error(response.data.message || '生成支付信息失败')
         }
     } catch (error) {
-        console.error('生成支付二维码异常:', error)
+        console.error('生成支付信息异常:', error)
+        ElMessage.error('发起支付失败，请检查网络或稍后重试')
     } finally {
         qrCodeLoading.value = false
     }
+}
+
+// 帮助函数：替代直接使用 console.log (可选，为了代码一致性)
+const logInfo = (msg: string) => {
+    console.log(`[支付系统] ${msg}`)
 }
 
 // 开始轮询支付状态
 const startPolling = () => {
     stopPolling() // 先停止旧的
     isPolling.value = true
-    pollingStatusText.value = '等待扫描支付...'
+    pollingStatusText.value = '支付确认中...'
 
+    let errorCount = 0;
     pollingTimer.value = window.setInterval(async () => {
         if (!orderData.value) return
 
@@ -747,11 +784,19 @@ const startPolling = () => {
                 ElMessage.success('支付成功！')
                 paymentDialogVisible.value = false
                 fetchOrderDetail() // 刷新订单详情
+            } else {
+                errorCount = 0; // 重置错误计数
+                pollingStatusText.value = '正在核对支付结果...'
             }
         } catch (error) {
             console.error('轮询支付状态异常:', error)
+            errorCount++;
+            // 连续多次错误才提示
+            if (errorCount > 3) {
+                pollingStatusText.value = '支付确认延迟，请勿关闭页面...'
+            }
         }
-    }, 3000) // 每3秒查一次
+    }, 4000) // 每4秒查一次，避免过于频繁触碰限流
 }
 
 // 停止轮询

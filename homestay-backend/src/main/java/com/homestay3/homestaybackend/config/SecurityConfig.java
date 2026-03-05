@@ -40,42 +40,41 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         log.info("配置安全过滤链...");
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/auth/**", "/error", "/h2-console/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/homestays/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/homestays/search").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
-                .requestMatchers("/api/files/upload", "/api/files/uploadMultiple").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/files/**").authenticated()
-                .requestMatchers("/uploads/**").permitAll()
-                .requestMatchers("/static/**").permitAll()
-                .requestMatchers("/api/review/public/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/reviews/homestay/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/reviews/homestay/*/stats").permitAll()
-                .requestMatchers("/api/locations/**", "/api/v1/locations/**").permitAll()
-                .requestMatchers("/api/homestay-types/**", "/api/v1/homestay-types/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/amenities/**", "/api/v1/amenities/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/recommendations/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/host/info/**").permitAll()
-                .requestMatchers("/api/system/**").permitAll()
-                .requestMatchers("/api/payment/*/notify").permitAll()
-                .requestMatchers("/api/payment/**").authenticated()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                .requestMatchers("/api/host/**").hasAnyAuthority("ROLE_HOST", "ROLE_ADMIN")
-                .requestMatchers("/api/host/earnings/**").hasAnyAuthority("ROLE_HOST", "ROLE_ADMIN")
-                .anyRequest().authenticated()
-            )
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-            .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/admin/auth/**", "/error", "/h2-console/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/homestays/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/homestays/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                        .requestMatchers("/api/files/upload", "/api/files/uploadMultiple").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/files/**").authenticated()
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/static/**").permitAll()
+                        .requestMatchers("/api/review/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/homestay/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/homestay/*/stats").permitAll()
+                        .requestMatchers("/api/locations/**", "/api/v1/locations/**").permitAll()
+                        .requestMatchers("/api/homestay-types/**", "/api/v1/homestay-types/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/amenities/**", "/api/v1/amenities/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/recommendations/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/host/info/**").permitAll()
+                        .requestMatchers("/api/system/**").permitAll()
+                        .requestMatchers("/api/payment/*/notify").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/payment/*/status").permitAll()
+                        .requestMatchers("/api/payment/**").authenticated()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/host/**").hasAnyAuthority("ROLE_HOST", "ROLE_ADMIN")
+                        .requestMatchers("/api/host/earnings/**").hasAnyAuthority("ROLE_HOST", "ROLE_ADMIN")
+                        .anyRequest().authenticated())
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()));
 
         log.info("安全过滤链配置完成");
         return http.build();
@@ -106,51 +105,48 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         log.info("配置CORS...");
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // 设置允许的来源URL，支持前端开发环境的不同端口
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5173", "http://127.0.0.1:5173",
-            "http://localhost:5174", "http://127.0.0.1:5174",
-            "http://localhost:3000", "http://127.0.0.1:3000",
-            "http://localhost:8080", "http://127.0.0.1:8080",
-            "http://localhost:80", "http://127.0.0.1:80",
-            "http://localhost", "http://127.0.0.1",
-            "https://www.homestay3.com", "https://homestay3.com",
-            "https://api.homestay3.com"
-        ));
-        
+                "http://localhost:5173", "http://127.0.0.1:5173",
+                "http://localhost:5174", "http://127.0.0.1:5174",
+                "http://localhost:3000", "http://127.0.0.1:3000",
+                "http://localhost:8080", "http://127.0.0.1:8080",
+                "http://localhost:80", "http://127.0.0.1:80",
+                "http://localhost", "http://127.0.0.1",
+                "https://www.homestay3.com", "https://homestay3.com",
+                "https://api.homestay3.com"));
+
         // 设置允许的方法
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
-        
+
         // 允许必要的头信息，包括自定义头
         configuration.setAllowedHeaders(Arrays.asList(
-            "Authorization", "Cache-Control", "Content-Type", "Accept", 
-            "Access-Control-Allow-Headers", "Access-Control-Allow-Origin",
-            "X-Requested-With", "Origin",
-            "x-user-id",
-            "x-username"
-        ));
-        
+                "Authorization", "Cache-Control", "Content-Type", "Accept",
+                "Access-Control-Allow-Headers", "Access-Control-Allow-Origin",
+                "X-Requested-With", "Origin",
+                "x-user-id",
+                "x-username"));
+
         // 暴露响应头
         configuration.setExposedHeaders(Arrays.asList(
-            "Content-Type", "Content-Length", "Authorization", 
-            "Access-Control-Allow-Origin", "Access-Control-Allow-Methods", 
-            "Access-Control-Allow-Headers", "Access-Control-Allow-Credentials",
-            "Content-Disposition",
-            "X-Username",
-            "X-User-Id"
-        ));
-        
+                "Content-Type", "Content-Length", "Authorization",
+                "Access-Control-Allow-Origin", "Access-Control-Allow-Methods",
+                "Access-Control-Allow-Headers", "Access-Control-Allow-Credentials",
+                "Content-Disposition",
+                "X-Username",
+                "X-User-Id"));
+
         // 允许发送凭证
         configuration.setAllowCredentials(true);
-        
+
         // 预检请求的有效期，单位为秒
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         log.info("CORS配置完成，已添加 x-user-id 和 x-username 到 allowedHeaders");
         return source;
     }
-} 
+}

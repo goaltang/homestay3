@@ -73,12 +73,9 @@
 
                 <!-- 二维码支付（微信或扫码模式） -->
                 <div class="qr-code-container" v-else-if="qrCode">
-                    <template v-if="qrCode.includes('api.qrserver.com') || qrCode.match(/\.(png|jpe?g|gif|svg)(\?.*)?$/i)">
-                        <img :src="qrCode" alt="支付二维码" class="qr-code">
-                    </template>
-                    <template v-else>
-                        <qrcode-vue :value="qrCode" :size="200" level="H" class="qr-code" />
-                    </template>
+                    <div class="qr-code-wrapper">
+                        <qrcode-vue :value="qrCode" :size="200" level="H" />
+                    </div>
                     <p class="qr-tip">请使用{{ getPaymentMethodText(paymentMethod) }}扫码支付</p>
                     <div class="countdown" v-if="countdown > 0">
                         二维码有效期: {{ formatCountdown(countdown) }}
@@ -102,8 +99,8 @@
                             </div>
                         </el-radio-group>
                     </div>
-                    <el-button type="primary" class="generate-qr" @click="generateQRCode" :disabled="!paymentMethod">
-                        立即支付
+                    <el-button type="primary" class="generate-qr" @click="generateQRCode" :disabled="!paymentMethod" :loading="paymentLoading">
+                        {{ paymentLoading ? '正在连接支付宝...' : '立即支付' }}
                     </el-button>
                 </div>
             </div>
@@ -198,6 +195,7 @@ const countdown = ref(900) // 15分钟倒计时
 const qrCodeGenerated = ref(false) // 新增状态变量，标记二维码是否已生成
 const isDev = ref(import.meta.env.DEV) // 开发环境标识
 const lastPaymentUrl = ref('') // 保存最后一次生成的支付URL
+const paymentLoading = ref(false) // 支付按钮加载状态
 let timer: NodeJS.Timeout | null = null
 let paymentStatusPollTimer: NodeJS.Timeout | null = null
 let pollCount = 0
@@ -233,6 +231,7 @@ const fetchOrderDetail = async () => {
 // 生成支付二维码或跳转支付页面
 const generateQRCode = async () => {
     if (!orderData.value || !paymentMethod.value) return
+    paymentLoading.value = true
 
     try {
         const response = await generatePaymentQRCode({
@@ -295,39 +294,34 @@ const generateQRCode = async () => {
                         // 尝试多种跳转方式
                         console.log('开始尝试跳转，URL:', fullUrl.substring(0, 100) + '...')
 
-                        // 方式1: 直接跳转
+                        // 方式1: 直接提交表单（最可靠的方法，支持POST）
                         try {
-                            window.location.href = fullUrl
-                            console.log('window.location.href 跳转已执行')
+                            console.log('尝试方式1: 直接渲染HTML表单跳转')
+                            // 创建一个隐藏的容器
+                            const container = document.createElement('div')
+                            container.style.display = 'none'
+                            container.innerHTML = response.data.paymentUrl
+                            document.body.appendChild(container)
+                            
+                            // 找到表单并提交
+                            const form = container.querySelector('form')
+                            if (form) {
+                                console.log('找到表单，准备提交到:', form.action)
+                                form.target = '_self'
+                                form.submit()
+                                return
+                            }
                         } catch (e) {
-                            console.error('window.location.href 失败:', e)
+                            console.error('方式1表单提交失败:', e)
                         }
 
-                        // 方式2: 使用 window.open 在当前窗口
-                        setTimeout(() => {
-                            try {
-                                window.open(fullUrl, '_self')
-                                console.log('window.open(_self) 跳转已执行')
-                            } catch (e) {
-                                console.error('window.open(_self) 失败:', e)
-                            }
-                        }, 500)
-
-                        // 方式3: 创建临时链接点击
-                        setTimeout(() => {
-                            try {
-                                const link = document.createElement('a')
-                                link.href = fullUrl
-                                link.target = '_self'
-                                link.style.display = 'none'
-                                document.body.appendChild(link)
-                                link.click()
-                                document.body.removeChild(link)
-                                console.log('临时链接点击已执行')
-                            } catch (e) {
-                                console.error('临时链接点击失败:', e)
-                            }
-                        }, 1000)
+                        // 方式2: 直接跳转（GET方式，可能失败）
+                        try {
+                            console.log('尝试方式2: GET跳转')
+                            window.location.href = fullUrl
+                        } catch (e) {
+                            console.error('方式2跳转失败:', e)
+                        }
 
                         qrCodeGenerated.value = true
                         startPaymentStatusPoll()
@@ -414,8 +408,10 @@ const generateQRCode = async () => {
                 duration: 8000
             })
         } else {
-            ElMessage.error('生成支付失败，请重试')
+            ElMessage.error('支付服务连接超时，请稍后重试')
         }
+    } finally {
+        paymentLoading.value = false
     }
 }
 
@@ -800,10 +796,13 @@ h1 {
     align-items: center;
 }
 
-.qr-code {
-    width: 200px;
-    height: 200px;
+.qr-code-wrapper {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     margin-bottom: 16px;
+    display: inline-block;
 }
 
 .qr-tip {

@@ -21,10 +21,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class AlipayCallbackController {
-    
+
     private final AlipayGateway alipayGateway;
     private final PaymentService paymentService;
-    
+
     /**
      * 支付宝异步通知处理
      */
@@ -32,7 +32,7 @@ public class AlipayCallbackController {
     public String notify(HttpServletRequest request) {
         try {
             log.info("收到支付宝异步通知");
-            
+
             // 获取回调参数
             Map<String, String> params = new HashMap<>();
             Map<String, String[]> requestParams = request.getParameterMap();
@@ -42,15 +42,17 @@ public class AlipayCallbackController {
                     params.put(name, values[0]);
                 }
             }
-            
-            log.info("支付宝回调参数: {}", params);
-            
+
+            log.info("支付宝回调参数: out_trade_no={}, trade_status={}, total_amount={}, trade_no={}",
+                    params.get("out_trade_no"), params.get("trade_status"),
+                    params.get("total_amount"), params.get("trade_no"));
+
             // 验证签名
             if (!alipayGateway.verifyNotify(params)) {
                 log.error("支付宝回调签名验证失败");
                 return "fail";
             }
-            
+
             // 处理回调
             PaymentNotifyResult result = alipayGateway.handleNotify(params);
             if (result.isSuccess()) {
@@ -62,10 +64,10 @@ public class AlipayCallbackController {
                 log.error("处理支付宝回调失败: {}", result.getMessage());
                 return "fail";
             }
-            
+
         } catch (Exception e) {
             log.error("处理支付宝回调异常", e);
             return "fail";
         }
     }
-} 
+}

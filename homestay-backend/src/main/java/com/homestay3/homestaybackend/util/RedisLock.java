@@ -13,6 +13,7 @@ import java.util.UUID;
 /**
  * Redis 分布式锁工具类
  * 使用 Lua 脚本实现原子性解锁，防止误删其他线程/节点的锁
+ * 当 Redis 不可用时自动降级为无锁模式（允许通过）
  */
 @Slf4j
 @Component
@@ -35,6 +36,7 @@ public class RedisLock {
 
     /**
      * 尝试获取分布式锁
+     * 当 Redis 不可用时，降级为直接返回 true（无锁模式），不阻塞业务流程
      *
      * @param key       锁的业务键（会自动添加 lock: 前缀）
      * @param requestId 请求标识，用于解锁时校验身份
@@ -53,8 +55,9 @@ public class RedisLock {
             }
             return acquired;
         } catch (Exception e) {
-            log.error("获取分布式锁异常: key={}", lockKey, e);
-            return false;
+            // Redis 不可用时降级为无锁模式，允许业务继续执行
+            log.warn("获取分布式锁异常（Redis可能不可用），降级为无锁模式: key={}, error={}", lockKey, e.getMessage());
+            return true;
         }
     }
 
@@ -82,8 +85,9 @@ public class RedisLock {
             }
             return released;
         } catch (Exception e) {
-            log.error("释放分布式锁异常: key={}", lockKey, e);
-            return false;
+            // Redis 不可用时忽略解锁失败
+            log.warn("释放分布式锁异常（Redis可能不可用）: key={}, error={}", lockKey, e.getMessage());
+            return true;
         }
     }
 

@@ -24,6 +24,8 @@ import com.homestay3.homestaybackend.service.gateway.AlipayGateway;
 import com.homestay3.homestaybackend.service.gateway.PaymentGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +43,11 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderRepository orderRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final RefundRecordRepository refundRecordRepository;
-    private final OrderService orderService;
+
+    @Autowired
+    @Lazy
+    private OrderService orderService;
+
     private final AlipayGateway alipayGateway;
     private final com.homestay3.homestaybackend.util.RedisLock redisLock;
 
@@ -65,10 +71,13 @@ public class PaymentServiceImpl implements PaymentService {
             String outTradeNo = generateOutTradeNo(orderId);
 
             // 创建支付请求
+            // 获取房源标题（防止懒加载 NPE）
+            String homestayTitle = order.getHomestay() != null ? order.getHomestay().getTitle() : "民宿";
+
             PaymentRequest request = PaymentRequest.builder()
                     .outTradeNo(outTradeNo)
                     .amount(order.getTotalAmount())
-                    .subject("民宿预订-" + order.getHomestay().getTitle())
+                    .subject("民宿预订-" + homestayTitle)
                     .body("订单号：" + order.getOrderNumber())
                     .orderId(orderId)
                     .build();
@@ -76,15 +85,9 @@ public class PaymentServiceImpl implements PaymentService {
             // 创建支付
             PaymentResponse response;
 
-            // 使用支付宝支付，优先二维码支付，失败则使用页面跳转支付
-            log.info("使用支付宝支付，订单ID: {}", orderId);
+            // 使用扫码支付，生成二维码供用户扫码
+            log.info("使用支付宝扫码支付，订单ID: {}", orderId);
             response = alipayGateway.createQRCodePayment(request);
-
-            // 如果二维码支付也失败，尝试页面跳转支付
-            if (!response.isSuccess()) {
-                log.warn("支付宝二维码支付失败，尝试页面跳转支付，订单ID: {}, 错误: {}", orderId, response.getMessage());
-                response = alipayGateway.createPagePayment(request);
-            }
 
             if (response.isSuccess()) {
                 // 保存支付记录
@@ -107,13 +110,17 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new RuntimeException("生成支付失败: " + response.getMessage());
             }
 
+        } catch (RuntimeException e) {
+            // 如果已经是带有明确错误信息的 RuntimeException，直接抛出
+            throw e;
         } catch (Exception e) {
             log.error("生成支付异常，订单ID: " + orderId, e);
-            throw new RuntimeException("生成支付失败", e);
+            throw new RuntimeException("生成支付失败: " + e.getMessage(), e);
         }
     }
 
     @Override
+    @Transactional(readOnly = true)
     public boolean checkPaymentStatus(Long orderId) {
         try {
             log.info("检查支付状态，订单ID: {}", orderId);
@@ -301,6 +308,13 @@ public class PaymentServiceImpl implements PaymentService {
             if (order.getPaymentStatus() != PaymentStatus.PAID
                     && order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
                 throw new IllegalStateException("订单支付状态不支持退款");
+            }
+
+            // 校验退款金额不超过订单总金额
+            if (request.getRefundAmount() != null
+                    && request.getRefundAmount().compareTo(order.getTotalAmount()) > 0) {
+                throw new IllegalArgumentException(
+                        "退款金额(" + request.getRefundAmount() + ")不能超过订单总金额(" + order.getTotalAmount() + ")");
             }
 
             PaymentRecord paymentRecord = paymentRecordRepository

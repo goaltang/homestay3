@@ -20,6 +20,7 @@ import com.homestay3.homestaybackend.repository.PaymentRecordRepository;
 import com.homestay3.homestaybackend.repository.RefundRecordRepository;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.gateway.AlipayGateway;
+import com.homestay3.homestaybackend.util.RedisLock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,8 +30,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -62,6 +65,9 @@ class PaymentServiceImplTest {
 
     @Mock
     private AlipayGateway alipayGateway;
+
+    @Mock
+    private RedisLock redisLock;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -112,6 +118,10 @@ class PaymentServiceImplTest {
         paymentRecord.setPaymentMethod("ALIPAY");
         paymentRecord.setAmount(new BigDecimal("400"));
         paymentRecord.setStatus("PENDING");
+
+        // 手动注入 @Autowired @Lazy 的 orderService（Mockito @InjectMocks 不处理 field
+        // injection）
+        ReflectionTestUtils.setField(paymentService, "orderService", orderService);
     }
 
     // ============================================================
@@ -333,10 +343,9 @@ class PaymentServiceImplTest {
         }
 
         @Test
-        @DisplayName("二维码失败后 fallback 到页面支付")
-        void generatePaymentQRCode_FallbackToPagePayment() {
+        @DisplayName("二维码生成失败 - 抛出异常")
+        void generatePaymentQRCode_QRCodeFailed() {
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-            when(orderRepository.save(any(Order.class))).thenReturn(order);
 
             // 二维码支付失败
             PaymentResponse qrFailed = PaymentResponse.builder()
@@ -345,21 +354,12 @@ class PaymentServiceImplTest {
                     .build();
             when(alipayGateway.createQRCodePayment(any())).thenReturn(qrFailed);
 
-            // 页面支付成功
-            PaymentResponse pageSuccess = PaymentResponse.builder()
-                    .success(true)
-                    .paymentUrl("<form action='https://openapi.alipay.com/gateway.do'>...</form>")
-                    .outTradeNo("HST_TEST_002")
-                    .message("页面生成成功")
-                    .build();
-            when(alipayGateway.createPagePayment(any())).thenReturn(pageSuccess);
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+                paymentService.generatePaymentQRCode(1L, "alipay");
+            });
 
-            String result = paymentService.generatePaymentQRCode(1L, "alipay");
-
-            assertNotNull(result);
-            assertTrue(result.contains("form"));
+            assertTrue(exception.getMessage().contains("生成支付失败"));
             verify(alipayGateway).createQRCodePayment(any());
-            verify(alipayGateway).createPagePayment(any());
         }
 
         @Test
@@ -395,26 +395,23 @@ class PaymentServiceImplTest {
         }
 
         @Test
-        @DisplayName("所有支付方式都失败 - 抛出异常")
-        void generatePaymentQRCode_AllMethodsFailed() {
+        @DisplayName("支付网关返回错误信息 - 抛出异常包含错误详情")
+        void generatePaymentQRCode_GatewayError() {
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
             PaymentResponse qrFailed = PaymentResponse.builder()
                     .success(false)
-                    .message("二维码失败")
-                    .build();
-            PaymentResponse pageFailed = PaymentResponse.builder()
-                    .success(false)
-                    .message("页面支付失败")
+                    .message("ISV权限不足")
+                    .errorCode("isv.insufficient-isv-permissions")
                     .build();
             when(alipayGateway.createQRCodePayment(any())).thenReturn(qrFailed);
-            when(alipayGateway.createPagePayment(any())).thenReturn(pageFailed);
 
             RuntimeException exception = assertThrows(RuntimeException.class, () -> {
                 paymentService.generatePaymentQRCode(1L, "alipay");
             });
 
-            assertTrue(exception.getMessage().contains("支付失败"));
+            assertTrue(exception.getMessage().contains("生成支付失败"));
+            assertTrue(exception.getMessage().contains("ISV权限不足"));
         }
 
         @Test
@@ -461,9 +458,16 @@ class PaymentServiceImplTest {
                     .build();
         }
 
+        private void mockRedisLockSuccess() {
+            when(redisLock.generateRequestId()).thenReturn("test-request-id");
+            when(redisLock.tryLock(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+            when(redisLock.unlock(anyString(), anyString())).thenReturn(true);
+        }
+
         @Test
         @DisplayName("正常回调处理成功")
         void handlePaymentNotify_Success() {
+            mockRedisLockSuccess();
             PaymentNotifyResult result = createNotifyResult();
             when(paymentRecordRepository.findByOutTradeNo("HST202401011200001001"))
                     .thenReturn(Optional.of(paymentRecord));
@@ -482,6 +486,7 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("重复回调 - 幂等跳过（已处理）")
         void handlePaymentNotify_DuplicateSkipped() {
+            mockRedisLockSuccess();
             PaymentNotifyResult result = createNotifyResult();
             paymentRecord.setStatus("SUCCESS"); // 已经处理过
             when(paymentRecordRepository.findByOutTradeNo("HST202401011200001001"))
@@ -497,6 +502,7 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("乐观锁冲突 - 安全跳过")
         void handlePaymentNotify_OptimisticLockConflict() {
+            mockRedisLockSuccess();
             PaymentNotifyResult result = createNotifyResult();
             when(paymentRecordRepository.findByOutTradeNo("HST202401011200001001"))
                     .thenReturn(Optional.of(paymentRecord));
@@ -510,6 +516,7 @@ class PaymentServiceImplTest {
         @Test
         @DisplayName("支付记录不存在 - 抛出异常")
         void handlePaymentNotify_RecordNotFound() {
+            mockRedisLockSuccess();
             PaymentNotifyResult result = createNotifyResult();
             when(paymentRecordRepository.findByOutTradeNo("HST202401011200001001"))
                     .thenReturn(Optional.empty());

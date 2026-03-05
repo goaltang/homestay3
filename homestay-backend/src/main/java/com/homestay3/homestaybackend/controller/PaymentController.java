@@ -17,9 +17,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class PaymentController {
-    
+
     private final PaymentService paymentService;
-    
+
     /**
      * 创建支付订单（生成二维码或支付页面）
      */
@@ -29,12 +29,12 @@ public class PaymentController {
             @RequestParam String method) {
         try {
             log.info("创建支付订单，订单ID: {}, 支付方式: {}", orderId, method);
-            
+
             String paymentData = paymentService.generatePaymentQRCode(orderId, method);
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
-            
+
             // 根据支付方式和返回数据的格式，决定返回的字段
             if ("alipay".equals(method) && paymentData != null && paymentData.contains("<form")) {
                 // 支付宝页面跳转支付，返回HTML表单
@@ -44,7 +44,7 @@ public class PaymentController {
             } else if (paymentData != null && paymentData.startsWith("http")) {
                 // 二维码支付，返回二维码URL
                 result.put("qrCode", paymentData);
-            result.put("message", "支付二维码生成成功");
+                result.put("message", "支付二维码生成成功");
                 log.info("支付二维码生成成功，订单ID: {}", orderId);
             } else {
                 // 其他情况，通用处理
@@ -55,7 +55,7 @@ public class PaymentController {
                 }
                 result.put("message", "支付生成成功");
             }
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("创建支付订单失败", e);
@@ -65,7 +65,7 @@ public class PaymentController {
             return ResponseEntity.ok(result);
         }
     }
-    
+
     /**
      * 查询支付状态
      */
@@ -73,14 +73,14 @@ public class PaymentController {
     public ResponseEntity<Map<String, Object>> checkPaymentStatus(@PathVariable Long orderId) {
         try {
             log.info("查询支付状态，订单ID: {}", orderId);
-            
+
             boolean isPaid = paymentService.checkPaymentStatus(orderId);
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("isPaid", isPaid);
             result.put("message", isPaid ? "支付成功" : "待支付");
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("查询支付状态失败", e);
@@ -90,9 +90,7 @@ public class PaymentController {
             return ResponseEntity.ok(result);
         }
     }
-    
 
-    
     /**
      * 模拟支付成功（仅用于测试）
      */
@@ -100,13 +98,13 @@ public class PaymentController {
     public ResponseEntity<Map<String, Object>> mockPaymentSuccess(@PathVariable Long orderId) {
         try {
             log.info("模拟支付成功，订单ID: {}", orderId);
-            
+
             paymentService.mockSuccessPayment(orderId);
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("message", "模拟支付成功");
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("模拟支付失败", e);
@@ -116,4 +114,4 @@ public class PaymentController {
             return ResponseEntity.ok(result);
         }
     }
-} 
+}
