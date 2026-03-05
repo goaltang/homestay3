@@ -120,7 +120,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public boolean checkPaymentStatus(Long orderId) {
         try {
             log.info("检查支付状态，订单ID: {}", orderId);
@@ -322,6 +322,12 @@ public class PaymentServiceImpl implements PaymentService {
                     .orElseThrow(() -> new ResourceNotFoundException("支付记录不存在"));
 
             request.setOutTradeNo(paymentRecord.getOutTradeNo());
+
+            // 如果请求的支付方式为空或是字符串"null"，从支付记录中获取（作为兼容历史遗留订单的兜底方案）
+            String pm = request.getPaymentMethod();
+            if (pm == null || pm.trim().isEmpty() || "null".equalsIgnoreCase(pm.trim())) {
+                request.setPaymentMethod(paymentRecord.getPaymentMethod());
+            }
 
             PaymentGateway gateway = selectPaymentGateway(request.getPaymentMethod());
             RefundResponse refundResponse = gateway.processRefund(request);

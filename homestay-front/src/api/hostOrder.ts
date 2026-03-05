@@ -112,3 +112,52 @@ export function cancelOrder(id: number, reason: string) {
     },
   });
 }
+
+/**
+ * 房东发起退款
+ * @param orderId 订单ID
+ * @param reason 退款原因
+ */
+export function hostInitiateRefund(orderId: number, reason: string) {
+  return request({
+    url: `/api/orders/${orderId}/refund`,
+    method: "post",
+    data: { reason },
+  });
+}
+
+/**
+ * 获取订单退款详情
+ * @param orderId 订单ID
+ */
+export function getRefundDetails(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/refund-details`,
+    method: "get",
+  });
+}
+/**
+ * 房东同意用户退款申请
+ * @param orderId 订单ID
+ * @param refundNote 同意备注
+ */
+export function hostApproveRefund(orderId: number, refundNote: string) {
+  return request({
+    url: `/api/orders/${orderId}/refund/approve`,
+    method: "post",
+    data: { refundNote },
+  });
+}
+
+/**
+ * 房东拒绝用户退款申请
+ * @param orderId 订单ID
+ * @param rejectReason 拒绝原因
+ */
+export function hostRejectRefund(orderId: number, rejectReason: string) {
+  return request({
+    url: `/api/orders/${orderId}/refund/reject`,
+    method: "post",
+    data: { rejectReason },
+  });
+}

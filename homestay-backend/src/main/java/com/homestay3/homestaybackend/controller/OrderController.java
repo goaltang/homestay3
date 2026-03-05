@@ -611,6 +611,79 @@ public class OrderController {
     }
 
     /**
+     * 房东审批（同意）用户发起的退款
+     */
+    @PostMapping("/{id}/refund/approve")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
+    public ResponseEntity<?> approveRefund(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> requestBody,
+            Authentication authentication) {
+        log.info("房东尝试同意退款，订单ID: {}", id);
+        try {
+            String refundNote = requestBody != null ? requestBody.getOrDefault("refundNote", "") : "";
+
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
+
+            OrderDTO updatedOrder = orderService.approveRefund(id, refundNote);
+            log.info("房东同意退款成功，订单ID: {}", id);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            log.warn("同意退款权限检查失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("房东同意退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "房东同意退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 房东拒绝用户发起的退款
+     */
+    @PostMapping("/{id}/refund/reject")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
+    public ResponseEntity<?> rejectRefund(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> requestBody,
+            Authentication authentication) {
+        log.info("房东尝试拒绝退款，订单ID: {}", id);
+        try {
+            String rejectReason = requestBody.getOrDefault("rejectReason", "");
+            if (rejectReason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "拒绝退款原因不能为空"));
+            }
+
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
+
+            OrderDTO updatedOrder = orderService.rejectRefund(id, rejectReason);
+            log.info("房东拒绝退款成功，订单ID: {}", id);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            log.warn("拒绝退款权限检查失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("房东拒绝退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "房东拒绝退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 检查日期可用性（调试用）
      */
     @PostMapping("/check-availability")

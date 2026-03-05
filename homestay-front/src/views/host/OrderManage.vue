@@ -254,7 +254,7 @@
                         {{ formatDateTime(scope.row.createTime || scope.row.createdTime) }}
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="240" fixed="right">
+                <el-table-column label="操作" width="280" fixed="right">
                     <template #default="scope">
                         <div class="action-buttons">
                             <el-button v-if="scope.row.status === 'PENDING'" type="success" size="small"
@@ -281,6 +281,16 @@
                             <el-button v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
                                 type="danger" @click="handleCancel(scope.row)">
                                 取消订单（将退款）
+                            </el-button>
+                            <el-button
+                                v-if="canInitiateRefund(scope.row)"
+                                type="danger" size="small" plain @click="handleRefund(scope.row)">
+                                发起退款
+                            </el-button>
+                            <el-button
+                                v-if="scope.row.paymentStatus === 'REFUND_PENDING'"
+                                type="warning" size="small" @click="handleReviewRefund(scope.row)">
+                                审核退款
                             </el-button>
                             <el-button type="warning" size="small" @click="handleDetails(scope.row)">
                                 详情
@@ -322,6 +332,11 @@
                             {{ getStatusText(currentOrder) }}
                         </el-tag>
                     </el-descriptions-item>
+                    <el-descriptions-item label="支付状态" :span="2">
+                        <el-tag :type="getPaymentStatusType(currentOrder.paymentStatus)" effect="plain">
+                            {{ getPaymentStatusText(currentOrder.paymentStatus) }}
+                        </el-tag>
+                    </el-descriptions-item>
                     <el-descriptions-item label="创建时间" :span="2">{{ currentOrder.createTime ||
                         currentOrder.createdTime
                         }}</el-descriptions-item>
@@ -329,6 +344,45 @@
                         currentOrder.remarks || '无'
                         }}</el-descriptions-item>
                 </el-descriptions>
+
+                <!-- 退款信息区域 -->
+                <div v-if="hasRefundInfo(currentOrder)" class="refund-info-section">
+                    <el-divider content-position="left">
+                        <el-icon><Warning /></el-icon>
+                        退款信息
+                    </el-divider>
+                    <el-descriptions :column="2" border size="small">
+                        <el-descriptions-item label="退款状态" :span="2">
+                            <el-tag :type="getPaymentStatusType(currentOrder.paymentStatus)" effect="dark" size="small">
+                                {{ getPaymentStatusText(currentOrder.paymentStatus) }}
+                            </el-tag>
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundType" label="退款类型">
+                            {{ getRefundTypeText(currentOrder.refundType) }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundAmount" label="退款金额">
+                            <span class="refund-amount">¥{{ currentOrder.refundAmount.toFixed(2) }}</span>
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundReason" label="退款原因" :span="2">
+                            {{ currentOrder.refundReason }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundInitiatedByName" label="退款发起人">
+                            {{ currentOrder.refundInitiatedByName }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundInitiatedAt" label="发起时间">
+                            {{ formatDateTime(currentOrder.refundInitiatedAt) }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundProcessedByName" label="退款处理人">
+                            {{ currentOrder.refundProcessedByName }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundProcessedAt" label="处理时间">
+                            {{ formatDateTime(currentOrder.refundProcessedAt) }}
+                        </el-descriptions-item>
+                        <el-descriptions-item v-if="currentOrder.refundTransactionId" label="退款交易号" :span="2">
+                            <el-tag size="small" type="info" effect="plain">{{ currentOrder.refundTransactionId }}</el-tag>
+                        </el-descriptions-item>
+                    </el-descriptions>
+                </div>
 
                 <!-- 操作按钮也需要 currentOrder 存在 -->
                 <div class="detail-actions" style="margin-top: 20px; text-align: right;">
@@ -356,6 +410,16 @@
                     <el-button v-if="currentOrder.status === 'PAID' || currentOrder.status === 'READY_FOR_CHECKIN'"
                         type="danger" @click="handleCancel(currentOrder)">
                         取消订单（将退款）
+                    </el-button>
+                    <el-button
+                        v-if="canInitiateRefund(currentOrder)"
+                        type="danger" plain @click="handleRefund(currentOrder)">
+                        发起退款
+                    </el-button>
+                    <el-button
+                        v-if="currentOrder.paymentStatus === 'REFUND_PENDING'"
+                        type="warning" @click="handleReviewRefund(currentOrder)">
+                        审核退款
                     </el-button>
                     <el-button @click="detailsDialogVisible = false">关闭</el-button>
                 </div>
@@ -394,6 +458,83 @@
                     <el-button @click="rejectDialogVisible = false">取消</el-button>
                     <el-button type="danger" @click="confirmReject" :loading="submitting">
                         确认拒绝订单
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 退款确认对话框 -->
+        <el-dialog v-model="refundDialogVisible" title="发起退款" width="45%">
+            <div v-if="currentOrder" class="refund-dialog-content">
+                <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #title>
+                        <span>确认对订单 <strong>#{{ currentOrder.id }}</strong> 发起退款？退款将原路退回给客户。</span>
+                    </template>
+                </el-alert>
+
+                <el-descriptions :column="1" border size="small" class="refund-order-info">
+                    <el-descriptions-item label="房源名称">{{ currentOrder.homestayTitle || currentOrder.homestayName }}</el-descriptions-item>
+                    <el-descriptions-item label="预订客户">{{ currentOrder.guestName }}</el-descriptions-item>
+                    <el-descriptions-item label="入住日期">{{ currentOrder.checkInDate }} 至 {{ currentOrder.checkOutDate }}</el-descriptions-item>
+                    <el-descriptions-item label="退款金额">
+                        <span class="refund-amount-highlight">¥{{ (currentOrder.totalPrice || currentOrder.totalAmount || 0).toFixed(2) }}</span>
+                        <el-tag size="small" type="info" effect="plain" style="margin-left: 8px;">全额退款</el-tag>
+                    </el-descriptions-item>
+                </el-descriptions>
+
+                <el-form :model="refundForm" ref="refundFormRef" style="margin-top: 20px;">
+                    <el-form-item label="退款原因" prop="reason"
+                        :rules="[{ required: true, message: '请输入退款原因', trigger: 'blur' }]">
+                        <el-input v-model="refundForm.reason" type="textarea" :rows="3"
+                            placeholder="请输入退款原因，例如：客户要求取消订单、房源临时不可用等" maxlength="200" show-word-limit />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="refundDialogVisible = false">取消</el-button>
+                    <el-button type="danger" @click="confirmRefund" :loading="refundSubmitting">
+                        确认发起退款
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 退款审核对话框 -->
+        <el-dialog v-model="reviewRefundDialogVisible" title="审核退款申请" width="45%">
+            <div v-if="currentOrder" class="refund-dialog-content">
+                <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #title>
+                        <span>请审核对订单 <strong>#{{ currentOrder.id }}</strong> 发起的退款申请。</span>
+                    </template>
+                </el-alert>
+
+                <el-descriptions :column="1" border size="small" class="refund-order-info">
+                    <el-descriptions-item label="退款原因">{{ currentOrder.refundReason || '无' }}</el-descriptions-item>
+                    <el-descriptions-item label="退款金额">
+                        <span class="refund-amount-highlight">¥{{ (currentOrder.refundAmount || currentOrder.totalAmount || 0).toFixed(2) }}</span>
+                    </el-descriptions-item>
+                </el-descriptions>
+
+                <el-form :model="reviewRefundForm" ref="reviewRefundFormRef" style="margin-top: 20px;">
+                    <el-form-item label="审核结果" required>
+                        <el-radio-group v-model="reviewRefundForm.action">
+                            <el-radio label="approve" value="approve">同意退款</el-radio>
+                            <el-radio label="reject" value="reject">拒绝退款</el-radio>
+                        </el-radio-group>
+                    </el-form-item>
+                    <el-form-item :label="reviewRefundForm.action === 'approve' ? '同意备注' : '拒绝原因'" prop="reason"
+                        :rules="[{ required: reviewRefundForm.action === 'reject', message: '请输入拒绝原因', trigger: 'blur' }]">
+                        <el-input v-model="reviewRefundForm.reason" type="textarea" :rows="3"
+                            :placeholder="reviewRefundForm.action === 'approve' ? '选填：同意退款备注' : '必填：请输入拒绝退款的原因'" maxlength="200" show-word-limit />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="reviewRefundDialogVisible = false">取消</el-button>
+                    <el-button :type="reviewRefundForm.action === 'approve' ? 'success' : 'danger'" @click="confirmReviewRefund" :loading="reviewRefundSubmitting">
+                        确认提交
                     </el-button>
                 </span>
             </template>
@@ -449,7 +590,10 @@ import {
     confirmOrder,
     rejectOrder,
     cancelOrder,
-    getHostOrderStats
+    getHostOrderStats,
+    hostInitiateRefund,
+    hostApproveRefund,
+    hostRejectRefund
 } from '@/api/hostOrder'
 import { getHostHomestayOptions } from '@/api/host'
 
@@ -553,6 +697,23 @@ const rejectForm = reactive({
     reason: ''
 })
 
+// 退款对话框相关
+const refundDialogVisible = ref(false)
+const refundFormRef = ref<FormInstance>()
+const refundSubmitting = ref(false)
+const refundForm = reactive({
+    reason: ''
+})
+
+// 审核退款相关
+const reviewRefundDialogVisible = ref(false)
+const reviewRefundFormRef = ref<FormInstance>()
+const reviewRefundSubmitting = ref(false)
+const reviewRefundForm = reactive({
+    action: 'approve',
+    reason: ''
+})
+
 // 处理筛选
 const handleFilter = () => {
     fetchOrders()
@@ -644,6 +805,61 @@ const getStatusType = (status: string) => {
         'REFUND_FAILED': 'danger'
     }
     return statusMap[status] || ''
+}
+
+// 判断是否可以发起退款
+const canInitiateRefund = (order: HostOrderItem) => {
+    // 已支付或已入住状态 + 支付状态为已支付（非退款中/已退款）
+    const refundableStatus = ['PAID', 'CHECKED_IN', 'CONFIRMED']
+    const isPaid = order.paymentStatus === 'PAID'
+    const isRefundableStatus = refundableStatus.includes(order.status)
+    return isRefundableStatus && isPaid
+}
+
+// 获取支付状态文本
+const getPaymentStatusText = (paymentStatus: string | null | undefined) => {
+    const map: Record<string, string> = {
+        'UNPAID': '未支付',
+        'PAID': '已支付',
+        'REFUND_PENDING': '退款处理中',
+        'REFUNDED': '已退款',
+        'REFUND_FAILED': '退款失败'
+    }
+    return map[paymentStatus || ''] || paymentStatus || '未知'
+}
+
+// 获取支付状态标签类型
+const getPaymentStatusType = (paymentStatus: string | null | undefined) => {
+    const map: Record<string, string> = {
+        'UNPAID': 'info',
+        'PAID': 'success',
+        'REFUND_PENDING': 'warning',
+        'REFUNDED': 'info',
+        'REFUND_FAILED': 'danger'
+    }
+    return map[paymentStatus || ''] || ''
+}
+
+// 获取退款类型文本
+const getRefundTypeText = (refundType: string | undefined) => {
+    const map: Record<string, string> = {
+        'USER_REQUESTED': '用户申请',
+        'HOST_CANCELLED': '房东取消',
+        'ADMIN_INITIATED': '管理员发起',
+        'SYSTEM_AUTOMATIC': '系统自动'
+    }
+    return map[refundType || ''] || refundType || '未知'
+}
+
+// 判断是否有退款信息
+const hasRefundInfo = (order: HostOrderItem | null) => {
+    if (!order) return false
+    return order.refundType ||
+        order.refundReason ||
+        order.refundAmount ||
+        order.refundInitiatedByName ||
+        order.refundProcessedByName ||
+        ['REFUND_PENDING', 'REFUNDED', 'REFUND_FAILED'].includes(order.paymentStatus || '')
 }
 
 // 展示订单详情
@@ -920,6 +1136,124 @@ const confirmReject = async () => {
                 ElMessage.error(error.response?.data?.message || error.message || '拒绝订单失败，请重试')
             } finally {
                 submitting.value = false
+            }
+        }
+    })
+}
+
+// 发起退款
+const handleRefund = (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    currentOrder.value = order
+    refundForm.reason = ''
+    refundDialogVisible.value = true
+}
+
+// 确认发起退款
+const confirmRefund = async () => {
+    if (!refundFormRef.value) return
+    if (!currentOrder.value) {
+        ElMessage.error('当前没有选中的订单')
+        return
+    }
+
+    await refundFormRef.value.validate(async (valid: boolean) => {
+        if (valid) {
+            refundSubmitting.value = true
+
+            try {
+                console.log('发起退款，订单ID:', currentOrder.value!.id, '原因:', refundForm.reason)
+                await hostInitiateRefund(currentOrder.value!.id, refundForm.reason)
+
+                // 更新本地数据
+                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
+                if (index !== -1) {
+                    orders.value[index].paymentStatus = 'REFUND_PENDING'
+                }
+
+                ElMessage.success('退款申请已提交，等待处理')
+                refundDialogVisible.value = false
+
+                if (detailsDialogVisible.value) {
+                    detailsDialogVisible.value = false
+                }
+
+                updateStats()
+                fetchOrders()
+            } catch (error: any) {
+                console.error('发起退款失败:', error)
+                ElMessage.error(error.response?.data?.error || error.message || '发起退款失败，请重试')
+            } finally {
+                refundSubmitting.value = false
+            }
+        }
+    })
+}
+
+// 审核退款
+const handleReviewRefund = (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    currentOrder.value = order
+    reviewRefundForm.action = 'approve'
+    reviewRefundForm.reason = ''
+    reviewRefundDialogVisible.value = true
+}
+
+// 确认审核退款
+const confirmReviewRefund = async () => {
+    if (!reviewRefundFormRef.value) return
+    if (!currentOrder.value) {
+        ElMessage.error('当前没有选中的订单')
+        return
+    }
+
+    await reviewRefundFormRef.value.validate(async (valid: boolean) => {
+        if (valid) {
+            reviewRefundSubmitting.value = true
+
+            try {
+                if (reviewRefundForm.action === 'approve') {
+                    console.log('同意退款，订单ID:', currentOrder.value!.id, '备注:', reviewRefundForm.reason)
+                    await hostApproveRefund(currentOrder.value!.id, reviewRefundForm.reason)
+                    ElMessage.success('已同意退款')
+                } else {
+                    console.log('拒绝退款，订单ID:', currentOrder.value!.id, '原因:', reviewRefundForm.reason)
+                    await hostRejectRefund(currentOrder.value!.id, reviewRefundForm.reason)
+                    ElMessage.success('已拒绝退款')
+                }
+
+                // 更新本地数据
+                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
+                if (index !== -1) {
+                    if (reviewRefundForm.action === 'approve') {
+                        orders.value[index].paymentStatus = 'REFUNDED'
+                    } else {
+                        // 拒绝后重置支付状态，最好刷新页面获取最新状态
+                        orders.value[index].paymentStatus = 'PAID'
+                    }
+                }
+
+                reviewRefundDialogVisible.value = false
+
+                if (detailsDialogVisible.value) {
+                    detailsDialogVisible.value = false
+                }
+
+                updateStats()
+                fetchOrders()
+            } catch (error: any) {
+                console.error('审核退款失败:', error)
+                ElMessage.error(error.response?.data?.error || error.message || '审核退款失败，请重试')
+            } finally {
+                reviewRefundSubmitting.value = false
             }
         }
     })
@@ -1475,5 +1809,34 @@ onMounted(() => {
     margin: 0;
     color: #666;
     line-height: 1.6;
+}
+
+/* 退款相关样式 */
+.refund-info-section {
+    margin-top: 20px;
+}
+
+.refund-info-section .el-divider__text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #e6a23c;
+    font-weight: 600;
+}
+
+.refund-amount {
+    color: #f56c6c;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.refund-dialog-content .refund-order-info {
+    margin-bottom: 10px;
+}
+
+.refund-amount-highlight {
+    color: #f56c6c;
+    font-weight: bold;
+    font-size: 18px;
 }
 </style>
