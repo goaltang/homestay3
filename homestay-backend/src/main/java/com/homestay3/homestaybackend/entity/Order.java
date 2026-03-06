@@ -97,6 +97,9 @@ public class Order {
     @Column(name = "refund_transaction_id")
     private String refundTransactionId;
 
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;

@@ -7,8 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -25,115 +25,126 @@ import java.util.concurrent.TimeUnit;
 public class BookingConflictService {
 
     private final OrderRepository orderRepository;
+    private final HomestayAvailabilityService availabilityService;
     private final RedissonClient redissonClient;
+    private final PlatformTransactionManager transactionManager;
 
     private static final String LOCK_KEY_PREFIX = "lock:homestay:%d:date:%s";
 
     /**
-     * 获取日期范围内的所有分布式锁
+     * 安全地创建订单（在 Redis 分布式锁保护下）
+     * 使用 RedissonMultiLock 确保多日期锁定的原子性
+     * 支持幂等性：如果传入 idempotencyKey 且已存在，则返回已存在的订单
      * 
-     * @param homestayId   房源ID
-     * @param checkInDate  入住日期
-     * @param checkOutDate 退房日期
-     * @return MultiLock 对象
+     * @param order 订单对象
+     * @param idempotencyKey 幂等性 key（可选）
+     * @return 保存的订单
      */
-    private RLock getDateRangeLock(Long homestayId, LocalDate checkInDate, LocalDate checkOutDate) {
-        List<RLock> locks = new ArrayList<>();
-        // 预订日期包含入住日，但不包含退房日（退房日当天其他人可以入住）
-        for (LocalDate date = checkInDate; date.isBefore(checkOutDate); date = date.plusDays(1)) {
-            String lockKey = String.format(LOCK_KEY_PREFIX, homestayId, date.toString());
-            locks.add(redissonClient.getLock(lockKey));
-        }
-        return redissonClient.getMultiLock(locks.toArray(new RLock[0]));
-    }
+    public Order safeCreateOrder(Order order, String idempotencyKey) {
+        Long homestayId = order.getHomestay().getId();
+        LocalDate checkIn = order.getCheckInDate();
+        LocalDate checkOut = order.getCheckOutDate();
 
-    /**
-     * 检查并防止日期冲突的预订
-     * 使用 Redis 分布式锁确保细粒度并发控制
-     * 
-     * @param homestayId   房源ID
-     * @param checkInDate  入住日期
-     * @param checkOutDate 退房日期
-     * @return 是否存在冲突
-     */
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    public boolean checkAndPreventConflict(Long homestayId, LocalDate checkInDate, LocalDate checkOutDate) {
-        RLock multiLock = getDateRangeLock(homestayId, checkInDate, checkOutDate);
+        // 幂等性检查：如果提供了 idempotencyKey，检查是否已存在
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Order existingOrder = orderRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
+            if (existingOrder != null) {
+                log.info("检测到重复请求，幂等返回已有订单: {}", existingOrder.getOrderNumber());
+                return existingOrder;
+            }
+        }
+
+        List<RLock> locks = new ArrayList<>();
 
         try {
-            // 尝试获取锁，等待时间 5s，租赁时间 30s（带看门狗自动续期）
-            boolean isLocked = multiLock.tryLock(5, 30, TimeUnit.SECONDS);
-            if (!isLocked) {
-                log.warn("无法获取房源 {} 在日期 {} 至 {} 的并发锁", homestayId, checkInDate, checkOutDate);
-                throw new RuntimeException("预订请求繁忙，请稍后重试");
+            // 1. 获取日期范围内的所有锁对象
+            for (LocalDate date = checkIn; date.isBefore(checkOut); date = date.plusDays(1)) {
+                String lockKey = String.format(LOCK_KEY_PREFIX, homestayId, date.toString());
+                locks.add(redissonClient.getLock(lockKey));
             }
 
-            log.debug("获取房源 {} 日期范围分布式锁成功", homestayId);
+            // 2. 使用 MultiLock 一次性锁定所有日期
+            RLock multiLock = redissonClient.getMultiLock(locks.toArray(new RLock[0]));
 
-            // 数据库层面的重叠检查
-            boolean hasConflict = orderRepository.existsOverlappingBooking(
-                    homestayId, checkInDate, checkOutDate);
+            boolean locked = false;
+            try {
+                // 尝试获取锁，等待10秒，锁定30秒
+                locked = multiLock.tryLock(10, 30, TimeUnit.SECONDS);
+                if (!locked) {
+                    throw new RuntimeException("获取房源日期锁超时，系统繁忙，请稍后重试");
+                }
 
-            if (hasConflict) {
-                log.warn("房源 {} 在日期 {} 至 {} 存在预订冲突", homestayId, checkInDate, checkOutDate);
-                // 如果发现冲突，提前释放锁
-                multiLock.unlock();
-                return true;
+                // 3. 在锁保护下执行数据库操作 (使用 TransactionTemplate 确保事务生效)
+                TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+                return transactionTemplate.execute(status -> executeInternal(order, idempotencyKey));
+            } finally {
+                // 确保锁在获取成功的情况下释放
+                if (locked) {
+                    multiLock.unlock();
+                }
             }
-
-            log.info("房源 {} 在日期 {} 至 {} 可以预订", homestayId, checkInDate, checkOutDate);
-            // 注意：这里由于锁是在 try 块外手动释放或依赖 finally 释放。
-            // 实际上，如果 checkAndPreventConflict 返回 false，锁应该被持有直到订单创建完成。
-            // 但原逻辑中 checkAndPreventConflict 和 safeCreateOrder 是分开调用的。
-            // 为了安全，我们让 checkAndPreventConflict 仅做检查，并立即释放锁。
-            // 真正的“原子性”应由 safeCreateOrder 来保证。
-            multiLock.unlock();
-            return false;
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("预订中断，请重试");
+            throw new RuntimeException("订单创建操作被中断");
         }
     }
 
     /**
-     * 安全地创建订单（在 Redis 分布式锁保护下）
+     * 安全地创建订单（无幂等性检查的版本）
      * 
      * @param order 订单对象
      * @return 保存的订单
      */
-    @Transactional(isolation = Isolation.SERIALIZABLE)
     public Order safeCreateOrder(Order order) {
+        return safeCreateOrder(order, null);
+    }
+
+    private Order executeInternal(Order order, String idempotencyKey) {
         Long homestayId = order.getHomestay().getId();
-        RLock multiLock = getDateRangeLock(homestayId, order.getCheckInDate(), order.getCheckOutDate());
+        
+        // 第一道防线：数据库查询检查
+        boolean hasConflict = orderRepository.existsOverlappingBooking(
+                homestayId, order.getCheckInDate(), order.getCheckOutDate());
 
-        try {
-            // 获取分布式锁
-            boolean isLocked = multiLock.tryLock(10, 30, TimeUnit.SECONDS);
-            if (!isLocked) {
-                throw new RuntimeException("预订系统繁忙，未能获得锁定，请稍后重试");
-            }
-
-            log.debug("在 Redis 锁保护下创建订单，房源ID: {}", homestayId);
-
-            // 最终冲突检查
-            boolean hasConflict = orderRepository.existsOverlappingBooking(
+        if (hasConflict) {
+            log.warn("订单创建失败：数据库检测到日期冲突 (homestayId={}, checkIn={}, checkOut={})",
                     homestayId, order.getCheckInDate(), order.getCheckOutDate());
-
-            if (hasConflict) {
-                throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
-            }
-
-            return orderRepository.save(order);
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("订单创建中断，请重试");
-        } finally {
-            if (multiLock.isHeldByCurrentThread()) {
-                multiLock.unlock();
-                log.debug("订单创建流程结束，释放房源 {} 日期分布式锁", homestayId);
-            }
+            throw new IllegalArgumentException("该日期已被预订，请选择其他日期");
         }
+
+        // 第二道防线（最后底线）：日历占用表检查
+        try {
+            availabilityService.createAvailabilityRecords(homestayId, order.getCheckInDate(), order.getCheckOutDate());
+            
+            boolean calendarConflict = availabilityService.hasOverlappingBooking(
+                    homestayId, order.getCheckInDate(), order.getCheckOutDate());
+            
+            if (calendarConflict) {
+                log.warn("订单创建失败：日历占用表检测到日期冲突 (homestayId={}, checkIn={}, checkOut={})",
+                        homestayId, order.getCheckInDate(), order.getCheckOutDate());
+                throw new IllegalArgumentException("该日期已被预订，请选择其他日期");
+            }
+            
+            // 标记日历为已预订
+            availabilityService.markAsBooked(order);
+        } catch (Exception e) {
+            if (e instanceof IllegalArgumentException) {
+                throw e;
+            }
+            log.warn("日历占用表操作失败，继续使用数据库检查结果: {}", e.getMessage());
+        }
+
+        // 设置幂等性 key
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            order.setIdempotencyKey(idempotencyKey);
+        }
+
+        Order savedOrder = orderRepository.save(order);
+        
+        log.info("订单创建成功并更新日历占用表: orderId={}, homestayId={}", 
+                savedOrder.getId(), homestayId);
+        
+        return savedOrder;
     }
 }

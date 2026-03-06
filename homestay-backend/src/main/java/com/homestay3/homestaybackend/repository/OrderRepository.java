@@ -22,6 +22,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
         Optional<Order> findByOrderNumber(String orderNumber);
 
+        Optional<Order> findByIdempotencyKey(String idempotencyKey);
+
         // 查找指定房东的订单
         @Query("SELECT o FROM Order o JOIN o.homestay h WHERE h.owner = :owner")
         Page<Order> findByOwner(@Param("owner") User owner, Pageable pageable);
