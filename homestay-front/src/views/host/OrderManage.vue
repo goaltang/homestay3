@@ -477,8 +477,8 @@
                     <el-descriptions-item label="预订客户">{{ currentOrder.guestName }}</el-descriptions-item>
                     <el-descriptions-item label="入住日期">{{ currentOrder.checkInDate }} 至 {{ currentOrder.checkOutDate }}</el-descriptions-item>
                     <el-descriptions-item label="退款金额">
-                        <span class="refund-amount-highlight">¥{{ (currentOrder.totalPrice || currentOrder.totalAmount || 0).toFixed(2) }}</span>
-                        <el-tag size="small" type="info" effect="plain" style="margin-left: 8px;">全额退款</el-tag>
+                        <span class="refund-amount-highlight">根据政策动态计算</span>
+                        <el-tag size="small" type="warning" effect="plain" style="margin-left: 8px;">可能扣除违约金</el-tag>
                     </el-descriptions-item>
                 </el-descriptions>
 

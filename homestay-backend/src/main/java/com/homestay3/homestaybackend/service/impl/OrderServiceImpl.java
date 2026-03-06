@@ -37,7 +37,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import jakarta.persistence.criteria.Join;
@@ -64,7 +63,6 @@ public class OrderServiceImpl implements OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
     @Override
-    @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderDTO createOrder(OrderDTO orderDTO) {
         log.info("开始创建订单: 用户={}, 房源={}, 入住日期={}, 退房日期={}",
                 getCurrentUser().getUsername(), orderDTO.getHomestayId(),
@@ -92,7 +90,7 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("退房日期不能早于入住日期");
         }
 
-        // 3. 计算住宿天数
+        // 4. 计算住宿天数
         long nights = ChronoUnit.DAYS.between(orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
         if (nights < homestay.getMinNights()) {
             throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
@@ -103,37 +101,6 @@ public class OrderServiceImpl implements OrderService {
         }
         if (orderDTO.getGuestCount() > homestay.getMaxGuests()) {
             throw new IllegalArgumentException("入住人数不能超过房源最大入住人数" + homestay.getMaxGuests() + "人");
-        }
-
-        // 4. 使用专业的并发控制服务检查冲突
-        boolean hasConflict = bookingConflictService.checkAndPreventConflict(
-                homestay.getId(), orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
-        if (hasConflict) {
-            // 查询具体冲突的订单信息，便于调试
-            log.error("房源 {} 在日期 {} 至 {} 存在预订冲突，用户：{}",
-                    homestay.getId(), orderDTO.getCheckInDate(), orderDTO.getCheckOutDate(),
-                    getCurrentUser().getUsername());
-
-            // 查询冲突订单详情
-            try {
-                var conflictOrders = orderRepository.findByHomestayIdAndStatusInOrderByCheckInDate(
-                        homestay.getId(),
-                        List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAID, OrderStatus.CHECKED_IN));
-
-                String conflictDetails = conflictOrders.stream()
-                        .filter(o -> !(o.getCheckOutDate().isBefore(orderDTO.getCheckInDate()) ||
-                                o.getCheckInDate().isAfter(orderDTO.getCheckOutDate())))
-                        .map(o -> String.format("订单%s[%s] (%s至%s)",
-                                o.getOrderNumber(), o.getStatus(), o.getCheckInDate(), o.getCheckOutDate()))
-                        .collect(java.util.stream.Collectors.joining(", "));
-
-                log.error("冲突订单详情: {}", conflictDetails.isEmpty() ? "未找到冲突订单(可能是并发问题)" : conflictDetails);
-
-            } catch (Exception e) {
-                log.error("查询冲突订单详情失败: {}", e.getMessage());
-            }
-
-            throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
         }
 
         // 5. 计算总价
