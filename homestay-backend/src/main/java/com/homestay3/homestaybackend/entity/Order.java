@@ -97,6 +97,9 @@ public class Order {
     @Column(name = "refund_transaction_id")
     private String refundTransactionId;
 
+    @Column(name = "refund_rejection_reason", length = 500)
+    private String refundRejectionReason; // 退款被拒绝时的原因
+
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;
 
