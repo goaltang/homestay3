@@ -88,6 +88,9 @@ public interface OrderService {
      */
     OrderDTO requestUserRefund(Long id, String reason);
     
+    // 获取退款预览（申请退款前预览退款金额和政策说明）
+    java.util.Map<String, Object> getRefundPreview(Long orderId);
+
     // 管理员删除订单
     void deleteOrder(Long id);
     

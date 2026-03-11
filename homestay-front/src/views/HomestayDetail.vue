@@ -103,6 +103,17 @@
 
             <el-divider />
 
+            <!-- 须知事项及规则组件 -->
+            <PoliciesAndRules 
+                v-if="homestay"
+                :check-in-time="homestay.checkInTime" 
+                :check-out-time="homestay.checkOutTime" 
+                :cancel-policy-type="homestay.cancelPolicyType" 
+                :house-rules="homestay.houseRules" 
+            />
+
+            <el-divider />
+
             <!-- 评价部分组件 -->
             <ReviewsSection :reviews="reviewsComposable.reviews.value"
                 :review-stats="reviewsComposable.reviewStats.value"
@@ -138,6 +149,7 @@ import LocationInfo from '@/components/homestay/LocationInfo.vue'
 import FeaturesList from '@/components/homestay/FeaturesList.vue'
 import AmenitiesList from '@/components/homestay/AmenitiesList.vue'
 import HostInfo from '@/components/homestay/HostInfo.vue'
+import PoliciesAndRules from '@/components/homestay/PoliciesAndRules.vue'
 
 // 基础状态
 const route = useRoute()

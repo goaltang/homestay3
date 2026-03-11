@@ -134,6 +134,20 @@
                                 </div>
                             </template>
 
+                            <!-- 退款被拒绝（paymentStatus=PAID 但有拒绝原因）-->
+                            <template
+                                v-else-if="order.paymentStatus === 'PAID' && order.refundRejectionReason">
+                                <div class="refund-rejected-banner">
+                                    <span class="rejected-icon">❌</span>
+                                    <span>退款被拒绝：{{ order.refundRejectionReason }}</span>
+                                </div>
+                                <el-button type="default" size="small"
+                                    @click="viewOrderDetail(order.id)">查看详情</el-button>
+                                <el-button type="primary" plain size="small">联系房东</el-button>
+                                <el-button type="warning" plain size="small"
+                                    @click="requestRefund(order.id)">再次申请退款</el-button>
+                            </template>
+
                             <!-- 已支付 (且未完成/未取消) -->
                             <template
                                 v-else-if="order.paymentStatus === 'PAID' && order.status !== 'COMPLETED' && order.status !== 'CANCELLED'">
@@ -246,6 +260,7 @@ interface OrderItem {
     refundProcessedByName?: string
     refundProcessedAt?: string
     refundTransactionId?: string
+    refundRejectionReason?: string  // 退款被拒绝时的原因
 }
 
 const router = useRouter()
@@ -418,7 +433,16 @@ const fetchOrders = async () => {
             paymentStatus: order.paymentStatus as PaymentStatus,
             createTime: order.createTime,
             updateTime: order.updateTime,
-            reviewed: order.reviewed ?? false
+            reviewed: order.reviewed ?? false,
+            refundType: order.refundType,
+            refundReason: order.refundReason,
+            refundAmount: order.refundAmount,
+            refundInitiatedByName: order.refundInitiatedByName,
+            refundInitiatedAt: order.refundInitiatedAt,
+            refundProcessedByName: order.refundProcessedByName,
+            refundProcessedAt: order.refundProcessedAt,
+            refundTransactionId: order.refundTransactionId,
+            refundRejectionReason: order.refundRejectionReason
         }));
 
         console.log('处理后的订单数据 (含reviewed):', orders.value);
@@ -652,6 +676,9 @@ const getStatusType = (order: OrderItem): string => {
     if (status === 'COMPLETED') return 'info'; // 已完成用 info
     if (status === 'PAYMENT_FAILED' || paymentStatus === 'PAYMENT_FAILED') return 'danger'; // 支付失败用 danger
 
+    // 退款被拒绝（paymentStatus 恢复为 PAID 但有拒绝原因）
+    if (paymentStatus === 'PAID' && order.refundRejectionReason) return 'danger';
+
     // 处理支付成功状态
     if (paymentStatus === 'PAID') {
         // 如果后端有 CHECKED_IN 状态
@@ -695,6 +722,9 @@ const getStatusText = (order: OrderItem): string => {
         const refundTypeText = getRefundTypeText(order.refundType);
         return `退款失败${refundTypeText}`;
     }
+
+    // 退款被拒绝（paymentStatus 恢复为 PAID 但有拒绝原因）
+    if (paymentStatus === 'PAID' && order.refundRejectionReason) return '退款被拒绝';
 
     // 优先处理最终/关键状态
     if (status?.startsWith('CANCELLED')) return '已取消';
@@ -1066,5 +1096,26 @@ onMounted(() => {
 
 .payment-reminder.warning {
     color: var(--el-color-warning);
+}
+
+/* 退款被拒绝横幅 */
+.refund-rejected-banner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: #fef0f0;
+    border: 1px solid #fde2e2;
+    border-left: 3px solid #f56c6c;
+    border-radius: 4px;
+    color: #f56c6c;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.rejected-icon {
+    flex-shrink: 0;
 }
 </style>

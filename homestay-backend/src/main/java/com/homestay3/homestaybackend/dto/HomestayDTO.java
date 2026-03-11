@@ -32,25 +32,25 @@ public class HomestayDTO {
     private String provinceCode;
     private String cityCode;
     private String districtCode;
-    
+
     @Builder.Default
     private List<AmenityDTO> amenities = new ArrayList<>();
-    
+
     private String description;
     private String coverImage;
-    
+
     @Builder.Default
     private List<String> images = new ArrayList<>();
-    
+
     @Builder.Default
     private List<SuggestedFeatureDTO> suggestedFeatures = new ArrayList<>();
-    
+
     private Long ownerId;
     private String ownerUsername;
     private String ownerName;
     private String ownerAvatar;
     private Double ownerRating;
-    
+
     // 扩展的房东信息字段
     private String ownerPhone;
     private String ownerEmail;
@@ -62,9 +62,15 @@ public class HomestayDTO {
     private LocalDateTime ownerHostSince;
     private Long ownerHomestayCount;
     private Double ownerHostRating;
-    
+
     private Boolean featured;
     private Boolean autoConfirm;
+
+    private String checkInTime;
+    private String checkOutTime;
+    private Integer cancelPolicyType;
+    private String houseRules;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-} 
+}

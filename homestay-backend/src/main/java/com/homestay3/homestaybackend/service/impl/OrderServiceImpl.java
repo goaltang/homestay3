@@ -583,6 +583,13 @@ public class OrderServiceImpl implements OrderService {
         return transitions.get(currentStatus).contains(targetStatus);
     }
 
+    /**
+     * 计算退款金额
+     * 根据房源取消政策（cancelPolicyType）和距离入住还剩多少小时来决定退款比例：
+     * 政策1（宽松）：24h前全额退；24h内扣首晚
+     * 政策2（普通，默认）：48h前全额退；24-48h退50%；24h内扣首晚
+     * 政策3（严格）：72h前全额退；72h内退50%
+     */
     private BigDecimal calculateRefundAmount(Order order) {
         if (order.getCheckInDate() == null || order.getTotalAmount() == null) {
             return BigDecimal.ZERO;
@@ -590,40 +597,144 @@ public class OrderServiceImpl implements OrderService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime checkInTime = order.getCheckInDate().atTime(14, 0); // 假设14:00入住
-
         long hoursBetween = java.time.Duration.between(now, checkInTime).toHours();
 
-        if (hoursBetween >= 48) {
-            // 入住前 48 小时以上取消，全额退款
-            order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + "退款测算: 距离入住大于48小时，提供全额退款。");
-            return order.getTotalAmount();
-        } else if (hoursBetween >= 24) {
-            // 入住前 24-48 小时内取消，扣除一半作为违约金
-            BigDecimal refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2,
-                    java.math.RoundingMode.HALF_UP);
-            order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + "退款测算: 距离入住不足48小时，扣除50%违约金。");
-            return refundAmt;
-        } else {
-            // 24小时内或已过入住时间取消，扣除首晚房费作为违约金
-            int nights = order.getNights() != null ? order.getNights() : 1;
-            if (nights <= 1) {
-                // 如果只订了一晚，或者无晚数记录，退0
-                order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "")
-                        + "退款测算: 距离入住不足24小时（或已入住），扣除首晚房费(定级仅1晚)，不予退款。");
-                return BigDecimal.ZERO;
+        // 读取房源取消政策类型（1=宽松，2=普通，3=严格），默认为2
+        int policyType = 2;
+        if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {
+            policyType = order.getHomestay().getCancelPolicyType();
+        }
+
+        BigDecimal refundAmt;
+        String policyNote;
+
+        if (policyType == 1) {
+            // 宽松政策：入住24小时前取消 → 全额退款；24小时内 → 扣除首晚
+            if (hoursBetween >= 24) {
+                refundAmt = order.getTotalAmount();
+                policyNote = "退款测算（宽松政策）: 距离入住大于24小时，提供全额退款。";
             } else {
-                // 退还剩余房费 (不退首晚)
-                BigDecimal averagePricePerNight = order.getTotalAmount().divide(new BigDecimal(nights), 2,
-                        java.math.RoundingMode.HALF_UP);
-                BigDecimal refundAmt = order.getTotalAmount().subtract(averagePricePerNight);
-                // 确保不会退负数
-                if (refundAmt.compareTo(BigDecimal.ZERO) < 0)
+                int nights = order.getNights() != null ? order.getNights() : 1;
+                if (nights <= 1) {
                     refundAmt = BigDecimal.ZERO;
-                order.setRemark(
-                        (order.getRemark() != null ? order.getRemark() + "\n" : "") + "退款测算: 距离入住不足24小时，扣除首晚房费作为违约金。");
-                return refundAmt;
+                    policyNote = "退款测算（宽松政策）: 距离入住不足24小时（仅1晚），不予退款。";
+                } else {
+                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                    policyNote = "退款测算（宽松政策）: 距离入住不足24小时，扣除首晚房费。";
+                }
+            }
+        } else if (policyType == 3) {
+            // 严格政策：入住72小时前取消 → 全额退款；72小时内 → 退款50%
+            if (hoursBetween >= 72) {
+                refundAmt = order.getTotalAmount();
+                policyNote = "退款测算（严格政策）: 距离入住大于72小时，提供全额退款。";
+            } else {
+                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+                policyNote = "退款测算（严格政策）: 距离入住不足72小时，退款50%。";
+            }
+        } else {
+            // 普通政策（默认policyType=2）：48h前全额退；24-48h退50%；24h内扣首晚
+            if (hoursBetween >= 48) {
+                refundAmt = order.getTotalAmount();
+                policyNote = "退款测算（普通政策）: 距离入住大于48小时，提供全额退款。";
+            } else if (hoursBetween >= 24) {
+                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+                policyNote = "退款测算（普通政策）: 距离入住24-48小时，退款50%。";
+            } else {
+                int nights = order.getNights() != null ? order.getNights() : 1;
+                if (nights <= 1) {
+                    refundAmt = BigDecimal.ZERO;
+                    policyNote = "退款测算（普通政策）: 距离入住不足24小时（仅1晚），不予退款。";
+                } else {
+                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                    policyNote = "退款测算（普通政策）: 距离入住不足24小时，扣除首晚房费。";
+                }
             }
         }
+
+        order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + policyNote);
+        return refundAmt;
+    }
+
+    /**
+     * 根据政策类型和距离入住时间，计算退款金额和对应说明（纯查询，不修改 order 备注）
+     */
+    private Map<String, Object> buildRefundPreviewInfo(Order order) {
+        if (order.getCheckInDate() == null || order.getTotalAmount() == null) {
+            return Map.of(
+                "estimatedRefundAmount", BigDecimal.ZERO,
+                "policyDescription", "无法计算退款金额（缺少入住日期或订单金额）"
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime checkInTime = order.getCheckInDate().atTime(14, 0);
+        long hoursBetween = java.time.Duration.between(now, checkInTime).toHours();
+
+        int policyType = 2;
+        if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {
+            policyType = order.getHomestay().getCancelPolicyType();
+        }
+
+        BigDecimal refundAmt;
+        String policyDescription;
+
+        if (policyType == 1) {
+            if (hoursBetween >= 24) {
+                refundAmt = order.getTotalAmount();
+                policyDescription = "宽松政策：距离入住超过24小时，可获得全额退款 ¥" + refundAmt;
+            } else {
+                int nights = order.getNights() != null ? order.getNights() : 1;
+                if (nights <= 1) {
+                    refundAmt = BigDecimal.ZERO;
+                    policyDescription = "宽松政策：距离入住不足24小时（仅1晚），不予退款";
+                } else {
+                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                    policyDescription = "宽松政策：距离入住不足24小时，扣除首晚房费，可退 ¥" + refundAmt;
+                }
+            }
+        } else if (policyType == 3) {
+            if (hoursBetween >= 72) {
+                refundAmt = order.getTotalAmount();
+                policyDescription = "严格政策：距离入住超过72小时，可获得全额退款 ¥" + refundAmt;
+            } else {
+                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+                policyDescription = "严格政策：距离入住不足72小时，退款50%，预计退款 ¥" + refundAmt;
+            }
+        } else {
+            if (hoursBetween >= 48) {
+                refundAmt = order.getTotalAmount();
+                policyDescription = "普通政策：距离入住超过48小时，可获得全额退款 ¥" + refundAmt;
+            } else if (hoursBetween >= 24) {
+                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+                policyDescription = "普通政策：距离入住24-48小时，退款50%，预计退款 ¥" + refundAmt;
+            } else {
+                int nights = order.getNights() != null ? order.getNights() : 1;
+                if (nights <= 1) {
+                    refundAmt = BigDecimal.ZERO;
+                    policyDescription = "普通政策：距离入住不足24小时（仅1晚），不予退款";
+                } else {
+                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                    policyDescription = "普通政策：距离入住不足24小时，扣除首晚房费，预计退款 ¥" + refundAmt;
+                }
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("estimatedRefundAmount", refundAmt);
+        result.put("totalAmount", order.getTotalAmount());
+        result.put("policyDescription", policyDescription);
+        result.put("policyType", policyType);
+        result.put("hoursBeforeCheckIn", hoursBetween);
+        return result;
     }
 
     @Override
@@ -1381,6 +1492,10 @@ public class OrderServiceImpl implements OrderService {
             order.setStatus(OrderStatus.PAID.name());
         }
 
+        // 保存拒绝原因到专有字段（用于前端展示）
+        order.setRefundRejectionReason(
+            rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
+
         // 添加拒绝原因到备注
         String rejectionNote = String.format("退款申请被拒绝 - 原因: %s",
                 rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
@@ -1786,7 +1901,35 @@ public class OrderServiceImpl implements OrderService {
                 .refundProcessedByName(refundProcessedByName)
                 .refundProcessedAt(order.getRefundProcessedAt())
                 .refundTransactionId(order.getRefundTransactionId())
+                .refundRejectionReason(order.getRefundRejectionReason())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getRefundPreview(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + orderId));
+
+        // 权限检查：只有订单相关方才能查看退款预览
+        User currentUser = getCurrentUser();
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权查看此订单的退款信息");
+        }
+
+        // 检查是否可以发起退款
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            return Map.of(
+                "eligible", false,
+                "message", "订单未处于可退款状态（当前支付状态: " + (order.getPaymentStatus() != null ? order.getPaymentStatus().name() : "未知") + "）"
+            );
+        }
+
+        Map<String, Object> preview = new HashMap<>(buildRefundPreviewInfo(order));
+        preview.put("eligible", true);
+        preview.put("orderId", orderId);
+        preview.put("orderNumber", order.getOrderNumber());
+        return preview;
     }
 
     // --- 添加私有辅助方法：转换 Review 到 ReviewDTO ---

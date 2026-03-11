@@ -46,3 +46,11 @@ export const completeRefund = (
     data: { refundTransactionId },
   });
 };
+
+// 获取退款预览信息（申请退款前查看预计退款金额）
+export const getRefundPreview = (orderId: number) => {
+  return request({
+    url: `/api/orders/${orderId}/refund-preview`,
+    method: "get",
+  });
+};

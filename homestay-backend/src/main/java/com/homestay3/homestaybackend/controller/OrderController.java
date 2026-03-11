@@ -684,6 +684,28 @@ public class OrderController {
     }
 
     /**
+     * 获取退款预览信息（申请退款前查看预计退款金额）
+     */
+    @GetMapping("/{id}/refund-preview")
+    public ResponseEntity<?> getRefundPreview(
+            @PathVariable Long id,
+            Authentication authentication) {
+        log.info("查询退款预览，订单ID: {}", id);
+        try {
+            Map<String, Object> preview = orderService.getRefundPreview(id);
+            return ResponseEntity.ok(preview);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("获取退款预览失败，订单ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "获取退款预览失败: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 检查日期可用性（调试用）
      */
     @PostMapping("/check-availability")

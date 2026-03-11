@@ -90,6 +90,18 @@ public class Homestay {
     @Builder.Default
     private Boolean autoConfirm = true;
 
+    @Column(name = "check_in_time", length = 50)
+    private String checkInTime;
+
+    @Column(name = "check_out_time", length = 50)
+    private String checkOutTime;
+
+    @Column(name = "cancel_policy_type")
+    private Integer cancelPolicyType;
+
+    @Column(name = "house_rules", columnDefinition = "TEXT")
+    private String houseRules;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

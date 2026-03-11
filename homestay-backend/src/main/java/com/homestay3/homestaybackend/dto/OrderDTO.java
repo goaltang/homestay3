@@ -53,4 +53,5 @@ public class OrderDTO {
     private String refundProcessedByName;
     private LocalDateTime refundProcessedAt;
     private String refundTransactionId;
+    private String refundRejectionReason; // 退款被拒绝时的原因
 } 

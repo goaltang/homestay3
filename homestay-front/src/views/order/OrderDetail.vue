@@ -97,6 +97,19 @@
             <div class="status-notice" v-else-if="isRefundStatus">
                 <el-alert :title="getRefundStatusTitle" :type="getRefundStatusType" :description="getRefundStatusDesc"
                     show-icon :closable="false" />
+                <!-- 进度提示条 -->
+                <div class="refund-progress-tip" v-if="orderData.paymentStatus === 'REFUND_PENDING'">
+                    <el-icon><Clock /></el-icon>
+                    <span>预计1-3个工作日内到账，退款将原路退回您的支付账户</span>
+                </div>
+                <div class="refund-progress-tip success" v-else-if="orderData.paymentStatus === 'REFUNDED'">
+                    <el-icon><CircleCheck /></el-icon>
+                    <span>退款已完成，资金已原路退回您的支付账户</span>
+                </div>
+                <div class="refund-progress-tip danger" v-else-if="orderData.paymentStatus === 'REFUND_FAILED'">
+                    <el-icon><CircleClose /></el-icon>
+                    <span>退款失败，请联系客服处理。如有拒绝原因请查看下方退款信息</span>
+                </div>
             </div>
 
 
@@ -148,6 +161,11 @@
                 <div v-if="orderData.refundAmount" class="info-item">
                     <span class="label">退款金额:</span>
                     <span class="refund-amount">¥{{ orderData.refundAmount }}</span>
+                </div>
+                <!-- 拒绝原因（退款被拒绝时显示） -->
+                <div v-if="orderData.refundRejectionReason" class="info-item rejection-reason-item">
+                    <span class="label">拒绝原因:</span>
+                    <span class="rejection-reason-text">❌ {{ orderData.refundRejectionReason }}</span>
                 </div>
                 <div v-if="orderData.refundProcessedByName" class="info-item">
                     <span class="label">处理人:</span>
@@ -289,14 +307,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Clock, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
 import { getOrderDetail, cancelOrder, generatePaymentQRCode, checkPayment, payOrder } from '../../api/order'
 import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
 import { deleteReview } from '@/api/review'
-import { requestRefund } from '@/api/refund'
+import { requestRefund, getRefundPreview } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
 import ReviewEditModal from '@/components/ReviewEditModal.vue'
 import OrderTimeoutIndicator from '@/components/order/OrderTimeoutIndicator.vue'
@@ -356,6 +374,7 @@ interface OrderData {
     refundProcessedByName?: string
     refundProcessedAt?: string
     refundTransactionId?: string
+    refundRejectionReason?: string  // 退款被拒绝时的原因
 }
 
 const route = useRoute()
@@ -884,19 +903,44 @@ const contactCustomerService = () => {
     ElMessage.info('客服热线：400-123-4567，工作时间：9:00-21:00')
 }
 
-// 确认申请退款
+// 确认申请退款（先展示预估退款金额，再让用户输入原因）
 const confirmRequestRefund = async () => {
+    if (!orderData.value) return
+
+    // 第一步：获取退款预览
+    let previewMsg = '正在计算预估退款金额...'
+    let estimatedAmount: number | null = null
+    let policyDesc = ''
+
+    try {
+        const previewRes = await getRefundPreview(orderData.value.id)
+        const previewData = previewRes.data
+        if (previewData && previewData.eligible !== false) {
+            estimatedAmount = previewData.estimatedRefundAmount
+            policyDesc = previewData.policyDescription || ''
+            previewMsg = `预计退款金额：¥${estimatedAmount}\n\n${policyDesc}`
+        } else if (previewData && previewData.message) {
+            ElMessage.warning(previewData.message)
+            return
+        }
+    } catch (e) {
+        console.warn('获取退款预览失败，继续申请流程', e)
+        previewMsg = '无法获取预估退款金额，提交后将按取消政策计算'
+    }
+
+    // 第二步：显示金额确认 + 输入原因
     try {
         const result = await ElMessageBox.prompt(
-            '请说明退款原因（必填）',
+            previewMsg + '\n\n请说明申请退款的原因（必填）',
             '申请退款',
             {
-                confirmButtonText: '提交申请',
+                confirmButtonText: '确认提交',
                 cancelButtonText: '取消',
                 inputPattern: /\S/,
                 inputErrorMessage: '退款原因不能为空',
                 inputPlaceholder: '请输入退款原因...',
-                type: 'warning'
+                type: 'warning',
+                dangerouslyUseHTMLString: false
             }
         )
 
@@ -914,7 +958,7 @@ const confirmRequestRefund = async () => {
         try {
             await requestRefund(orderData.value.id, result.value.trim())
             ElMessage.closeAll()
-            ElMessage.success('退款申请已提交，请耐心等待处理')
+            ElMessage.success('退款申请已提交，预计1-3个工作日内处理')
 
             // 刷新订单详情
             fetchOrderDetail()
@@ -1474,5 +1518,44 @@ h2::after {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+/* 退款进度提示条 */
+.refund-progress-tip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #fdf6ec;
+    border-left: 3px solid #e6a23c;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #e6a23c;
+}
+
+.refund-progress-tip.success {
+    background: #f0f9eb;
+    border-left-color: #67c23a;
+    color: #67c23a;
+}
+
+.refund-progress-tip.danger {
+    background: #fef0f0;
+    border-left-color: #f56c6c;
+    color: #f56c6c;
+}
+
+/* 退款拒绝原因 */
+.rejection-reason-item {
+    background: #fef0f0;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border-left: 3px solid #f56c6c;
+}
+
+.rejection-reason-text {
+    color: #f56c6c;
+    font-weight: 500;
 }
 </style>

@@ -25,6 +25,10 @@ export interface Homestay {
   ownerRating?: number;
   featured: boolean;
   autoConfirm?: boolean;
+  checkInTime?: string;
+  checkOutTime?: string;
+  cancelPolicyType?: number;
+  houseRules?: string;
   createdAt?: string;
   updatedAt?: string;
 }
