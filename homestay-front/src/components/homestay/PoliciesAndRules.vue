@@ -79,22 +79,23 @@ const props = defineProps<{
 
 const showRulesDrawer = ref(false)
 
-// 计算属性：生成退订政策标题
+// 计算属性：生成退订政策标题（与后端 OrderServiceImpl 保持一致）
+// policyType: 1=宽松, 2=普通, 3=严格
 const policyTitle = computed(() => {
   switch (props.cancelPolicyType) {
-    case 0: return '宽松'
-    case 1: return '适中'
-    case 2: return '严格'
+    case 1: return '宽松'
+    case 2: return '普通'
+    case 3: return '严格'
     default: return '标准'
   }
 })
 
-// 计算属性：生成退订政策描述
+// 计算属性：生成退订政策描述（与后端 calculateRefundAmount 逻辑一致）
 const policyDescription = computed(() => {
   switch (props.cancelPolicyType) {
-    case 0: return '入住前 1 天取消预订，可获全额退款。'
-    case 1: return '入住前 5 天取消预订，可获全额退款。'
-    case 2: return '入住前 14 天取消预订，可获全额退款。'
+    case 1: return '入住前 24 小时取消，可获全额退款；24 小时内取消，扣除首晚房费。'
+    case 2: return '入住前 48 小时取消，可获全额退款；24-48 小时内取消，退款 50%；24 小时内取消，扣除首晚房费。'
+    case 3: return '入住前 72 小时取消，可获全额退款；72 小时内取消，退款 50%。'
     default: return '请在预订时仔细确认取消政策。'
   }
 })
