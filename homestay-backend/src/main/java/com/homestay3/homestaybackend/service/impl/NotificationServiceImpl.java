@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 // import org.springframework.beans.factory.annotation.Autowired; // 使用构造函数注入，无需此注解
 import org.springframework.context.annotation.Lazy; // 引入 Lazy
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Optional; // 导入 Optional
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -110,8 +114,9 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         // 将 Page<Notification> 转换为 Page<NotificationDTO>
-        // 注意: map 操作内部调用 convertToDto，可能涉及多次数据库查询，考虑性能优化 (如批量查询)
-        return notificationPage.map(this::convertToDto);
+        // 使用批量转换优化性能，避免N+1查询问题
+        List<NotificationDTO> dtoList = convertToDtosBatch(notificationPage.getContent());
+        return new PageImpl<>(dtoList, pageable, notificationPage.getTotalElements());
     }
 
     @Override
@@ -184,6 +189,167 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     // --- 私有辅助方法 ---
+
+    /**
+     * 批量转换通知为DTO，使用批量查询优化性能
+     */
+    private List<NotificationDTO> convertToDtosBatch(List<Notification> notifications) {
+        if (notifications.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 收集所有需要查询的ID
+        Set<Long> actorIds = new HashSet<>();
+        Set<Long> orderIds = new HashSet<>();
+        Set<Long> homestayIds = new HashSet<>();
+        Set<Long> reviewIds = new HashSet<>();
+        Set<Long> userIdsForEntity = new HashSet<>();
+
+        for (Notification notification : notifications) {
+            // 收集actorId
+            if (notification.getActorId() != null) {
+                actorIds.add(notification.getActorId());
+            }
+
+            // 收集entityId根据类型
+            if (notification.getEntityType() != null && notification.getEntityId() != null) {
+                try {
+                    Long entityId = Long.parseLong(notification.getEntityId());
+                    switch (notification.getEntityType()) {
+                        case ORDER:
+                        case BOOKING:
+                            orderIds.add(entityId);
+                            break;
+                        case HOMESTAY:
+                            homestayIds.add(entityId);
+                            break;
+                        case REVIEW:
+                            reviewIds.add(entityId);
+                            break;
+                        case USER:
+                            userIdsForEntity.add(entityId);
+                            break;
+                        default:
+                            // 忽略其他类型
+                    }
+                } catch (NumberFormatException e) {
+                    log.warn("无法解析entityId: {} 对于通知ID: {}", notification.getEntityId(), notification.getId());
+                }
+            }
+        }
+
+        // 批量查询
+        Map<Long, User> actorMap = actorIds.isEmpty() ? Collections.emptyMap() :
+                userRepository.findAllById(actorIds).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        Map<Long, Order> orderMap = orderIds.isEmpty() ? Collections.emptyMap() :
+                orderRepository.findAllById(orderIds).stream()
+                        .collect(Collectors.toMap(Order::getId, Function.identity()));
+
+        Map<Long, Homestay> homestayMap = homestayIds.isEmpty() ? Collections.emptyMap() :
+                homestayRepository.findAllById(homestayIds).stream()
+                        .collect(Collectors.toMap(Homestay::getId, Function.identity()));
+
+        Map<Long, String> reviewHomestayTitleMap = new HashMap<>();
+        if (!reviewIds.isEmpty()) {
+            List<Object[]> reviewResults = reviewRepository.findHomestayTitlesByReviewIds(new ArrayList<>(reviewIds));
+            for (Object[] result : reviewResults) {
+                Long reviewId = (Long) result[0];
+                String title = (String) result[1];
+                reviewHomestayTitleMap.put(reviewId, title);
+            }
+        }
+
+        Map<Long, User> userEntityMap = userIdsForEntity.isEmpty() ? Collections.emptyMap() :
+                userRepository.findAllById(userIdsForEntity).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        // 转换每个通知
+        List<NotificationDTO> dtos = new ArrayList<>(notifications.size());
+        for (Notification notification : notifications) {
+            dtos.add(convertToDtoWithMaps(notification, actorMap, orderMap, homestayMap, reviewHomestayTitleMap, userEntityMap));
+        }
+
+        return dtos;
+    }
+
+    /**
+     * 使用预加载的映射数据转换单个通知
+     */
+    private NotificationDTO convertToDtoWithMaps(
+            Notification notification,
+            Map<Long, User> actorMap,
+            Map<Long, Order> orderMap,
+            Map<Long, Homestay> homestayMap,
+            Map<Long, String> reviewHomestayTitleMap,
+            Map<Long, User> userEntityMap) {
+
+        NotificationDTO dto = new NotificationDTO();
+        dto.setId(notification.getId());
+        dto.setUserId(notification.getUserId());
+        dto.setActorId(notification.getActorId());
+        dto.setType(notification.getType());
+        dto.setEntityType(notification.getEntityType());
+        dto.setEntityId(notification.getEntityId());
+        dto.setContent(notification.getContent());
+        dto.setRead(notification.isRead());
+        dto.setReadAt(notification.getReadAt());
+        dto.setCreatedAt(notification.getCreatedAt());
+
+        // 填充 actorUsername
+        if (notification.getActorId() != null) {
+            User actor = actorMap.get(notification.getActorId());
+            if (actor != null) {
+                dto.setActorUsername(actor.getUsername());
+            }
+        }
+
+        // 填充 entityTitle
+        if (notification.getEntityType() != null && notification.getEntityId() != null) {
+            try {
+                Long entityId = Long.parseLong(notification.getEntityId());
+                switch (notification.getEntityType()) {
+                    case ORDER:
+                    case BOOKING:
+                        Order order = orderMap.get(entityId);
+                        if (order != null) {
+                            dto.setEntityTitle("订单 " + order.getOrderNumber());
+                        }
+                        break;
+                    case HOMESTAY:
+                        Homestay homestay = homestayMap.get(entityId);
+                        if (homestay != null) {
+                            dto.setEntityTitle(homestay.getTitle());
+                        }
+                        break;
+                    case REVIEW:
+                        String title = reviewHomestayTitleMap.get(entityId);
+                        if (title != null) {
+                            dto.setEntityTitle(title);
+                        }
+                        break;
+                    case USER:
+                        User user = userEntityMap.get(entityId);
+                        if (user != null) {
+                            dto.setEntityTitle(user.getUsername());
+                        }
+                        break;
+                    default:
+                        log.debug("未处理的实体类型: {}", notification.getEntityType());
+                }
+            } catch (NumberFormatException e) {
+                log.warn("无法解析entityId '{}' 对于通知ID {}: {}",
+                        notification.getEntityId(), notification.getId(), e.getMessage());
+            }
+        }
+
+        return dto;
+    }
+
+    /**
+     * 单个通知转换（保留用于兼容性）
+     */
     private NotificationDTO convertToDto(Notification notification) {
         // log.info("[NotificationService] Converting notification ID: {}, isRead from entity: {}", notification.getId(), notification.isRead()); 
         NotificationDTO dto = new NotificationDTO();

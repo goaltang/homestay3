@@ -125,6 +125,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     // 根据评价ID查找关联的房源标题
     @Query("SELECT r.homestay.title FROM Review r WHERE r.id = :reviewId")
     Optional<String> findHomestayTitleByReviewId(@Param("reviewId") Long reviewId);
+
+    // 批量根据评价ID查找关联的房源标题
+    @Query("SELECT r.id, r.homestay.title FROM Review r WHERE r.id IN :reviewIds")
+    List<Object[]> findHomestayTitlesByReviewIds(@Param("reviewIds") List<Long> reviewIds);
     
     // 统计指定房源的评价数量
     @Query("SELECT COUNT(r) FROM Review r WHERE r.homestay.id = :homestayId")
