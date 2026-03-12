@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -31,10 +32,14 @@ public class AuthenticationService {
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            String jwt = jwtTokenProvider.generateToken(authentication);
 
             Admin admin = adminRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new UnauthorizedException("用户名或密码错误"));
+
+            String authorities = authentication.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.joining(","));
+            String jwt = jwtTokenProvider.generateToken(admin.getUsername(), admin.getId(), authorities);
 
             return AdminLoginResponse.builder()
                 .token(jwt)

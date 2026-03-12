@@ -105,6 +105,12 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
         
+        <!-- WebSocket 支持 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        
         <!-- Flyway 数据库迁移 -->
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -165,7 +171,7 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
+    
     <build>
         <plugins>
             <plugin>
@@ -213,5 +219,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

@@ -47,13 +47,18 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String username, String authorities) {
-        log.debug("生成JWT Token: 用户={}", username);
+        return generateToken(username, null, authorities);
+    }
+
+    public String generateToken(String username, Long userId, String authorities) {
+        log.debug("生成JWT Token: 用户={}, userId={}", username, userId);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         String token = Jwts.builder()
                 .setSubject(username)
                 .claim("authorities", authorities)
+                .claim("userId", userId)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSigningKey())
@@ -92,6 +97,21 @@ public class JwtTokenProvider {
             return authorities;
         } catch (Exception e) {
             log.error("从Token解析权限失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    public Long getUserIdFromToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            Integer userId = claims.get("userId", Integer.class);
+            return userId != null ? userId.longValue() : null;
+        } catch (Exception e) {
+            log.error("从Token解析userId失败: {}", e.getMessage());
             return null;
         }
     }

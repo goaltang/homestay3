@@ -18,7 +18,9 @@
 
             <!-- 订单状态流程提示 -->
             <div class="order-status-flow">
-                <el-steps :active="getStatusStep(orderData.status)" finish-status="success" simple>
+                <el-steps :active="getStatusStep(orderData.status)" 
+                          :process-status="['REJECTED', 'CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST'].includes(orderData.status) ? 'error' : (orderData.paymentStatus === 'PAID' && orderData.refundRejectionReason ? 'error' : 'process')"
+                          finish-status="success" simple>
                     <el-step title="预订申请" />
                     <el-step title="房东确认" />
                     <el-step title="支付订单" />
@@ -33,8 +35,8 @@
                     <h2>订单信息</h2>
                     <div class="header-right">
                         <span class="order-number">订单号: {{ orderData.orderNumber }}</span>
-                        <el-tag :type="getStatusType(orderData.status)" size="large" class="status-tag">
-                            {{ getStatusText(orderData.status, orderData.paymentStatus, orderData.refundType) }}
+                        <el-tag :type="getStatusType(orderData.status, orderData.paymentStatus, orderData.refundRejectionReason)" size="large" class="status-tag">
+                            {{ getStatusText(orderData.status, orderData.paymentStatus, orderData.refundType, orderData.refundRejectionReason) }}
                         </el-tag>
                     </div>
                 </div>
@@ -82,7 +84,7 @@
                 <el-alert title="房东已确认预订" type="success" description="请及时完成支付" show-icon :closable="false" />
                 <OrderTimeoutIndicator :order-id="orderData.id" :order-status="orderData.status as OrderStatus"
                     :create-time="orderData.createTime" :confirm-time="orderData.updateTime"
-                    :update-time="orderData.updateTime" @timeout="handleOrderTimeout" @warning="handleOrderWarning" />
+                    :update-time="orderData.updateTime" @timeout="fetchOrderDetail" @warning="handleOrderWarning" />
             </div>
 
             <div class="status-notice" v-else-if="orderData.status === 'REJECTED'">
@@ -119,8 +121,18 @@
                 <h2>{{ isRefundStatus ? '费用明细' : '价格详情' }}</h2>
                 <div class="price-item">
                     <span>每晚价格 x {{ orderData.nights }}晚</span>
-                    <span>¥{{ orderData.price * orderData.nights }}</span>
+                    <span>¥{{ Math.round(orderData.price * orderData.nights * 100) / 100 }}</span>
                 </div>
+                <div class="price-item" v-if="orderData.cleaningFee">
+                    <span>清洁费</span>
+                    <span>¥{{ orderData.cleaningFee }}</span>
+                </div>
+                <div class="price-item" v-if="orderData.serviceFee">
+                    <span>服务费</span>
+                    <span>¥{{ orderData.serviceFee }}</span>
+                </div>
+                <!-- 价格分割线 -->
+                <el-divider border-style="dashed" />
                 <div class="price-total">
                     <span>原始总价</span>
                     <span>¥{{ orderData.totalAmount }}</span>
@@ -223,10 +235,24 @@
 
             <!-- 按钮操作区 -->
             <div class="action-buttons">
+
+
                 <el-button @click="goToOrders">返回订单列表</el-button>
 
+                <!-- 退款被拒特有操作分支 -->
+                <template v-if="orderData.paymentStatus === 'PAID' && orderData.refundRejectionReason">
+                    <el-button type="default" plain @click="contactHost">联系房东</el-button>
+                    <el-button type="warning" plain @click="confirmRequestRefund">再次申请退款</el-button>
+                </template>
+
                 <!-- 非退款状态下的正常操作 -->
-                <template v-if="!isRefundStatus">
+                <template v-else-if="!isRefundStatus">
+                    <!-- 联系房东按钮：已支付且未完成的订单可以联系房东 -->
+                    <el-button type="default" plain
+                        v-if="orderData.paymentStatus === 'PAID' && !['COMPLETED', 'CANCELLED'].includes(orderData.status)"
+                        @click="contactHost">
+                        联系房东
+                    </el-button>
                     <el-button type="danger" plain v-if="canCancel" @click="confirmCancel">
                         取消订单
                     </el-button>
@@ -235,6 +261,9 @@
                     </el-button>
                     <el-button type="warning" plain v-if="canRequestRefund" @click="confirmRequestRefund">
                         申请退款
+                    </el-button>
+                    <el-button type="primary" plain v-if="orderData.status === 'COMPLETED' && !orderData.review" @click="openReviewModal">
+                        评价房源
                     </el-button>
                 </template>
 
@@ -246,6 +275,7 @@
                     </el-button>
                 </template>
             </div>
+
         </div>
 
         <!-- 支付对话框 -->
@@ -264,9 +294,9 @@
                             <qrcode-vue v-else :value="paymentQrCode" :size="200" level="H" />
                         </div>
                         <p class="payment-tip">请使用支付宝扫描二维码完成支付</p>
-                        
-                        <!-- 模拟支付入口 -->
-                        <div class="mock-pay-section">
+
+                        <!-- 模拟支付入口（仅开发环境显示） -->
+                        <div class="mock-pay-section" v-if="isDev">
                             <el-divider>测试专用</el-divider>
                             <el-button type="success" @click="handleManualPay" :loading="payLoading" icon="CircleCheck">
                                 模拟直接支付 (调用 payOrder API)
@@ -300,6 +330,11 @@
         <!-- Add Edit Modal -->
         <ReviewEditModal v-model:visible="isEditModalVisible" :review-data="currentEditingReview"
             @submitted="handleReviewUpdated" />
+
+        <!-- 评价模态框 (新增评价) -->
+        <ReviewForm v-if="orderData && !orderData.review" v-model:visible="reviewDialogVisible" :order-id="orderData.id"
+            :homestay-id="orderData.homestayId" :homestay-title="orderData.homestayTitle"
+            @submit="handleSubmitReview" />
     </div>
 </template>
 
@@ -317,6 +352,7 @@ import { deleteReview } from '@/api/review'
 import { requestRefund, getRefundPreview } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
 import ReviewEditModal from '@/components/ReviewEditModal.vue'
+import ReviewForm from '@/components/ReviewForm.vue'
 import OrderTimeoutIndicator from '@/components/order/OrderTimeoutIndicator.vue'
 import { OrderStatus } from '@/types/order'
 
@@ -355,6 +391,8 @@ interface OrderData {
     nights: number
     guestCount: number
     price: number
+    cleaningFee?: number
+    serviceFee?: number
     totalAmount: number
     status: string
     paymentStatus?: string
@@ -399,6 +437,17 @@ const payLoading = ref(false)
 // --- Add state for edit modal ---
 const isEditModalVisible = ref(false);
 const currentEditingReview = ref<EditableReviewData | null>(null);
+const reviewDialogVisible = ref(false);
+
+const openReviewModal = () => {
+    reviewDialogVisible.value = true;
+};
+
+const handleSubmitReview = (success: boolean) => {
+    if (success) {
+        fetchOrderDetail();
+    }
+};
 // --- End state ---
 
 // 获取当前登录用户ID
@@ -438,6 +487,7 @@ const fetchOrderDetail = async () => {
                 console.error('获取房源详情失败:', error);
             }
         }
+
     } catch (error: any) {
         console.error('获取订单详情失败:', error);
         ElMessage.error('获取订单详情失败，请重试');
@@ -481,11 +531,17 @@ const canRequestRefund = computed(() => {
     if (!orderData.value) return false
 
     // 只有已支付且未退款的订单可以申请退款
-    return (orderData.value.status === 'PAID' || orderData.value.paymentStatus === 'PAID') &&
-        orderData.value.paymentStatus !== 'REFUND_PENDING' &&
-        orderData.value.paymentStatus !== 'REFUNDED' &&
-        orderData.value.status !== 'COMPLETED' &&
-        orderData.value.status !== 'CANCELLED'
+    // 注意：订单状态 status 没有 PAID 值，应该只判断 paymentStatus
+    const isPaid = orderData.value.paymentStatus === 'PAID'
+    const notInRefund = !['REFUND_PENDING', 'REFUNDED', 'REFUND_FAILED'].includes(orderData.value.paymentStatus || '')
+    const notFinal = !['COMPLETED', 'CANCELLED'].includes(orderData.value.status)
+
+    return isPaid && notInRefund && notFinal
+})
+
+// 是否为开发环境
+const isDev = computed(() => {
+    return import.meta.env.DEV
 })
 
 // 计算是否为退款状态
@@ -549,6 +605,7 @@ const getStatusStep = (status: string) => {
     const statusSteps: Record<string, number> = {
         'PENDING': 1,       // 预订申请(步骤1)
         'CONFIRMED': 2,     // 房东确认(步骤2)
+        'PAYMENT_PENDING': 2, // 待支付(在确认后)
         'REJECTED': 1,      // 被拒绝(保持在步骤1)
         'CANCELLED': 1,     // 已取消(保持在步骤1)
         'CANCELLED_SYSTEM': 1, // 系统取消(保持在步骤1)
@@ -560,10 +617,15 @@ const getStatusStep = (status: string) => {
 }
 
 // 获取状态显示的类型
-const getStatusType = (status: string) => {
+const getStatusType = (status: string, paymentStatus?: string, refundRejectionReason?: string) => {
+    if (paymentStatus === 'PAID' && refundRejectionReason) {
+        return 'danger'
+    }
+
     const statusTypes: Record<string, string> = {
         'PENDING': 'warning',
         'CONFIRMED': 'success',
+        'PAYMENT_PENDING': 'warning',
         'REJECTED': 'danger',
         'CANCELLED': 'info',
         'CANCELLED_SYSTEM': 'info',
@@ -577,8 +639,11 @@ const getStatusType = (status: string) => {
 }
 
 // 获取状态显示文本
-const getStatusText = (status: string, paymentStatus?: string, refundType?: string) => {
+const getStatusText = (status: string, paymentStatus?: string, refundType?: string, refundRejectionReason?: string) => {
     // 优先处理退款相关状态
+    if (paymentStatus === 'PAID' && refundRejectionReason) {
+        return '退款被拒绝';
+    }
     if (paymentStatus === 'REFUND_PENDING') {
         const refundTypeText = getRefundTypeText(refundType);
         return `退款中${refundTypeText}`;
@@ -595,6 +660,7 @@ const getStatusText = (status: string, paymentStatus?: string, refundType?: stri
     const statusTexts: Record<string, string> = {
         'PENDING': '待确认',
         'CONFIRMED': '已确认',
+        'PAYMENT_PENDING': '待支付',
         'REJECTED': '已拒绝',
         'CANCELLED': '已取消',
         'CANCELLED_SYSTEM': '系统已取消',
@@ -902,6 +968,13 @@ const goToOrders = () => {
 const contactCustomerService = () => {
     ElMessage.info('客服热线：400-123-4567，工作时间：9:00-21:00')
 }
+
+// 联系房东
+const contactHost = () => {
+    if (!orderData.value) return
+    ElMessage.info('暂未开通实时聊天，具体联系方式请咨询平台客服')
+}
+
 
 // 确认申请退款（先展示预估退款金额，再让用户输入原因）
 const confirmRequestRefund = async () => {
@@ -1558,4 +1631,5 @@ h2::after {
     color: #f56c6c;
     font-weight: 500;
 }
+
 </style>

@@ -181,8 +181,11 @@ public class AuthServiceImpl implements AuthService {
             user.setLastLogin(LocalDateTime.now());
             userRepository.save(user);
 
-            // 生成 token，直接使用 Authentication 对象
-            String token = jwtTokenProvider.generateToken(authentication);
+            // 获取用户权限
+            String authorities = user.getRole();
+            
+            // 生成 token，传入 userId
+            String token = jwtTokenProvider.generateToken(user.getUsername(), user.getId(), authorities);
 
             // 返回认证响应
             AuthResponse response = new AuthResponse();
@@ -293,13 +296,7 @@ public class AuthServiceImpl implements AuthService {
         var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPassword())
-                .disabled(!user.isEnabled())
-                .build();
-        Authentication tempAuth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        String token = jwtTokenProvider.generateToken(tempAuth);
+        String token = jwtTokenProvider.generateToken(user.getUsername(), user.getId(), user.getRole());
         String resetLink = frontendUrl + "/reset-password?token=" + token;
 
         try {
@@ -355,18 +352,6 @@ public class AuthServiceImpl implements AuthService {
      */
     private String generateTokenForNewUser(User user) {
         log.info("为新注册用户 {} 生成令牌", user.getUsername());
-        // 手动创建 Authentication 对象或直接生成
-        // 这里我们直接调用 Provider 的另一个 generateToken 方法 (如果存在并合适)
-        // 假设 JwtTokenProvider 有一个接受 username 和 role 的方法
-        // 注意：这里可能需要调整，取决于 JwtTokenProvider 的具体实现
-        // 最好的方式是创建一个临时的 Authentication 对象
-        UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPassword()) // 密码虽然不需要验证，但构建 UserDetails 可能需要
-                .authorities(user.getRole())
-                .disabled(!user.isEnabled())
-                .build();
-        Authentication tempAuth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        return jwtTokenProvider.generateToken(tempAuth); // 使用 Provider
+        return jwtTokenProvider.generateToken(user.getUsername(), user.getId(), user.getRole());
     }
 } 

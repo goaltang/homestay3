@@ -8,7 +8,12 @@
       "Bash(CLAUDE_CODE_GIT_BASH_PATH=\"D:\\\\\\\\Git\\\\\\\\usr\\\\\\\\bin\\\\\\\\bash.exe\" claude mcp:*)",
       "Bash(cmd:*)",
       "Bash(powershell:*)",
-      "mcp__filesystem__list_allowed_directories"
+      "mcp__filesystem__list_allowed_directories",
+      "Bash(npm run:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(mvn compile:*)",
+      "Bash(mvn clean:*)"
     ]
   }
 }

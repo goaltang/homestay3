@@ -116,7 +116,7 @@ const goToAppropriateNotificationCenter = () => {
     if (route.path.startsWith('/host')) {
         router.push('/host/notifications');
     } else {
-        router.push('/notifications');
+        router.push('/user/notifications');
     }
 };
 
@@ -161,7 +161,7 @@ const navigateToEntityBasedOnRole = (entityType: string, entityId: string) => {
                 // 用户可能不需要处理 REVIEW 或其他类型的直接跳转，或者跳转到通用列表
                 default:
                     console.log(`用户视角：未知或无需跳转的实体类型 ${entityType}`);
-                    path = '/notifications'; // 跳转到用户通知中心
+                    path = '/user/notifications'; // 跳转到用户通知中心
             }
         }
 

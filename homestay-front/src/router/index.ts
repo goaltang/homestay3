@@ -204,18 +204,6 @@ const router = createRouter({
       meta: { title: "支付成功", requiresAuth: true },
     },
     {
-      path: "/payment-test",
-      name: "PaymentTest",
-      component: () => import("../views/order/PaymentTest.vue"),
-      meta: { title: "支付测试", requiresAuth: true, hideInMenu: true },
-    },
-    {
-      path: "/order-debug",
-      name: "OrderDebug",
-      component: () => import("../views/order/OrderDebug.vue"),
-      meta: { title: "订单调试", requiresAuth: true, hideInMenu: true },
-    },
-    {
       path: "/orders/submit-success/:id",
       name: "OrderSubmitSuccess",
       component: OrderSubmitSuccess,

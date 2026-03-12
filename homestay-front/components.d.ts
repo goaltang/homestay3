@@ -17,6 +17,7 @@ declare module 'vue' {
     BookingCard: typeof import('./src/components/homestay/BookingCard.vue')['default']
     CustomIcons: typeof import('./src/components/CustomIcons.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
+    ElAutocomplete: typeof import('element-plus/es')['ElAutocomplete']
     ElBadge: typeof import('element-plus/es')['ElBadge']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCard: typeof import('element-plus/es')['ElCard']

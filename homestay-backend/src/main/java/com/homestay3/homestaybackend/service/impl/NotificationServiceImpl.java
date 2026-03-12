@@ -11,6 +11,7 @@ import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.*; // 导入所有 repository
 import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.service.WebSocketService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 // import org.springframework.beans.factory.annotation.Autowired; // 使用构造函数注入，无需此注解
@@ -38,6 +39,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final HomestayRepository homestayRepository;
     private final OrderRepository orderRepository;
     private final ReviewRepository reviewRepository;
+    private final WebSocketService webSocketService;
 
     // 使用构造函数注入所有依赖
     // 添加 @Lazy 防止潜在的循环依赖 (例如 A -> B -> Notification -> A)
@@ -45,12 +47,14 @@ public class NotificationServiceImpl implements NotificationService {
                                    UserRepository userRepository,
                                    @Lazy HomestayRepository homestayRepository,
                                    @Lazy OrderRepository orderRepository,
-                                   @Lazy ReviewRepository reviewRepository) {
+                                   @Lazy ReviewRepository reviewRepository,
+                                   WebSocketService webSocketService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.homestayRepository = homestayRepository;
         this.orderRepository = orderRepository;
         this.reviewRepository = reviewRepository;
+        this.webSocketService = webSocketService;
     }
 
     @Override
@@ -69,15 +73,15 @@ public class NotificationServiceImpl implements NotificationService {
         Notification savedNotification = notificationRepository.save(notification);
         log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), userId, type);
 
-        // --- 实时推送 (可选) ---
-        // try {
-        //     NotificationDto dto = convertToDto(savedNotification);
-        //     webSocketService.sendNotificationToUser(userId, dto);
-        //     log.info("已通过 WebSocket 推送通知给用户: {}", userId);
-        // } catch (Exception e) {
-        //     log.error("WebSocket 推送通知失败: userId={}, error={}", userId, e.getMessage(), e);
-        //     // 推送失败不应影响主流程
-        // }
+        // --- 实时推送 ---
+        try {
+            NotificationDTO dto = convertToDtoWithFullData(savedNotification);
+            webSocketService.sendNotificationToUser(userId, dto);
+            log.info("已通过 WebSocket 推送通知给用户: {}", userId);
+        } catch (Exception e) {
+            log.error("WebSocket 推送通知失败: userId={}, error={}", userId, e.getMessage(), e);
+            // 推送失败不应影响主流程
+        }
         // --- 实时推送结束 ---
 
         return savedNotification;
@@ -180,16 +184,16 @@ public class NotificationServiceImpl implements NotificationService {
         int updatedCount = notificationRepository.markAllAsReadByUserId(userId);
         log.info("用户 {} 将 {} 条未读通知标记为已读", userId, updatedCount);
 
-        // --- 实时推送 (可选) ---
+        // --- 实时推送 ---
         // 如果标记了任何通知为已读，可以推送更新后的未读计数
-        // if (updatedCount > 0) {
-        //     try {
-        //         long newUnreadCount = getUnreadNotificationCount(userId);
-        //         webSocketService.sendUnreadCountToUser(userId, newUnreadCount);
-        //     } catch (Exception e) {
-        //         log.error("WebSocket 推送未读计数失败: userId={}, error={}", userId, e.getMessage(), e);
-        //     }
-        // }
+        if (updatedCount > 0) {
+            try {
+                long newUnreadCount = getUnreadNotificationCount(userId);
+                webSocketService.sendUnreadCountToUser(userId, newUnreadCount);
+            } catch (Exception e) {
+                log.error("WebSocket 推送未读计数失败: userId={}, error={}", userId, e.getMessage(), e);
+            }
+        }
         // --- 实时推送结束 ---
 
         return updatedCount;

@@ -420,12 +420,7 @@ import {
 import AmenitySelector from '@/components/AmenitySelector.vue'
 import type { Homestay } from '@/types/homestay'
 import PropertyTypeSelector from '@/components/PropertyTypeSelector.vue'
-import { detailedAuthCheck, getCurrentUser, isLoggedIn } from "@/utils/auth"
-import MarkdownEditor from "@/components/MarkdownEditor/index.vue"
-import UploadImage from "@/components/Upload/single-upload.vue"
-
-// 导入本地使用的checkAuthentication以避免命名冲突
-import { checkAuthentication as checkAuthAPI, ensureUserLoggedIn } from "@/utils/auth"
+import { detailedAuthCheck, getCurrentUser, isLoggedIn, checkAuthentication as checkAuthAPI, ensureUserLoggedIn } from "@/utils/auth"
 
 const route = useRoute()
 const router = useRouter()

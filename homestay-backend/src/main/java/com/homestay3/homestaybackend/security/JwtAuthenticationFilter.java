@@ -63,11 +63,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
                 String username = jwtTokenProvider.getUsernameFromToken(jwt);
+                Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
                 // 从 token 中获取权限字符串
                 String authoritiesString = jwtTokenProvider.getAuthoritiesFromToken(jwt);
-                log.debug("JWT Token有效, 用户名: {}, 权限字符串: {}", username, authoritiesString);
+                log.debug("JWT Token有效, 用户名: {}, userId: {}, 权限字符串: {}", username, userId, authoritiesString);
 
-                if (username != null && authoritiesString != null) {
+                if (userId != null && authoritiesString != null) {
                     // 解析权限字符串为 GrantedAuthority 列表
                     Collection<? extends GrantedAuthority> authorities = 
                         Arrays.stream(authoritiesString.split(","))
@@ -76,15 +77,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                               .collect(Collectors.toList());
                               
                     log.info("从Token解析出的权限: {}", authorities);
-                    
-                    // 可选：仍然加载 UserDetails 以获取其他信息 (例如 enabled 状态)，但权限使用 Token 中的
-                    // UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    // log.info("成功加载用户详情 (仅用于principal): {} 启用状态: {}", username, userDetails.isEnabled());
 
-                    // 创建认证令牌，使用从Token解析的用户名和权限
-                    // 注意：这里的 principal 可以是 username 字符串，也可以是加载的 userDetails 对象
+                    // 创建认证令牌，使用 userId 作为 principal
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            username, // 使用 username 作为 principal
+                            userId, // 使用 userId 作为 principal
                             null, 
                             authorities); // 使用从 Token 解析的权限
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

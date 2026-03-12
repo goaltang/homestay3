@@ -1865,6 +1865,11 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        // 计算明细费用
+        BigDecimal baseAmount = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(order.getNights())) : BigDecimal.ZERO;
+        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(0.1)) : BigDecimal.ZERO;
+        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+
         // 构建 OrderDTO
         return OrderDTO.builder()
                 .id(order.getId())
@@ -1879,6 +1884,8 @@ public class OrderServiceImpl implements OrderService {
                 .nights(order.getNights())
                 .guestCount(order.getGuestCount())
                 .price(order.getPrice())
+                .cleaningFee(cleaningFee)
+                .serviceFee(serviceFee)
                 .totalAmount(order.getTotalAmount())
                 .status(order.getStatus())
                 .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus().name() : null)

@@ -41,7 +41,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: true,
+    strictPort: false,
     hmr: {
       overlay: false,
     },
@@ -73,6 +73,7 @@ export default defineConfig({
     cors: true,
   },
   define: {
+    global: 'globalThis',
     "process.env": {
       NODE_ENV: JSON.stringify(process.env.NODE_ENV || "development"),
     },

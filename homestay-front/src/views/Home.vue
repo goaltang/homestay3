@@ -48,7 +48,6 @@ import SearchResults from '@/components/homestay/SearchResults.vue'
 import PersonalizedRecommendations from '@/components/homestay/PersonalizedRecommendations.vue'
 import RecommendedHomestays from '@/components/homestay/RecommendedHomestays.vue'
 import PopularHomestays from '@/components/homestay/PopularHomestays.vue'
-import HomestayListView from '@/components/homestay/HomestayListView.vue'
 import axios from 'axios'
 
 // 定义房源数据类型

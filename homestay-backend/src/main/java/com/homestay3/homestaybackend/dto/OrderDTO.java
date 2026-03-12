@@ -30,6 +30,8 @@ public class OrderDTO {
     private Integer nights;
     private Integer guestCount;
     private BigDecimal price;
+    private BigDecimal cleaningFee;
+    private BigDecimal serviceFee;
     private BigDecimal totalAmount;
     private String status;
     private String remark;
