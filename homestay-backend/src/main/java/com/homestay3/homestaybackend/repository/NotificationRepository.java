@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -74,5 +75,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      */
     @Query("SELECT n.id FROM Notification n WHERE n.userId = :userId AND n.isRead = false")
     List<Long> findUnreadNotificationIdsByUserId(@Param("userId") Long userId);
+
+    /**
+     * 删除已读取且超过指定天数的通知
+     * @param cutoffDate 截止日期
+     * @return 删除的记录数
+     */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.readAt < :cutoffDate")
+    int deleteReadNotificationsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
 
 } 

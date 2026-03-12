@@ -129,11 +129,10 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public boolean markAsRead(Long notificationId, Long userId) {
+    public NotificationDTO markAsRead(Long notificationId, Long userId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("通知", "id", notificationId));
 
-        // 权限验证：确保是通知的接收者才能标记为已读
         if (!notification.getUserId().equals(userId)) {
             log.warn("用户 {} 尝试标记不属于自己的通知 {}, 操作被拒绝", userId, notificationId);
             throw new AccessDeniedException("无法标记不属于您的通知");
@@ -142,13 +141,37 @@ public class NotificationServiceImpl implements NotificationService {
         if (!notification.isRead()) {
             notification.setRead(true);
             notification.setReadAt(LocalDateTime.now());
-            notificationRepository.save(notification);
+            notification = notificationRepository.save(notification);
             log.info("用户 {} 将通知 {} 标记为已读", userId, notificationId);
-            return true; // 状态确实发生了改变
         } else {
-            log.debug("通知 {} 已经是已读状态, 无需重复标记", notificationId);
-            return false; // 状态未改变
+            log.debug("通知 {} 已经是已读状态", notificationId);
         }
+
+        return convertToDtoWithFullData(notification);
+    }
+
+    @Override
+    @Transactional
+    public int markMultipleAsRead(List<Long> notificationIds, Long userId) {
+        if (notificationIds == null || notificationIds.isEmpty()) {
+            return 0;
+        }
+
+        List<Notification> notifications = notificationRepository.findAllById(notificationIds);
+        int count = 0;
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Notification notification : notifications) {
+            if (notification.getUserId().equals(userId) && !notification.isRead()) {
+                notification.setRead(true);
+                notification.setReadAt(now);
+                count++;
+            }
+        }
+
+        notificationRepository.saveAll(notifications);
+        log.info("用户 {} 批量标记 {} 条通知为已读", userId, count);
+        return count;
     }
 
     @Override
@@ -186,6 +209,15 @@ public class NotificationServiceImpl implements NotificationService {
 
         notificationRepository.delete(notification);
         log.info("用户 {} 删除了通知 {}", userId, notificationId);
+    }
+
+    @Override
+    @Transactional
+    public int cleanupOldNotifications(int days) {
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(days);
+        int deletedCount = notificationRepository.deleteReadNotificationsOlderThan(cutoffDate);
+        log.info("清理 {} 天前的已读通知，删除了 {} 条", days, deletedCount);
+        return deletedCount;
     }
 
     // --- 私有辅助方法 ---
@@ -348,10 +380,9 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     /**
-     * 单个通知转换（保留用于兼容性）
+     * 转换单个通知为DTO，包含完整的关联数据
      */
-    private NotificationDTO convertToDto(Notification notification) {
-        // log.info("[NotificationService] Converting notification ID: {}, isRead from entity: {}", notification.getId(), notification.isRead()); 
+    private NotificationDTO convertToDtoWithFullData(Notification notification) {
         NotificationDTO dto = new NotificationDTO();
         dto.setId(notification.getId());
         dto.setUserId(notification.getUserId());
@@ -359,55 +390,43 @@ public class NotificationServiceImpl implements NotificationService {
         dto.setType(notification.getType());
         dto.setEntityType(notification.getEntityType());
         dto.setEntityId(notification.getEntityId());
-        dto.setContent(notification.getContent()); // 保留原始内容作为后备
+        dto.setContent(notification.getContent());
         dto.setRead(notification.isRead());
         dto.setReadAt(notification.getReadAt());
         dto.setCreatedAt(notification.getCreatedAt());
 
-        // 填充 actorUsername
         if (notification.getActorId() != null) {
             userRepository.findById(notification.getActorId())
                     .ifPresent(actor -> dto.setActorUsername(actor.getUsername()));
         }
 
-        // 填充 entityTitle (根据 entityType 和 entityId)
         if (notification.getEntityType() != null && notification.getEntityId() != null) {
             try {
+                Long entityId = Long.parseLong(notification.getEntityId());
                 switch (notification.getEntityType()) {
                     case ORDER:
-                    case BOOKING: // BOOKING 和 ORDER 通常关联订单
-                        Long orderId = Long.parseLong(notification.getEntityId());
-                        orderRepository.findById(orderId)
+                    case BOOKING:
+                        orderRepository.findById(entityId)
                                 .ifPresent(order -> dto.setEntityTitle("订单 " + order.getOrderNumber()));
                         break;
                     case HOMESTAY:
-                        Long homestayId = Long.parseLong(notification.getEntityId());
-                        homestayRepository.findById(homestayId)
+                        homestayRepository.findById(entityId)
                                 .ifPresent(homestay -> dto.setEntityTitle(homestay.getTitle()));
                         break;
                     case REVIEW:
-                        Long reviewId = Long.parseLong(notification.getEntityId());
-                        // 对于评价，entityTitle 可以是关联的房源名称
-                        reviewRepository.findHomestayTitleByReviewId(reviewId)
+                        reviewRepository.findHomestayTitleByReviewId(entityId)
                                 .ifPresent(dto::setEntityTitle);
                         break;
                     case USER:
-                        // 如果实体是用户（例如关注通知），entityTitle 可以是用户名
-                        Long userId = Long.parseLong(notification.getEntityId());
-                        userRepository.findById(userId)
+                        userRepository.findById(entityId)
                                 .ifPresent(user -> dto.setEntityTitle(user.getUsername()));
                         break;
-                    // case SYSTEM:
-                    //     // 系统通知通常没有特定实体标题
-                    //     break;
                     default:
-                        log.warn("Unhandled entity type for title population: {}", notification.getEntityType());
+                        log.debug("未处理的实体类型: {}", notification.getEntityType());
                 }
             } catch (NumberFormatException e) {
-                log.error("Failed to parse entityId '{}' for entityType {} while converting notification to DTO",
-                        notification.getEntityId(), notification.getEntityType(), e);
-            } catch (Exception e) {
-                log.error("Error fetching entity details for notification DTO (id={}): {}", notification.getId(), e.getMessage(), e);
+                log.warn("无法解析entityId '{}' 对于通知ID {}: {}",
+                        notification.getEntityId(), notification.getId(), e.getMessage());
             }
         }
 

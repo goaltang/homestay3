@@ -1,9 +1,7 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.NotificationDTO;
-import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
-import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.util.UserUtil;
 import org.slf4j.Logger;
@@ -15,10 +13,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -29,22 +27,14 @@ public class NotificationController {
     private static final Logger log = LoggerFactory.getLogger(NotificationController.class);
 
     private final NotificationService notificationService;
-    private final UserRepository userRepository;
 
     @Autowired
-    public NotificationController(NotificationService notificationService, UserRepository userRepository) {
+    public NotificationController(NotificationService notificationService) {
         this.notificationService = notificationService;
-        this.userRepository = userRepository;
     }
 
-    private Long getCurrentUserIdByUsername() {
-        String username = UserUtil.getCurrentUsername();
-        if (username == null) {
-            throw new IllegalStateException("无法获取当前用户名");
-        }
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("用户 '" + username + "' 在数据库中未找到"));
-        return user.getId();
+    private Long getCurrentUserId() {
+        return UserUtil.getCurrentUserId();
     }
 
     /**
@@ -60,9 +50,9 @@ public class NotificationController {
             @RequestParam(required = false) NotificationType type,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Long currentUserId = getCurrentUserIdByUsername();
-        log.info("用户 ID {} (来自用户名 {}) 请求通知列表, isRead={}, type={}, page={}, size={}", 
-                 currentUserId, UserUtil.getCurrentUsername(), isRead, type, pageable.getPageNumber(), pageable.getPageSize());
+        Long currentUserId = getCurrentUserId();
+        log.info("用户 ID {} 请求通知列表, isRead={}, type={}, page={}, size={}", 
+                 currentUserId, isRead, type, pageable.getPageNumber(), pageable.getPageSize());
         
         Page<NotificationDTO> notificationPage = notificationService.getNotificationsForUser(currentUserId, isRead, type, pageable);
         
@@ -75,9 +65,9 @@ public class NotificationController {
      */
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Long>> getMyUnreadNotificationCount() {
-        Long currentUserId = getCurrentUserIdByUsername();
+        Long currentUserId = getCurrentUserId();
         long count = notificationService.getUnreadNotificationCount(currentUserId);
-        log.info("用户 ID {} (来自用户名 {}) 请求未读通知数量, 结果: {}", currentUserId, UserUtil.getCurrentUsername(), count);
+        log.info("用户 ID {} 请求未读通知数量, 结果: {}", currentUserId, count);
         Map<String, Long> response = new HashMap<>();
         response.put("unreadCount", count);
         return ResponseEntity.ok(response);
@@ -86,18 +76,29 @@ public class NotificationController {
     /**
      * 将指定通知标记为已读
      * @param notificationId 通知ID
-     * @return 操作结果
+     * @return 更新后的通知详情
      */
     @PostMapping("/{notificationId}/read")
-    public ResponseEntity<Void> markNotificationAsRead(@PathVariable Long notificationId) {
-        Long currentUserId = getCurrentUserIdByUsername();
-        log.info("用户 ID {} (来自用户名 {}) 尝试标记通知 {} 为已读", currentUserId, UserUtil.getCurrentUsername(), notificationId);
-        boolean success = notificationService.markAsRead(notificationId, currentUserId);
-        if (success) {
-            return ResponseEntity.ok().build();
-        } else {
-            return ResponseEntity.noContent().build();
-        }
+    public ResponseEntity<NotificationDTO> markNotificationAsRead(@PathVariable Long notificationId) {
+        Long currentUserId = getCurrentUserId();
+        log.info("用户 ID {} 尝试标记通知 {} 为已读", currentUserId, notificationId);
+        NotificationDTO notification = notificationService.markAsRead(notificationId, currentUserId);
+        return ResponseEntity.ok(notification);
+    }
+
+    /**
+     * 批量将多条通知标记为已读
+     * @param notificationIds 通知ID列表
+     * @return 成功标记的通知数量
+     */
+    @PostMapping("/read-multiple")
+    public ResponseEntity<Map<String, Integer>> markMultipleNotificationsAsRead(@RequestBody List<Long> notificationIds) {
+        Long currentUserId = getCurrentUserId();
+        log.info("用户 ID {} 尝试批量标记通知 {} 为已读", currentUserId, notificationIds);
+        int count = notificationService.markMultipleAsRead(notificationIds, currentUserId);
+        Map<String, Integer> response = new HashMap<>();
+        response.put("markedCount", count);
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -106,8 +107,8 @@ public class NotificationController {
      */
     @PostMapping("/read-all")
     public ResponseEntity<Map<String, Integer>> markAllNotificationsAsRead() {
-        Long currentUserId = getCurrentUserIdByUsername();
-        log.info("用户 ID {} (来自用户名 {}) 尝试标记所有未读通知为已读", currentUserId, UserUtil.getCurrentUsername());
+        Long currentUserId = getCurrentUserId();
+        log.info("用户 ID {} 尝试标记所有未读通知为已读", currentUserId);
         int updatedCount = notificationService.markAllAsRead(currentUserId);
         Map<String, Integer> response = new HashMap<>();
         response.put("markedCount", updatedCount);
@@ -121,8 +122,8 @@ public class NotificationController {
      */
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<Void> deleteNotification(@PathVariable Long notificationId) {
-        Long currentUserId = getCurrentUserIdByUsername();
-        log.info("用户 ID {} (来自用户名 {}) 尝试删除通知 {}", currentUserId, UserUtil.getCurrentUsername(), notificationId);
+        Long currentUserId = getCurrentUserId();
+        log.info("用户 ID {} 尝试删除通知 {}", currentUserId, notificationId);
         notificationService.deleteNotification(notificationId, currentUserId);
         return ResponseEntity.noContent().build();
     }

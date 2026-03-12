@@ -7,6 +7,8 @@ import com.homestay3.homestaybackend.model.enums.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface NotificationService {
 
     /**
@@ -47,9 +49,18 @@ public interface NotificationService {
      *
      * @param notificationId 通知ID
      * @param userId         当前操作的用户ID (用于权限验证)
-     * @return 操作是否成功
+     * @return 更新后的通知DTO
      */
-    boolean markAsRead(Long notificationId, Long userId);
+    NotificationDTO markAsRead(Long notificationId, Long userId);
+
+    /**
+     * 批量将多条通知标记为已读
+     *
+     * @param notificationIds 通知ID列表
+     * @param userId         当前操作的用户ID (用于权限验证)
+     * @return 成功标记的通知数量
+     */
+    int markMultipleAsRead(List<Long> notificationIds, Long userId);
 
     /**
      * 将指定用户的所有未读通知标记为已读
@@ -66,6 +77,14 @@ public interface NotificationService {
      * @param userId         当前操作的用户ID (用于权限验证)
      */
     void deleteNotification(Long notificationId, Long userId);
+
+    /**
+     * 清理过期通知 - 删除已读取且超过指定天数的通知
+     *
+     * @param days 保留天数（超过此天数的已读通知将被删除）
+     * @return 删除的通知数量
+     */
+    int cleanupOldNotifications(int days);
 
     // --- (可选) 辅助方法 --- 
     /**
