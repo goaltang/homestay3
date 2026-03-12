@@ -78,17 +78,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                               
                     log.info("从Token解析出的权限: {}", authorities);
 
-                    // 创建认证令牌，使用 userId 作为 principal
+                    // 创建 CustomUserDetails，同时包含 userId 和 username
+                    CustomUserDetails customUserDetails = new CustomUserDetails(
+                            userId, username, null, authorities);
+
+                    // 创建认证令牌，使用 CustomUserDetails 作为 principal
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            userId, // 使用 userId 作为 principal
+                            customUserDetails, // 使用 CustomUserDetails 作为 principal
                             null, 
                             authorities); // 使用从 Token 解析的权限
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     // 设置安全上下文
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    log.info("认证成功 (来自Token): 用户={}, 路径={}, 权限={}", 
-                            username, requestPath, authorities);
+                    log.info("认证成功 (来自Token): 用户={}, userId={}, 路径={}, 权限={}", 
+                            username, userId, requestPath, authorities);
                 } else {
                     log.warn("无法从 Token 中获取用户名或权限");
                 }
