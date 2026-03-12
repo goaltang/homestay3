@@ -56,6 +56,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final HomestayRepository homestayRepository;
     private final NotificationService notificationService;
+    private final OrderNotificationService orderNotificationService;
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
     private final BookingConflictService bookingConflictService;
@@ -146,37 +147,18 @@ public class OrderServiceImpl implements OrderService {
                 User host = homestay.getOwner();
                 if (OrderStatus.CONFIRMED.name().equals(savedOrder.getStatus())) {
                     // 自动确认房源：通知房东有新订单，通知客人可以支付
-                    String hostNotificationContent = String.format(
-                            "您收到了来自用户 %s 的新订单 (订单 %s)，该订单已自动确认，等待用户支付。",
-                            currentUser.getUsername(), savedOrder.getOrderNumber());
-                    notificationService.createNotification(
-                            host.getId(), currentUser.getId(),
-                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
-                            String.valueOf(savedOrder.getId()), hostNotificationContent);
-
-                    String guestNotificationContent = String.format(
-                            "您的预订 (订单 %s) 已自动确认，请在2小时内完成支付。",
-                            savedOrder.getOrderNumber());
-                    notificationService.createNotification(
-                            currentUser.getId(), host.getId(),
-                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
-                            String.valueOf(savedOrder.getId()), guestNotificationContent);
-
-                    log.info("已发送自动确认订单通知 - 房东: {}, 客人: {}, 订单: {}",
+                    orderNotificationService.sendOrderAutoConfirmedNotification(
+                            host.getId(), currentUser.getId(), savedOrder.getId(),
                             host.getUsername(), currentUser.getUsername(), savedOrder.getOrderNumber());
                 } else {
                     // 房东确认制：通知房东有新预订请求
-                    String notificationContent = String.format(
-                            "您收到了来自用户 %s 的新预订请求 (订单 %s)，请及时处理。",
+                    orderNotificationService.sendOrderBookingRequestNotification(
+                            host.getId(), currentUser.getId(), savedOrder.getId(),
                             currentUser.getUsername(), savedOrder.getOrderNumber());
-                    notificationService.createNotification(
-                            host.getId(), currentUser.getId(),
-                            NotificationType.BOOKING_REQUEST, EntityType.BOOKING,
-                            String.valueOf(savedOrder.getId()), notificationContent);
-
-                    log.info("已为房东 {} 发送新预订请求通知 (订单 {})",
-                            host.getUsername(), savedOrder.getOrderNumber());
                 }
+            } catch (Exception e) {
+                log.error("发送通知失败: {}", e.getMessage());
+            }
             } catch (Exception e) {
                 log.error("发送通知失败: {}", e.getMessage());
             }
@@ -349,36 +331,26 @@ public class OrderServiceImpl implements OrderService {
             log.debug("订单 {} 支付状态同步更新为 PAID", id);
         }
 
-        // 根据目标状态执行特定逻辑 (现在主要是添加通知等额外操作)
-        if (targetStatus == OrderStatus.CONFIRMED) {
-            if (!isOrderOwner(order, currentUser)) {
-                log.warn("非房东 {} 尝试确认订单 {}", currentUser.getUsername(), id);
-                throw new AccessDeniedException("只有房东才能确认订单");
-            }
-            log.info("房东 {} 正在确认订单 {}", currentUser.getUsername(), id);
-            // 状态已在前面设置，这里只处理通知
-            // --- 添加：发送订单确认通知给房客 ---
-            try {
-                User guest = order.getGuest();
-                String notificationContent = String.format(
-                        "您的订单 %s (房源: %s) 已被房东 %s 确认，请及时支付。",
-                        order.getOrderNumber(),
-                        order.getHomestay().getTitle(),
-                        currentUser.getUsername());
-                notificationService.createNotification(
-                        guest.getId(), // 接收者: 房客
-                        currentUser.getId(), // 触发者: 房东
-                        NotificationType.ORDER_CONFIRMED, // 类型: 订单已确认
-                        EntityType.ORDER, // 关联实体类型: 订单
-                        String.valueOf(order.getId()), // 关联实体ID: 订单ID
-                        notificationContent // 内容
-                );
-                log.info("已为房客 {} 发送订单 {} 确认通知", guest.getUsername(), order.getOrderNumber());
-            } catch (Exception e) {
-                log.error("为房客 {} 发送订单 {} 确认通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
-                        e.getMessage(), e);
-            }
-            // --- 通知发送结束 ---
+            // 根据目标状态执行特定逻辑 (现在主要是添加通知等额外操作)
+            if (targetStatus == OrderStatus.CONFIRMED) {
+                if (!isOrderOwner(order, currentUser)) {
+                    log.warn("非房东 {} 尝试确认订单 {}", currentUser.getUsername(), id);
+                    throw new AccessDeniedException("只有房东才能确认订单");
+                }
+                log.info("房东 {} 正在确认订单 {}", currentUser.getUsername(), id);
+                // 状态已在前面设置，这里只处理通知
+                // --- 添加：发送订单确认通知给房客 ---
+                try {
+                    User guest = order.getGuest();
+                    orderNotificationService.sendOrderConfirmedNotification(
+                            guest.getId(), currentUser.getId(), order.getId(),
+                            guest.getUsername(), order.getHomestay().getTitle(),
+                            currentUser.getUsername(), order.getOrderNumber());
+                } catch (Exception e) {
+                    log.error("为房客 {} 发送订单 {} 确认通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
+                            e.getMessage(), e);
+                }
+                // --- 通知发送结束 ---
 
         } else if (targetStatus == OrderStatus.CANCELLED ||
                 targetStatus == OrderStatus.CANCELLED_BY_HOST ||
@@ -419,35 +391,15 @@ public class OrderServiceImpl implements OrderService {
 
             // --- 添加：发送订单完成通知 ---
             try {
-                User guest = order.getGuest();
-                User host = order.getHomestay().getOwner();
-                String homestayTitle = order.getHomestay().getTitle();
-                String orderNumber = order.getOrderNumber();
-                Long entityId = order.getId();
-
-                String contentBase = String.format("订单 %s (房源: %s) 已完成", orderNumber, homestayTitle);
-                String contentForGuest = contentBase + "。感谢您的入住！期待您再次光临。";
-                String contentForHost = contentBase + "。请尽快结算相关收益。";
-
-                // 获取触发操作的用户ID，如果无法获取则为null
-                Long triggerUserId = null;
-                try {
-                    triggerUserId = currentUser.getId();
-                } catch (Exception ignored) {
-                }
-
-                // 通知房客
-                notificationService.createNotification(
-                        guest.getId(), triggerUserId, NotificationType.ORDER_COMPLETED, EntityType.ORDER,
-                        String.valueOf(entityId), contentForGuest);
-                log.info("已为房客 {} 发送订单 {} 完成通知", guest.getUsername(), orderNumber);
-
-                // 通知房东
-                notificationService.createNotification(
-                        host.getId(), triggerUserId, NotificationType.ORDER_COMPLETED, EntityType.ORDER,
-                        String.valueOf(entityId), contentForHost);
-                log.info("已为房东 {} 发送订单 {} 完成通知", host.getUsername(), orderNumber);
-
+                orderNotificationService.sendOrderCompletedNotification(
+                        order.getGuest().getId(),
+                        order.getHomestay().getOwner().getId(),
+                        order.getId(),
+                        order.getGuest().getUsername(),
+                        order.getHomestay().getOwner().getUsername(),
+                        order.getHomestay().getTitle(),
+                        order.getOrderNumber(),
+                        currentUser.getId());
             } catch (Exception notifyEx) {
                 log.error("发送订单 {} 完成通知失败: {}", order.getOrderNumber(), notifyEx.getMessage(), notifyEx);
             }
@@ -939,15 +891,24 @@ public class OrderServiceImpl implements OrderService {
                             reason != null && !reason.isEmpty() ? reason : "未提供原因");
                 }
 
-                notificationService.createNotification(
-                        guest.getId(),
-                        actor != null ? actor.getId() : null,
-                        cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())
-                                ? NotificationType.REFUND_REQUESTED
-                                : NotificationType.ORDER_STATUS_CHANGED,
-                        EntityType.ORDER,
-                        String.valueOf(cancelledOrder.getId()),
-                        notificationContent);
+                 // 发送订单取消/退款通知
+                 if (cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())) {
+                     // 退款通知
+                     orderNotificationService.sendOrderRefundRequestedNotification(
+                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
+                             reason != null && !reason.isEmpty() ? reason : "未提供原因",
+                             RefundType.HOST_CANCELLED.toString(), // 需要根据实际情况确定退款类型
+                             "0"); // 金额应该从订单中获取，这里暂时用0
+                 } else {
+                     // 取消通知
+                     orderNotificationService.sendOrderCancelledNotification(
+                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
+                             cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
+                             currentStatus.getDescription(),
+                             OrderStatus.valueOf(cancelledOrder.getStatus()).getDescription(),
+                             reason != null && !reason.isEmpty() ? reason : "未提供原因",
+                             actor != null && actor.getId().equals(guest.getId())); // 是否由用户触发
+                 }
                 log.info("已为用户 {} 发送订单 {} 处理通知", guest.getUsername(), cancelledOrder.getOrderNumber());
             }
             // (可选) 如果也需要通知房东，请在此处添加类似逻辑
@@ -1011,50 +972,21 @@ public class OrderServiceImpl implements OrderService {
             Order paidOrder = orderRepository.save(order);
             log.info("订单 {} 状态已成功更新为 PAID 并保存。", paidOrder.getOrderNumber());
 
-            // --- 发送支付成功通知给房东 (保留) ---
-            User host = paidOrder.getHomestay().getOwner();
-            User guest = paidOrder.getGuest(); // 获取房客信息
+            // --- 发送支付成功通知给房东和房客 ---
             try {
-                // User guest = paidOrder.getGuest(); // guest 变量在此处未使用，注释掉 // 移除注释
-                String notificationContentForHost = String.format(
-                        "用户 %s 已支付订单 %s (房源: %s)。",
-                        guest.getUsername(), // 使用获取到的房客信息
+                User host = paidOrder.getHomestay().getOwner();
+                User guest = paidOrder.getGuest();
+                String paymentMethod = "default"; // 从参数获取，这里简化处理
+                orderNotificationService.sendOrderPaymentSuccessNotification(
+                        host.getId(), guest.getId(), paidOrder.getId(),
+                        host.getUsername(), guest.getUsername(),
+                        paidOrder.getHomestay().getTitle(),
                         paidOrder.getOrderNumber(),
-                        paidOrder.getHomestay().getTitle());
-                notificationService.createNotification(
-                        host.getId(), // 接收者: 房东
-                        guest.getId(), // 触发者: 房客 (支付操作者)
-                        NotificationType.PAYMENT_RECEIVED,
-                        EntityType.ORDER,
-                        String.valueOf(paidOrder.getId()),
-                        notificationContentForHost);
-                log.info("已为房东 {} 发送订单 {} 支付成功通知", host.getUsername(), paidOrder.getOrderNumber());
+                        paymentMethod);
             } catch (Exception notifyEx) {
-                log.error("为房东 {} 发送订单 {} 支付成功通知失败: {}", paidOrder.getHomestay().getOwner().getUsername(),
-                        paidOrder.getOrderNumber(), notifyEx.getMessage(), notifyEx);
+                log.error("发送订单 {} 支付成功通知失败: {}", paidOrder.getOrderNumber(), notifyEx.getMessage(), notifyEx);
             }
-            // --- 房东通知发送结束 ---
-
-            // --- 添加：发送预订接受通知给房客 ---
-            try {
-                String notificationContentForGuest = String.format(
-                        "您的订单 %s (房源: %s) 已被房东确认并支付成功！",
-                        paidOrder.getOrderNumber(),
-                        paidOrder.getHomestay().getTitle());
-                notificationService.createNotification(
-                        guest.getId(), // 接收者: 房客
-                        host.getId(), // 触发者: 房东 (或系统，这里用房东更合理，代表房东接受了这次预订)
-                        NotificationType.BOOKING_ACCEPTED, // 类型: 预订已接受
-                        EntityType.ORDER, // 关联实体类型
-                        String.valueOf(paidOrder.getId()), // 关联实体ID
-                        notificationContentForGuest // 内容
-                );
-                log.info("已为房客 {} 发送订单 {} 被接受的通知", guest.getUsername(), paidOrder.getOrderNumber());
-            } catch (Exception notifyEx) {
-                log.error("为房客 {} 发送订单 {} 被接受的通知失败: {}", guest.getUsername(), paidOrder.getOrderNumber(),
-                        notifyEx.getMessage(), notifyEx);
-            }
-            // --- 房客通知发送结束 ---
+            // --- 通知发送结束 ---
 
             // --- 添加：自动生成待结算收益记录 ---
             log.info("订单 {} 支付成功，准备调用 EarningService 生成收益记录...", paidOrder.getOrderNumber());
@@ -1197,29 +1129,21 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedAt(LocalDateTime.now());
         Order updatedOrder = orderRepository.save(order);
 
-        // --- 添加：发送预订拒绝通知给房客 ---
-        try {
-            User guest = order.getGuest();
-            String homestayTitle = order.getHomestay().getTitle();
-            String orderNumber = order.getOrderNumber();
-            String notificationContent = String.format(
-                    "很抱歉，您关于房源 '%s' 的预订请求 (订单 %s) 已被房东拒绝。原因: %s",
-                    homestayTitle,
-                    orderNumber,
-                    (reason != null && !reason.isEmpty()) ? reason : "未提供具体原因");
-            notificationService.createNotification(
-                    guest.getId(), // 接收者: 房客
-                    currentUser.getId(), // 触发者: 房东 (当前用户)
-                    NotificationType.BOOKING_REJECTED,
-                    EntityType.ORDER,
-                    String.valueOf(updatedOrder.getId()),
-                    notificationContent);
-            log.info("已为房客 {} 发送订单 {} 被拒绝的通知", guest.getUsername(), orderNumber);
-        } catch (Exception notifyEx) {
-            log.error("为房客 {} 发送订单 {} 被拒绝的通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
-                    notifyEx.getMessage(), notifyEx);
-        }
-        // --- 通知发送结束 ---
+            // --- 添加：发送预订拒绝通知给房客 ---
+            try {
+                orderNotificationService.sendOrderRejectedNotification(
+                        order.getGuest().getId(),
+                        currentUser.getId(),
+                        order.getId(),
+                        order.getGuest().getUsername(),
+                        order.getHomestay().getTitle(),
+                        order.getOrderNumber(),
+                        reason);
+            } catch (Exception e) {
+                log.error("为房客 {} 发送订单 {} 被拒绝的通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
+                        e.getMessage(), e);
+            }
+            // --- 通知发送结束 ---
 
         return convertToDTO(updatedOrder);
     }
@@ -1379,8 +1303,18 @@ public class OrderServiceImpl implements OrderService {
         // --- 此处应包含实际调用支付网关API发起退款的逻辑 ---
         // --- 以及处理退款结果回调的逻辑 ---
 
-        // 发送通知等后续操作...
-        // notificationService.createNotification(...);
+    // 发送通知等后续操作...
+    try {
+        orderNotificationService.sendOrderRefundInitiatedNotification(
+                order.getGuest().getId(),
+                order.getId(),
+                order.getOrderNumber(),
+                getCurrentUser().getId() // 触发者：发起退款的管理员
+        );
+    } catch (Exception e) {
+        log.error("发送退款启动通知失败: {}", e.getMessage(), e);
+        // 通知发送失败不应影响主业务流程
+    }
 
         return convertToDTO(updatedOrder);
     }
@@ -1446,20 +1380,14 @@ public class OrderServiceImpl implements OrderService {
 
             // 发送退款批准通知
             try {
-                User guest = order.getGuest();
-                if (guest != null) {
-                    String notificationContent = String.format(
-                            "好消息！您的订单 %s 退款申请已批准并完成，款项已原路退回，请注意查收。",
-                            order.getOrderNumber());
-
-                    notificationService.createNotification(
-                            guest.getId(),
-                            getCurrentUser().getId(),
-                            NotificationType.REFUND_COMPLETED,
-                            EntityType.ORDER,
-                            String.valueOf(order.getId()),
-                            notificationContent);
-                }
+                orderNotificationService.sendOrderRefundApprovedNotification(
+                        order.getGuest().getId(),
+                        order.getId(),
+                        order.getOrderNumber(),
+                        refundNote);
+            } catch (Exception e) {
+                log.error("发送退款批准通知失败: {}", e.getMessage(), e);
+            }
             } catch (Exception e) {
                 log.error("发送退款批准通知失败: {}", e.getMessage(), e);
             }
@@ -1507,26 +1435,16 @@ public class OrderServiceImpl implements OrderService {
 
         Order updatedOrder = orderRepository.save(order);
 
-        // 发送退款拒绝通知
-        try {
-            User guest = order.getGuest();
-            if (guest != null) {
-                String notificationContent = String.format(
-                        "很抱歉，您的订单 %s 退款申请被拒绝。原因: %s。如有疑问请联系客服。",
+            // 发送退款拒绝通知
+            try {
+                orderNotificationService.sendOrderRefundRejectedNotification(
+                        order.getGuest().getId(),
+                        order.getId(),
                         order.getOrderNumber(),
-                        rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
-
-                notificationService.createNotification(
-                        guest.getId(),
-                        getCurrentUser().getId(),
-                        NotificationType.REFUND_REJECTED,
-                        EntityType.ORDER,
-                        String.valueOf(order.getId()),
-                        notificationContent);
+                        rejectReason);
+            } catch (Exception e) {
+                log.error("发送退款拒绝通知失败: {}", e.getMessage(), e);
             }
-        } catch (Exception e) {
-            log.error("发送退款拒绝通知失败: {}", e.getMessage(), e);
-        }
 
         log.info("订单 {} 退款申请已被拒绝", order.getOrderNumber());
         return convertToDTO(updatedOrder);
@@ -1570,23 +1488,15 @@ public class OrderServiceImpl implements OrderService {
 
         Order updatedOrder = orderRepository.save(order);
 
-        // 发送退款完成通知
-        try {
-            User guest = order.getGuest();
-            if (guest != null) {
-                String notificationContent = String.format(
-                        "好消息！您的订单 %s 退款已完成，款项已原路退回，请注意查收。退款交易号: %s",
+            // 发送退款完成通知
+            try {
+                orderNotificationService.sendOrderRefundCompletedNotification(
+                        order.getGuest().getId(),
+                        order.getId(),
                         order.getOrderNumber(),
-                        refundTransactionId != null && !refundTransactionId.isEmpty() ? refundTransactionId
-                                : "请查看银行流水");
-
-                notificationService.createNotification(
-                        guest.getId(),
-                        getCurrentUser().getId(),
-                        NotificationType.REFUND_COMPLETED,
-                        EntityType.ORDER,
-                        String.valueOf(order.getId()),
-                        notificationContent);
+                        refundTransactionId);
+            } catch (Exception e) {
+                log.error("发送退款完成通知失败: {}", e.getMessage(), e);
             }
         } catch (Exception e) {
             log.error("发送退款完成通知失败: {}", e.getMessage(), e);

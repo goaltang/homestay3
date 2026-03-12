@@ -11,7 +11,7 @@ import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.*; // 导入所有 repository
 import com.homestay3.homestaybackend.service.NotificationService;
-import com.homestay3.homestaybackend.service.WebSocketService;
+import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 // import org.springframework.beans.factory.annotation.Autowired; // 使用构造函数注入，无需此注解
@@ -39,22 +39,22 @@ public class NotificationServiceImpl implements NotificationService {
     private final HomestayRepository homestayRepository;
     private final OrderRepository orderRepository;
     private final ReviewRepository reviewRepository;
-    private final WebSocketService webSocketService;
+    private final WebSocketNotificationService webSocketNotificationService;
 
-    // 使用构造函数注入所有依赖
+// 使用构造函数注入所有依赖
     // 添加 @Lazy 防止潜在的循环依赖 (例如 A -> B -> Notification -> A)
     public NotificationServiceImpl(NotificationRepository notificationRepository,
-                                   UserRepository userRepository,
-                                   @Lazy HomestayRepository homestayRepository,
-                                   @Lazy OrderRepository orderRepository,
-                                   @Lazy ReviewRepository reviewRepository,
-                                   WebSocketService webSocketService) {
+                                    UserRepository userRepository,
+                                    @Lazy HomestayRepository homestayRepository,
+                                    @Lazy OrderRepository orderRepository,
+                                    @Lazy ReviewRepository reviewRepository,
+                                    WebSocketNotificationService webSocketNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.homestayRepository = homestayRepository;
         this.orderRepository = orderRepository;
         this.reviewRepository = reviewRepository;
-        this.webSocketService = webSocketService;
+        this.webSocketNotificationService = webSocketNotificationService;
     }
 
     @Override
@@ -76,7 +76,7 @@ public class NotificationServiceImpl implements NotificationService {
         // --- 实时推送 ---
         try {
             NotificationDTO dto = convertToDtoWithFullData(savedNotification);
-            webSocketService.sendNotificationToUser(userId, dto);
+            webSocketNotificationService.sendNotificationToUser(userId, dto);
             log.info("已通过 WebSocket 推送通知给用户: {}", userId);
         } catch (Exception e) {
             log.error("WebSocket 推送通知失败: userId={}, error={}", userId, e.getMessage(), e);
@@ -189,7 +189,7 @@ public class NotificationServiceImpl implements NotificationService {
         if (updatedCount > 0) {
             try {
                 long newUnreadCount = getUnreadNotificationCount(userId);
-                webSocketService.sendUnreadCountToUser(userId, newUnreadCount);
+                webSocketNotificationService.sendUnreadCountToUser(userId, newUnreadCount);
             } catch (Exception e) {
                 log.error("WebSocket 推送未读计数失败: userId={}, error={}", userId, e.getMessage(), e);
             }
