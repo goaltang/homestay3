@@ -159,9 +159,9 @@ public class OrderController {
             // log.debug("订单 {} 状态更新为 PENDING_PAYMENT (临时)", id);
 
             // 然后处理支付
-            log.info("准备调用 OrderService 处理订单 ID: {} 的支付...", id);
-            OrderDTO paidOrder = orderService.payOrder(id, paymentMethod);
-            log.info("OrderService 支付处理完成，订单 ID: {}, 返回结果: {}", id, paidOrder);
+            log.info("准备调用 PaymentProcessingService 处理订单 ID: {} 的支付...", id);
+            OrderDTO paidOrder = paymentProcessingService.processPayment(id, paymentMethod);
+            log.info("PaymentProcessingService 支付处理完成，订单 ID: {}, 返回结果: {}", id, paidOrder);
             return ResponseEntity.ok(paidOrder);
         } catch (IllegalArgumentException | AccessDeniedException e) {
             // 处理业务逻辑或权限错误

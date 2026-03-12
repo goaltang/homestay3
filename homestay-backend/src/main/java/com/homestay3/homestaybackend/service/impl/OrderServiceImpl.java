@@ -60,7 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
     private final BookingConflictService bookingConflictService;
-    private final PaymentService paymentService;
+    private final PaymentProcessingService paymentProcessingService;
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
     @Override

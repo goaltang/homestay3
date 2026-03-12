@@ -131,7 +131,7 @@ public class AdminOrderController {
     public ResponseEntity<?> confirmOrderPayment(@PathVariable Long id) {
         logger.info("管理员手动确认订单支付，ID: {}", id);
         try {
-            OrderDTO updatedOrder = orderService.confirmPayment(id);
+            OrderDTO updatedOrder = paymentProcessingService.confirmPayment(id);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
