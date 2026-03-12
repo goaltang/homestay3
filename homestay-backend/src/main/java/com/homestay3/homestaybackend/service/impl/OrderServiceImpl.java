@@ -1283,121 +1283,15 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDTO initiateRefund(Long id /* , RefundRequest refundRequest */) {
         log.info("管理员发起退款流程，订单ID: {}", id);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
-
-        // 简单校验：通常只有已支付的订单才能发起退款
-        if (order.getPaymentStatus() != PaymentStatus.PAID) {
-            log.warn("订单 {} 的支付状态为 {}，不能发起退款", id, order.getPaymentStatus());
-            throw new IllegalStateException("只有已支付的订单才能发起退款");
-        }
-
-        // 更新支付状态为退款中
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-        // 可选：订单状态也可能需要调整，取决于业务逻辑
-        // order.setStatus(OrderStatus.REFUND_PENDING.name());
-
-        Order updatedOrder = orderRepository.save(order);
-        log.info("订单 {} 已标记为退款中", id);
-
-        // --- 此处应包含实际调用支付网关API发起退款的逻辑 ---
-        // --- 以及处理退款结果回调的逻辑 ---
-
-    // 发送通知等后续操作...
-    try {
-        orderNotificationService.sendOrderRefundInitiatedNotification(
-                order.getGuest().getId(),
-                order.getId(),
-                order.getOrderNumber(),
-                getCurrentUser().getId() // 触发者：发起退款的管理员
-        );
-    } catch (Exception e) {
-        log.error("发送退款启动通知失败: {}", e.getMessage(), e);
-        // 通知发送失败不应影响主业务流程
+        return paymentProcessingService.initiateRefund(id);
     }
 
-        return convertToDTO(updatedOrder);
-    }
-
+    @Override
     @Override
     @Transactional
     public OrderDTO approveRefund(Long id, String refundNote) {
         log.info("管理员批准退款申请，订单ID: {}, 备注: {}", id, refundNote);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
-
-        // 检查当前状态
-        if (order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
-            throw new IllegalStateException("只有退款中的订单才能批准退款");
-        }
-
-        // 调用支付网关退款API
-        try {
-            RefundRequest refundRequest = RefundRequest.builder()
-                    .orderId(order.getId())
-                    .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount())
-                    .refundReason(order.getRefundReason())
-                    .refundType(order.getRefundType())
-                    .paymentMethod(order.getPaymentMethod())
-                    .build();
-
-            RefundResponse refundResponse = paymentService.processRefund(refundRequest);
-
-            if (!refundResponse.isSuccess()) {
-                throw new RuntimeException("退款失败: " + refundResponse.getMessage());
-            }
-
-            // 更新退款交易号
-            order.setRefundTransactionId(refundResponse.getRefundTradeNo());
-
-            // 批准退款后直接标记为已退款
-            order.setPaymentStatus(PaymentStatus.REFUNDED);
-
-            // 如果订单状态也是退款中，更新为已退款
-            if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus())) {
-                order.setStatus(OrderStatus.REFUNDED.name());
-            }
-
-            // 记录退款处理信息
-            User currentUser = getCurrentUser();
-            order.setRefundProcessedBy(currentUser.getId());
-            order.setRefundProcessedAt(LocalDateTime.now());
-
-            log.info("退款申请已批准并完成，订单 {} 状态更新为已退款，退款交易号: {}",
-                    order.getOrderNumber(), refundResponse.getRefundTradeNo());
-
-            // 添加批准备注
-            String approvalNote = String.format("退款申请已批准并完成 - 管理员: %s, 备注: %s",
-                    currentUser.getUsername(),
-                    refundNote != null && !refundNote.isEmpty() ? refundNote : "无");
-            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-                order.setRemark(order.getRemark() + "\n" + approvalNote);
-            } else {
-                order.setRemark(approvalNote);
-            }
-
-            Order updatedOrder = orderRepository.save(order);
-
-            // 发送退款批准通知
-            try {
-                orderNotificationService.sendOrderRefundApprovedNotification(
-                        order.getGuest().getId(),
-                        order.getId(),
-                        order.getOrderNumber(),
-                        refundNote);
-            } catch (Exception e) {
-                log.error("发送退款批准通知失败: {}", e.getMessage(), e);
-            }
-            } catch (Exception e) {
-                log.error("发送退款批准通知失败: {}", e.getMessage(), e);
-            }
-
-            return convertToDTO(updatedOrder);
-
-        } catch (Exception e) {
-            log.error("批准退款失败，订单ID: {}", id, e);
-            throw new RuntimeException("批准退款失败: " + e.getMessage());
-        }
+        return paymentProcessingService.approveRefund(id, refundNote);
     }
 
     @Override
@@ -1454,63 +1348,18 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDTO completeRefund(Long id, String refundTransactionId) {
         log.info("管理员完成退款处理，订单ID: {}, 退款交易号: {}", id, refundTransactionId);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
-
-        // 检查当前状态
-        if (order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
-            throw new IllegalStateException("只有退款中的订单才能完成退款");
-        }
-
-        // 标记退款完成
-        order.setPaymentStatus(PaymentStatus.REFUNDED);
-
-        // 如果订单状态也是退款中，更新为已退款
-        if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus())) {
-            order.setStatus(OrderStatus.REFUNDED.name());
-        }
-
-        // 记录退款处理信息
-        User currentUser = getCurrentUser();
-        order.setRefundProcessedBy(currentUser.getId());
-        order.setRefundProcessedAt(LocalDateTime.now());
-        order.setRefundTransactionId(refundTransactionId);
-
-        // 添加退款完成信息到备注
-        String completionNote = String.format("退款已完成 - 处理人: %s, 交易号: %s",
-                currentUser.getUsername(),
-                refundTransactionId != null && !refundTransactionId.isEmpty() ? refundTransactionId : "无");
-        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-            order.setRemark(order.getRemark() + "\n" + completionNote);
-        } else {
-            order.setRemark(completionNote);
-        }
-
-        Order updatedOrder = orderRepository.save(order);
-
-            // 发送退款完成通知
-            try {
-                orderNotificationService.sendOrderRefundCompletedNotification(
-                        order.getGuest().getId(),
-                        order.getId(),
-                        order.getOrderNumber(),
-                        refundTransactionId);
-            } catch (Exception e) {
-                log.error("发送退款完成通知失败: {}", e.getMessage(), e);
-            }
-        } catch (Exception e) {
-            log.error("发送退款完成通知失败: {}", e.getMessage(), e);
-        }
-
-        log.info("订单 {} 退款已完成", order.getOrderNumber());
-        return convertToDTO(updatedOrder);
+        return paymentProcessingService.completeRefund(id, refundTransactionId);
     }
 
     @Override
     @Transactional
     public OrderDTO requestUserRefund(Long id, String reason) {
         log.info("用户申请退款，订单ID: {}, 退款原因: {}", id, reason);
-
+        // TODO: 将此方法委托给PaymentProcessingService
+        // 暂时保持现有实现，因为用户发起的退款需要访问当前用户信息
+        // 并且我们需要确保PaymentProcessingService有访问当前用户的方式
+        // 或者我们可以在PaymentProcessingService中添加一个需要currentUserId参数的方法
+        
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
 

@@ -152,7 +152,7 @@ public class AdminOrderController {
         logger.info("管理员发起退款，订单ID: {}", id);
         try {
             // 注意：这里的实现只是标记状态，实际退款需要对接支付网关
-            OrderDTO updatedOrder = orderService.initiateRefund(id);
+            OrderDTO updatedOrder = paymentProcessingService.initiateRefund(id);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
@@ -173,7 +173,7 @@ public class AdminOrderController {
         logger.info("管理员批准退款申请，订单ID: {}", id);
         try {
             String refundNote = request.getOrDefault("refundNote", "");
-            OrderDTO updatedOrder = orderService.approveRefund(id, refundNote);
+            OrderDTO updatedOrder = paymentProcessingService.approveRefund(id, refundNote);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
@@ -194,7 +194,7 @@ public class AdminOrderController {
         logger.info("管理员拒绝退款申请，订单ID: {}", id);
         try {
             String rejectReason = request.getOrDefault("rejectReason", "");
-            OrderDTO updatedOrder = orderService.rejectRefund(id, rejectReason);
+            OrderDTO updatedOrder = paymentProcessingService.rejectRefund(id, rejectReason);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
@@ -215,7 +215,7 @@ public class AdminOrderController {
         logger.info("管理员完成退款处理，订单ID: {}", id);
         try {
             String refundTransactionId = request.getOrDefault("refundTransactionId", "");
-            OrderDTO updatedOrder = orderService.completeRefund(id, refundTransactionId);
+            OrderDTO updatedOrder = paymentProcessingService.completeRefund(id, refundTransactionId);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
