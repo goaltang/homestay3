@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <!-- 修改 v-if 条件，排除登录和注册页 -->
-    <AppHeader v-if="!isHostCenterRoute && route.path !== '/login' && route.path !== '/register'" />
+    <AppHeader v-if="showHeader" />
 
     <!-- 主内容区 -->
     <main class="app-main" :class="{ 'host-center-main': isHostCenterRoute }">
@@ -9,7 +9,7 @@
     </main>
 
     <!-- 修改 v-if 条件，排除登录和注册页 -->
-    <AppFooter v-if="!isHostCenterRoute && route.path !== '/login' && route.path !== '/register'" />
+    <AppFooter v-if="showFooter" />
   </div>
 </template>
 
@@ -58,7 +58,18 @@ watch(() => userStore.isAuthenticated, (newAuthState, oldAuthState) => {
 // isHostCenterRoute 仍然需要，因为它控制 Header 和 Footer 的显示
 const isHostCenterRoute = computed(() => {
   return route.path.startsWith('/host');
-})
+});
+
+// 控制 Header 和 Footer 的显示
+const showHeader = computed(() => {
+  const path = route.path;
+  return !path.startsWith('/host') && path !== '/login' && path !== '/register';
+});
+
+const showFooter = computed(() => {
+  const path = route.path;
+  return !path.startsWith('/host') && path !== '/login' && path !== '/register';
+});
 
 </script>
 

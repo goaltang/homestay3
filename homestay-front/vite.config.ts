@@ -40,37 +40,21 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     port: 5173,
+    open: false,
     strictPort: false,
-    hmr: {
-      overlay: false,
-    },
-    watch: {
-      usePolling: true,
-    },
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        target: "http://127.0.0.1:8080",
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path,
       },
       "/uploads": {
-        target: "http://localhost:8080",
+        target: "http://127.0.0.1:8080",
         changeOrigin: true,
-      },
-      "/api/v1/locations": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-        secure: false,
-      },
-      "/api/files": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-        secure: false,
       },
     },
-    cors: true,
   },
   define: {
     global: 'globalThis',
