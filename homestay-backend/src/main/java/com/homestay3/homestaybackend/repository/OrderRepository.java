@@ -105,6 +105,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         @Query("SELECT COUNT(o) FROM Order o JOIN o.homestay h JOIN h.owner u WHERE u.username = :username AND o.status = :status")
         Long countByHomestayOwnerUsernameAndStatus(@Param("username") String username, @Param("status") String status);
 
+        // 获取该房东的所有订单
+        @Query("SELECT o FROM Order o JOIN o.homestay h WHERE h.owner.id = :ownerId")
+        List<Order> findByHomestayOwnerId(@Param("ownerId") Long ownerId);
+
         List<Order> findByGuest_IdOrderByCreatedAtDesc(Long userId);
 
         Page<Order> findByHomestayIdOrderByCreatedAtDesc(Long homestayId, Pageable pageable);

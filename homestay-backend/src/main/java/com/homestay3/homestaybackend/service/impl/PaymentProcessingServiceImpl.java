@@ -1,6 +1,9 @@
 package com.homestay3.homestaybackend.service.impl;
 
+import com.homestay3.homestaybackend.dto.EarningDTO;
 import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.dto.refund.RefundRequest;
+import com.homestay3.homestaybackend.dto.refund.RefundResponse;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
@@ -15,6 +18,7 @@ import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
+import com.homestay3.homestaybackend.service.PaymentService;
 import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -24,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -40,6 +46,7 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private final EarningService earningService;
     private final OrderNotificationService orderNotificationService;
     private final WebSocketNotificationService webSocketNotificationService;
+    private final PaymentService paymentService;
 
     @Override
     @Transactional
@@ -500,7 +507,7 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
                 refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
                 policyDescription = "普通政策：距离入住24-48小时，退款50%，预计退款 ¥" + refundAmt;
             } else {
-                int nights = order.getNets() != null ? order.getNights() : 1;
+                int nights = order.getNights() != null ? order.getNights() : 1;
                 if (nights <= 1) {
                     refundAmt = BigDecimal.ZERO;
                     policyDescription = "普通政策：距离入住不足24小时（仅1晚），不予退款";
@@ -521,7 +528,6 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         result.put("hoursBeforeCheckIn", hoursBetween);
         return result;
     }
-}
 
     // 辅助方法：检查用户是否为订单的客户
     private boolean isOrderGuest(Order order, User user) {

@@ -27,6 +27,9 @@ public interface OrderService {
     // 获取房东待处理订单数量
     Long getPendingOrderCount(String ownerUsername);
     
+    // 确认订单
+    OrderDTO confirmOrder(Long id);
+    
     // 更新订单状态
     OrderDTO updateOrderStatus(Long id, String status);
     

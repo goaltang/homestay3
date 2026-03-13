@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.service.impl;
 import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.enums.EntityType;
+import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
@@ -417,8 +418,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             log.error("发送订单退款申请通知失败: {}", e.getMessage(), e);
             // 不抛出异常，以免影响主业务流程
         }
-    }
-}
     }
 
     // 辅助方法：获取当前用户ID
