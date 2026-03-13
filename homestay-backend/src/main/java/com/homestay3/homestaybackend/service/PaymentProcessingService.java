@@ -62,4 +62,12 @@ public interface PaymentProcessingService {
      * @return 完成退款后的订单DTO
      */
     OrderDTO completeRefund(Long orderId, String refundTransactionId);
+
+    /**
+     * 用户申请退款
+     * @param orderId 订单ID
+     * @param reason 退款原因
+     * @return 申请退款后的订单DTO
+     */
+    OrderDTO requestUserRefund(Long orderId, String reason);
 }

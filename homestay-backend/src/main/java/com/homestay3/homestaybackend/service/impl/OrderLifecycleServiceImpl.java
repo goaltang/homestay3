@@ -1036,6 +1036,17 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         return convertToDTO(cancelledOrder);
     }
 
+    @Override
+    @Transactional
+    public OrderDTO systemCancelOrder(Long id, String cancelType, String reason) {
+        // 系统级取消订单，不需要用户认证（用于定时任务等场景）
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 直接调用 processCancelOrder 方法处理取消逻辑
+        return processCancelOrder(order, cancelType, reason);
+    }
+
     /**
      * 计算退款金额
      */

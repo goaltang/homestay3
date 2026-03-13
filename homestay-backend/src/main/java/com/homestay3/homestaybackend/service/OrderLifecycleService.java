@@ -103,6 +103,15 @@ public interface OrderLifecycleService {
     OrderDTO cancelOrderWithReason(Long id, String cancelType, String reason);
 
     /**
+     * 系统级取消订单（用于定时任务等不需要用户认证的场景）
+     * @param id 订单ID
+     * @param cancelType 取消类型
+     * @param reason 取消原因
+     * @return 取消后的订单DTO
+     */
+    OrderDTO systemCancelOrder(Long id, String cancelType, String reason);
+
+    /**
      * 更新订单状态（通用方法）
      * @param id 订单ID
      * @param status 目标状态

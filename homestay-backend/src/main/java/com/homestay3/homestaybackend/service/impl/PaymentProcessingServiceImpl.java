@@ -376,6 +376,66 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         return convertToDTO(updatedOrder);
     }
 
+    @Override
+    @Transactional
+    public OrderDTO requestUserRefund(Long orderId, String reason) {
+        log.info("用户申请退款，订单ID: {}, 退款原因: {}", orderId, reason);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + orderId));
+
+        // 检查当前状态是否允许申请退款
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new IllegalStateException("只有已支付的订单才能申请退款");
+        }
+
+        // 检查是否已经在退款流程中
+        if (order.getStatus().equals(OrderStatus.REFUND_PENDING.name()) ||
+                order.getStatus().equals(OrderStatus.REFUNDED.name())) {
+            throw new IllegalStateException("订单已在退款流程中，请勿重复申请");
+        }
+
+        // 更新订单状态为退款中
+        order.setStatus(OrderStatus.REFUND_PENDING.name());
+        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+
+        // 设置退款相关信息
+        User currentUser = getCurrentUser();
+        order.setRefundType(RefundType.USER_REQUESTED);
+        order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "用户申请退款");
+
+        // 使用计算退款金额方法
+        BigDecimal calculatedRefund = calculateRefundAmount(order);
+        order.setRefundAmount(calculatedRefund);
+
+        order.setRefundInitiatedBy(currentUser.getId());
+        order.setRefundInitiatedAt(LocalDateTime.now());
+
+        // 添加退款申请记录到备注
+        String refundNote = String.format("退款申请 - 类型: %s, 原因: %s, 申请人: %s, 计算退款金额: %s",
+                RefundType.USER_REQUESTED.getDescription(),
+                reason != null && !reason.isEmpty() ? reason : "用户申请退款",
+                currentUser.getUsername(),
+                calculatedRefund);
+        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+            order.setRemark(order.getRemark() + "\n" + refundNote);
+        } else {
+            order.setRemark(refundNote);
+        }
+
+        Order updatedOrder = orderRepository.save(order);
+
+        // 发送退款申请通知给管理员
+        try {
+            log.info("退款申请已提交，订单号: {}, 等待管理员处理", order.getOrderNumber());
+        } catch (Exception e) {
+            log.error("发送退款申请通知失败: {}", e.getMessage(), e);
+        }
+
+        log.info("用户退款申请已提交，订单号: {}", order.getOrderNumber());
+        return convertToDTO(updatedOrder);
+    }
+
     // 辅助方法：获取当前登录用户
     private User getCurrentUser() {
         return userRepository.findByUsername(

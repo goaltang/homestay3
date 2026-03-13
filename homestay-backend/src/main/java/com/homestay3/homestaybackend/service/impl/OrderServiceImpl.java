@@ -406,328 +406,33 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO cancelOrderWithReason(Long id, String cancelType, String reason) {
-        log.info("取消订单请求 - 订单ID: {}, 取消类型: {}, 原因: {}", id, cancelType, reason);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-
-        // 检查当前用户是否有权限取消此订单
-        User currentUser = getCurrentUser();
-
-        // 根据取消类型和当前用户角色进行权限检查
-        OrderStatus targetStatus;
-        try {
-            targetStatus = OrderStatus.valueOf(cancelType);
-        } catch (IllegalArgumentException e) {
-            // 默认取消状态
-            targetStatus = OrderStatus.CANCELLED;
-        }
-
-        // 如果是用户取消，检查当前用户是否是订单的客户
-        if (targetStatus == OrderStatus.CANCELLED_BY_USER) {
-            if (!isOrderGuest(order, currentUser)) {
-                log.warn("用户 {} 尝试取消不属于自己的订单 {}", currentUser.getUsername(), id);
-                throw new AccessDeniedException("您只能取消自己的订单");
-            }
-        }
-        // 如果是房东取消，检查当前用户是否是房源的拥有者
-        else if (targetStatus == OrderStatus.CANCELLED_BY_HOST) {
-            if (!isOrderOwner(order, currentUser)) {
-                log.warn("用户 {} 尝试作为房东取消订单 {}，但不是该房源的拥有者", currentUser.getUsername(), id);
-                throw new AccessDeniedException("您只能取消自己房源的订单");
-            }
-        }
-        // 如果是系统/管理员取消，检查当前用户是否有管理员权限
-        else if (targetStatus == OrderStatus.CANCELLED_SYSTEM || targetStatus == OrderStatus.CANCELLED) {
-            if (!hasAdminAuthority(currentUser)) {
-                log.warn("非管理员用户 {} 尝试进行系统取消订单 {}", currentUser.getUsername(), id);
-                throw new AccessDeniedException("只有管理员可以执行系统取消操作");
-            }
-        }
-
-        // 处理取消逻辑
-        return processCancelOrder(order, cancelType, reason);
+        // 委托给OrderLifecycleService处理
+        return orderLifecycleService.cancelOrderWithReason(id, cancelType, reason);
     }
 
     /**
      * 系统级取消订单方法，用于定时任务等不需要用户认证的场景
      * 此方法不检查用户权限，请谨慎使用
      */
+    @Override
     @Transactional
     public OrderDTO systemCancelOrder(Long id, String cancelType, String reason) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-
-        return processCancelOrder(order, cancelType, reason);
-    }
-
-    /**
-     * 处理取消订单的核心逻辑，被cancelOrderWithReason和systemCancelOrder共同使用
-     */
-    private OrderDTO processCancelOrder(Order order, String cancelType, String reason) {
-        // 检查订单状态，只有待确认、已确认、已支付的订单可以取消
-        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
-        OrderStatus targetStatus;
-
-        try {
-            targetStatus = OrderStatus.valueOf(cancelType);
-        } catch (IllegalArgumentException e) {
-            // 如果取消类型无效，使用默认取消状态
-            targetStatus = OrderStatus.CANCELLED;
-        }
-
-        // 检查取消状态是否是一种取消状态
-        if (targetStatus != OrderStatus.CANCELLED &&
-                targetStatus != OrderStatus.CANCELLED_BY_USER &&
-                targetStatus != OrderStatus.CANCELLED_BY_HOST &&
-                targetStatus != OrderStatus.CANCELLED_SYSTEM) {
-            throw new IllegalArgumentException("无效的取消状态");
-        }
-
-        // 特殊处理：如果是已支付订单被取消，应该进入退款流程
-        if (order.getPaymentStatus() == PaymentStatus.PAID) {
-            log.info("已支付订单被取消，将进入退款流程，订单号: {}", order.getOrderNumber());
-
-            // 已支付订单取消时，状态应该是REFUND_PENDING，而不是各种取消状态
-            targetStatus = OrderStatus.REFUND_PENDING;
-
-            // 验证状态流转是否合法（PAID -> REFUND_PENDING）
-            if (!isValidStatusTransition(currentStatus, targetStatus)) {
-                throw new IllegalArgumentException(
-                        String.format("不允许从当前状态 [%s] 进入退款流程", currentStatus.getDescription()));
-            }
-
-            // 更新订单状态和支付状态
-            order.setStatus(targetStatus.name());
-            order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-
-            // 设置退款相关信息
-            User currentUser = null;
-            Long actorId = null;
-            String actorUsername = null;
-            try {
-                currentUser = getCurrentUser();
-                actorId = currentUser.getId();
-                actorUsername = currentUser.getUsername();
-            } catch (Exception e) {
-                log.warn("无法获取当前用户，可能是系统调用: {}", e.getMessage());
-            }
-
-            // 确定退款类型和发起者
-            RefundType refundType;
-            if (targetStatus == OrderStatus.CANCELLED_BY_USER ||
-                    (currentUser != null && isOrderGuest(order, currentUser))) {
-                refundType = RefundType.USER_REQUESTED;
-            } else if (targetStatus == OrderStatus.CANCELLED_BY_HOST ||
-                    (currentUser != null && isOrderOwner(order, currentUser))) {
-                refundType = RefundType.HOST_CANCELLED;
-            } else {
-                refundType = RefundType.ADMIN_INITIATED;
-            }
-
-            order.setRefundType(refundType);
-            order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "订单取消导致退款");
-
-            // 使用新逻辑计算退款金额
-            BigDecimal calculatedRefund = calculateRefundAmount(order);
-            order.setRefundAmount(calculatedRefund);
-
-            order.setRefundInitiatedBy(actorId);
-            order.setRefundInitiatedAt(LocalDateTime.now());
-
-            // 添加退款备注
-            String refundNote = String.format("已发起退款申请 - 类型: %s, 申请人: %s, 计算退款金额: %s",
-                    refundType.getDescription(),
-                    actorUsername != null ? actorUsername : "System",
-                    calculatedRefund);
-            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-                order.setRemark(order.getRemark() + "\n" + refundNote);
-            } else {
-                order.setRemark(refundNote);
-            }
-
-            log.info("已支付订单 {} 状态已更新为退款中，退款类型: {}", order.getOrderNumber(), refundType.getDescription());
-        } else {
-            // 未支付订单的正常取消流程
-            // 验证状态流转是否合法
-            if (!isValidStatusTransition(currentStatus, targetStatus)) {
-                throw new IllegalArgumentException(
-                        String.format("不允许从当前状态 [%s] 取消订单", currentStatus.getDescription()));
-            }
-
-            // 更新订单状态和备注
-            order.setStatus(targetStatus.name());
-            if (reason != null && !reason.isEmpty()) {
-                if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-                    order.setRemark(order.getRemark() + "\n取消原因: " + reason);
-                } else {
-                    order.setRemark("取消原因: " + reason);
-                }
-            }
-        }
-
-        Order cancelledOrder = orderRepository.save(order);
-
-        // --- 发送订单取消/退款通知 ---
-        try {
-            User guest = cancelledOrder.getGuest();
-            User actor = null;
-            // 尝试获取当前用户作为操作者，如果失败（例如在系统调用中），actorId 将为 null
-            try {
-                actor = getCurrentUser();
-            } catch (Exception e) {
-                log.warn("无法在发送订单取消通知时获取当前用户: {}", e.getMessage());
-            }
-
-            if (guest != null) {
-                String notificationContent;
-                if (cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())) {
-                    // 退款通知
-                    notificationContent = String.format(
-                            "您的订单 %s (房源: %s) 退款申请已提交，我们将在1-3个工作日内处理。原因: %s",
-                            cancelledOrder.getOrderNumber(),
-                            cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
-                            reason != null && !reason.isEmpty() ? reason : "未提供原因");
-                } else {
-                    // 取消通知
-                    notificationContent = String.format(
-                            "您的订单 %s (房源: %s) 已被取消。状态从 %s 变为 %s。原因: %s",
-                            cancelledOrder.getOrderNumber(),
-                            cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
-                            currentStatus.getDescription(),
-                            OrderStatus.valueOf(cancelledOrder.getStatus()).getDescription(),
-                            reason != null && !reason.isEmpty() ? reason : "未提供原因");
-                }
-
-                 // 发送订单取消/退款通知
-                 if (cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())) {
-                     // 退款通知
-                     orderNotificationService.sendOrderRefundRequestedNotification(
-                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
-                             reason != null && !reason.isEmpty() ? reason : "未提供原因",
-                             RefundType.HOST_CANCELLED.toString(), // 需要根据实际情况确定退款类型
-                             "0"); // 金额应该从订单中获取，这里暂时用0
-                 } else {
-                     // 取消通知
-                     orderNotificationService.sendOrderCancelledNotification(
-                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
-                             cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
-                             currentStatus.getDescription(),
-                             OrderStatus.valueOf(cancelledOrder.getStatus()).getDescription(),
-                             reason != null && !reason.isEmpty() ? reason : "未提供原因",
-                             actor != null && actor.getId().equals(guest.getId())); // 是否由用户触发
-                 }
-                log.info("已为用户 {} 发送订单 {} 处理通知", guest.getUsername(), cancelledOrder.getOrderNumber());
-            }
-            // (可选) 如果也需要通知房东，请在此处添加类似逻辑
-
-        } catch (Exception e) {
-            log.error("发送订单处理通知失败: {}", e.getMessage(), e);
-            // 通知发送失败不应影响订单处理流程
-        }
-
-        return convertToDTO(cancelledOrder);
+        // 委托给OrderLifecycleService处理
+        return orderLifecycleService.systemCancelOrder(id, cancelType, reason);
     }
 
     @Override
     @Transactional
     public OrderDTO payOrder(Long id) {
-        // 调用带支付方式的方法，使用默认支付方式
-        return payOrder(id, "default");
+        // 委托给PaymentProcessingService处理
+        return paymentProcessingService.processPayment(id);
     }
 
     @Override
     @Transactional
     public OrderDTO payOrder(Long id, String paymentMethod) {
-        log.info("开始处理订单 ID: {} 的支付请求，支付方式: {}", id, paymentMethod);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-        log.debug("找到订单: {}, 当前状态: {}", order.getOrderNumber(), order.getStatus());
-
-        // 检查当前用户是否有权限
-        User currentUser = getCurrentUser();
-        log.debug("执行支付操作的用户: {}", currentUser.getUsername());
-        if (!isOrderGuest(order, currentUser)) {
-            log.warn("用户 {} 尝试支付不属于自己的订单 {}，操作被拒绝。", currentUser.getUsername(), order.getOrderNumber());
-            throw new IllegalArgumentException("只有订单的客户可以支付订单");
-        }
-
-        // 检查订单状态
-        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
-        log.debug("检查订单 {} 的状态是否允许支付 (当前: {})", order.getOrderNumber(), currentStatus);
-        if (currentStatus != OrderStatus.CONFIRMED && currentStatus != OrderStatus.PAYMENT_PENDING) {
-            log.warn("订单 {} 状态为 {}，不允许支付。", order.getOrderNumber(), currentStatus);
-            throw new IllegalArgumentException("只有已确认或正在支付中的订单可以支付");
-        }
-
-        // 模拟支付处理
-        log.debug("开始模拟订单 {} 的支付处理...", order.getOrderNumber());
-        try {
-            // 模拟支付处理延迟
-            Thread.sleep(500);
-            log.debug("模拟支付处理完成，准备更新订单 {} 状态为 PAID。", order.getOrderNumber());
-
-            // 支付成功，更新订单状态
-            order.setStatus(OrderStatus.PAID.name());
-            order.setPaymentStatus(PaymentStatus.PAID);
-
-            // 添加支付备注
-            String remark = (order.getRemark() != null && !order.getRemark().isEmpty()) ? order.getRemark() + "\n" : "";
-            remark += "支付方式: " + paymentMethod;
-            order.setRemark(remark);
-            log.debug("更新订单 {} 备注: {}", order.getOrderNumber(), remark);
-
-            Order paidOrder = orderRepository.save(order);
-            log.info("订单 {} 状态已成功更新为 PAID 并保存。", paidOrder.getOrderNumber());
-
-            // --- 发送支付成功通知给房东和房客 ---
-            try {
-                User host = paidOrder.getHomestay().getOwner();
-                User guest = paidOrder.getGuest();
-                orderNotificationService.sendOrderPaymentSuccessNotification(
-                        host.getId(), guest.getId(), paidOrder.getId(),
-                        host.getUsername(), guest.getUsername(),
-                        paidOrder.getHomestay().getTitle(),
-                        paidOrder.getOrderNumber(),
-                        paymentMethod);
-            } catch (Exception notifyEx) {
-                log.error("发送订单 {} 支付成功通知失败: {}", paidOrder.getOrderNumber(), notifyEx.getMessage(), notifyEx);
-            }
-            // --- 通知发送结束 ---
-
-            // --- 添加：自动生成待结算收益记录 ---
-            log.info("订单 {} 支付成功，准备调用 EarningService 生成收益记录...", paidOrder.getOrderNumber());
-            EarningDTO generatedEarning = null;
-            try {
-                // 调用重命名后的方法
-                generatedEarning = earningService.generatePendingEarningForOrder(paidOrder.getId());
-                if (generatedEarning != null) {
-                    log.info("为订单 {} 成功生成或获取收益记录 ID: {}", paidOrder.getOrderNumber(), generatedEarning.getId());
-                } else {
-                    log.warn("订单 {} 的收益记录生成调用返回为空，可能已存在或生成失败（详见 EarningService 日志）。", paidOrder.getOrderNumber());
-                }
-            } catch (Exception earningEx) {
-                // 记录收益生成失败的错误，但不应中断支付成功流程
-                log.error("为订单 {} 调用 generatePendingEarningForOrder 时发生异常: {}", paidOrder.getOrderNumber(),
-                        earningEx.getMessage(), earningEx);
-                // 这里可以选择是否需要额外的错误处理，比如标记订单需要人工处理收益等
-            }
-            log.info("EarningService 调用结束，订单 {} 的支付流程完成。", paidOrder.getOrderNumber());
-            // --- 收益生成结束 ---
-
-            return convertToDTO(paidOrder);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("订单 {} 支付处理被中断", order.getOrderNumber(), e);
-            throw new RuntimeException("支付处理中断");
-        } catch (Exception e) {
-            // 支付失败，更新订单状态为支付失败
-            log.error("订单 {} 支付过程中发生意外错误，尝试将状态更新为 PAYMENT_FAILED: {}", order.getOrderNumber(), e.getMessage(), e);
-            order.setStatus(OrderStatus.PAYMENT_FAILED.name());
-            order.setPaymentStatus(PaymentStatus.UNPAID);
-            orderRepository.save(order);
-            // 支付失败不应该生成收益，也不需要发通知
-            throw new RuntimeException("支付失败: " + e.getMessage());
-        }
+        // 委托给PaymentProcessingService处理
+        return paymentProcessingService.processPayment(id, paymentMethod);
     }
 
     @Override
@@ -915,33 +620,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO confirmPayment(Long id) {
-        log.info("管理员手动确认订单支付，ID: {}", id);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
-
-        // 简单校验：只有未支付的订单才能被手动确认支付
-        if (order.getPaymentStatus() != PaymentStatus.UNPAID) {
-            log.warn("订单 {} 的支付状态为 {}，不能手动确认支付", id, order.getPaymentStatus());
-            throw new IllegalStateException("只有未支付的订单才能被确认支付");
-        }
-
-        // 更新状态
-        order.setStatus(OrderStatus.PAID.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
-        // 可选：记录支付方式为手动确认
-        if (order.getPaymentMethod() == null || order.getPaymentMethod().isEmpty()) {
-            order.setPaymentMethod("MANUAL_CONFIRM");
-        }
-        // 可选：更新支付时间
-        // order.setPaymentTime(LocalDateTime.now());
-
-        Order updatedOrder = orderRepository.save(order);
-        log.info("订单 {} 已手动确认支付", id);
-
-        // 触发支付成功后的逻辑（如生成收益） - 使用正确的参数类型
-        earningService.generatePendingEarningForOrder(updatedOrder.getId());
-
-        return convertToDTO(updatedOrder);
+        // 委托给PaymentProcessingService处理
+        return paymentProcessingService.confirmPayment(id);
     }
 
     @Override
@@ -982,66 +662,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO requestUserRefund(Long id, String reason) {
-        log.info("用户申请退款，订单ID: {}, 退款原因: {}", id, reason);
-        // TODO: 将此方法委托给PaymentProcessingService
-        // 暂时保持现有实现，因为用户发起的退款需要访问当前用户信息
-        // 并且我们需要确保PaymentProcessingService有访问当前用户的方式
-        // 或者我们可以在PaymentProcessingService中添加一个需要currentUserId参数的方法
-        
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
-
-        // 检查当前状态是否允许申请退款
-        if (order.getPaymentStatus() != PaymentStatus.PAID) {
-            throw new IllegalStateException("只有已支付的订单才能申请退款");
-        }
-
-        // 检查是否已经在退款流程中
-        if (order.getStatus().equals(OrderStatus.REFUND_PENDING.name()) ||
-                order.getStatus().equals(OrderStatus.REFUNDED.name())) {
-            throw new IllegalStateException("订单已在退款流程中，请勿重复申请");
-        }
-
-        // 更新订单状态为退款中
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-
-        // 设置退款相关信息
-        User currentUser = getCurrentUser();
-        order.setRefundType(RefundType.USER_REQUESTED);
-        order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "用户申请退款");
-
-        // 使用新逻辑计算退款金额
-        BigDecimal calculatedRefund = calculateRefundAmount(order);
-        order.setRefundAmount(calculatedRefund);
-
-        order.setRefundInitiatedBy(currentUser.getId());
-        order.setRefundInitiatedAt(LocalDateTime.now());
-
-        // 添加退款申请记录到备注
-        String refundNote = String.format("退款申请 - 类型: %s, 原因: %s, 申请人: %s, 计算退款金额: %s",
-                RefundType.USER_REQUESTED.getDescription(),
-                reason != null && !reason.isEmpty() ? reason : "用户申请退款",
-                currentUser.getUsername(),
-                calculatedRefund);
-        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-            order.setRemark(order.getRemark() + "\n" + refundNote);
-        } else {
-            order.setRemark(refundNote);
-        }
-
-        Order updatedOrder = orderRepository.save(order);
-
-        // 发送退款申请通知给管理员
-        try {
-            // 这里可以发送通知给管理员，告知有新的退款申请
-            log.info("退款申请已提交，订单号: {}, 等待管理员处理", order.getOrderNumber());
-        } catch (Exception e) {
-            log.error("发送退款申请通知失败: {}", e.getMessage(), e);
-        }
-
-        log.info("用户退款申请已提交，订单号: {}", order.getOrderNumber());
-        return convertToDTO(updatedOrder);
+        // 委托给PaymentProcessingService处理
+        return paymentProcessingService.requestUserRefund(id, reason);
     }
 
     @Override
