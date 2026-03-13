@@ -261,6 +261,13 @@ interface OrderItem {
     refundProcessedAt?: string
     refundTransactionId?: string
     refundRejectionReason?: string  // 退款被拒绝时的原因
+    // 争议相关字段
+    disputeReason?: string
+    disputeRaisedBy?: number
+    disputeRaisedAt?: string
+    disputeResolvedAt?: string
+    disputeResolution?: string
+    disputeResolutionNote?: string
 }
 
 const router = useRouter()
@@ -679,6 +686,12 @@ const getStatusType = (order: OrderItem): string => {
     // 退款被拒绝（paymentStatus 恢复为 PAID 但有拒绝原因）
     if (paymentStatus === 'PAID' && order.refundRejectionReason) return 'danger';
 
+    // 争议状态
+    if (status === 'DISPUTE_PENDING' || status === 'DISPUTED') return 'warning';
+
+    // 争议已解决
+    if (order.disputeResolution) return 'info';
+
     // 处理支付成功状态
     if (paymentStatus === 'PAID') {
         // 如果后端有 CHECKED_IN 状态
@@ -725,6 +738,16 @@ const getStatusText = (order: OrderItem): string => {
 
     // 退款被拒绝（paymentStatus 恢复为 PAID 但有拒绝原因）
     if (paymentStatus === 'PAID' && order.refundRejectionReason) return '退款被拒绝';
+
+    // 争议状态
+    if (status === 'DISPUTE_PENDING') return '争议待处理';
+    if (status === 'DISPUTED') return '争议处理中';
+
+    // 争议已解决（显示解决结果）
+    if (order.disputeResolution) {
+        if (order.disputeResolution === 'APPROVED') return '争议已解决（退款）';
+        if (order.disputeResolution === 'REJECTED') return '争议已解决（拒绝退款）';
+    }
 
     // 优先处理最终/关键状态
     if (status?.startsWith('CANCELLED')) return '已取消';

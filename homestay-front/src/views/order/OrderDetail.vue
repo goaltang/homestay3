@@ -36,7 +36,7 @@
                     <div class="header-right">
                         <span class="order-number">订单号: {{ orderData.orderNumber }}</span>
                         <el-tag :type="getStatusType(orderData.status, orderData.paymentStatus, orderData.refundRejectionReason)" size="large" class="status-tag">
-                            {{ getStatusText(orderData.status, orderData.paymentStatus, orderData.refundType, orderData.refundRejectionReason) }}
+                            {{ getStatusText(orderData.status, orderData.paymentStatus, orderData.refundType, orderData.refundRejectionReason, orderData.disputeResolution) }}
                         </el-tag>
                     </div>
                 </div>
@@ -413,6 +413,13 @@ interface OrderData {
     refundProcessedAt?: string
     refundTransactionId?: string
     refundRejectionReason?: string  // 退款被拒绝时的原因
+    // 争议相关字段
+    disputeReason?: string
+    disputeRaisedBy?: number
+    disputeRaisedAt?: string
+    disputeResolvedAt?: string
+    disputeResolution?: string
+    disputeResolutionNote?: string
 }
 
 const route = useRoute()
@@ -639,11 +646,20 @@ const getStatusType = (status: string, paymentStatus?: string, refundRejectionRe
 }
 
 // 获取状态显示文本
-const getStatusText = (status: string, paymentStatus?: string, refundType?: string, refundRejectionReason?: string) => {
+const getStatusText = (status: string, paymentStatus?: string, refundType?: string, refundRejectionReason?: string, disputeResolution?: string) => {
     // 优先处理退款相关状态
     if (paymentStatus === 'PAID' && refundRejectionReason) {
         return '退款被拒绝';
     }
+
+    // 争议状态
+    if (status === 'DISPUTE_PENDING') return '争议待处理';
+    if (status === 'DISPUTED') return '争议处理中';
+
+    // 争议解决结果
+    if (disputeResolution === 'APPROVED') return '争议已解决（退款）';
+    if (disputeResolution === 'REJECTED') return '争议已解决（拒绝退款）';
+
     if (paymentStatus === 'REFUND_PENDING') {
         const refundTypeText = getRefundTypeText(refundType);
         return `退款中${refundTypeText}`;
@@ -672,8 +688,11 @@ const getStatusText = (status: string, paymentStatus?: string, refundType?: stri
         'PAYMENT_FAILED': '支付失败',
         'REFUND_PENDING': '退款中',
         'REFUNDED': '已退款',
-        'REFUND_FAILED': '退款失败'
+        'REFUND_FAILED': '退款失败',
+        'DISPUTE_PENDING': '争议待处理',
+        'DISPUTED': '争议处理中'
     }
+
     return statusTexts[status] || status
 }
 

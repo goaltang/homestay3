@@ -161,3 +161,16 @@ export function hostRejectRefund(orderId: number, rejectReason: string) {
     data: { rejectReason },
   });
 }
+
+/**
+ * 房东发起争议（对退款有异议）
+ * @param orderId 订单ID
+ * @param reason 争议原因
+ */
+export function hostRaiseDispute(orderId: number, reason: string) {
+  return request({
+    url: `/api/orders/${orderId}/dispute`,
+    method: "post",
+    data: { reason },
+  });
+}

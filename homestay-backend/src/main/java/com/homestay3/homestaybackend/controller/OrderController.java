@@ -6,6 +6,7 @@ import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
+import com.homestay3.homestaybackend.service.DisputeService;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class OrderController {
     private final OrderService orderService;
     private final OrderRepository orderRepository;
     private final PaymentProcessingService paymentProcessingService;
+    private final DisputeService disputeService;
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     @PostMapping
@@ -682,6 +684,44 @@ public class OrderController {
             log.error("房东拒绝退款失败，订单ID: {}", id, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "房东拒绝退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 房东对退款有异议，发起争议
+     */
+    @PostMapping("/{id}/dispute")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
+    public ResponseEntity<?> raiseDispute(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> requestBody,
+            Authentication authentication) {
+        log.info("房东发起争议，订单ID: {}", id);
+        try {
+            String reason = requestBody.getOrDefault("reason", "");
+            if (reason.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "请输入争议原因"));
+            }
+
+            // 先获取订单信息
+            OrderDTO order = orderService.getOrderById(id);
+            // 验证当前用户是否为该订单的房东
+            verifyOrderOwnership(order, authentication);
+
+            OrderDTO updatedOrder = disputeService.raiseDispute(id, reason);
+            log.info("房东发起争议成功，订单ID: {}", id);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            log.warn("发起争议权限检查失败: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("房东发起争议失败，订单ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "发起争议失败: " + e.getMessage()));
         }
     }
 

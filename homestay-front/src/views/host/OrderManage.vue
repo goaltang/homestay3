@@ -218,27 +218,41 @@
             </div>
 
             <el-table v-else :data="orders" style="width: 100%" border stripe>
-                <el-table-column prop="id" label="订单号" width="80" />
-                <el-table-column label="房源名称" min-width="150">
+                <el-table-column label="订单号" width="90" align="center">
+                    <template #default="scope">
+                        <span style="color: var(--el-text-color-secondary); font-size: 13px;">{{ scope.row.id }}</span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="房源名称" min-width="180">
                     <template #default="scope">
                         <el-tooltip :content="scope.row.homestayTitle || scope.row.homestayName" placement="top">
-                            <span class="ellipsis-text">{{ scope.row.homestayTitle || scope.row.homestayName }}</span>
+                            <span class="ellipsis-text" style="font-weight: 600; color: var(--el-text-color-primary);">{{ scope.row.homestayTitle || scope.row.homestayName }}</span>
                         </el-tooltip>
                     </template>
                 </el-table-column>
-                <el-table-column prop="guestName" label="预订客户" width="100" />
-                <el-table-column label="订单金额" width="100" align="right">
+                <el-table-column label="预订客户" width="110">
                     <template #default="scope">
-                        <span class="price-value">¥{{ (scope.row.totalPrice || scope.row.totalAmount || 0).toFixed(2)
-                            }}</span>
+                        <span style="color: var(--el-text-color-regular);">{{ scope.row.guestName }}</span>
                     </template>
                 </el-table-column>
-                <el-table-column label="入住日期" width="200">
+                <el-table-column label="订单金额" width="120" align="right">
                     <template #default="scope">
-                        <div class="date-range">
-                            <span>{{ formatDateString(scope.row.checkInDate) }}</span>
-                            <el-divider direction="horizontal" content-position="center">至</el-divider>
-                            <span>{{ formatDateString(scope.row.checkOutDate) }}</span>
+                        <span class="price-value" style="font-weight: bold; color: var(--el-color-danger); font-size: 15px;">
+                            ¥{{ (scope.row.totalPrice || scope.row.totalAmount || 0).toFixed(2) }}
+                        </span>
+                    </template>
+                </el-table-column>
+                <el-table-column label="入离日期" width="160">
+                    <template #default="scope">
+                        <div class="date-range-vertical" style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+                            <div class="check-in-date" style="display: flex; align-items: center;">
+                                <span style="color: var(--el-text-color-regular); margin-right: 8px;">入住</span>
+                                <span style="font-family: inherit; font-size: 14px;">{{ formatDateString(scope.row.checkInDate) }}</span>
+                            </div>
+                            <div class="check-out-date" style="display: flex; align-items: center;">
+                                <span style="color: var(--el-text-color-secondary); margin-right: 8px;">退房</span>
+                                <span style="color: var(--el-text-color-secondary); font-family: inherit; font-size: 14px;">{{ formatDateString(scope.row.checkOutDate) }}</span>
+                            </div>
                         </div>
                     </template>
                 </el-table-column>
@@ -249,52 +263,69 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column label="创建时间" width="150">
+                <el-table-column label="创建时间" width="150" align="center">
                     <template #default="scope">
-                        {{ formatDateTime(scope.row.createTime || scope.row.createdTime) }}
+                        <span style="color: var(--el-text-color-secondary); font-size: 13px;">
+                            {{ formatDateTime(scope.row.createTime || scope.row.createdTime) }}
+                        </span>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="280" fixed="right">
+                <el-table-column label="操作" width="180" fixed="right" align="center">
                     <template #default="scope">
-                        <div class="action-buttons">
-                            <el-button v-if="scope.row.status === 'PENDING'" type="success" size="small"
+                        <div class="action-buttons" style="display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: nowrap;">
+                            <!-- 主操作区 -->
+                            <el-button v-if="scope.row.status === 'PENDING'" type="primary" size="small"
                                 @click="handleConfirm(scope.row)">
-                                确认
+                                确认接单
                             </el-button>
-                            <el-button v-if="scope.row.status === 'PENDING'" type="danger" size="small"
-                                @click="handleReject(scope.row)">
-                                拒绝
-                            </el-button>
-                            <el-button v-if="scope.row.status === 'PAID'" type="primary" size="small"
+                            <el-button v-else-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'" type="primary" size="small"
                                 @click="handleCheckIn(scope.row)">
                                 办理入住
                             </el-button>
-                            <el-button v-if="scope.row.status === 'CHECKED_IN'" type="info" size="small"
+                            <el-button v-else-if="scope.row.status === 'CHECKED_IN'" type="success" size="small"
                                 @click="handleComplete(scope.row)">
                                 完成订单
                             </el-button>
-                            <el-button
-                                v-if="(scope.row.status === 'PENDING' || scope.row.status === 'CONFIRMED') && scope.row.paymentStatus === 'UNPAID'"
-                                type="danger" size="small" @click="handleCancel(scope.row)">
-                                取消
-                            </el-button>
-                            <el-button v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
-                                type="danger" @click="handleCancel(scope.row)">
-                                取消订单（将退款）
-                            </el-button>
-                            <el-button
-                                v-if="canInitiateRefund(scope.row)"
-                                type="danger" size="small" plain @click="handleRefund(scope.row)">
-                                发起退款
-                            </el-button>
-                            <el-button
-                                v-if="scope.row.paymentStatus === 'REFUND_PENDING'"
-                                type="warning" size="small" @click="handleReviewRefund(scope.row)">
+                            <el-button v-else-if="scope.row.paymentStatus === 'REFUND_PENDING'" type="warning" size="small"
+                                @click="handleReviewRefund(scope.row)">
                                 审核退款
                             </el-button>
-                            <el-button type="warning" size="small" @click="handleDetails(scope.row)">
-                                详情
-                            </el-button>
+
+                            <!-- 更多操作下拉菜单 -->
+                            <el-dropdown trigger="click" v-if="hasMoreActions(scope.row)">
+                                <el-button type="info" link size="small">
+                                    更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
+                                </el-button>
+                                <template #dropdown>
+                                    <el-dropdown-menu>
+                                        <!-- 详情（固定显示在第一个） -->
+                                        <el-dropdown-item @click="handleDetails(scope.row)">
+                                            <span>详情</span>
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="scope.row.status === 'PENDING'"
+                                            @click="handleReject(scope.row)">
+                                            <span style="color: var(--el-color-danger)">拒绝接单</span>
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="(scope.row.status === 'PENDING' || scope.row.status === 'CONFIRMED') && scope.row.paymentStatus === 'UNPAID'"
+                                            @click="handleCancel(scope.row)">
+                                            <span style="color: var(--el-color-danger)">取消订单</span>
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
+                                            @click="handleCancel(scope.row)">
+                                            <span style="color: var(--el-color-danger)">取消订单</span>
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="canInitiateRefund(scope.row)"
+                                            @click="handleRefund(scope.row)">
+                                            <span style="color: var(--el-color-warning)">发起退款</span>
+                                        </el-dropdown-item>
+                                        <!-- 争议：退款中时可以发起争议 -->
+                                        <el-dropdown-item v-if="scope.row.paymentStatus === 'REFUND_PENDING' && scope.row.status !== 'DISPUTE_PENDING'"
+                                            @click="handleRaiseDispute(scope.row)">
+                                            <span style="color: var(--el-color-danger)">发起争议</span>
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </template>
+                            </el-dropdown>
                         </div>
                     </template>
                 </el-table-column>
@@ -540,6 +571,42 @@
             </template>
         </el-dialog>
 
+        <!-- 发起争议对话框 -->
+        <el-dialog v-model="disputeDialogVisible" title="发起争议" width="45%">
+            <div v-if="currentOrder" class="refund-dialog-content">
+                <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #title>
+                        <span>对订单 <strong>#{{ currentOrder.id }}</strong> 的退款有异议？</span>
+                    </template>
+                    <div>发起争议后，订单将进入争议处理流程，需要管理员进行仲裁。</div>
+                </el-alert>
+
+                <el-descriptions :column="1" border size="small" class="refund-order-info">
+                    <el-descriptions-item label="订单号">{{ currentOrder.orderNumber || currentOrder.id }}</el-descriptions-item>
+                    <el-descriptions-item label="退款原因">{{ currentOrder.refundReason || '无' }}</el-descriptions-item>
+                    <el-descriptions-item label="退款金额">
+                        <span class="refund-amount-highlight">¥{{ (currentOrder.refundAmount || currentOrder.totalAmount || 0).toFixed(2) }}</span>
+                    </el-descriptions-item>
+                </el-descriptions>
+
+                <el-form :model="disputeForm" ref="disputeFormRef" style="margin-top: 20px;">
+                    <el-form-item label="争议原因" prop="reason"
+                        :rules="[{ required: true, message: '请输入争议原因', trigger: 'blur' }]">
+                        <el-input v-model="disputeForm.reason" type="textarea" :rows="3"
+                            placeholder="请输入您认为不应退款的原因，例如：客人违反了房屋使用规定、房屋损坏等" maxlength="200" show-word-limit />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="disputeDialogVisible = false">取消</el-button>
+                    <el-button type="danger" @click="confirmDispute" :loading="disputeSubmitting">
+                        发起争议
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
         <!-- 自动状态配置对话框 -->
         <el-dialog v-model="autoStatusConfigVisible" title="自动状态流转配置" width="60%">
             <div v-if="autoStatusConfig" class="auto-config-content">
@@ -582,7 +649,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { Search, Refresh, Clock, CircleCheck, Warning, Setting } from '@element-plus/icons-vue'
+import { Search, Refresh, Clock, CircleCheck, Warning, Setting, ArrowDown } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import {
     getHostOrders,
@@ -593,7 +660,8 @@ import {
     getHostOrderStats,
     hostInitiateRefund,
     hostApproveRefund,
-    hostRejectRefund
+    hostRejectRefund,
+    hostRaiseDispute
 } from '@/api/hostOrder'
 import { getHostHomestayOptions } from '@/api/host'
 
@@ -627,6 +695,13 @@ interface HostOrderItem {
     refundProcessedByName?: string;
     refundProcessedAt?: string;
     refundTransactionId?: string;
+    // 争议相关字段
+    disputeReason?: string;
+    disputeRaisedBy?: number;
+    disputeRaisedAt?: string;
+    disputeResolvedAt?: string;
+    disputeResolution?: string;
+    disputeResolutionNote?: string;
 }
 
 // 新增：定义房源选项接口
@@ -714,6 +789,14 @@ const reviewRefundForm = reactive({
     reason: ''
 })
 
+// 争议对话框相关
+const disputeDialogVisible = ref(false)
+const disputeFormRef = ref<FormInstance>()
+const disputeSubmitting = ref(false)
+const disputeForm = reactive({
+    reason: ''
+})
+
 // 处理筛选
 const handleFilter = () => {
     fetchOrders()
@@ -780,7 +863,9 @@ const getStatusText = (order: HostOrderItem | string) => {
         'CANCELLED_BY_USER': '用户取消',
         'CANCELLED_BY_HOST': '房东取消',
         'REJECTED': '已拒绝',
-        'REFUND_FAILED': '退款失败'
+        'REFUND_FAILED': '退款失败',
+        'DISPUTE_PENDING': '争议待处理',
+        'DISPUTED': '争议中'
     }
     return statusMap[status] || status
 }
@@ -802,7 +887,9 @@ const getStatusType = (status: string) => {
         'REJECTED': 'danger',
         'REFUND_PENDING': 'warning',
         'REFUNDED': 'info',
-        'REFUND_FAILED': 'danger'
+        'REFUND_FAILED': 'danger',
+        'DISPUTE_PENDING': 'warning',
+        'DISPUTED': 'warning'
     }
     return statusMap[status] || ''
 }
@@ -860,6 +947,13 @@ const hasRefundInfo = (order: HostOrderItem | null) => {
         order.refundInitiatedByName ||
         order.refundProcessedByName ||
         ['REFUND_PENDING', 'REFUNDED', 'REFUND_FAILED'].includes(order.paymentStatus || '')
+}
+
+// 判断是否有”更多”下拉菜单的操作（始终显示，因为详情已移入下拉菜单）
+const hasMoreActions = (order: HostOrderItem) => {
+    if (!order) return false
+    // 始终显示更多菜单（包含详情入口）
+    return true
 }
 
 // 展示订单详情
@@ -1259,6 +1353,58 @@ const confirmReviewRefund = async () => {
     })
 }
 
+// 发起争议
+const handleRaiseDispute = (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    currentOrder.value = order
+    disputeForm.reason = ''
+    disputeDialogVisible.value = true
+}
+
+// 确认发起争议
+const confirmDispute = async () => {
+    if (!disputeFormRef.value) return
+    if (!currentOrder.value) {
+        ElMessage.error('当前没有选中的订单')
+        return
+    }
+
+    await disputeFormRef.value.validate(async (valid: boolean) => {
+        if (valid) {
+            disputeSubmitting.value = true
+
+            try {
+                console.log('发起争议，订单ID:', currentOrder.value!.id, '原因:', disputeForm.reason)
+                await hostRaiseDispute(currentOrder.value!.id, disputeForm.reason)
+
+                // 更新本地数据
+                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
+                if (index !== -1) {
+                    orders.value[index].status = 'DISPUTE_PENDING'
+                }
+
+                ElMessage.success('争议已发起，等待管理员仲裁')
+                disputeDialogVisible.value = false
+
+                if (detailsDialogVisible.value) {
+                    detailsDialogVisible.value = false
+                }
+
+                fetchOrders()
+            } catch (error: any) {
+                console.error('发起争议失败:', error)
+                ElMessage.error(error.response?.data?.error || error.message || '发起争议失败，请重试')
+            } finally {
+                disputeSubmitting.value = false
+            }
+        }
+    })
+}
+
 // 更新统计数据
 const updateStats = async () => {
     try {
@@ -1607,7 +1753,9 @@ onMounted(() => {
 
 <style scoped>
 .order-container {
-    padding: 20px;
+    padding: 24px;
+    background-color: #f5f7fa;
+    min-height: calc(100vh - 60px);
 }
 
 .stat-row {
@@ -1615,7 +1763,16 @@ onMounted(() => {
 }
 
 .stat-card {
-    height: 100px;
+    height: 110px;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .stat-content {
@@ -1623,27 +1780,36 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    padding: 0 10px;
 }
 
 .stat-title {
     font-size: 14px;
-    color: #606266;
-    margin-bottom: 10px;
+    color: #64748b;
+    margin-bottom: 12px;
+    font-weight: 500;
 }
 
 .stat-value {
-    font-size: 24px;
-    font-weight: bold;
-    color: #409EFF;
+    font-size: 28px;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1;
 }
 
 .filter-card {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .order-list-card {
     min-height: 500px;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
 .pagination {
@@ -1696,6 +1862,28 @@ onMounted(() => {
 
 .price-value {
     font-weight: bold;
+}
+
+/* 优化表格整体感觉 */
+:deep(.el-table) {
+    --el-table-border-color: #f0f2f5;
+    --el-table-header-bg-color: #f8fafc;
+    --el-table-header-text-color: #64748b;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+:deep(.el-table th.el-table__cell) {
+    font-weight: 600;
+    padding: 12px 0;
+}
+
+:deep(.el-table td.el-table__cell) {
+    padding: 16px 0;
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
+    background: #fafafa;
 }
 
 /* 自动状态管理样式 */
