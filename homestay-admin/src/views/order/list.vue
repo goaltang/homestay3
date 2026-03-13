@@ -1,5 +1,115 @@
 <template>
     <div class="order-list app-container">
+        <!-- 异常订单统计卡片 -->
+        <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('pendingTimeout')">
+                    <div class="stat-content">
+                        <div class="stat-icon warning">
+                            <el-icon><Clock /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.pendingTimeout }}</div>
+                            <div class="stat-label">待处理超时</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('paymentFailed')">
+                    <div class="stat-content">
+                        <div class="stat-icon danger">
+                            <el-icon><Money /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.paymentFailed }}</div>
+                            <div class="stat-label">支付失败</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('refundFailed')">
+                    <div class="stat-content">
+                        <div class="stat-icon danger">
+                            <el-icon><Warning /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.refundFailed }}</div>
+                            <div class="stat-label">退款失败</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('notCheckedIn')">
+                    <div class="stat-content">
+                        <div class="stat-icon warning">
+                            <el-icon><House /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.notCheckedIn }}</div>
+                            <div class="stat-label">未入住</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('refundPending')">
+                    <div class="stat-content">
+                        <div class="stat-icon info">
+                            <el-icon><Refresh /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.refundPending }}</div>
+                            <div class="stat-label">退款处理中</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('disputePending')">
+                    <div class="stat-content">
+                        <div class="stat-icon warning">
+                            <el-icon><Warning /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.disputePending }}</div>
+                            <div class="stat-label">争议待处理</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+            <el-col :span="4">
+                <el-card shadow="hover" class="stat-card total-card" @click="filterException('all')">
+                    <div class="stat-content">
+                        <div class="stat-icon primary">
+                            <el-icon><WarningFilled /></el-icon>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-value">{{ exceptionStats.total }}</div>
+                            <div class="stat-label">异常订单总数</div>
+                        </div>
+                    </div>
+                </el-card>
+            </el-col>
+        </el-row>
+
+        <!-- 当前筛选提示 -->
+        <el-alert
+            v-if="currentExceptionFilter"
+            :title="currentExceptionFilterTitle"
+            type="warning"
+            :closable="true"
+            @close="clearExceptionFilter"
+            class="exception-filter-alert"
+            show-icon
+        >
+            <template #default>
+                点击 <el-button type="primary" link @click="clearExceptionFilter">清除筛选</el-button> 返回全部订单
+            </template>
+        </el-alert>
+
         <!-- 搜索区域 -->
         <div class="search-box">
             <el-form :inline="true" :model="searchForm" ref="searchFormRef">
@@ -27,8 +137,6 @@
                 </el-form-item>
                 <el-form-item label="支付方式" prop="paymentMethod">
                     <el-input v-model="searchForm.paymentMethod" placeholder="支付方式 (e.g., alipay)" clearable />
-                    <!-- 或者使用 Select，如果支付方式固定 -->
-                    <!-- <el-select v-model="searchForm.paymentMethod" placeholder="支付方式" clearable> ... </el-select> -->
                 </el-form-item>
                 <el-form-item label="入住日期" prop="checkInDateRange">
                     <el-date-picker v-model="searchForm.checkInDateRange" type="daterange" range-separator="至"
@@ -172,6 +280,18 @@
                         拒绝退款
                     </el-button>
 
+                    <!-- 争议管理：发起争议 -->
+                    <el-button type="warning" link size="small" @click="handleRaiseDispute(scope.row)"
+                        v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
+                        发起争议
+                    </el-button>
+
+                    <!-- 争议管理：解决争议（仲裁） -->
+                    <el-button type="primary" link size="small" @click="handleResolveDispute(scope.row)"
+                        v-if="scope.row.status === 'DISPUTE_PENDING'">
+                        处理争议
+                    </el-button>
+
                     <!-- 异常处理：强制完成订单（仅针对已入住但未完成的订单） -->
                     <el-button type="primary" link size="small" @click="handleComplete(scope.row)"
                         v-if="scope.row.status === 'CHECKED_IN'">
@@ -199,7 +319,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { format } from 'date-fns'
-import { Search, Refresh, Download } from '@element-plus/icons-vue'
+import { Search, Refresh, Download, Clock, Money, Warning, WarningFilled, House } from '@element-plus/icons-vue'
 import {
     getAdminOrders,
     updateOrderStatus,
@@ -211,7 +331,10 @@ import {
     confirmPayment,
     initiateRefund,
     approveRefund,
-    rejectRefund
+    rejectRefund,
+    raiseDispute,
+    resolveDispute,
+    getExceptionOrderStats
 } from '@/api/order'
 
 // 定义后端返回的 Order 数据类型 (需要与 OrderDTO.java 对应)
@@ -235,6 +358,17 @@ interface AdminOrder {
     paymentStatus: string | null; // 支付状态 (e.g., UNPAID, PAID, REFUNDED)
     paymentMethod: string | null; // 支付方式
     remark: string | null;
+    // 退款相关字段
+    refundType?: string;
+    refundReason?: string;
+    refundAmount?: number;
+    // 争议相关字段
+    disputeReason?: string;
+    disputeRaisedBy?: number;
+    disputeRaisedAt?: string;
+    disputeResolvedAt?: string;
+    disputeResolution?: string;
+    disputeResolutionNote?: string;
     createTime: string; // LocalDateTime -> string
     updateTime: string; // LocalDateTime -> string
 }
@@ -274,6 +408,102 @@ const total = ref(0)
 const selectedRows = ref<AdminOrder[]>([])
 const sortInfo = ref({ prop: 'createTime', order: 'descending' }) // 默认排序
 
+// ========== 异常订单统计 ==========
+const statsLoading = ref(false)
+const exceptionStats = ref({
+    pendingTimeout: 0,
+    paymentFailed: 0,
+    refundFailed: 0,
+    notCheckedIn: 0,
+    refundPending: 0,
+    disputePending: 0,
+    pendingConfirm: 0,
+    total: 0
+})
+const currentExceptionFilter = ref<string | null>(null)
+const currentExceptionFilterTitle = ref('')
+
+// 加载异常订单统计数据
+const loadExceptionStats = async () => {
+    try {
+        statsLoading.value = true
+        const res = await getExceptionOrderStats() as any
+        exceptionStats.value = {
+            pendingTimeout: res.pendingTimeout || 0,
+            paymentFailed: res.paymentFailed || 0,
+            refundFailed: res.refundFailed || 0,
+            notCheckedIn: res.notCheckedIn || 0,
+            refundPending: res.refundPending || 0,
+            disputePending: res.disputePending || 0,
+            pendingConfirm: res.pendingConfirm || 0,
+            total: res.total || 0
+        }
+    } catch (error) {
+        console.error('加载异常订单统计失败:', error)
+    } finally {
+        statsLoading.value = false
+    }
+}
+
+// 异常订单筛选映射
+const exceptionFilterMap: Record<string, { title: string; status?: string; paymentStatus?: string; checkInDateEnd?: string }> = {
+    pendingTimeout: { title: '待处理超时订单（PENDING超过24小时）', status: 'PENDING' },
+    paymentFailed: { title: '支付失败订单', paymentStatus: 'PAYMENT_FAILED' },
+    refundFailed: { title: '退款失败订单', paymentStatus: 'REFUND_FAILED' },
+    notCheckedIn: { title: '已支付但未入住订单', status: 'PAID', checkInDateEnd: new Date().toISOString().split('T')[0] },
+    refundPending: { title: '退款处理中订单', paymentStatus: 'REFUND_PENDING' },
+    disputePending: { title: '争议待处理订单', status: 'DISPUTE_PENDING' },
+    pendingConfirm: { title: '待确认订单', status: 'PENDING' },
+    all: { title: '所有异常订单' }
+}
+
+// 点击异常卡片筛选
+const filterException = (type: string) => {
+    const filter = exceptionFilterMap[type]
+    if (!filter) return
+
+    currentExceptionFilter.value = type
+    currentExceptionFilterTitle.value = filter.title
+
+    // 重置搜索表单
+    resetSearchForm()
+
+    // 设置筛选条件
+    if (filter.status) {
+        searchForm.status = filter.status
+    }
+    if (filter.paymentStatus) {
+        searchForm.paymentStatus = filter.paymentStatus
+    }
+    if (filter.checkInDateEnd) {
+        // 设置入住日期结束时间为今天（筛选已过期的）
+        searchForm.checkInDateRange = ['', filter.checkInDateEnd]
+    }
+
+    // 重新加载数据
+    fetchData()
+}
+
+// 清除异常筛选
+const clearExceptionFilter = () => {
+    currentExceptionFilter.value = null
+    currentExceptionFilterTitle.value = ''
+    resetSearch()
+}
+
+// 重置搜索表单（保留函数）
+const resetSearchForm = () => {
+    searchForm.orderNumber = ''
+    searchForm.guestName = ''
+    searchForm.homestayTitle = ''
+    searchForm.status = ''
+    searchForm.paymentStatus = ''
+    searchForm.paymentMethod = ''
+    searchForm.hostName = ''
+    searchForm.checkInDateRange = null
+    searchForm.createTimeRange = null
+}
+
 // 状态映射
 const orderStatusMap = {
     PENDING: { text: '待确认', type: 'warning' },
@@ -290,6 +520,8 @@ const orderStatusMap = {
     REFUND_PENDING: { text: '退款中', type: 'warning' },
     REFUNDED: { text: '已退款', type: 'info' },
     REFUND_FAILED: { text: '退款失败', type: 'danger' },
+    DISPUTE_PENDING: { text: '争议待处理', type: 'warning' },
+    DISPUTED: { text: '争议中', type: 'warning' },
     READY_FOR_CHECKIN: { text: '待入住', type: '' },
     REJECTED: { text: '已拒绝', type: 'danger' }
 }
@@ -742,6 +974,96 @@ const handleRejectRefund = async (row: AdminOrder) => {
     }
 }
 
+// 发起争议
+const handleRaiseDispute = async (row: AdminOrder) => {
+    try {
+        const { value: disputeReason } = await ElMessageBox.prompt(
+            `确认要对订单 ${row.orderNumber} 发起争议吗？<br/><small>发起争议后，订单将进入争议处理流程，需要管理员进行仲裁</small>`,
+            '发起争议',
+            {
+                confirmButtonText: '发起争议',
+                cancelButtonText: '取消',
+                inputPlaceholder: '请输入争议原因（必填）',
+                inputType: 'textarea',
+                inputValidator: (value: string) => {
+                    if (!value || value.trim() === '') {
+                        return '请输入争议原因'
+                    }
+                    return true
+                },
+                dangerouslyUseHTMLString: true
+            }
+        )
+        loading.value = true;
+        await raiseDispute(row.id, disputeReason);
+        ElMessage.success('争议已发起，等待管理员仲裁');
+        fetchData();
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('发起争议失败:', error);
+            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+            ElMessage.error(`发起争议失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
+// 解决争议（仲裁）
+const handleResolveDispute = async (row: AdminOrder) => {
+    try {
+        const { value: action } = await ElMessageBox.prompt(
+            `订单 ${row.orderNumber} 正在争议中，请进行仲裁。<br/>
+            <strong>退款原因：</strong> ${row.refundReason || '无'}<br/>
+            <strong>争议原因：</strong> ${row.disputeReason || '无'}<br/><br/>
+            请选择仲裁结果：`,
+            '处理争议',
+            {
+                confirmButtonText: '确认仲裁',
+                cancelButtonText: '取消',
+                inputPlaceholder: '请输入仲裁备注（可选）',
+                inputType: 'textarea',
+                inputValue: '',
+                dangerouslyUseHTMLString: true,
+                distinguishCancelAndClose: true
+            }
+        )
+
+        // 由于ElMessageBox的radio选择需要自定义，这里简化处理：
+        // 先让用户选择操作，然后在确认时执行
+        const { value: resolution } = await ElMessageBox.confirm(
+            '请选择仲裁结果：',
+            '仲裁结果',
+            {
+                confirmButtonText: '批准退款',
+                cancelButtonText: '拒绝退款（恢复订单）',
+                type: 'warning',
+                distinguishCancelAndClose: true
+            }
+        )
+
+        // resolution为confirm时是批准，为cancel时是拒绝
+        const resolutionType = resolution === 'confirm' ? 'APPROVED' : 'REJECTED'
+        loading.value = true;
+        await resolveDispute(row.id, resolutionType, action || '');
+
+        if (resolutionType === 'APPROVED') {
+            ElMessage.success('仲裁完成，已批准退款');
+        } else {
+            ElMessage.success('仲裁完成，已拒绝退款，订单恢复为已支付');
+        }
+        fetchData();
+    } catch (error) {
+        if (error !== 'cancel' && error !== 'close') {
+            console.error('解决争议失败:', error);
+            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+            ElMessage.error(`解决争议失败: ${message}`);
+        }
+    } finally {
+        loading.value = false;
+    }
+}
+
 // 处理表格选择变化
 const handleSelectionChange = (selection: AdminOrder[]) => {
     selectedRows.value = selection
@@ -750,12 +1072,91 @@ const handleSelectionChange = (selection: AdminOrder[]) => {
 // 初始化
 onMounted(() => {
     fetchData()
+    loadExceptionStats()
 })
 </script>
 
 <style scoped lang="scss">
 .order-list {
     padding: 20px;
+
+    // 异常订单统计卡片样式
+    .stats-row {
+        margin-bottom: 16px;
+
+        .stat-card {
+            cursor: pointer;
+            transition: all 0.3s;
+
+            &:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+
+            .stat-content {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+
+                .stat-icon {
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 24px;
+
+                    &.warning {
+                        background-color: #fdf6ec;
+                        color: #e6a23c;
+                    }
+
+                    &.danger {
+                        background-color: #fef0f0;
+                        color: #f56c6c;
+                    }
+
+                    &.info {
+                        background-color: #f4f4f5;
+                        color: #909399;
+                    }
+
+                    &.primary {
+                        background-color: #ecf5ff;
+                        color: #409eff;
+                    }
+                }
+
+                .stat-info {
+                    .stat-value {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #303133;
+                        line-height: 1.2;
+                    }
+
+                    .stat-label {
+                        font-size: 12px;
+                        color: #909399;
+                        margin-top: 4px;
+                    }
+                }
+            }
+        }
+
+        .exception-card {
+            border-left: 3px solid;
+        }
+
+        .total-card {
+            border-left: 3px solid #409eff;
+        }
+    }
+
+    .exception-filter-alert {
+        margin-bottom: 16px;
+    }
 
     .search-box {
         margin-bottom: 20px;

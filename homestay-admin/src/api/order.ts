@@ -158,6 +158,33 @@ export function completeRefund(orderId: number, refundTransactionId?: string) {
   });
 }
 
+// 发起争议（当房东对退款有异议时）
+export function raiseDispute(orderId: number, reason: string) {
+  return request<AdminOrderListItem>({
+    url: `/api/admin/orders/${orderId}/dispute`,
+    method: "post",
+    data: {
+      reason: reason,
+    },
+  });
+}
+
+// 解决争议（管理员仲裁）
+export function resolveDispute(
+  orderId: number,
+  resolution: "APPROVED" | "REJECTED",
+  note?: string
+) {
+  return request<AdminOrderListItem>({
+    url: `/api/admin/orders/${orderId}/dispute/resolve`,
+    method: "post",
+    data: {
+      resolution: resolution,
+      note: note || "",
+    },
+  });
+}
+
 // 删除订单
 export function deleteOrder(id: number) {
   return request({
@@ -214,6 +241,28 @@ export function batchExportOrders(ids: number[]) {
     method: "post",
     data: { ids },
     responseType: "blob",
+  });
+}
+
+// ========== 异常订单统计 ==========
+
+// 异常订单统计数据类型
+export interface ExceptionOrderStats {
+  pendingTimeout: number;    // 待处理超时（PENDING超过24小时）
+  paymentFailed: number;     // 支付失败
+  refundFailed: number;     // 退款失败
+  notCheckedIn: number;     // 已支付但未入住
+  refundPending: number;    // 退款处理中
+  disputePending: number;   // 争议待处理
+  pendingConfirm: number;   // 待确认
+  total: number;            // 异常订单总数
+}
+
+// 获取异常订单统计
+export function getExceptionOrderStats() {
+  return request({
+    url: "/api/admin/orders/exception-stats",
+    method: "get",
   });
 }
 

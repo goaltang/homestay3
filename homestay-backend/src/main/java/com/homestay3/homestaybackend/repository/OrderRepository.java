@@ -196,4 +196,34 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         List<Order> findByHomestayIdAndStatusInOrderByCheckInDate(
                         @Param("homestayId") Long homestayId,
                         @Param("statuses") List<OrderStatus> statuses);
+
+        // ========== 管理员异常订单统计 ==========
+
+        // 待处理订单（PENDING超过指定小时数）
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.status = 'PENDING' AND o.createdAt < :cutoffTime")
+        Long countPendingTimeoutOrders(@Param("cutoffTime") LocalDateTime cutoffTime);
+
+        // 支付异常订单（支付失败）
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.paymentStatus = 'PAYMENT_FAILED'")
+        Long countPaymentFailedOrders();
+
+        // 退款异常订单（退款失败）
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.paymentStatus = 'REFUND_FAILED'")
+        Long countRefundFailedOrders();
+
+        // 已支付但超过入住日期未入住（异常未入住）
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.status IN ('PAID', 'READY_FOR_CHECKIN') AND o.paymentStatus = 'PAID' AND o.checkInDate < :today")
+        Long countNotCheckedInOrders(@Param("today") LocalDate today);
+
+        // 退款处理中订单
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.paymentStatus = 'REFUND_PENDING'")
+        Long countRefundPendingOrders();
+
+        // 争议待处理订单
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.status = 'DISPUTE_PENDING'")
+        Long countDisputePendingOrders();
+
+        // 待确认订单（今天及之前需要确认的）
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.status = 'PENDING' AND o.createdAt < :beforeDate")
+        Long countPendingConfirmOrders(@Param("beforeDate") LocalDateTime beforeDate);
 }

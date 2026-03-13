@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.service.DisputeService;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
@@ -34,6 +35,7 @@ public class AdminOrderController {
     private static final Logger logger = LoggerFactory.getLogger(AdminOrderController.class);
     private final OrderService orderService;
     private final PaymentProcessingService paymentProcessingService;
+    private final DisputeService disputeService;
 
     /**
      * 获取订单列表，支持分页和更丰富的筛选
@@ -68,10 +70,18 @@ public class AdminOrderController {
             property = "homestay.owner.username"; // 假设按房东用户名排序
         } else if ("guestName".equals(property)) {
             property = "guest.username";
-        } else if ("createTime".equals(property)) { // 新增映射
-            property = "createdAt"; 
-        } // 可以添加更多映射
-        
+        } else if ("createTime".equals(property)) {
+            property = "createdAt";
+        } else if ("checkInDate".equals(property)) {
+            property = "checkInDate";
+        } else if ("totalAmount".equals(property)) {
+            property = "totalAmount";
+        } else if ("orderNumber".equals(property)) {
+            property = "orderNumber";
+        } else if ("status".equals(property)) {
+            property = "status";
+        }
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, property));
         
         // 调用更新后的Service方法
@@ -99,6 +109,16 @@ public class AdminOrderController {
         response.put("size", orders.getSize());
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 获取异常订单统计（用于管理后台仪表盘）
+     */
+    @GetMapping("/exception-stats")
+    public ResponseEntity<?> getExceptionOrderStats() {
+        logger.info("获取异常订单统计数据");
+        Map<String, Long> stats = orderService.getExceptionOrderStats();
+        return ResponseEntity.ok(stats);
     }
 
     /**
@@ -226,6 +246,60 @@ public class AdminOrderController {
         } catch (Exception e) {
             logger.error("完成退款失败，订单ID: {}", id, e);
             return ResponseEntity.status(500).body(Map.of("error", "完成退款失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 发起争议（当房东对退款有异议时）
+     */
+    @PostMapping("/{id}/dispute")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HOST')")
+    public ResponseEntity<?> raiseDispute(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        logger.info("发起争议，订单ID: {}", id);
+        try {
+            String reason = request.getOrDefault("reason", "");
+            if (reason == null || reason.trim().isEmpty()) {
+                return ResponseEntity.status(400).body(Map.of("error", "请输入争议原因"));
+            }
+            OrderDTO updatedOrder = disputeService.raiseDispute(id, reason);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("发起争议失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "发起争议失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 解决争议（管理员仲裁）
+     */
+    @PostMapping("/{id}/dispute/resolve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> resolveDispute(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        logger.info("解决争议，订单ID: {}", id);
+        try {
+            String resolution = request.getOrDefault("resolution", "");
+            String note = request.getOrDefault("note", "");
+
+            if (resolution == null || resolution.trim().isEmpty()) {
+                return ResponseEntity.status(400).body(Map.of("error", "请选择仲裁结果"));
+            }
+            if (!resolution.equals("APPROVED") && !resolution.equals("REJECTED")) {
+                return ResponseEntity.status(400).body(Map.of("error", "仲裁结果必须是 APPROVED 或 REJECTED"));
+            }
+
+            OrderDTO updatedOrder = disputeService.resolveDispute(id, resolution, note);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("解决争议失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "解决争议失败: " + e.getMessage()));
         }
     }
 

@@ -100,6 +100,25 @@ public class Order {
     @Column(name = "refund_rejection_reason", length = 500)
     private String refundRejectionReason; // 退款被拒绝时的原因
 
+    // 争议相关字段
+    @Column(name = "dispute_reason", columnDefinition = "TEXT")
+    private String disputeReason; // 争议原因
+
+    @Column(name = "dispute_raised_by")
+    private Long disputeRaisedBy; // 争议发起人用户ID
+
+    @Column(name = "dispute_raised_at")
+    private LocalDateTime disputeRaisedAt; // 争议发起时间
+
+    @Column(name = "dispute_resolved_at")
+    private LocalDateTime disputeResolvedAt; // 争议解决时间
+
+    @Column(name = "dispute_resolution", length = 20)
+    private String disputeResolution; // 仲裁结果：APPROVED(批准退款)/REJECTED(拒绝退款)
+
+    @Column(name = "dispute_resolution_note", length = 500)
+    private String disputeResolutionNote; // 仲裁备注
+
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;
 

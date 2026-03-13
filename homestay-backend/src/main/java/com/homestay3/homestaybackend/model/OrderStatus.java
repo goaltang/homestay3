@@ -26,6 +26,10 @@ public enum OrderStatus {
     REFUND_PENDING("退款中"),
     REFUNDED("已退款"),
     REFUND_FAILED("退款失败"),
+
+    // 争议相关状态
+    DISPUTE_PENDING("争议待处理"),
+    DISPUTED("争议中"),
     
     // 入住相关状态
     READY_FOR_CHECKIN("待入住"),

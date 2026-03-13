@@ -741,6 +741,42 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    // ========== 管理员异常订单统计 ==========
+
+    @Override
+    public Map<String, Long> getExceptionOrderStats() {
+        Map<String, Long> stats = new HashMap<>();
+
+        // 待处理超时订单（PENDING超过24小时）
+        LocalDateTime dayAgo = LocalDateTime.now().minusHours(24);
+        stats.put("pendingTimeout", orderRepository.countPendingTimeoutOrders(dayAgo));
+
+        // 支付失败订单
+        stats.put("paymentFailed", orderRepository.countPaymentFailedOrders());
+
+        // 退款失败订单
+        stats.put("refundFailed", orderRepository.countRefundFailedOrders());
+
+        // 已支付但未入住（超过入住日期）
+        stats.put("notCheckedIn", orderRepository.countNotCheckedInOrders(LocalDate.now()));
+
+        // 退款处理中
+        stats.put("refundPending", orderRepository.countRefundPendingOrders());
+
+        // 争议待处理
+        stats.put("disputePending", orderRepository.countDisputePendingOrders());
+
+        // 待确认订单（今天及之前创建的）
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        stats.put("pendingConfirm", orderRepository.countPendingConfirmOrders(startOfToday));
+
+        // 计算异常订单总数
+        long total = stats.values().stream().mapToLong(Long::longValue).sum();
+        stats.put("total", total);
+
+        return stats;
+    }
+
     // 工具方法：获取当前登录用户
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -841,16 +877,36 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 获取房东信息，如果存在的话
-        User host = order.getHomestay() != null ? order.getHomestay().getOwner() : null;
-        String hostName = host != null ? (host.getNickname() != null ? host.getNickname() : host.getUsername()) : null;
-        Long hostId = host != null ? host.getId() : null;
+        // 获取房东信息，如果存在的话（处理homestay已被删除的边缘情况）
+        User host = null;
+        String hostName = null;
+        Long hostId = null;
+        try {
+            if (order.getHomestay() != null) {
+                host = order.getHomestay().getOwner();
+                if (host != null) {
+                    hostName = host.getNickname() != null ? host.getNickname() : host.getUsername();
+                    hostId = host.getId();
+                }
+            }
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            // homestay已被删除，忽略异常，保持hostName和hostId为null
+            log.warn("订单 {} 关联的homestay已被删除", order.getId());
+        }
 
-        // 获取房客信息，如果存在的话
-        User guest = order.getGuest();
-        String guestName = guest != null ? (guest.getNickname() != null ? guest.getNickname() : guest.getUsername())
-                : null;
-        Long guestId = guest != null ? guest.getId() : null;
+        // 获取房客信息，如果存在的话（处理用户已被删除的边缘情况）
+        String guestName = null;
+        Long guestId = null;
+        try {
+            User guest = order.getGuest();
+            if (guest != null) {
+                guestName = guest.getNickname() != null ? guest.getNickname() : guest.getUsername();
+                guestId = guest.getId();
+            }
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            // guest已被删除，忽略异常
+            log.warn("订单 {} 关联的guest用户已被删除", order.getId());
+        }
 
         // 获取退款相关的用户名
         String refundInitiatedByName = null;
@@ -879,12 +935,25 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(0.1)) : BigDecimal.ZERO;
         BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
 
+        // 获取homestay信息（处理homestay已被删除的边缘情况）
+        Long homestayId = null;
+        String homestayTitle = null;
+        try {
+            if (order.getHomestay() != null) {
+                homestayId = order.getHomestay().getId();
+                homestayTitle = order.getHomestay().getTitle();
+            }
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            // homestay已被删除，忽略异常
+            log.warn("订单 {} 关联的homestay已被删除", order.getId());
+        }
+
         // 构建 OrderDTO
         return OrderDTO.builder()
                 .id(order.getId())
                 .orderNumber(order.getOrderNumber())
-                .homestayId(order.getHomestay() != null ? order.getHomestay().getId() : null)
-                .homestayTitle(order.getHomestay() != null ? order.getHomestay().getTitle() : null)
+                .homestayId(homestayId)
+                .homestayTitle(homestayTitle)
                 .guestId(guestId)
                 .guestName(guestName)
                 .guestPhone(order.getGuestPhone())

@@ -56,4 +56,13 @@ public class OrderDTO {
     private LocalDateTime refundProcessedAt;
     private String refundTransactionId;
     private String refundRejectionReason; // 退款被拒绝时的原因
+
+    // 争议相关字段
+    private String disputeReason;
+    private Long disputeRaisedBy;
+    private String disputeRaisedByName;
+    private LocalDateTime disputeRaisedAt;
+    private LocalDateTime disputeResolvedAt;
+    private String disputeResolution;
+    private String disputeResolutionNote;
 } 
