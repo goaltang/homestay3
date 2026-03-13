@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.service.OrderService;
+import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -32,6 +33,7 @@ public class AdminOrderController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminOrderController.class);
     private final OrderService orderService;
+    private final PaymentProcessingService paymentProcessingService;
 
     /**
      * 获取订单列表，支持分页和更丰富的筛选

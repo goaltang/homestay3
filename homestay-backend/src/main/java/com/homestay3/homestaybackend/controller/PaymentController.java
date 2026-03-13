@@ -19,6 +19,7 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final com.homestay3.homestaybackend.service.PaymentProcessingService paymentProcessingService;
 
     /**
      * 创建支付订单（生成二维码或支付页面）
@@ -74,12 +75,14 @@ public class PaymentController {
         try {
             log.info("查询支付状态，订单ID: {}", orderId);
 
+            // 使用 paymentProcessingService 检查支付状态，或者维持原样如果 PaymentService 是基础支付模块
             boolean isPaid = paymentService.checkPaymentStatus(orderId);
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("isPaid", isPaid);
             result.put("message", isPaid ? "支付成功" : "待支付");
+            result.put("paid", isPaid); // 兼容前端可能的字段名
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {

@@ -20,12 +20,15 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.BookingConflictService;
 import com.homestay3.homestaybackend.service.PaymentService;
+import com.homestay3.homestaybackend.service.PaymentProcessingService;
+import com.homestay3.homestaybackend.service.OrderLifecycleService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +52,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
-@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -61,379 +63,84 @@ public class OrderServiceImpl implements OrderService {
     private final ReviewRepository reviewRepository;
     private final BookingConflictService bookingConflictService;
     private final PaymentProcessingService paymentProcessingService;
+    private final OrderLifecycleService orderLifecycleService;
+
+    public OrderServiceImpl(OrderRepository orderRepository,
+                            UserRepository userRepository,
+                            HomestayRepository homestayRepository,
+                            NotificationService notificationService,
+                            OrderNotificationService orderNotificationService,
+                            EarningService earningService,
+                            ReviewRepository reviewRepository,
+                            BookingConflictService bookingConflictService,
+                            PaymentProcessingService paymentProcessingService,
+                            OrderLifecycleService orderLifecycleService) {
+        this.orderRepository = orderRepository;
+        this.userRepository = userRepository;
+        this.homestayRepository = homestayRepository;
+        this.notificationService = notificationService;
+        this.orderNotificationService = orderNotificationService;
+        this.earningService = earningService;
+        this.reviewRepository = reviewRepository;
+        this.bookingConflictService = bookingConflictService;
+        this.paymentProcessingService = paymentProcessingService;
+        this.orderLifecycleService = orderLifecycleService;
+    }
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
     @Override
     public OrderDTO createOrder(OrderDTO orderDTO) {
-        log.info("开始创建订单: 用户={}, 房源={}, 入住日期={}, 退房日期={}",
-                getCurrentUser().getUsername(), orderDTO.getHomestayId(),
-                orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
-
-        User currentUser = getCurrentUser();
-
-        // 1. 获取房源信息（不再使用数据库级悲观锁，改由 BookingConflictService 的 Redis 分布式锁保护）
-        Homestay homestay = homestayRepository.findById(orderDTO.getHomestayId())
-                .orElseThrow(() -> new ResourceNotFoundException("房源不存在"));
-
-        if (!homestay.getStatus().equals(HomestayStatus.ACTIVE)) {
-            throw new IllegalArgumentException("房源当前不可预订");
-        }
-
-        if (currentUser.getId().equals(homestay.getOwner().getId())) {
-            throw new IllegalArgumentException("不能预订自己的房源");
-        }
-
-        // 2. 验证日期
-        if (orderDTO.getCheckInDate().isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("入住日期不能早于今天");
-        }
-        if (orderDTO.getCheckOutDate().isBefore(orderDTO.getCheckInDate())) {
-            throw new IllegalArgumentException("退房日期不能早于入住日期");
-        }
-
-        // 4. 计算住宿天数
-        long nights = ChronoUnit.DAYS.between(orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
-        if (nights < homestay.getMinNights()) {
-            throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
-        }
-
-        if (orderDTO.getGuestCount() == null || orderDTO.getGuestCount() <= 0) {
-            throw new IllegalArgumentException("入住人数必须大于0");
-        }
-        if (orderDTO.getGuestCount() > homestay.getMaxGuests()) {
-            throw new IllegalArgumentException("入住人数不能超过房源最大入住人数" + homestay.getMaxGuests() + "人");
-        }
-
-        // 5. 计算总价
-        BigDecimal baseAmount = homestay.getPrice().multiply(BigDecimal.valueOf(nights));
-        BigDecimal cleaningFee = homestay.getPrice().multiply(BigDecimal.valueOf(0.1));
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
-        BigDecimal totalAmount = baseAmount.add(cleaningFee).add(serviceFee);
-        log.info("计算订单总价: {} (基础房费: {}, 清洁费: {}, 服务费: {})", totalAmount, baseAmount, cleaningFee, serviceFee);
-
-        // 6. 根据房源自动确认设置决定初始订单状态
-        String initialStatus;
-        if (homestay.getAutoConfirm() != null && homestay.getAutoConfirm()) {
-            initialStatus = OrderStatus.CONFIRMED.name();
-            log.info("房源 {} 开启自动确认，订单将直接进入已确认状态", homestay.getId());
-        } else {
-            initialStatus = OrderStatus.PENDING.name();
-            log.info("房源 {} 采用房东确认制，订单进入待确认状态", homestay.getId());
-        }
-
-        // 7. 创建订单对象
-        Order order = Order.builder()
-                .orderNumber(generateOrderNumber())
-                .homestay(homestay)
-                .guest(currentUser)
-                .guestPhone(orderDTO.getGuestPhone())
-                .checkInDate(orderDTO.getCheckInDate())
-                .checkOutDate(orderDTO.getCheckOutDate())
-                .nights((int) nights)
-                .guestCount(orderDTO.getGuestCount())
-                .price(homestay.getPrice())
-                .totalAmount(totalAmount)
-                .status(initialStatus)
-                .remark(orderDTO.getRemark())
-                .build();
-
-        try {
-            // 8. 使用安全的创建方法（带锁保护）
-            Order savedOrder = bookingConflictService.safeCreateOrder(order);
-            log.info("订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
-
-            // 9. 根据订单状态发送不同的通知
-            try {
-                User host = homestay.getOwner();
-                if (OrderStatus.CONFIRMED.name().equals(savedOrder.getStatus())) {
-                    // 自动确认房源：通知房东有新订单，通知客人可以支付
-                    orderNotificationService.sendOrderAutoConfirmedNotification(
-                            host.getId(), currentUser.getId(), savedOrder.getId(),
-                            host.getUsername(), currentUser.getUsername(), savedOrder.getOrderNumber());
-                } else {
-                    // 房东确认制：通知房东有新预订请求
-                    orderNotificationService.sendOrderBookingRequestNotification(
-                            host.getId(), currentUser.getId(), savedOrder.getId(),
-                            currentUser.getUsername(), savedOrder.getOrderNumber());
-                }
-            } catch (Exception e) {
-                log.error("发送通知失败: {}", e.getMessage());
-            }
-            } catch (Exception e) {
-                log.error("发送通知失败: {}", e.getMessage());
-            }
-
-            // 10. 设置支付状态
-            savedOrder.setPaymentStatus(PaymentStatus.UNPAID);
-            savedOrder = orderRepository.save(savedOrder);
-
-            return convertToDTO(savedOrder);
-
-        } catch (DataIntegrityViolationException e) {
-            log.error("订单创建失败，可能存在日期冲突: {}", e.getMessage());
-            throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
-        } catch (Exception e) {
-            log.error("订单创建过程中发生异常: {}", e.getMessage(), e);
-            throw new RuntimeException("订单创建失败，请稍后重试");
-        }
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.createOrder(orderDTO);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OrderDTO getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-
-        // 检查权限
-        User currentUser = getCurrentUser();
-        if (!isOrderAccessible(order, currentUser)) {
-            throw new AccessDeniedException("您无权访问此订单");
-        }
-
-        return convertToDTO(order);
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.getOrderById(id);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OrderDTO getOrderByOrderNumber(String orderNumber) {
-        Order order = orderRepository.findByOrderNumber(orderNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-
-        // 检查权限
-        User currentUser = getCurrentUser();
-        if (!isOrderAccessible(order, currentUser)) {
-            throw new AccessDeniedException("您无权访问此订单");
-        }
-
-        return convertToDTO(order);
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.getOrderByOrderNumber(orderNumber);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<OrderDTO> getMyOrders(Map<String, String> params, Pageable pageable) {
-        User currentUser = getCurrentUser();
-
-        // 创建查询条件
-        Specification<Order> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-
-            // 当前用户作为客人
-            predicates.add(cb.equal(root.get("guest"), currentUser));
-
-            // 按状态筛选
-            if (params.containsKey("status")) {
-                predicates.add(cb.equal(root.get("status"), params.get("status")));
-            }
-
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        return orderRepository.findAll(spec, pageable).map(this::convertToDTO);
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.getMyOrders(params, pageable);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<OrderDTO> getOwnerOrders(String ownerUsername, Map<String, String> params, Pageable pageable) {
-        // 获取房东用户
-        User owner = userRepository.findByUsername(ownerUsername)
-                .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
-
-        // 创建查询条件
-        Specification<Order> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-
-            // 关联房源表，筛选出指定房东的订单
-            Join<Order, Homestay> homestayJoin = root.join("homestay");
-            predicates.add(cb.equal(homestayJoin.get("owner"), owner));
-
-            // 按状态筛选
-            if (params.containsKey("status")) {
-                predicates.add(cb.equal(root.get("status"), params.get("status")));
-            }
-
-            // 按房源ID筛选
-            if (params.containsKey("homestayId")) {
-                predicates.add(cb.equal(homestayJoin.get("id"),
-                        Long.parseLong(params.get("homestayId"))));
-            }
-
-            // 按日期范围筛选
-            if (params.containsKey("startDate") && params.containsKey("endDate")) {
-                LocalDate startDate = LocalDate.parse(params.get("startDate"));
-                LocalDate endDate = LocalDate.parse(params.get("endDate"));
-
-                predicates.add(cb.or(
-                        cb.and(
-                                cb.greaterThanOrEqualTo(root.get("checkInDate"), startDate),
-                                cb.lessThanOrEqualTo(root.get("checkInDate"), endDate)),
-                        cb.and(
-                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), startDate),
-                                cb.lessThanOrEqualTo(root.get("checkOutDate"), endDate))));
-            }
-
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        return orderRepository.findAll(spec, pageable).map(this::convertToDTO);
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.getOwnerOrders(ownerUsername, params, pageable);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Long getPendingOrderCount(String ownerUsername) {
-        User owner = userRepository.findByUsername(ownerUsername)
-                .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.getPendingOrderCount(ownerUsername);
+    }
 
-        return orderRepository.countPendingOrdersByOwner(owner);
+    @Override
+    @Transactional
+    public OrderDTO confirmOrder(Long id) {
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.confirmOrder(id);
     }
 
     @Override
     @Transactional
     public OrderDTO updateOrderStatus(Long id, String status) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-
-        // 检查当前用户是否有权限更新此订单状态
-        User currentUser = getCurrentUser();
-        log.debug("更新订单状态请求 - 订单ID: {}, 目标状态: {}, 用户: {}",
-                id, status, currentUser.getUsername());
-
-        if (!isOrderAccessible(order, currentUser)) {
-            log.warn("用户 {} 无权更新订单 {} 的状态", currentUser.getUsername(), id);
-            throw new AccessDeniedException("您无权更新此订单状态");
-        }
-
-        // 检查目标状态字符串是否有效
-        OrderStatus targetStatus;
-        try {
-            targetStatus = OrderStatus.valueOf(status);
-        } catch (IllegalArgumentException e) {
-            log.error("无效的目标状态字符串: {}", status);
-            throw new IllegalArgumentException("无效的订单状态: " + status);
-        }
-
-        // 检查状态转换是否有效
-        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
-        log.debug("订单 {} 当前状态: {}, 目标状态: {}", id, currentStatus, targetStatus);
-        if (!isValidStatusTransition(currentStatus, targetStatus)) {
-            log.warn("无效的状态转换尝试：从 {} 到 {} (订单 ID: {})", currentStatus, targetStatus, id);
-            throw new IllegalArgumentException("无效的订单状态转换: 从 " + currentStatus + " 到 " + targetStatus);
-        }
-
-        log.info("准备更新订单 {} 状态从 {} 到 {}", order.getOrderNumber(), currentStatus, targetStatus);
-
-        // --- 修改：默认先设置目标状态 ---
-        order.setStatus(targetStatus.name());
-        log.debug("订单 {} 状态临时设置为 {}", id, targetStatus.name());
-
-        // --- 添加：如果目标状态是PAID，则同步更新支付状态 ---
-        if (targetStatus == OrderStatus.PAID) {
-            order.setPaymentStatus(PaymentStatus.PAID);
-            log.debug("订单 {} 支付状态同步更新为 PAID", id);
-        }
-
-            // 根据目标状态执行特定逻辑 (现在主要是添加通知等额外操作)
-            if (targetStatus == OrderStatus.CONFIRMED) {
-                if (!isOrderOwner(order, currentUser)) {
-                    log.warn("非房东 {} 尝试确认订单 {}", currentUser.getUsername(), id);
-                    throw new AccessDeniedException("只有房东才能确认订单");
-                }
-                log.info("房东 {} 正在确认订单 {}", currentUser.getUsername(), id);
-                // 状态已在前面设置，这里只处理通知
-                // --- 添加：发送订单确认通知给房客 ---
-                try {
-                    User guest = order.getGuest();
-                    orderNotificationService.sendOrderConfirmedNotification(
-                            guest.getId(), currentUser.getId(), order.getId(),
-                            guest.getUsername(), order.getHomestay().getTitle(),
-                            currentUser.getUsername(), order.getOrderNumber());
-                } catch (Exception e) {
-                    log.error("为房客 {} 发送订单 {} 确认通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
-                            e.getMessage(), e);
-                }
-                // --- 通知发送结束 ---
-
-        } else if (targetStatus == OrderStatus.CANCELLED ||
-                targetStatus == OrderStatus.CANCELLED_BY_HOST ||
-                targetStatus == OrderStatus.CANCELLED_BY_USER ||
-                targetStatus == OrderStatus.CANCELLED_SYSTEM) {
-            // 取消订单逻辑现在由 cancelOrder 方法处理，这里可以简化或移除
-            // 如果保留，需要区分是谁取消的，并发送通知
-            log.warn("通过 updateOrderStatus 直接更新为 CANCELLED 状态，建议使用 cancelOrder 方法以包含原因和发送通知。");
-            // 状态已在前面设置
-
-        } else if (targetStatus == OrderStatus.COMPLETED) {
-            // 检查当前用户是否有权标记完成 (房东、房客或管理员)
-            boolean isAdmin = currentUser.getRole().contains("ADMIN"); // 假设角色字符串包含 ADMIN
-            if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser) && !isAdmin) {
-                log.warn("用户 {} (非房东/房客/管理员) 尝试标记订单 {} 为完成", currentUser.getUsername(), id);
-                throw new AccessDeniedException("无权标记此订单为完成状态");
-            }
-            // 确保订单已支付或在某些允许的状态
-            if (currentStatus != OrderStatus.PAID && currentStatus != OrderStatus.CHECKED_IN) { // 或其他允许完成的状态
-                log.warn("订单 {} 状态为 {}，无法直接标记为完成", id, currentStatus);
-                throw new IllegalArgumentException("订单状态为 " + currentStatus + "，无法直接标记为完成");
-            }
-            log.info("用户 {} 正在标记订单 {} 为完成", currentUser.getUsername(), id);
-            // 状态已在前面设置
-
-            // --- 添加：调用 EarningService 生成待结算收益 ---
-            try {
-                log.info("订单 {} 完成，尝试生成待结算收益记录...", order.getOrderNumber());
-                // 调用 EarningService 生成待结算收益记录
-                earningService.generatePendingEarningForOrder(order.getId());
-                log.info("订单 {} 的待结算收益记录已生成。", order.getOrderNumber());
-            } catch (Exception e) {
-                // 记录错误，但可能不应阻止订单完成
-                log.error("为订单 {} 生成待结算收益时出错: {}", order.getOrderNumber(), e.getMessage(), e);
-                // 可以考虑添加一些错误处理或标记，以便后续跟踪
-            }
-            // --- 收益生成结束 ---
-
-            // --- 添加：发送订单完成通知 ---
-            try {
-                orderNotificationService.sendOrderCompletedNotification(
-                        order.getGuest().getId(),
-                        order.getHomestay().getOwner().getId(),
-                        order.getId(),
-                        order.getGuest().getUsername(),
-                        order.getHomestay().getOwner().getUsername(),
-                        order.getHomestay().getTitle(),
-                        order.getOrderNumber(),
-                        currentUser.getId());
-            } catch (Exception notifyEx) {
-                log.error("发送订单 {} 完成通知失败: {}", order.getOrderNumber(), notifyEx.getMessage(), notifyEx);
-            }
-            // --- 通知发送结束 ---
-
-        } else if (targetStatus == OrderStatus.REJECTED) {
-            // 拒绝订单逻辑现在由 rejectOrder 方法处理
-            log.warn("通过 updateOrderStatus 直接更新为 REJECTED 状态，建议使用 rejectOrder 方法以包含原因和发送通知");
-            // 状态已在前面设置
-
-        } else if (targetStatus == OrderStatus.PAYMENT_PENDING) {
-            log.info("订单 {} 状态将更新为 PAYMENT_PENDING", id);
-            // 状态已在前面设置，无需额外操作
-
-        } // 可以根据需要添加其他状态的特定逻辑，例如 CHECKED_IN
-        else if (targetStatus == OrderStatus.CHECKED_IN) {
-            if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser)) {
-                log.warn("非房东或房客 {} 尝试标记订单 {} 为入住", currentUser.getUsername(), id);
-                throw new AccessDeniedException("无权标记此订单为入住状态");
-            }
-            if (currentStatus != OrderStatus.PAID && currentStatus != OrderStatus.READY_FOR_CHECKIN) {
-                log.warn("订单 {} 状态为 {}，无法直接标记为入住", id, currentStatus);
-                throw new IllegalArgumentException("订单状态为 " + currentStatus + "，无法直接标记为入住");
-            }
-            log.info("用户 {} 正在标记订单 {} 为入住", currentUser.getUsername(), id);
-            // 状态已在前面设置
-            // 可以考虑发送入住通知等
-        }
-
-        // 保存更新后的订单
-        Order updatedOrder = orderRepository.save(order);
-        log.info("订单 {} 状态已更新并保存为: {}", id, updatedOrder.getStatus());
-
-        return convertToDTO(updatedOrder);
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.updateOrderStatus(id, status);
     }
 
     /**
@@ -692,8 +399,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDTO cancelOrder(Long id) {
-        // 调用带类型和原因的取消方法，使用默认类型：CANCELLED
-        return cancelOrderWithReason(id, OrderStatus.CANCELLED.name(), "用户取消订单");
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.cancelOrder(id);
     }
 
     @Override
@@ -976,7 +683,6 @@ public class OrderServiceImpl implements OrderService {
             try {
                 User host = paidOrder.getHomestay().getOwner();
                 User guest = paidOrder.getGuest();
-                String paymentMethod = "default"; // 从参数获取，这里简化处理
                 orderNotificationService.sendOrderPaymentSuccessNotification(
                         host.getId(), guest.getId(), paidOrder.getId(),
                         host.getUsername(), guest.getUsername(),
@@ -1105,47 +811,6 @@ public class OrderServiceImpl implements OrderService {
         // 或者扩展OrderDTO类。这里为了简单，我们返回基本信息。
 
         return previewOrderDTO;
-    }
-
-    @Override
-    public OrderDTO rejectOrder(Long id, String reason) {
-        User currentUser = getCurrentUser(); // 房东
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-
-        // 检查是否为房东
-        if (!isOrderOwner(order, currentUser)) {
-            throw new IllegalArgumentException("无权操作此订单");
-        }
-
-        // 检查订单状态是否为待确认
-        if (!OrderStatus.PENDING.name().equals(order.getStatus())) {
-            throw new IllegalArgumentException("只能拒绝待确认状态的订单");
-        }
-
-        // 更新订单状态
-        order.setStatus(OrderStatus.REJECTED.name());
-        order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + "拒绝原因: " + reason);
-        order.setUpdatedAt(LocalDateTime.now());
-        Order updatedOrder = orderRepository.save(order);
-
-            // --- 添加：发送预订拒绝通知给房客 ---
-            try {
-                orderNotificationService.sendOrderRejectedNotification(
-                        order.getGuest().getId(),
-                        currentUser.getId(),
-                        order.getId(),
-                        order.getGuest().getUsername(),
-                        order.getHomestay().getTitle(),
-                        order.getOrderNumber(),
-                        reason);
-            } catch (Exception e) {
-                log.error("为房客 {} 发送订单 {} 被拒绝的通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
-                        e.getMessage(), e);
-            }
-            // --- 通知发送结束 ---
-
-        return convertToDTO(updatedOrder);
     }
 
     @Override
@@ -1287,7 +952,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    @Override
     @Transactional
     public OrderDTO approveRefund(Long id, String refundNote) {
         log.info("管理员批准退款申请，订单ID: {}, 备注: {}", id, refundNote);
@@ -1296,52 +960,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO rejectRefund(Long id, String rejectReason) {
-        log.info("管理员拒绝退款申请，订单ID: {}, 原因: {}", id, rejectReason);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + id));
-
-        // 检查当前状态
-        if (order.getPaymentStatus() != PaymentStatus.REFUND_PENDING) {
-            throw new IllegalStateException("只有退款中的订单才能拒绝退款");
-        }
-
-        // 拒绝退款，恢复为已支付状态
-        order.setPaymentStatus(PaymentStatus.PAID);
-
-        // 如果订单状态也是退款中，也需要恢复
-        if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus())) {
-            order.setStatus(OrderStatus.PAID.name());
-        }
-
-        // 保存拒绝原因到专有字段（用于前端展示）
-        order.setRefundRejectionReason(
-            rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
-
-        // 添加拒绝原因到备注
-        String rejectionNote = String.format("退款申请被拒绝 - 原因: %s",
-                rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
-        if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-            order.setRemark(order.getRemark() + "\n" + rejectionNote);
-        } else {
-            order.setRemark(rejectionNote);
-        }
-
-        Order updatedOrder = orderRepository.save(order);
-
-            // 发送退款拒绝通知
-            try {
-                orderNotificationService.sendOrderRefundRejectedNotification(
-                        order.getGuest().getId(),
-                        order.getId(),
-                        order.getOrderNumber(),
-                        rejectReason);
-            } catch (Exception e) {
-                log.error("发送退款拒绝通知失败: {}", e.getMessage(), e);
-            }
-
-        log.info("订单 {} 退款申请已被拒绝", order.getOrderNumber());
-        return convertToDTO(updatedOrder);
+    public OrderDTO rejectOrder(Long id, String reason) {
+        // 委托给OrderLifecycleService处理核心生命周期逻辑
+        return orderLifecycleService.rejectOrder(id, reason);
     }
 
     @Override
@@ -1349,6 +970,13 @@ public class OrderServiceImpl implements OrderService {
     public OrderDTO completeRefund(Long id, String refundTransactionId) {
         log.info("管理员完成退款处理，订单ID: {}, 退款交易号: {}", id, refundTransactionId);
         return paymentProcessingService.completeRefund(id, refundTransactionId);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO rejectRefund(Long id, String rejectReason) {
+        log.info("管理员拒绝退款申请，订单ID: {}, 拒绝原因: {}", id, rejectReason);
+        return paymentProcessingService.rejectRefund(id, rejectReason);
     }
 
     @Override

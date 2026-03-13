@@ -7,6 +7,7 @@ import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.OrderService;
+import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,6 +37,7 @@ public class OrderController {
 
     private final OrderService orderService;
     private final OrderRepository orderRepository;
+    private final PaymentProcessingService paymentProcessingService;
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     @PostMapping

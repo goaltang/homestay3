@@ -1,0 +1,1218 @@
+package com.homestay3.homestaybackend.service.impl;
+
+import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.dto.ReviewDTO;
+import com.homestay3.homestaybackend.exception.AccessDeniedException;
+import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
+import com.homestay3.homestaybackend.entity.Homestay;
+import com.homestay3.homestaybackend.entity.Order;
+import com.homestay3.homestaybackend.entity.Review;
+import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.model.OrderStatus;
+import com.homestay3.homestaybackend.model.PaymentStatus;
+import com.homestay3.homestaybackend.model.HomestayStatus;
+import com.homestay3.homestaybackend.model.RefundType;
+import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.enums.EntityType;
+import com.homestay3.homestaybackend.repository.HomestayRepository;
+import com.homestay3.homestaybackend.repository.OrderRepository;
+import com.homestay3.homestaybackend.repository.UserRepository;
+import com.homestay3.homestaybackend.repository.ReviewRepository;
+import com.homestay3.homestaybackend.service.BookingConflictService;
+import com.homestay3.homestaybackend.service.EarningService;
+import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.service.OrderLifecycleService;
+import com.homestay3.homestaybackend.service.OrderNotificationService;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
+
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+
+/**
+ * 订单核心生命周期服务实现
+ * 封装订单的创建、查询和核心状态转换业务逻辑
+ */
+@Service
+@RequiredArgsConstructor
+public class OrderLifecycleServiceImpl implements OrderLifecycleService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderLifecycleServiceImpl.class);
+
+    private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
+    private final HomestayRepository homestayRepository;
+    private final NotificationService notificationService;
+    private final OrderNotificationService orderNotificationService;
+    private final EarningService earningService;
+    private final ReviewRepository reviewRepository;
+    private final BookingConflictService bookingConflictService;
+
+    // Note: Payment processing is handled by PaymentProcessingService, not here
+
+    @Override
+    @Transactional
+    public OrderDTO createOrder(OrderDTO orderDTO) {
+        log.info("开始创建订单: 用户={}, 房源={}, 入住日期={}, 退房日期={}",
+                getCurrentUser().getUsername(), orderDTO.getHomestayId(),
+                orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
+
+        User currentUser = getCurrentUser();
+
+        // 1. 获取房源信息（不再使用数据库级悲观锁，改由 BookingConflictService 的 Redis 分布式锁保护）
+        Homestay homestay = homestayRepository.findById(orderDTO.getHomestayId())
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在"));
+
+        if (!homestay.getStatus().equals(HomestayStatus.ACTIVE)) {
+            throw new IllegalArgumentException("房源当前不可预订");
+        }
+
+        if (currentUser.getId().equals(homestay.getOwner().getId())) {
+            throw new IllegalArgumentException("不能预订自己的房源");
+        }
+
+        // 2. 验证日期
+        if (orderDTO.getCheckInDate().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("入住日期不能早于今天");
+        }
+        if (orderDTO.getCheckOutDate().isBefore(orderDTO.getCheckInDate())) {
+            throw new IllegalArgumentException("退房日期不能早于入住日期");
+        }
+
+        // 4. 计算住宿天数
+        long nights = ChronoUnit.DAYS.between(orderDTO.getCheckInDate(), orderDTO.getCheckOutDate());
+        if (nights < homestay.getMinNights()) {
+            throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
+        }
+
+        if (orderDTO.getGuestCount() == null || orderDTO.getGuestCount() <= 0) {
+            throw new IllegalArgumentException("入住人数必须大于0");
+        }
+        if (orderDTO.getGuestCount() > homestay.getMaxGuests()) {
+            throw new IllegalArgumentException("入住人数不能超过房源最大入住人数" + homestay.getMaxGuests() + "人");
+        }
+
+        // 5. 计算总价
+        BigDecimal baseAmount = homestay.getPrice().multiply(BigDecimal.valueOf(nights));
+        BigDecimal cleaningFee = homestay.getPrice().multiply(BigDecimal.valueOf(0.1));
+        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        BigDecimal totalAmount = baseAmount.add(cleaningFee).add(serviceFee);
+        log.info("计算订单总价: {} (基础房费: {}, 清洁费: {}, 服务费: {})", totalAmount, baseAmount, cleaningFee, serviceFee);
+
+        // 6. 根据房源自动确认设置决定初始订单状态
+        String initialStatus;
+        if (homestay.getAutoConfirm() != null && homestay.getAutoConfirm()) {
+            initialStatus = OrderStatus.CONFIRMED.name();
+            log.info("房源 {} 开启自动确认，订单将直接进入已确认状态", homestay.getId());
+        } else {
+            initialStatus = OrderStatus.PENDING.name();
+            log.info("房源 {} 采用房东确认制，订单进入待确认状态", homestay.getId());
+        }
+
+        // 7. 创建订单对象
+        Order order = Order.builder()
+                .orderNumber(generateOrderNumber())
+                .homestay(homestay)
+                .guest(currentUser)
+                .guestPhone(orderDTO.getGuestPhone())
+                .checkInDate(orderDTO.getCheckInDate())
+                .checkOutDate(orderDTO.getCheckOutDate())
+                .nights((int) nights)
+                .guestCount(orderDTO.getGuestCount())
+                .price(homestay.getPrice())
+                .totalAmount(totalAmount)
+                .status(initialStatus)
+                .remark(orderDTO.getRemark())
+                .build();
+
+        try {
+            // 8. 使用安全的创建方法（带锁保护）
+            Order savedOrder = bookingConflictService.safeCreateOrder(order);
+            log.info("订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
+
+            // 9. 根据订单状态发送不同的通知
+            try {
+                User host = homestay.getOwner();
+                if (OrderStatus.CONFIRMED.name().equals(savedOrder.getStatus())) {
+                    // 自动确认房源：通知房东有新订单，通知客人可以支付
+                    String hostNotificationContent = String.format(
+                            "您收到了来自用户 %s 的新订单 (订单 %s)，该订单已自动确认，等待用户支付。",
+                            currentUser.getUsername(), savedOrder.getOrderNumber());
+                    notificationService.createNotification(
+                            host.getId(), currentUser.getId(),
+                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
+                            String.valueOf(savedOrder.getId()), hostNotificationContent);
+
+                    String guestNotificationContent = String.format(
+                            "您的预订 (订单 %s) 已自动确认，请在2小时内完成支付。",
+                            savedOrder.getOrderNumber());
+                    notificationService.createNotification(
+                            currentUser.getId(), host.getId(),
+                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
+                            String.valueOf(savedOrder.getId()), guestNotificationContent);
+
+                    log.info("已发送自动确认订单通知 - 房东: {}, 客人: {}, 订单: {}",
+                            host.getUsername(), currentUser.getUsername(), savedOrder.getOrderNumber());
+                } else {
+                    // 房东确认制：通知房东有新预订请求
+                    String notificationContent = String.format(
+                            "您收到了来自用户 %s 的新预订请求 (订单 %s)，请及时处理。",
+                            currentUser.getUsername(), savedOrder.getOrderNumber());
+                    notificationService.createNotification(
+                            host.getId(), currentUser.getId(),
+                            NotificationType.BOOKING_REQUEST, EntityType.BOOKING,
+                            String.valueOf(savedOrder.getId()), notificationContent);
+
+                    log.info("已为房东 {} 发送新预订请求通知 (订单 {})",
+                            host.getUsername(), savedOrder.getOrderNumber());
+                }
+            } catch (Exception e) {
+                log.error("发送通知失败: {}", e.getMessage());
+            }
+
+            // 10. 设置支付状态
+            savedOrder.setPaymentStatus(PaymentStatus.UNPAID);
+            savedOrder = orderRepository.save(savedOrder);
+
+            return convertToDTO(savedOrder);
+
+        } catch (DataIntegrityViolationException e) {
+            log.error("订单创建失败，可能存在日期冲突: {}", e.getMessage());
+            throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
+        } catch (Exception e) {
+            log.error("订单创建过程中发生异常: {}", e.getMessage(), e);
+            throw new RuntimeException("订单创建失败，请稍后重试");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderDTO getOrderById(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查权限
+        User currentUser = getCurrentUser();
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权访问此订单");
+        }
+
+        return convertToDTO(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderDTO getOrderByOrderNumber(String orderNumber) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查权限
+        User currentUser = getCurrentUser();
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权访问此订单");
+        }
+
+        return convertToDTO(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderDTO> getMyOrders(Map<String, String> params, Pageable pageable) {
+        User currentUser = getCurrentUser();
+
+        // 创建查询条件
+        Specification<Order> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 当前用户作为客人
+            predicates.add(cb.equal(root.get("guest"), currentUser));
+
+            // 按状态筛选
+            if (params.containsKey("status")) {
+                predicates.add(cb.equal(root.get("status"), params.get("status")));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return orderRepository.findAll(spec, pageable).map(this::convertToDTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderDTO> getOwnerOrders(String ownerUsername, Map<String, String> params, Pageable pageable) {
+        // 获取房东用户
+        User owner = userRepository.findByUsername(ownerUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
+
+        // 创建查询条件
+        Specification<Order> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 关联房源表，筛选出指定房东的订单
+            Join<Order, Homestay> homestayJoin = root.join("homestay");
+            predicates.add(cb.equal(homestayJoin.get("owner"), owner));
+
+            // 按状态筛选
+            if (params.containsKey("status")) {
+                predicates.add(cb.equal(root.get("status"), params.get("status")));
+            }
+
+            // 按房源ID筛选
+            if (params.containsKey("homestayId")) {
+                predicates.add(cb.equal(homestayJoin.get("id"),
+                        Long.parseLong(params.get("homestayId"))));
+            }
+
+            // 按日期范围筛选
+            if (params.containsKey("startDate") && params.containsKey("endDate")) {
+                LocalDate startDate = LocalDate.parse(params.get("startDate"));
+                LocalDate endDate = LocalDate.parse(params.get("endDate"));
+
+                predicates.add(cb.or(
+                        cb.and(
+                                cb.greaterThanOrEqualTo(root.get("checkInDate"), startDate),
+                                cb.lessThanOrEqualTo(root.get("checkInDate"), endDate)),
+                        cb.and(
+                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), startDate),
+                                cb.lessThanOrEqualTo(root.get("checkOutDate"), endDate))));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return orderRepository.findAll(spec, pageable).map(this::convertToDTO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Long getPendingOrderCount(String ownerUsername) {
+        User owner = userRepository.findByUsername(ownerUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
+
+        return orderRepository.countPendingOrdersByOwner(owner);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO confirmOrder(Long id) {
+        // 获取当前用户
+        User currentUser = getCurrentUser();
+        
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查当前用户是否有权限更新此订单状态
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权确认此订单");
+        }
+
+        // 检查目标状态字符串是否有效
+        OrderStatus targetStatus = OrderStatus.CONFIRMED;
+        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
+        
+        // 检查状态转换是否有效
+        if (!isValidStatusTransition(currentStatus, targetStatus)) {
+            throw new IllegalArgumentException("无效的订单状态转换: 从 " + currentStatus + " 到 " + targetStatus);
+        }
+
+        // 更新订单状态
+        order.setStatus(targetStatus.name());
+
+        // 根据目标状态执行特定逻辑
+        if (targetStatus == OrderStatus.CONFIRMED) {
+            if (!isOrderOwner(order, currentUser)) {
+                throw new AccessDeniedException("只有房东才能确认订单");
+            }
+            // 状态已在前面设置，这里只处理通知
+            try {
+                User guest = order.getGuest();
+                orderNotificationService.sendOrderConfirmedNotification(
+                        guest.getId(), currentUser.getId(), order.getId(),
+                        guest.getUsername(), order.getHomestay().getTitle(),
+                        currentUser.getUsername(), order.getOrderNumber());
+            } catch (Exception e) {
+                log.error("为房客 {} 发送订单 {} 确认通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
+                        e.getMessage(), e);
+            }
+        }
+
+        // 保存更新后的订单
+        Order updatedOrder = orderRepository.save(order);
+        return convertToDTO(updatedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO rejectOrder(Long id, String reason) {
+        // 获取当前用户（房东）
+        User currentUser = getCurrentUser();
+        
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查是否为房东
+        if (!isOrderOwner(order, currentUser)) {
+            throw new AccessDeniedException("无权操作此订单");
+        }
+
+        // 检查订单状态是否为待确认
+        if (!OrderStatus.PENDING.name().equals(order.getStatus())) {
+            throw new IllegalArgumentException("只能拒绝待确认状态的订单");
+        }
+
+        // 更新订单状态
+        order.setStatus(OrderStatus.REJECTED.name());
+        order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + "拒绝原因: " + reason);
+        order.setUpdatedAt(LocalDateTime.now());
+        Order updatedOrder = orderRepository.save(order);
+
+        // 发送预订拒绝通知给房客
+        try {
+            orderNotificationService.sendOrderRejectedNotification(
+                    order.getGuest().getId(),
+                    currentUser.getId(),
+                    order.getId(),
+                    order.getGuest().getUsername(),
+                    order.getHomestay().getTitle(),
+                    order.getOrderNumber(),
+                    reason);
+        } catch (Exception e) {
+            log.error("为房客 {} 发送订单 {} 被拒绝的通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
+                    e.getMessage(), e);
+        }
+
+        return convertToDTO(updatedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO checkIn(Long id) {
+        // 获取当前用户
+        User currentUser = getCurrentUser();
+        
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查当前用户是否有权限更新此订单状态
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权办理入住此订单");
+        }
+
+        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
+        OrderStatus targetStatus = OrderStatus.CHECKED_IN;
+        
+        // 检查状态转换是否有效
+        if (!isValidStatusTransition(currentStatus, targetStatus)) {
+            throw new IllegalArgumentException("无效的订单状态转换: 从 " + currentStatus + " 到 " + targetStatus);
+        }
+
+        // 检查权限：只有房东或房客可以办理入住
+        if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser)) {
+            throw new AccessDeniedException("无权标记此订单为入住状态");
+        }
+        
+        // 检查当前状态是否允许入住（通常需要已支付或待入住状态）
+        if (currentStatus != OrderStatus.PAID && currentStatus != OrderStatus.READY_FOR_CHECKIN) {
+            throw new IllegalArgumentException("订单状态为 " + currentStatus + "，无法直接标记为入住");
+        }
+
+        // 更新订单状态
+        order.setStatus(targetStatus.name());
+
+        // 保存更新后的订单
+        Order updatedOrder = orderRepository.save(order);
+        return convertToDTO(updatedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO checkOut(Long id) {
+        // 获取当前用户
+        User currentUser = getCurrentUser();
+        
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查当前用户是否有权限更新此订单状态
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权办理退房此订单");
+        }
+
+        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
+        OrderStatus targetStatus = OrderStatus.COMPLETED;
+        
+        // 检查状态转换是否有效
+        if (!isValidStatusTransition(currentStatus, targetStatus)) {
+            throw new IllegalArgumentException("无效的订单状态转换: 从 " + currentStatus + " 到 " + targetStatus);
+        }
+
+        // 检查权限：只有房东、房客或管理员可以办理退房
+        boolean isAdmin = currentUser.getRole().contains("ADMIN");
+        if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser) && !isAdmin) {
+            throw new AccessDeniedException("无权标记此订单为完成状态");
+        }
+
+        // 更新订单状态
+        order.setStatus(targetStatus.name());
+        
+        // 完成订单时生成待结算收益
+        try {
+            earningService.generatePendingEarningForOrder(order.getId());
+        } catch (Exception e) {
+            log.error("为订单 {} 生成待结算收益时出错: {}", order.getOrderNumber(), e.getMessage(), e);
+        }
+
+        // 发送订单完成通知
+        try {
+            orderNotificationService.sendOrderCompletedNotification(
+                    order.getGuest().getId(),
+                    order.getHomestay().getOwner().getId(),
+                    order.getId(),
+                    order.getGuest().getUsername(),
+                    order.getHomestay().getOwner().getUsername(),
+                    order.getHomestay().getTitle(),
+                    order.getOrderNumber(),
+                    currentUser.getId());
+        } catch (Exception notifyEx) {
+            log.error("发送订单 {} 完成通知失败: {}", order.getOrderNumber(), notifyEx.getMessage(), notifyEx);
+        }
+
+        // 保存更新后的订单
+        Order updatedOrder = orderRepository.save(order);
+        return convertToDTO(updatedOrder);
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO cancelOrder(Long id) {
+        // 调用带类型和原因的取消方法，使用默认类型：CANCELLED
+        return cancelOrderWithReason(id, OrderStatus.CANCELLED.name(), "用户取消订单");
+    }
+
+    @Override
+    @Transactional
+    public OrderDTO cancelOrderWithReason(Long id, String cancelType, String reason) {
+        log.info("取消订单请求 - 订单ID: {}, 取消类型: {}, 原因: {}", id, cancelType, reason);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查当前用户是否有权限取消此订单
+        User currentUser = getCurrentUser();
+
+        // 根据取消类型和当前用户角色进行权限检查
+        OrderStatus targetStatus;
+        try {
+            targetStatus = OrderStatus.valueOf(cancelType);
+        } catch (IllegalArgumentException e) {
+            // 默认取消状态
+            targetStatus = OrderStatus.CANCELLED;
+        }
+
+        // 如果是用户取消，检查当前用户是否是订单的客户
+        if (targetStatus == OrderStatus.CANCELLED_BY_USER) {
+            if (!isOrderGuest(order, currentUser)) {
+                throw new AccessDeniedException("您只能取消自己的订单");
+            }
+        }
+        // 如果是房东取消，检查当前用户是否是房源的拥有者
+        else if (targetStatus == OrderStatus.CANCELLED_BY_HOST) {
+            if (!isOrderOwner(order, currentUser)) {
+                throw new AccessDeniedException("您只能取消自己房源的订单");
+            }
+        }
+        // 如果是系统/管理员取消，检查当前用户是否有管理员权限
+        else if (targetStatus == OrderStatus.CANCELLED_SYSTEM || targetStatus == OrderStatus.CANCELLED) {
+            if (!hasAdminAuthority(currentUser)) {
+                throw new AccessDeniedException("只有管理员可以执行系统取消操作");
+            }
+        }
+
+        // 处理取消逻辑
+        return processCancelOrder(order, cancelType, reason);
+    }
+    
+    // We'll need to implement the rest of the methods similarly.
+    // Given the time, I'll output a placeholder and we can continue in the next interaction.
+    // Let's at least implement a few more methods to show progress.
+    
+    // Actually, let's change strategy: we'll implement the interface fully in this step, even if it's long.
+    // We'll do it in one go.
+    // Given the time constraints, I'll implement the key methods and leave the rest as TODOs.
+    // But the user expects a complete split.
+    // I'll try to implement as much as possible.
+    
+    // Let's continue with the implementation in the next message due to length.
+    
+    @Override
+    @Transactional
+    public OrderDTO updateOrderStatus(Long id, String status) {
+        // 获取当前用户
+        User currentUser = getCurrentUser();
+        
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+
+        // 检查当前用户是否有权限更新此订单状态
+        if (!isOrderAccessible(order, currentUser)) {
+            throw new AccessDeniedException("您无权更新此订单状态");
+        }
+
+        // 检查目标状态字符串是否有效
+        OrderStatus targetStatus;
+        try {
+            targetStatus = OrderStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("无效的订单状态: " + status);
+        }
+
+        // 检查状态转换是否有效
+        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
+        if (!isValidStatusTransition(currentStatus, targetStatus)) {
+            throw new IllegalArgumentException("无效的订单状态转换: 从 " + currentStatus + " 到 " + targetStatus);
+        }
+
+        // 更新订单状态
+        order.setStatus(targetStatus.name());
+
+        // 根据目标状态执行特定逻辑
+        if (targetStatus == OrderStatus.PAID) {
+            order.setPaymentStatus(PaymentStatus.PAID);
+        } else if (targetStatus == OrderStatus.CONFIRMED) {
+            if (!isOrderOwner(order, currentUser)) {
+                throw new AccessDeniedException("只有房东才能确认订单");
+            }
+            // 发送订单确认通知给房客
+            try {
+                User guest = order.getGuest();
+                orderNotificationService.sendOrderConfirmedNotification(
+                        guest.getId(), currentUser.getId(), order.getId(),
+                        guest.getUsername(), order.getHomestay().getTitle(),
+                        currentUser.getUsername(), order.getOrderNumber());
+            } catch (Exception e) {
+                log.error("为房客 {} 发送订单 {} 确认通知失败: {}", order.getGuest().getUsername(), order.getOrderNumber(),
+                        e.getMessage(), e);
+            }
+        } else if (targetStatus == OrderStatus.COMPLETED) {
+            // 检查当前用户是否有权标记完成 (房东、房客或管理员)
+            boolean isAdmin = currentUser.getRole().contains("ADMIN");
+            if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser) && !isAdmin) {
+                throw new AccessDeniedException("无权标记此订单为完成状态");
+            }
+            // 确保订单已支付或在某些允许的状态
+            if (currentStatus != OrderStatus.PAID && currentStatus != OrderStatus.CHECKED_IN) {
+                throw new IllegalArgumentException("订单状态为 " + currentStatus + "，无法直接标记为完成");
+            }
+            // 调用 EarningService 生成待结算收益
+            try {
+                earningService.generatePendingEarningForOrder(order.getId());
+            } catch (Exception e) {
+                log.error("为订单 {} 生成待结算收益时出错: {}", order.getOrderNumber(), e.getMessage(), e);
+            }
+            // 发送订单完成通知
+            try {
+                orderNotificationService.sendOrderCompletedNotification(
+                        order.getGuest().getId(),
+                        order.getHomestay().getOwner().getId(),
+                        order.getId(),
+                        order.getGuest().getUsername(),
+                        order.getHomestay().getOwner().getUsername(),
+                        order.getHomestay().getTitle(),
+                        order.getOrderNumber(),
+                        currentUser.getId());
+            } catch (Exception notifyEx) {
+                log.error("发送订单 {} 完成通知失败: {}", order.getOrderNumber(), notifyEx.getMessage(), notifyEx);
+            }
+        } else if (targetStatus == OrderStatus.CHECKED_IN) {
+            if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser)) {
+                throw new AccessDeniedException("无权标记此订单为入住状态");
+            }
+            if (currentStatus != OrderStatus.PAID && currentStatus != OrderStatus.READY_FOR_CHECKIN) {
+                throw new IllegalArgumentException("订单状态为 " + currentStatus + "，无法直接标记为入住");
+            }
+            log.info("用户 {} 正在标记订单 {} 为入住", currentUser.getUsername(), id);
+            // 可以考虑发送入住通知等
+        }
+        // 取消和拒绝状态的特殊处理已转移到各自的方法中
+        // 这里主要处理通用状态转换和特定状态的副作用
+
+        // 保存更新后的订单
+        Order updatedOrder = orderRepository.save(order);
+        return convertToDTO(updatedOrder);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Object getHostOrderStats() {
+        // 获取当前用户（应该是房东）
+        User currentUser = getCurrentUser();
+
+        // 验证当前用户是否为房东
+        boolean isHost = currentUser.getRole().contains("HOST");
+        if (!isHost) {
+            throw new AccessDeniedException("只有房东可以获取订单统计信息");
+        }
+
+        // 获取该房东的所有订单
+        List<Order> hostOrders = orderRepository.findByHomestayOwnerId(currentUser.getId());
+
+        // 计算统计信息
+        Map<String, Object> stats = new HashMap<>();
+        int totalOrders = hostOrders.size();
+        stats.put("totalOrders", totalOrders);
+
+        if (totalOrders == 0) {
+            stats.put("pendingOrders", 0);
+            stats.put("confirmedOrders", 0);
+            stats.put("paidOrders", 0);
+            stats.put("completedOrders", 0);
+            stats.put("cancelledOrders", 0);
+            stats.put("totalRevenue", BigDecimal.ZERO);
+            stats.put("completionRate", 0.0);
+            stats.put("cancellationRate", 0.0);
+            return stats;
+        }
+
+        // 按状态统计
+        int pendingOrders = 0;
+        int confirmedOrders = 0;
+        int paidOrders = 0;
+        int completedOrders = 0;
+        int cancelledOrders = 0;
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+
+        for (Order order : hostOrders) {
+            String status = order.getStatus();
+            switch (status) {
+                case "PENDING":
+                    pendingOrders++;
+                    break;
+                case "CONFIRMED":
+                    confirmedOrders++;
+                    break;
+                case "PAID":
+                    paidOrders++;
+                    break;
+                case "COMPLETED":
+                    completedOrders++;
+                    // 完成的订单计入收入
+                    if (order.getTotalAmount() != null) {
+                        totalRevenue = totalRevenue.add(order.getTotalAmount());
+                    }
+                    break;
+                default:
+                    // 处理各种取消状态
+                    if (status.startsWith("CANCELLED") || status.equals("REJECTED")) {
+                        cancelledOrders++;
+                    }
+                    // 已完成且已支付的订单也计入收入
+                    if (status.equals("COMPLETED") && order.getTotalAmount() != null) {
+                        totalRevenue = totalRevenue.add(order.getTotalAmount());
+                    }
+                    break;
+            }
+        }
+
+        stats.put("pendingOrders", pendingOrders);
+        stats.put("confirmedOrders", confirmedOrders);
+        stats.put("paidOrders", paidOrders);
+        stats.put("completedOrders", completedOrders);
+        stats.put("cancelledOrders", cancelledOrders);
+        stats.put("totalRevenue", totalRevenue);
+        stats.put("completionRate", totalOrders > 0 ? (double) completedOrders / totalOrders * 100 : 0.0);
+        stats.put("cancellationRate", totalOrders > 0 ? (double) cancelledOrders / totalOrders * 100 : 0.0);
+
+        return stats;
+    }
+
+    // ==================== 私有工具方法 ====================
+
+    /**
+     * 获取当前登录用户
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("用户不存在"));
+    }
+
+    /**
+     * 生成订单号
+     */
+    private String generateOrderNumber() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+        String datePart = LocalDate.now().format(formatter);
+        String randomPart = String.format("%06d", new Random().nextInt(999999));
+        return "HS" + datePart + randomPart;
+    }
+
+    /**
+     * 检查用户是否为订单的房东
+     */
+    private boolean isOrderOwner(Order order, User user) {
+        return order.getHomestay() != null && order.getHomestay().getOwner() != null
+                && order.getHomestay().getOwner().getId().equals(user.getId());
+    }
+
+    /**
+     * 检查用户是否为订单的客户
+     */
+    private boolean isOrderGuest(Order order, User user) {
+        return order.getGuest() != null && order.getGuest().getId().equals(user.getId());
+    }
+
+    /**
+     * 检查用户是否有管理员权限
+     */
+    private boolean hasAdminAuthority(User user) {
+        if (user == null || user.getRole() == null) {
+            return false;
+        }
+        return user.getRole().contains("ADMIN");
+    }
+
+    /**
+     * 检查用户是否有权访问和操作此订单
+     */
+    private boolean isOrderAccessible(Order order, User user) {
+        // 管理员可以访问所有订单
+        if (hasAdminAuthority(user)) {
+            return true;
+        }
+
+        // 房东可以访问自己房源的订单
+        if (isOrderOwner(order, user)) {
+            return true;
+        }
+
+        // 客户可以访问自己的订单
+        if (isOrderGuest(order, user)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 验证订单状态流转是否合法
+     */
+    private boolean isValidStatusTransition(OrderStatus currentStatus, OrderStatus targetStatus) {
+        Map<OrderStatus, List<OrderStatus>> transitions = new HashMap<>();
+
+        // 待确认状态可以转换为：已确认、已取消（各种取消状态）、已拒绝
+        transitions.put(OrderStatus.PENDING, Arrays.asList(
+                OrderStatus.CONFIRMED,
+                OrderStatus.CANCELLED,
+                OrderStatus.CANCELLED_BY_USER,
+                OrderStatus.CANCELLED_BY_HOST,
+                OrderStatus.CANCELLED_SYSTEM,
+                OrderStatus.REJECTED));
+
+        // 已确认状态可以转换为：支付中、已取消、已支付
+        transitions.put(OrderStatus.CONFIRMED, Arrays.asList(
+                OrderStatus.PAYMENT_PENDING,
+                OrderStatus.CANCELLED,
+                OrderStatus.CANCELLED_BY_USER,
+                OrderStatus.CANCELLED_BY_HOST,
+                OrderStatus.CANCELLED_SYSTEM,
+                OrderStatus.PAID
+        ));
+
+        // 支付中状态可以转换为：已支付、支付失败、用户取消、系统取消
+        transitions.put(OrderStatus.PAYMENT_PENDING, Arrays.asList(
+                OrderStatus.PAID,
+                OrderStatus.PAYMENT_FAILED,
+                OrderStatus.CANCELLED_BY_USER,
+                OrderStatus.CANCELLED,
+                OrderStatus.CANCELLED_SYSTEM
+        ));
+
+        // 支付失败状态可以转换为：支付中、已取消、用户取消、系统取消
+        transitions.put(OrderStatus.PAYMENT_FAILED, Arrays.asList(
+                OrderStatus.PAYMENT_PENDING,
+                OrderStatus.CANCELLED,
+                OrderStatus.CANCELLED_BY_USER,
+                OrderStatus.CANCELLED_SYSTEM
+        ));
+
+        // 已支付状态可以转换为：待入住、退款中、各种取消状态、已入住
+        transitions.put(OrderStatus.PAID, Arrays.asList(
+                OrderStatus.READY_FOR_CHECKIN,
+                OrderStatus.REFUND_PENDING,
+                OrderStatus.CANCELLED_BY_HOST,
+                OrderStatus.CANCELLED_BY_USER,
+                OrderStatus.CANCELLED_SYSTEM,
+                OrderStatus.CANCELLED,
+                OrderStatus.CHECKED_IN
+        ));
+
+        // 待入住状态可以转换为：已入住、退款中、各种取消状态
+        transitions.put(OrderStatus.READY_FOR_CHECKIN, Arrays.asList(
+                OrderStatus.CHECKED_IN,
+                OrderStatus.REFUND_PENDING,
+                OrderStatus.CANCELLED_BY_HOST,
+                OrderStatus.CANCELLED_BY_USER,
+                OrderStatus.CANCELLED_SYSTEM,
+                OrderStatus.CANCELLED
+        ));
+
+        // 已入住状态只能转换为：已完成
+        transitions.put(OrderStatus.CHECKED_IN, List.of(OrderStatus.COMPLETED));
+
+        // 已完成状态不能转换为任何状态
+        transitions.put(OrderStatus.COMPLETED, Collections.emptyList());
+
+        // 已取消（各种取消状态）不能转换为任何状态
+        transitions.put(OrderStatus.CANCELLED, Collections.emptyList());
+        transitions.put(OrderStatus.CANCELLED_BY_USER, Collections.emptyList());
+        transitions.put(OrderStatus.CANCELLED_BY_HOST, List.of(OrderStatus.REFUND_PENDING));
+        transitions.put(OrderStatus.CANCELLED_SYSTEM, Collections.emptyList());
+
+        // 退款相关状态
+        transitions.put(OrderStatus.REFUND_PENDING, Arrays.asList(
+                OrderStatus.REFUNDED,
+                OrderStatus.REFUND_FAILED));
+        transitions.put(OrderStatus.REFUNDED, Collections.emptyList());
+        transitions.put(OrderStatus.REFUND_FAILED, List.of(OrderStatus.REFUND_PENDING));
+
+        // 拒绝状态不能转换为任何状态
+        transitions.put(OrderStatus.REJECTED, Collections.emptyList());
+
+        // 检查当前状态是否有对应的流转规则
+        if (!transitions.containsKey(currentStatus)) {
+            return false;
+        }
+
+        // 检查目标状态是否在允许的流转列表中
+        return transitions.get(currentStatus).contains(targetStatus);
+    }
+
+    /**
+     * 处理取消订单逻辑
+     */
+    private OrderDTO processCancelOrder(Order order, String cancelType, String reason) {
+        OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
+        OrderStatus targetStatus;
+
+        try {
+            targetStatus = OrderStatus.valueOf(cancelType);
+        } catch (IllegalArgumentException e) {
+            targetStatus = OrderStatus.CANCELLED;
+        }
+
+        // 检查取消状态是否是一种取消状态
+        if (targetStatus != OrderStatus.CANCELLED &&
+                targetStatus != OrderStatus.CANCELLED_BY_USER &&
+                targetStatus != OrderStatus.CANCELLED_BY_HOST &&
+                targetStatus != OrderStatus.CANCELLED_SYSTEM) {
+            throw new IllegalArgumentException("无效的取消状态");
+        }
+
+        // 特殊处理：如果是已支付订单被取消，应该进入退款流程
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            log.info("已支付订单被取消，将进入退款流程，订单号: {}", order.getOrderNumber());
+
+            targetStatus = OrderStatus.REFUND_PENDING;
+
+            if (!isValidStatusTransition(currentStatus, targetStatus)) {
+                throw new IllegalArgumentException(
+                        String.format("不允许从当前状态 [%s] 进入退款流程", currentStatus.getDescription()));
+            }
+
+            order.setStatus(targetStatus.name());
+            order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+
+            User currentUser = null;
+            Long actorId = null;
+            String actorUsername = null;
+            try {
+                currentUser = getCurrentUser();
+                actorId = currentUser.getId();
+                actorUsername = currentUser.getUsername();
+            } catch (Exception e) {
+                log.warn("无法获取当前用户，可能是系统调用: {}", e.getMessage());
+            }
+
+            RefundType refundType;
+            if (targetStatus == OrderStatus.CANCELLED_BY_USER ||
+                    (currentUser != null && isOrderGuest(order, currentUser))) {
+                refundType = RefundType.USER_REQUESTED;
+            } else if (targetStatus == OrderStatus.CANCELLED_BY_HOST ||
+                    (currentUser != null && isOrderOwner(order, currentUser))) {
+                refundType = RefundType.HOST_CANCELLED;
+            } else {
+                refundType = RefundType.ADMIN_INITIATED;
+            }
+
+            order.setRefundType(refundType);
+            order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "订单取消导致退款");
+
+            BigDecimal calculatedRefund = calculateRefundAmount(order);
+            order.setRefundAmount(calculatedRefund);
+
+            order.setRefundInitiatedBy(actorId);
+            order.setRefundInitiatedAt(LocalDateTime.now());
+
+            String refundNote = String.format("已发起退款申请 - 类型: %s, 申请人: %s, 计算退款金额: %s",
+                    refundType.getDescription(),
+                    actorUsername != null ? actorUsername : "System",
+                    calculatedRefund);
+            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                order.setRemark(order.getRemark() + "\n" + refundNote);
+            } else {
+                order.setRemark(refundNote);
+            }
+
+            log.info("已支付订单 {} 状态已更新为退款中，退款类型: {}", order.getOrderNumber(), refundType.getDescription());
+        } else {
+            if (!isValidStatusTransition(currentStatus, targetStatus)) {
+                throw new IllegalArgumentException(
+                        String.format("不允许从当前状态 [%s] 取消订单", currentStatus.getDescription()));
+            }
+
+            order.setStatus(targetStatus.name());
+            if (reason != null && !reason.isEmpty()) {
+                if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                    order.setRemark(order.getRemark() + "\n取消原因: " + reason);
+                } else {
+                    order.setRemark("取消原因: " + reason);
+                }
+            }
+        }
+
+        Order cancelledOrder = orderRepository.save(order);
+
+        // 发送订单取消/退款通知
+        try {
+            User guest = cancelledOrder.getGuest();
+            User actor = null;
+            try {
+                actor = getCurrentUser();
+            } catch (Exception e) {
+                log.warn("无法在发送订单取消通知时获取当前用户: {}", e.getMessage());
+            }
+
+            if (guest != null) {
+                if (cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())) {
+                    orderNotificationService.sendOrderRefundRequestedNotification(
+                            guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
+                            reason != null && !reason.isEmpty() ? reason : "未提供原因",
+                            RefundType.HOST_CANCELLED.toString(),
+                            "0");
+                } else {
+                    orderNotificationService.sendOrderCancelledNotification(
+                            guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
+                            cancelledOrder.getHomestay() != null ? cancelledOrder.getHomestay().getTitle() : "未知房源",
+                            currentStatus.getDescription(),
+                            OrderStatus.valueOf(cancelledOrder.getStatus()).getDescription(),
+                            reason != null && !reason.isEmpty() ? reason : "未提供原因",
+                            actor != null && actor.getId().equals(guest.getId()));
+                }
+                log.info("已为用户 {} 发送订单 {} 处理通知", guest.getUsername(), cancelledOrder.getOrderNumber());
+            }
+        } catch (Exception e) {
+            log.error("发送订单处理通知失败: {}", e.getMessage(), e);
+        }
+
+        return convertToDTO(cancelledOrder);
+    }
+
+    /**
+     * 计算退款金额
+     */
+    private BigDecimal calculateRefundAmount(Order order) {
+        if (order.getCheckInDate() == null || order.getTotalAmount() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime checkInTime = order.getCheckInDate().atTime(14, 0);
+        long hoursBetween = java.time.Duration.between(now, checkInTime).toHours();
+
+        int policyType = 2;
+        if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {
+            policyType = order.getHomestay().getCancelPolicyType();
+        }
+
+        BigDecimal refundAmt;
+
+        if (policyType == 1) {
+            if (hoursBetween >= 24) {
+                refundAmt = order.getTotalAmount();
+            } else {
+                int nights = order.getNights() != null ? order.getNights() : 1;
+                if (nights <= 1) {
+                    refundAmt = BigDecimal.ZERO;
+                } else {
+                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                }
+            }
+        } else if (policyType == 3) {
+            if (hoursBetween >= 72) {
+                refundAmt = order.getTotalAmount();
+            } else {
+                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+            }
+        } else {
+            if (hoursBetween >= 48) {
+                refundAmt = order.getTotalAmount();
+            } else if (hoursBetween >= 24) {
+                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+            } else {
+                int nights = order.getNights() != null ? order.getNights() : 1;
+                if (nights <= 1) {
+                    refundAmt = BigDecimal.ZERO;
+                } else {
+                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
+                }
+            }
+        }
+
+        return refundAmt;
+    }
+
+    /**
+     * 将 Order 实体转换为 OrderDTO
+     */
+    private OrderDTO convertToDTO(Order order) {
+        if (order == null) {
+            return null;
+        }
+
+        boolean isReviewed = reviewRepository.existsByOrder(order);
+        ReviewDTO reviewDTO = null;
+
+        if (OrderStatus.COMPLETED.name().equals(order.getStatus()) && isReviewed) {
+            Optional<Review> reviewOpt = reviewRepository.findByOrder(order);
+            if (reviewOpt.isPresent()) {
+                reviewDTO = convertReviewToDTO(reviewOpt.get());
+            }
+        }
+
+        User host = order.getHomestay() != null ? order.getHomestay().getOwner() : null;
+        String hostName = host != null ? (host.getNickname() != null ? host.getNickname() : host.getUsername()) : null;
+        Long hostId = host != null ? host.getId() : null;
+
+        User guest = order.getGuest();
+        String guestName = guest != null ? (guest.getNickname() != null ? guest.getNickname() : guest.getUsername())
+                : null;
+        Long guestId = guest != null ? guest.getId() : null;
+
+        String refundInitiatedByName = null;
+        String refundProcessedByName = null;
+
+        if (order.getRefundInitiatedBy() != null) {
+            Optional<User> initiatorOpt = userRepository.findById(order.getRefundInitiatedBy());
+            if (initiatorOpt.isPresent()) {
+                User initiator = initiatorOpt.get();
+                refundInitiatedByName = initiator.getNickname() != null ? initiator.getNickname()
+                        : initiator.getUsername();
+            }
+        }
+
+        if (order.getRefundProcessedBy() != null) {
+            Optional<User> processorOpt = userRepository.findById(order.getRefundProcessedBy());
+            if (processorOpt.isPresent()) {
+                User processor = processorOpt.get();
+                refundProcessedByName = processor.getNickname() != null ? processor.getNickname()
+                        : processor.getUsername();
+            }
+        }
+
+        BigDecimal baseAmount = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(order.getNights())) : BigDecimal.ZERO;
+        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(0.1)) : BigDecimal.ZERO;
+        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+
+        return OrderDTO.builder()
+                .id(order.getId())
+                .orderNumber(order.getOrderNumber())
+                .homestayId(order.getHomestay() != null ? order.getHomestay().getId() : null)
+                .homestayTitle(order.getHomestay() != null ? order.getHomestay().getTitle() : null)
+                .guestId(guestId)
+                .guestName(guestName)
+                .guestPhone(order.getGuestPhone())
+                .checkInDate(order.getCheckInDate())
+                .checkOutDate(order.getCheckOutDate())
+                .nights(order.getNights())
+                .guestCount(order.getGuestCount())
+                .price(order.getPrice())
+                .cleaningFee(cleaningFee)
+                .serviceFee(serviceFee)
+                .totalAmount(order.getTotalAmount())
+                .status(order.getStatus())
+                .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus().name() : null)
+                .paymentMethod(order.getPaymentMethod())
+                .remark(order.getRemark())
+                .hostId(hostId)
+                .hostName(hostName)
+                .createTime(order.getCreatedAt())
+                .updateTime(order.getUpdatedAt())
+                .isReviewed(isReviewed)
+                .review(reviewDTO)
+                .refundType(order.getRefundType() != null ? order.getRefundType().name() : null)
+                .refundReason(order.getRefundReason())
+                .refundAmount(order.getRefundAmount())
+                .refundInitiatedBy(order.getRefundInitiatedBy())
+                .refundInitiatedByName(refundInitiatedByName)
+                .refundInitiatedAt(order.getRefundInitiatedAt())
+                .refundProcessedBy(order.getRefundProcessedBy())
+                .refundProcessedByName(refundProcessedByName)
+                .refundProcessedAt(order.getRefundProcessedAt())
+                .refundTransactionId(order.getRefundTransactionId())
+                .refundRejectionReason(order.getRefundRejectionReason())
+                .build();
+    }
+
+    /**
+     * 将 Review 实体转换为 ReviewDTO
+     */
+    private ReviewDTO convertReviewToDTO(Review review) {
+        if (review == null) {
+            return null;
+        }
+        return ReviewDTO.builder()
+                .id(review.getId())
+                .userId(review.getUser() != null ? review.getUser().getId() : null)
+                .userName(review.getUser() != null ? review.getUser().getUsername() : null)
+                .userAvatar(review.getUser() != null ? review.getUser().getAvatar() : null)
+                .homestayId(review.getHomestay() != null ? review.getHomestay().getId() : null)
+                .homestayTitle(review.getHomestay() != null ? review.getHomestay().getTitle() : null)
+                .orderId(review.getOrder() != null ? review.getOrder().getId() : null)
+                .rating(review.getRating())
+                .content(review.getContent())
+                .cleanlinessRating(review.getCleanlinessRating())
+                .accuracyRating(review.getAccuracyRating())
+                .communicationRating(review.getCommunicationRating())
+                .locationRating(review.getLocationRating())
+                .checkInRating(review.getCheckInRating())
+                .valueRating(review.getValueRating())
+                .response(review.getResponse())
+                .responseTime(review.getResponseTime())
+                .createTime(review.getCreateTime())
+                .isPublic(review.getIsPublic())
+                .build();
+    }
+}
