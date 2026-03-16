@@ -11,17 +11,22 @@ import java.util.Optional;
  */
 @Repository
 public interface PaymentRecordRepository extends JpaRepository<PaymentRecord, Long> {
-    
+
     /**
      * 根据商户订单号查找支付记录
      */
     Optional<PaymentRecord> findByOutTradeNo(String outTradeNo);
-    
+
     /**
      * 根据订单ID查找最新的支付记录
      */
     Optional<PaymentRecord> findTopByOrderIdOrderByCreatedAtDesc(Long orderId);
-    
+
+    /**
+     * 根据订单ID查找成功的支付记录（用于退款）
+     */
+    Optional<PaymentRecord> findTopByOrderIdAndStatusOrderByCreatedAtDesc(Long orderId, String status);
+
     /**
      * 根据支付平台交易号查找支付记录
      */

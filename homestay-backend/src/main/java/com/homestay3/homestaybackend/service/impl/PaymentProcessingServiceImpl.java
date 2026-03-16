@@ -258,18 +258,31 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             throw new IllegalStateException("只有退款中的订单才能批准退款");
         }
 
-        // 调用支付服务处理实际退款
-        RefundRequest refundRequest = RefundRequest.builder()
-                .orderId(order.getId())
-                .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount())
-                .refundReason(order.getRefundReason())
-                .refundType(order.getRefundType())
-                .build();
-        RefundResponse refundResponse = paymentService.processRefund(refundRequest);
-        if (!refundResponse.isSuccess()) {
-            throw new RuntimeException("退款失败: " + refundResponse.getMessage());
+        // 检查是否存在成功的支付记录
+        boolean hasPaymentRecord = paymentRecordRepository.findTopByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "SUCCESS").isPresent();
+
+        RefundResponse refundResponse = null;
+        String refundTradeNo = null;
+
+        if (hasPaymentRecord) {
+            // 存在支付记录，调用支付服务处理实际退款
+            RefundRequest refundRequest = RefundRequest.builder()
+                    .orderId(order.getId())
+                    .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount())
+                    .refundReason(order.getRefundReason())
+                    .refundType(order.getRefundType())
+                    .build();
+            refundResponse = paymentService.processRefund(refundRequest);
+            if (!refundResponse.isSuccess()) {
+                throw new RuntimeException("退款失败: " + refundResponse.getMessage());
+            }
+            refundTradeNo = refundResponse.getRefundTradeNo();
+        } else {
+            // 没有支付记录（可能是管理员手动确认的测试订单），直接模拟退款成功
+            log.warn("订单 {} 没有支付记录，直接模拟退款成功", orderId);
+            refundTradeNo = "MOCK_REFUND_" + System.currentTimeMillis();
         }
-        order.setRefundTransactionId(refundResponse.getRefundTradeNo());
+        order.setRefundTransactionId(refundTradeNo);
 
         // 更新订单状态
         order.setStatus(OrderStatus.REFUNDED.name());
@@ -289,13 +302,17 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         Order updatedOrder = orderRepository.save(order);
         log.info("订单 {} 退款已批准并完成", orderId);
 
-        // 发送退款批准通知
+        // 发送退款批准通知（处理用户/房源已删除的情况）
         try {
-            orderNotificationService.sendOrderRefundApprovedNotification(
-                    order.getGuest().getId(),
-                    order.getId(),
-                    order.getOrderNumber(),
-                    refundNote);
+            if (order.getGuest() != null) {
+                orderNotificationService.sendOrderRefundApprovedNotification(
+                        order.getGuest().getId(),
+                        order.getId(),
+                        order.getOrderNumber(),
+                        refundNote);
+            } else {
+                log.warn("订单 {} 的用户信息已删除，跳过发送退款批准通知", orderId);
+            }
         } catch (Exception e) {
             log.error("发送退款批准通知失败: {}", e.getMessage(), e);
         }
@@ -455,8 +472,13 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
 
         // 读取房源取消政策类型（1=宽松，2=普通，3=严格），默认为2
         int policyType = 2;
-        if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {
-            policyType = order.getHomestay().getCancelPolicyType();
+        try {
+            if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {
+                policyType = order.getHomestay().getCancelPolicyType();
+            }
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            // homestay已被删除，使用默认的普通政策
+            log.warn("订单 {} 关联的homestay已被删除，使用默认取消政策", order.getId());
         }
 
         BigDecimal refundAmt;

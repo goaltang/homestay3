@@ -99,4 +99,12 @@ public interface OrderService {
     
     // 管理员导出订单
     byte[] exportOrders(Map<String, String> params);
+
+    // ========== 管理员异常订单统计 ==========
+
+    /**
+     * 获取异常订单统计数据
+     * @return 包含各类异常订单数量的Map
+     */
+    Map<String, Long> getExceptionOrderStats();
 } 

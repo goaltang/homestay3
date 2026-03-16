@@ -317,9 +317,15 @@ public class PaymentServiceImpl implements PaymentService {
                         "退款金额(" + request.getRefundAmount() + ")不能超过订单总金额(" + order.getTotalAmount() + ")");
             }
 
+            // 优先查找成功的支付记录，用于退款
             PaymentRecord paymentRecord = paymentRecordRepository
-                    .findTopByOrderIdOrderByCreatedAtDesc(request.getOrderId())
-                    .orElseThrow(() -> new ResourceNotFoundException("支付记录不存在"));
+                    .findTopByOrderIdAndStatusOrderByCreatedAtDesc(request.getOrderId(), "SUCCESS")
+                    .orElseGet(() -> {
+                        // 如果没有成功的记录，查找任何支付记录
+                        log.warn("订单 {} 没有成功的支付记录，尝试使用其他记录", request.getOrderId());
+                        return paymentRecordRepository.findTopByOrderIdOrderByCreatedAtDesc(request.getOrderId())
+                                .orElseThrow(() -> new ResourceNotFoundException("支付记录不存在"));
+                    });
 
             request.setOutTradeNo(paymentRecord.getOutTradeNo());
 
