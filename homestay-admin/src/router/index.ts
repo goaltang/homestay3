@@ -180,6 +180,24 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import("@/views/audit/statistics.vue"),
       },
+      {
+        path: "/system/config",
+        name: "systemConfig",
+        meta: {
+          title: "系统配置",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/system/Config.vue"),
+      },
+      {
+        path: "/system/logs",
+        name: "operationLogs",
+        meta: {
+          title: "操作日志",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/system/OperationLog.vue"),
+      },
     ],
   },
   {

@@ -4,90 +4,33 @@
       <el-aside width="200px">
         <div class="sidebar">
           <el-menu :default-active="route.path" class="el-menu-vertical" :collapse="isCollapse" router>
-            <el-menu-item index="/dashboard">
-              <el-icon>
-                <DataLine />
-              </el-icon>
-              <template #title>系统首页</template>
-            </el-menu-item>
-
-            <!-- 审核管理 -->
-            <el-menu-item index="/audit/workbench">
-              <el-icon>
-                <Document />
-              </el-icon>
-              <template #title>审核工作台</template>
-            </el-menu-item>
-
-            <!-- 通知中心 -->
-            <el-menu-item index="/notifications">
-              <el-icon>
-                <Bell />
-              </el-icon>
-              <template #title>通知中心</template>
-            </el-menu-item>
-
-            <!-- 房源管理 Sub Menu -->
-            <el-sub-menu index="/homestay-management">
-              <template #title>
-                <el-icon>
-                  <House />
-                </el-icon>
-                <span>房源管理</span>
-              </template>
-              <el-menu-item index="/homestays">房源列表</el-menu-item>
-              <el-menu-item index="/types">房源类型管理</el-menu-item>
-              <!-- 设施管理 Sub Menu (Nested) -->
-              <el-sub-menu index="/amenities">
+            <template v-for="item in menuData" :key="item.id">
+              <el-sub-menu v-if="item.children" :index="item.index">
                 <template #title>
                   <el-icon>
-                    <SetUp />
+                    <component :is="item.icon" />
                   </el-icon>
-                  <span>设施管理</span>
+                  <span>{{ item.title }}</span>
                 </template>
-                <el-menu-item index="/amenities/manage">设施列表</el-menu-item>
-                <el-menu-item index="/amenities/categories">设施分类</el-menu-item>
+                <template v-for="subItem in item.children" :key="subItem.id">
+                  <el-sub-menu v-if="subItem.children" :index="subItem.index">
+                    <template #title>{{ subItem.title }}</template>
+                    <el-menu-item v-for="three in subItem.children" :key="three.id" :index="three.index">
+                      {{ three.title }}
+                    </el-menu-item>
+                  </el-sub-menu>
+                  <el-menu-item v-else :index="subItem.index">
+                    {{ subItem.title }}
+                  </el-menu-item>
+                </template>
               </el-sub-menu>
-            </el-sub-menu>
-
-            <el-menu-item index="/orders">
-              <el-icon>
-                <List />
-              </el-icon>
-              <template #title>订单管理</template>
-            </el-menu-item>
-
-            <!-- 用户管理 Sub Menu -->
-            <el-sub-menu index="/user-management">
-              <template #title>
+              <el-menu-item v-else :index="item.index">
                 <el-icon>
-                  <User />
+                  <component :is="item.icon" />
                 </el-icon>
-                <span>用户管理</span>
-              </template>
-              <el-menu-item index="/users">用户列表</el-menu-item>
-              <el-menu-item index="/verifications">身份认证审核</el-menu-item>
-            </el-sub-menu>
-
-            <!-- Add Review Management Menu Item -->
-            <el-menu-item index="/reviews">
-              <el-icon>
-                <ChatDotSquare />
-              </el-icon>
-              <template #title>评价管理</template>
-            </el-menu-item>
-
-            <!-- Keep other top-level items if needed, e.g., Reviews, Statistics -->
-            <!-- Example:
-            <el-menu-item index="/reviews">
-              <el-icon>...</el-icon>
-              <template #title>评价管理</template>
-            </el-menu-item>
-            <el-menu-item index="/statistics">
-              <el-icon>...</el-icon>
-              <template #title>统计分析</template>
-            </el-menu-item>
-            -->
+                <template #title>{{ item.title }}</template>
+              </el-menu-item>
+            </template>
           </el-menu>
         </div>
       </el-aside>
@@ -138,16 +81,16 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, House, List, User, Fold, Expand, CaretBottom, Tickets, Collection, SetUp, ChatDotSquare, Document, Bell } from '@element-plus/icons-vue'
+import { Fold, Expand, CaretBottom, Odometer, Document, Bell, House, List, User, ChatDotSquare, Setting } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { menuData } from '@/config/menu'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const isCollapse = ref(false)
 
-// 使用计算属性从store获取用户名
 const username = computed(() => userStore.username || '管理员')
 
 const toggleSidebar = () => {
