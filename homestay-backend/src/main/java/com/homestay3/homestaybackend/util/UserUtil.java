@@ -72,6 +72,20 @@ public class UserUtil {
      */
     public static Long getCurrentUserId() {
         Authentication authentication = getCurrentAuthentication();
+        return extractUserIdFromAuthentication(authentication);
+    }
+
+    /**
+     * 从 Authentication 对象中获取用户ID
+     *
+     * @param authentication Authentication 对象
+     * @return 用户ID，如果无法获取则抛出 IllegalStateException
+     */
+    public static Long getCurrentUserId(Authentication authentication) {
+        return extractUserIdFromAuthentication(authentication);
+    }
+
+    private static Long extractUserIdFromAuthentication(Authentication authentication) {
         if (authentication != null && authentication.isAuthenticated()) {
             Object principal = authentication.getPrincipal();
             // 优先从 CustomUserDetails 获取 userId
