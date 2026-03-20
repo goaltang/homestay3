@@ -1608,4 +1608,52 @@ public class HomestayServiceImpl implements HomestayService {
             return new ArrayList<>();
         }
     }
+
+    @Override
+    @Transactional
+    public void forceDelistHomestay(Long id, String reason, String notes, String violationType) {
+        log.info("[HomestayService] 强制下架房源，ID: {}, 原因: {}, 违规类型: {}", id, reason, violationType);
+        
+        Homestay homestay = homestayRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + id));
+        
+        // 获取旧状态
+        HomestayStatus oldStatus = homestay.getStatus();
+        
+        // 更新房源状态为已下架
+        homestay.setStatus(HomestayStatus.INACTIVE);
+        homestay.setUpdatedAt(LocalDateTime.now());
+        homestayRepository.save(homestay);
+        
+        // 获取当前管理员信息
+        User reviewer = null;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            Optional<User> admin = userRepository.findByUsername(auth.getName());
+            if (admin.isPresent()) {
+                reviewer = admin.get();
+            }
+        }
+        
+        // 如果reviewer为null，创建一个临时用户或跳过审核日志
+        if (reviewer == null) {
+            log.warn("[HomestayService] 无法获取管理员信息，跳过审核日志记录");
+            return;
+        }
+        
+        // 记录审核日志 - 使用DEACTIVATE作为操作类型
+        HomestayAuditLog auditLog = HomestayAuditLog.builder()
+                .homestay(homestay)
+                .reviewer(reviewer)
+                .oldStatus(oldStatus)
+                .newStatus(HomestayStatus.INACTIVE)
+                .actionType(HomestayAuditLog.AuditActionType.DEACTIVATE)
+                .reviewReason(reason)
+                .reviewNotes(notes != null ? notes : "违规类型: " + violationType)
+                .build();
+        
+        homestayAuditLogRepository.save(auditLog);
+        
+        log.info("[HomestayService] 房源已强制下架，ID: {}, 标题: {}", id, homestay.getTitle());
+    }
 }

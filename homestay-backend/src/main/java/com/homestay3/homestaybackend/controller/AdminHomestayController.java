@@ -212,4 +212,80 @@ public class AdminHomestayController {
         }
     }
 
+    /**
+     * 强制下架房源（因违规）
+     */
+    @PostMapping("/{id}/force-delist")
+    public ResponseEntity<?> forceDelistHomestay(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request
+    ) {
+        String reason = request.get("reason");
+        String notes = request.get("notes");
+        String violationType = request.get("violationType");
+        
+        logger.info("管理员强制下架房源，ID: {}, 原因: {}, 违规类型: {}", id, reason, violationType);
+        
+        if (reason == null || reason.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "下架原因不能为空"));
+        }
+        
+        try {
+            homestayService.forceDelistHomestay(id, reason, notes, violationType);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "强制下架成功"
+            ));
+        } catch (Exception e) {
+            logger.error("强制下架房源失败，ID: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "强制下架失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 批量强制下架房源
+     */
+    @PostMapping("/batch/force-delist")
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> batchForceDelistHomestays(@RequestBody Map<String, Object> request) {
+        List<Long> ids = (List<Long>) request.get("ids");
+        String reason = (String) request.get("reason");
+        String notes = (String) request.get("notes");
+        String violationType = (String) request.get("violationType");
+        
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "房源ID列表不能为空"));
+        }
+        
+        if (reason == null || reason.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "下架原因不能为空"));
+        }
+        
+        logger.info("管理员批量强制下架房源，数量: {}, 原因: {}", ids.size(), reason);
+        
+        try {
+            int successCount = 0;
+            for (Long id : ids) {
+                try {
+                    homestayService.forceDelistHomestay(id, reason, notes, violationType);
+                    successCount++;
+                } catch (Exception e) {
+                    logger.error("强制下架房源失败，ID: {}", id, e);
+                }
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "批量强制下架完成",
+                "successCount", successCount,
+                "totalCount", ids.size()
+            ));
+        } catch (Exception e) {
+            logger.error("批量强制下架房源失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
 } 

@@ -426,5 +426,36 @@ export function getDetailedAuditStatistics(
   });
 }
 
+/**
+ * 强制下架房源（因违规）
+ */
+export function forceDelistHomestay(id: number, data: {
+  reason: string;
+  notes?: string;
+  violationType?: string;
+}) {
+  return request({
+    url: `/api/admin/homestays/${id}/force-delist`,
+    method: "post",
+    data,
+  });
+}
+
+/**
+ * 批量强制下架房源
+ */
+export function batchForceDelistHomestays(data: {
+  ids: number[];
+  reason: string;
+  notes?: string;
+  violationType?: string;
+}) {
+  return request({
+    url: `/api/admin/homestays/batch/force-delist`,
+    method: "post",
+    data,
+  });
+}
+
 // 导出新增的类型定义
 export type { AuditLog, ReviewRequest, AuditStatistics };

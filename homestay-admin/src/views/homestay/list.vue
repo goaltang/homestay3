@@ -78,15 +78,19 @@
                     <!-- 已上架状态 -->
                     <template v-if="scope.row.status === 'ACTIVE'">
                         <el-button type="info" link @click="handleToggleStatus(scope.row)">下架</el-button>
+                        <el-button type="danger" link @click="handleForceDelist(scope.row)">强制下架</el-button>
                         <el-button type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
                         <el-button type="success" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
+                        <el-button type="warning" link @click="handleViewViolations(scope.row)">违规记录</el-button>
                     </template>
 
                     <!-- 已下架状态 -->
                     <template v-if="scope.row.status === 'INACTIVE'">
                         <el-button type="success" link @click="handleToggleStatus(scope.row)">上架</el-button>
+                        <el-button type="danger" link @click="handleForceDelist(scope.row)">强制下架</el-button>
                         <el-button type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
                         <el-button type="info" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
+                        <el-button type="warning" link @click="handleViewViolations(scope.row)">违规记录</el-button>
                     </template>
 
                     <!-- 已拒绝状态 -->
@@ -180,6 +184,77 @@
                 <el-button @click="auditLogsDialogVisible = false">关闭</el-button>
             </template>
         </el-dialog>
+
+        <!-- 强制下架对话框 -->
+        <el-dialog v-model="forceDelistDialogVisible" title="强制下架房源" width="50%">
+            <div v-if="selectedHomestay">
+                <el-alert title="警告" type="warning" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #default>
+                        您正在强制下架房源：<strong>{{ selectedHomestay.title }}</strong>。此操作将立即生效，房东将收到通知。
+                    </template>
+                </el-alert>
+                
+                <el-form :model="forceDelistForm" label-width="100px">
+                    <el-form-item label="违规类型">
+                        <el-select v-model="forceDelistForm.violationType" placeholder="请选择违规类型" clearable>
+                            <el-option label="虚假信息" value="FALSE_INFO" />
+                            <el-option label="违规内容" value="PROHIBITED_CONTENT" />
+                            <el-option label="安全隐患" value="SAFETY_ISSUE" />
+                            <el-option label="价格欺诈" value="PRICE_FRAUD" />
+                            <el-option label="其他违规" value="OTHER" />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="下架原因" required>
+                        <el-input v-model="forceDelistForm.reason" type="textarea" :rows="3" placeholder="请详细说明下架原因" />
+                    </el-form-item>
+                    <el-form-item label="备注">
+                        <el-input v-model="forceDelistForm.notes" type="textarea" :rows="2" placeholder="可选备注信息" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <el-button @click="forceDelistDialogVisible = false">取消</el-button>
+                <el-button type="danger" @click="submitForceDelist" :loading="forceDelistLoading">确认强制下架</el-button>
+            </template>
+        </el-dialog>
+
+        <!-- 违规记录对话框 -->
+        <el-dialog v-model="violationRecordsDialogVisible" title="房源违规记录" width="70%">
+            <div v-if="selectedHomestay">
+                <h4>{{ selectedHomestay.title }} - 违规历史</h4>
+                <el-table :data="violationRecordsData" border style="width: 100%;" v-loading="violationRecordsLoading">
+                    <el-table-column prop="createdAt" label="举报时间" width="160">
+                        <template #default="scope">
+                            {{ formatDateTime(scope.row.createdAt) }}
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="violationType" label="违规类型" width="120">
+                        <template #default="scope">
+                            <el-tag :type="getViolationTypeTag(scope.row.violationType)" size="small">
+                                {{ formatViolationType(scope.row.violationType) }}
+                            </el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="status" label="处理状态" width="100">
+                        <template #default="scope">
+                            <el-tag :type="getViolationStatusTag(scope.row.status)" size="small">
+                                {{ formatViolationStatus(scope.row.status) }}
+                            </el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="reporterName" label="举报人" width="120" />
+                    <el-table-column prop="reason" label="举报原因" />
+                    <el-table-column prop="actionTaken" label="处理措施" width="150" />
+                </el-table>
+                
+                <div v-if="violationRecordsData.length === 0 && !violationRecordsLoading" style="text-align: center; padding: 20px;">
+                    暂无违规记录
+                </div>
+            </div>
+            <template #footer>
+                <el-button @click="violationRecordsDialogVisible = false">关闭</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -195,8 +270,10 @@ import {
     batchDeleteHomestays,
     batchUpdateHomestayStatus,
     getHomestayDetail,
-    getHomestayAuditLogs
+    getHomestayAuditLogs,
+    forceDelistHomestay
 } from '@/api/homestay'
+import { getHomestayReports } from '@/api/violation'
 import type { Homestay } from '@/types'
 // 简化的区域代码映射
 const codeToText: Record<string, string> = {
@@ -251,6 +328,20 @@ const auditLogsLoading = ref(false)
 const auditLogsPage = ref(1)
 const auditLogsPageSize = ref(10)
 const auditLogsTotal = ref(0)
+
+// 强制下架对话框
+const forceDelistDialogVisible = ref(false)
+const forceDelistForm = reactive({
+    reason: '',
+    notes: '',
+    violationType: ''
+})
+const forceDelistLoading = ref(false)
+
+// 违规记录对话框
+const violationRecordsDialogVisible = ref(false)
+const violationRecordsData = ref<any[]>([])
+const violationRecordsLoading = ref(false)
 
 // 计算属性
 const hasPendingItems = computed(() => {
@@ -494,6 +585,74 @@ const handleAuditLogsPageSizeChange = (size: number) => {
     loadAuditLogsData();
 }
 
+// 强制下架房源
+const handleForceDelist = (row: Homestay) => {
+    if (!row.id) {
+        ElMessage.error('无效的房源ID');
+        return;
+    }
+    selectedHomestay.value = row;
+    forceDelistForm.reason = '';
+    forceDelistForm.notes = '';
+    forceDelistForm.violationType = '';
+    forceDelistDialogVisible.value = true;
+}
+
+// 提交强制下架
+const submitForceDelist = async () => {
+    if (!selectedHomestay.value) return;
+    
+    if (!forceDelistForm.reason.trim()) {
+        ElMessage.warning('请填写下架原因');
+        return;
+    }
+    
+    try {
+        forceDelistLoading.value = true;
+        await forceDelistHomestay(selectedHomestay.value.id, {
+            reason: forceDelistForm.reason,
+            notes: forceDelistForm.notes,
+            violationType: forceDelistForm.violationType
+        });
+        ElMessage.success('强制下架成功');
+        forceDelistDialogVisible.value = false;
+        fetchData();
+    } catch (error) {
+        console.error('强制下架失败:', error);
+        ElMessage.error('强制下架失败');
+    } finally {
+        forceDelistLoading.value = false;
+    }
+}
+
+// 查看房源违规记录
+const handleViewViolations = async (row: Homestay) => {
+    if (!row.id) {
+        ElMessage.error('无效的房源ID');
+        return;
+    }
+    selectedHomestay.value = row;
+    violationRecordsDialogVisible.value = true;
+    await loadViolationRecords();
+}
+
+// 加载违规记录
+const loadViolationRecords = async () => {
+    if (!selectedHomestay.value) return;
+    
+    try {
+        violationRecordsLoading.value = true;
+        const result = await getHomestayReports(selectedHomestay.value.id);
+        violationRecordsData.value = result || [];
+    } catch (error) {
+        console.error('获取违规记录失败:', error);
+        ElMessage.error('获取违规记录失败');
+        violationRecordsData.value = [];
+    } finally {
+        violationRecordsLoading.value = false;
+    }
+}
+
 // 工具方法
 const formatStatus = (status: string): string => {
     switch (status) {
@@ -581,6 +740,53 @@ const getLocationText = (homestay: Homestay | null | undefined): string => {
     } catch (error) {
         console.error(`Error in getLocationText for homestay ID ${homestay.id}:`, error, homestay);
         return '地址处理错误';
+    }
+};
+
+// 违规类型格式化
+const formatViolationType = (type: string): string => {
+    switch (type) {
+        case 'FALSE_INFO': return '虚假信息';
+        case 'PROHIBITED_CONTENT': return '违规内容';
+        case 'SAFETY_ISSUE': return '安全隐患';
+        case 'PRICE_FRAUD': return '价格欺诈';
+        case 'OTHER': return '其他违规';
+        default: return type || '未知';
+    }
+};
+
+// 违规类型标签样式
+const getViolationTypeTag = (type: string): 'primary' | 'success' | 'warning' | 'danger' | 'info' => {
+    switch (type) {
+        case 'FALSE_INFO': return 'danger';
+        case 'PROHIBITED_CONTENT': return 'danger';
+        case 'SAFETY_ISSUE': return 'warning';
+        case 'PRICE_FRAUD': return 'danger';
+        default: return 'info';
+    }
+};
+
+// 违规状态格式化
+const formatViolationStatus = (status: string): string => {
+    switch (status) {
+        case 'PENDING': return '待处理';
+        case 'PROCESSING': return '处理中';
+        case 'RESOLVED': return '已处理';
+        case 'DISMISSED': return '已忽略';
+        case 'CONFIRMED': return '已确认';
+        default: return status || '未知';
+    }
+};
+
+// 违规状态标签样式
+const getViolationStatusTag = (status: string): 'primary' | 'success' | 'warning' | 'danger' | 'info' => {
+    switch (status) {
+        case 'PENDING': return 'warning';
+        case 'PROCESSING': return 'primary';
+        case 'RESOLVED': return 'success';
+        case 'DISMISSED': return 'info';
+        case 'CONFIRMED': return 'danger';
+        default: return 'info';
     }
 };
 

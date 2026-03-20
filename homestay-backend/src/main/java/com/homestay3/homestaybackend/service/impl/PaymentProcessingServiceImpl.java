@@ -14,6 +14,7 @@ import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.OrderRepository;
+import com.homestay3.homestaybackend.repository.PaymentRecordRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
@@ -43,6 +44,7 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private static final Logger log = LoggerFactory.getLogger(PaymentProcessingServiceImpl.class);
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final PaymentRecordRepository paymentRecordRepository;
     private final EarningService earningService;
     private final OrderNotificationService orderNotificationService;
     private final WebSocketNotificationService webSocketNotificationService;

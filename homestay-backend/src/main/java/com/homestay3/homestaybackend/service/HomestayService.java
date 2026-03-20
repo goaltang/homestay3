@@ -122,4 +122,13 @@ public interface HomestayService {
      * @return 不可用日期列表
      */
     List<LocalDate> getUnavailableDates(Long homestayId);
+    
+    /**
+     * 强制下架房源（因违规）
+     * @param id 房源ID
+     * @param reason 下架原因
+     * @param notes 备注
+     * @param violationType 违规类型
+     */
+    void forceDelistHomestay(Long id, String reason, String notes, String violationType);
 } 
