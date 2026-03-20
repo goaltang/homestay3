@@ -123,6 +123,9 @@
                 @load-more="() => reviewsComposable.loadMoreReviews(homestay!.id!)" />
         </div>
     </div>
+
+    <!-- 聊天对话框 -->
+    <ChatDialog />
 </template>
 
 <script setup lang="ts">
@@ -134,6 +137,7 @@ import { getHomestayById } from '@/api/homestay'
 import { getHomestayHostInfo } from '@/api/host'
 import { useAuthStore } from '@/stores/auth'
 import { useFavoritesStore } from '@/stores/favorites'
+import { useChatStore } from '@/stores/chat'
 import { formatLocation, parsePrice, processImages } from '@/utils/homestayUtils'
 import { useReviews } from '@/composables/useReviews'
 import { useMap } from '@/composables/useMap'
@@ -150,12 +154,14 @@ import FeaturesList from '@/components/homestay/FeaturesList.vue'
 import AmenitiesList from '@/components/homestay/AmenitiesList.vue'
 import HostInfo from '@/components/homestay/HostInfo.vue'
 import PoliciesAndRules from '@/components/homestay/PoliciesAndRules.vue'
+import ChatDialog from '@/components/chat/ChatDialog.vue'
 
 // 基础状态
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const favoritesStore = useFavoritesStore()
+const chatStore = useChatStore()
 
 const loading = ref(true)
 const homestay = ref<HomestayDetail | null>(null)
@@ -224,7 +230,18 @@ const toggleFavorite = async () => {
         ElMessage.error('操作失败，请稍后重试')
     }
 }
-const contactHost = () => ElMessage.info('联系房东功能待实现')
+const contactHost = async () => {
+    if (!authStore.isAuthenticated) {
+        ElMessage.warning("请先登录后再联系房东");
+        router.push("/login");
+        return;
+    }
+    if (!homestay.value?.ownerId) {
+        ElMessage.error("无法获取房东信息");
+        return;
+    }
+    await chatStore.openChatDialog(homestay.value.id, homestay.value.ownerId);
+}
 const showAllPhotos = () => ElMessage.info('查看全部照片功能待实现')
 
 const scrollToHostSection = () => {

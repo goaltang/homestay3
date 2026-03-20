@@ -49,6 +49,13 @@
                         <span>通知管理</span>
                     </el-menu-item>
 
+                    <el-menu-item index="/host/messages">
+                        <el-icon>
+                            <ChatDotRound />
+                        </el-icon>
+                        <span>消息中心</span>
+                    </el-menu-item>
+
                     <el-menu-item index="/host/profile">
                         <el-icon>
                             <User />
@@ -117,7 +124,8 @@ import {
     User,
     ArrowDown,
     HomeFilled,
-    Bell
+    Bell,
+    ChatDotRound
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'

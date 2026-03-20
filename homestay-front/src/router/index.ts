@@ -171,6 +171,15 @@ const router = createRouter({
             activeMenu: "/host/notifications",
           },
         },
+        {
+          path: "messages",
+          name: "HostMessages",
+          component: () => import("../views/host/MessageCenter.vue"),
+          meta: {
+            title: "消息中心",
+            icon: "chat",
+          },
+        },
       ],
     },
     {

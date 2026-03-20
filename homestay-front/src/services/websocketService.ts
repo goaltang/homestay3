@@ -1,5 +1,6 @@
 import { ref, onUnmounted } from 'vue';
 import { useNotificationStore } from '@/stores/notification';
+import { useChatStore } from '@/stores/chat';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
@@ -70,16 +71,30 @@ export const initWebSocket = (userId: number | null) => {
         try {
           const count = JSON.parse(countMessage.body);
           console.log('收到未读数量更新:', count);
-          
+
           // 使用Pinia store更新未读数量
           const notificationStore = useNotificationStore();
           notificationStore.unreadCount = count;
-          
+
           // 同时更新所有通知的已读状态（可选，取决于业务需求）
           // 这里我们只是更新数量，保持通知本身的状态不变
           // 如果需要同步所有通知的状态，可以遍历通知列表并标记为已读
         } catch (error) {
           console.error('解析未读数量消息失败:', error);
+        }
+      });
+
+      // 订阅用户的聊天消息主题
+      stompClient.subscribe(`/topic/chat/user/${userId}`, function(chatMessage: any) {
+        try {
+          const message = JSON.parse(chatMessage.body);
+          console.log('收到聊天消息:', message);
+
+          // 使用Pinia store更新聊天状态
+          const chatStore = useChatStore();
+          chatStore.handleNewMessage(message);
+        } catch (error) {
+          console.error('解析聊天消息失败:', error);
         }
       });
     }, function(error: any) {
