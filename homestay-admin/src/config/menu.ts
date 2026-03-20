@@ -109,6 +109,18 @@ export const menuData: Menus[] = [
         title: "操作日志",
         index: "/system/logs",
       },
+      {
+        id: "login-logs",
+        pid: "system",
+        title: "登录日志",
+        index: "/system/login-logs",
+      },
+      {
+        id: "announcements",
+        pid: "system",
+        title: "公告管理",
+        index: "/system/announcements",
+      },
     ],
   },
 ];

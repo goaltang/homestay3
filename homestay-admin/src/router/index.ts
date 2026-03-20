@@ -198,6 +198,24 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import("@/views/system/OperationLog.vue"),
       },
+      {
+        path: "/system/login-logs",
+        name: "loginLogs",
+        meta: {
+          title: "登录日志",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/system/LoginLog.vue"),
+      },
+      {
+        path: "/system/announcements",
+        name: "announcements",
+        meta: {
+          title: "公告管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/system/Announcement.vue"),
+      },
     ],
   },
   {
