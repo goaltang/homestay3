@@ -82,6 +82,7 @@
                     </div>
                     <div class="header-right">
                         <NotificationBell class="mr-4" />
+                        <MessageBell class="mr-4" />
                         <el-dropdown>
                             <span class="user-dropdown">
                                 <el-avatar :size="32" :src="getAvatarUrl(userStore.userInfo?.avatar)"
@@ -131,11 +132,14 @@ import { useUserStore } from '@/stores/user'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessageBox, ElMessage, ElContainer, ElAside, ElMenu, ElMenuItem, ElIcon, ElHeader, ElBreadcrumb, ElBreadcrumbItem, ElDropdown, ElDropdownMenu, ElDropdownItem, ElAvatar, ElMain } from 'element-plus'
 import NotificationBell from '@/components/NotificationBell.vue'
+import MessageBell from '@/components/MessageBell.vue'
+import { useChatStore } from '@/stores/chat'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 // 从userInfo中获取用户名
 const userName = computed(() => userStore.userInfo?.username || '房东')
@@ -229,6 +233,9 @@ onMounted(() => {
         authStoreRole: authStore.userRole,
         authStoreIsLandlord: authStore.isLandlord
     })
+
+    // 获取聊天未读数
+    chatStore.fetchUnreadCount()
 
     // 如果用户不是房东，重定向到首页
     const isUserAuthenticated = userStore.token !== null || authStore.isAuthenticated
