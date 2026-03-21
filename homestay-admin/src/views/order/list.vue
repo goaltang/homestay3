@@ -294,7 +294,7 @@
 
                     <!-- 异常处理：强制完成订单（仅针对已入住但未完成的订单） -->
                     <el-button type="primary" link size="small" @click="handleComplete(scope.row)"
-                        v-if="scope.row.status === 'CHECKED_IN'">
+                        v-if="['CHECKED_IN', 'CHECKED_OUT'].includes(scope.row.status)">
                         强制完成
                     </el-button>
 
@@ -313,6 +313,34 @@
                 @size-change="handleSizeChange" @current-change="handleCurrentChange" />
         </div>
     </div>
+
+    <!-- 争议处理对话框 -->
+    <el-dialog v-model="disputeDialogVisible" title="处理争议" width="500px" destroy-on-close>
+        <el-form :model="disputeForm" label-width="100px">
+            <el-form-item label="订单号">
+                <span>{{ disputeForm.orderNumber }}</span>
+            </el-form-item>
+            <el-form-item label="退款原因">
+                <span>{{ disputeForm.refundReason || '无' }}</span>
+            </el-form-item>
+            <el-form-item label="争议原因">
+                <span>{{ disputeForm.disputeReason || '无' }}</span>
+            </el-form-item>
+            <el-form-item label="仲裁结果" required>
+                <el-radio-group v-model="disputeForm.resolution">
+                    <el-radio label="APPROVED">批准退款</el-radio>
+                    <el-radio label="REJECTED">拒绝退款（恢复订单）</el-radio>
+                </el-radio-group>
+            </el-form-item>
+            <el-form-item label="仲裁备注">
+                <el-input v-model="disputeForm.note" type="textarea" :rows="3" placeholder="可选" />
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <el-button @click="disputeDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitDisputeResolution" :loading="submitLoading">确认仲裁</el-button>
+        </template>
+    </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -407,6 +435,18 @@ const pageSize = ref(10)
 const total = ref(0)
 const selectedRows = ref<AdminOrder[]>([])
 const sortInfo = ref({ prop: 'createTime', order: 'descending' }) // 默认排序
+
+// 争议处理对话框状态
+const disputeDialogVisible = ref(false)
+const submitLoading = ref(false)
+const currentDisputeOrderId = ref<number>()
+const disputeForm = reactive({
+    orderNumber: '',
+    refundReason: '',
+    disputeReason: '',
+    resolution: 'APPROVED',
+    note: ''
+})
 
 // ========== 异常订单统计 ==========
 const statsLoading = ref(false)
@@ -509,20 +549,21 @@ const orderStatusMap = {
     PENDING: { text: '待确认', type: 'warning' },
     CONFIRMED: { text: '已确认', type: 'primary' },
     PAID: { text: '已支付', type: 'success' },
-    CHECKED_IN: { text: '已入住', type: '' },
-    COMPLETED: { text: '已完成', type: 'info' },
+    READY_FOR_CHECKIN: { text: '待入住', type: 'info' },
+    CHECKED_IN: { text: '已入住', type: 'warning' },
+    CHECKED_OUT: { text: '已退房', type: 'info' },
+    COMPLETED: { text: '已完成', type: 'success' },
     CANCELLED: { text: '已取消', type: 'info' },
     CANCELLED_BY_USER: { text: '用户取消', type: 'info' },
     CANCELLED_BY_HOST: { text: '房东取消', type: 'info' },
     CANCELLED_SYSTEM: { text: '系统取消', type: 'info' },
-    PAYMENT_PENDING: { text: '支付中', type: 'warning' }, // 可能不需要，PAID更常用
+    PAYMENT_PENDING: { text: '支付中', type: 'warning' },
     PAYMENT_FAILED: { text: '支付失败', type: 'danger' },
     REFUND_PENDING: { text: '退款中', type: 'warning' },
     REFUNDED: { text: '已退款', type: 'info' },
     REFUND_FAILED: { text: '退款失败', type: 'danger' },
     DISPUTE_PENDING: { text: '争议待处理', type: 'warning' },
     DISPUTED: { text: '争议中', type: 'warning' },
-    READY_FOR_CHECKIN: { text: '待入住', type: '' },
     REJECTED: { text: '已拒绝', type: 'danger' }
 }
 
@@ -1009,58 +1050,40 @@ const handleRaiseDispute = async (row: AdminOrder) => {
     }
 }
 
-// 解决争议（仲裁）
-const handleResolveDispute = async (row: AdminOrder) => {
+// 解决争议（仲裁）- 打开对话框
+const handleResolveDispute = (row: AdminOrder) => {
+    currentDisputeOrderId.value = row.id
+    disputeForm.orderNumber = row.orderNumber
+    disputeForm.refundReason = row.refundReason || ''
+    disputeForm.disputeReason = row.disputeReason || ''
+    disputeForm.resolution = 'APPROVED'
+    disputeForm.note = ''
+    disputeDialogVisible.value = true
+}
+
+// 提交仲裁结果
+const submitDisputeResolution = async () => {
+    if (!disputeForm.resolution) {
+        ElMessage.warning('请选择仲裁结果')
+        return
+    }
     try {
-        const { value: action } = await ElMessageBox.prompt(
-            `订单 ${row.orderNumber} 正在争议中，请进行仲裁。<br/>
-            <strong>退款原因：</strong> ${row.refundReason || '无'}<br/>
-            <strong>争议原因：</strong> ${row.disputeReason || '无'}<br/><br/>
-            请选择仲裁结果：`,
-            '处理争议',
-            {
-                confirmButtonText: '确认仲裁',
-                cancelButtonText: '取消',
-                inputPlaceholder: '请输入仲裁备注（可选）',
-                inputType: 'textarea',
-                inputValue: '',
-                dangerouslyUseHTMLString: true,
-                distinguishCancelAndClose: true
-            }
-        )
+        submitLoading.value = true
+        await resolveDispute(currentDisputeOrderId.value!, disputeForm.resolution, disputeForm.note)
 
-        // 由于ElMessageBox的radio选择需要自定义，这里简化处理：
-        // 先让用户选择操作，然后在确认时执行
-        const { value: resolution } = await ElMessageBox.confirm(
-            '请选择仲裁结果：',
-            '仲裁结果',
-            {
-                confirmButtonText: '批准退款',
-                cancelButtonText: '拒绝退款（恢复订单）',
-                type: 'warning',
-                distinguishCancelAndClose: true
-            }
-        )
-
-        // resolution为confirm时是批准，为cancel时是拒绝
-        const resolutionType = resolution === 'confirm' ? 'APPROVED' : 'REJECTED'
-        loading.value = true;
-        await resolveDispute(row.id, resolutionType, action || '');
-
-        if (resolutionType === 'APPROVED') {
-            ElMessage.success('仲裁完成，已批准退款');
+        if (disputeForm.resolution === 'APPROVED') {
+            ElMessage.success('仲裁完成，已批准退款')
         } else {
-            ElMessage.success('仲裁完成，已拒绝退款，订单恢复为已支付');
+            ElMessage.success('仲裁完成，已拒绝退款，订单恢复为已支付')
         }
-        fetchData();
+        disputeDialogVisible.value = false
+        fetchData()
     } catch (error) {
-        if (error !== 'cancel' && error !== 'close') {
-            console.error('解决争议失败:', error);
-            const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
-            ElMessage.error(`解决争议失败: ${message}`);
-        }
+        console.error('解决争议失败:', error);
+        const message = (error as any)?.response?.data?.error || (error as Error)?.message || '操作失败';
+        ElMessage.error(`解决争议失败: ${message}`);
     } finally {
-        loading.value = false;
+        submitLoading.value = false
     }
 }
 

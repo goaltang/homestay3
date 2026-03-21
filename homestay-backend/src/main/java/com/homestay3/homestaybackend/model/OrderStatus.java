@@ -27,13 +27,13 @@ public enum OrderStatus {
     REFUNDED("已退款"),
     REFUND_FAILED("退款失败"),
 
-    // 争议相关状态
+    // 争议相关状态（只有 DISPUTE_PENDING，争议解决后会变为 REFUNDED 或 PAID）
     DISPUTE_PENDING("争议待处理"),
-    DISPUTED("争议中"),
     
     // 入住相关状态
     READY_FOR_CHECKIN("待入住"),
-    
+    CHECKED_OUT("已退房"),
+
     // 拒绝状态
     REJECTED("已拒绝");
     

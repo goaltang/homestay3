@@ -412,10 +412,104 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     String.valueOf(orderId),
                     notificationContent);
             
-            log.info("已为房客 {} 发送订单 {} 退款申请通知，发起人: {}", 
+            log.info("已为房客 {} 发送订单 {} 退款申请通知，发起人: {}",
                     getCurrentUsername(guestId), orderNumber, initiatorUsername);
         } catch (Exception e) {
             log.error("发送订单退款申请通知失败: {}", e.getMessage(), e);
+            // 不抛出异常，以免影响主业务流程
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendDisputeRaisedNotification(Long orderId, Long guestId, Long hostId,
+                                            String orderNumber, String homestayTitle,
+                                            String disputeReason) {
+        try {
+            // 通知房东
+            if (hostId != null) {
+                String hostNotificationContent = String.format(
+                        "订单 %s (房源: %s) 有新的争议待处理。争议原因: %s，请等待管理员仲裁。",
+                        orderNumber, homestayTitle, disputeReason != null ? disputeReason : "未提供");
+                notificationService.createNotification(
+                        hostId, guestId,
+                        NotificationType.REFUND_REQUESTED,
+                        EntityType.ORDER,
+                        String.valueOf(orderId),
+                        hostNotificationContent);
+                log.info("已为房东 {} 发送订单 {} 争议发起通知", getCurrentUsername(hostId), orderNumber);
+            }
+
+            // 通知管理员（如果有管理员角色用户，这里简化处理，实际可能需要查询所有管理员）
+            // 通知客人
+            if (guestId != null) {
+                String guestNotificationContent = String.format(
+                        "您关于订单 %s (房源: %s) 的退款申请已进入争议处理流程，管理员将进行仲裁，请等待结果。",
+                        orderNumber, homestayTitle);
+                notificationService.createNotification(
+                        guestId, hostId,
+                        NotificationType.REFUND_REQUESTED,
+                        EntityType.ORDER,
+                        String.valueOf(orderId),
+                        guestNotificationContent);
+                log.info("已为房客 {} 发送订单 {} 争议发起通知", getCurrentUsername(guestId), orderNumber);
+            }
+        } catch (Exception e) {
+            log.error("发送争议发起通知失败: {}", e.getMessage(), e);
+            // 不抛出异常，以免影响主业务流程
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendDisputeResolvedNotification(Long orderId, Long guestId, Long hostId,
+                                             String orderNumber, String homestayTitle,
+                                             String resolution, String note) {
+        try {
+            String resolutionText = "APPROVED".equals(resolution) ? "已批准退款" : "已拒绝退款";
+            String guestContent;
+            String hostContent;
+
+            if ("APPROVED".equals(resolution)) {
+                guestContent = String.format(
+                        "好消息！您关于订单 %s (房源: %s) 的退款申请已被管理员仲裁%s，款项将原路退回。",
+                        orderNumber, homestayTitle,
+                        note != null && !note.isEmpty() ? "，备注: " + note : "");
+                hostContent = String.format(
+                        "管理员已对订单 %s (房源: %s) 的争议作出仲裁，%s。",
+                        orderNumber, homestayTitle, resolutionText);
+            } else {
+                guestContent = String.format(
+                        "很抱歉，您关于订单 %s (房源: %s) 的退款申请已被管理员仲裁拒绝，订单已恢复为已支付状态。如有疑问请联系客服。",
+                        orderNumber, homestayTitle);
+                hostContent = String.format(
+                        "管理员已对订单 %s (房源: %s) 的争议作出仲裁，%s。订单已恢复为已支付状态。",
+                        orderNumber, homestayTitle, resolutionText);
+            }
+
+            // 通知房东
+            if (hostId != null) {
+                notificationService.createNotification(
+                        hostId, guestId,
+                        NotificationType.ORDER_STATUS_CHANGED,
+                        EntityType.ORDER,
+                        String.valueOf(orderId),
+                        hostContent);
+                log.info("已为房东 {} 发送订单 {} 争议解决通知", getCurrentUsername(hostId), orderNumber);
+            }
+
+            // 通知客人
+            if (guestId != null) {
+                notificationService.createNotification(
+                        guestId, hostId,
+                        NotificationType.REFUND_COMPLETED,
+                        EntityType.ORDER,
+                        String.valueOf(orderId),
+                        guestContent);
+                log.info("已为房客 {} 发送订单 {} 争议解决通知", getCurrentUsername(guestId), orderNumber);
+            }
+        } catch (Exception e) {
+            log.error("发送争议解决通知失败: {}", e.getMessage(), e);
             // 不抛出异常，以免影响主业务流程
         }
     }

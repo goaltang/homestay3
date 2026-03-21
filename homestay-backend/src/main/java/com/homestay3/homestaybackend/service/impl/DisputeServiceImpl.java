@@ -47,16 +47,16 @@ public class DisputeServiceImpl implements DisputeService {
         }
 
         // 检查是否已经在争议中
-        if (order.getStatus().equals(OrderStatus.DISPUTE_PENDING.name()) ||
-                order.getStatus().equals(OrderStatus.DISPUTED.name())) {
+        if (order.getStatus().equals(OrderStatus.DISPUTE_PENDING.name())) {
             throw new IllegalStateException("订单已在争议处理中，请勿重复发起");
         }
 
         // 获取当前用户
         User currentUser = getCurrentUser();
 
-        // 更新订单状态为争议待处理
+        // 更新订单状态为争议待处理，同时更新支付状态为争议中
         order.setStatus(OrderStatus.DISPUTE_PENDING.name());
+        order.setPaymentStatus(PaymentStatus.DISPUTED);
 
         // 设置争议相关信息
         order.setDisputeReason(reason);
@@ -75,14 +75,20 @@ public class DisputeServiceImpl implements DisputeService {
         Order updatedOrder = orderRepository.save(order);
         log.info("争议已发起，订单号: {}, 状态: {}", order.getOrderNumber(), updatedOrder.getStatus());
 
-        // TODO: 发送争议发起通知（待通知服务完善后实现）
-        // try {
-        //     if (order.getGuest() != null) {
-        //         orderNotificationService.sendOrderDisputeRaisedNotification(...);
-        //     }
-        // } catch (Exception e) {
-        //     log.error("发送争议发起通知失败: {}", e.getMessage(), e);
-        // }
+        // 发送争议发起通知
+        try {
+            if (order.getGuest() != null && order.getHomestay() != null) {
+                orderNotificationService.sendDisputeRaisedNotification(
+                        order.getId(),
+                        order.getGuest().getId(),
+                        order.getHomestay().getHost() != null ? order.getHomestay().getHost().getId() : null,
+                        order.getOrderNumber(),
+                        order.getHomestay().getTitle(),
+                        reason);
+            }
+        } catch (Exception e) {
+            log.error("发送争议发起通知失败: {}", e.getMessage(), e);
+        }
 
         return convertToDTO(updatedOrder);
     }
@@ -95,8 +101,7 @@ public class DisputeServiceImpl implements DisputeService {
                 .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + orderId));
 
         // 检查当前状态 - 只能在争议状态的订单解决争议
-        if (!order.getStatus().equals(OrderStatus.DISPUTE_PENDING.name()) &&
-                !order.getStatus().equals(OrderStatus.DISPUTED.name())) {
+        if (!order.getStatus().equals(OrderStatus.DISPUTE_PENDING.name())) {
             throw new IllegalStateException("只有争议中的订单才能进行仲裁");
         }
 
@@ -135,7 +140,21 @@ public class DisputeServiceImpl implements DisputeService {
             Order updatedOrder = orderRepository.save(order);
             log.info("争议仲裁拒绝，订单 {} 已恢复为已支付状态", orderId);
 
-            // TODO: 发送争议解决通知（待通知服务完善后实现）
+            // 发送争议解决通知
+            try {
+                if (order.getGuest() != null && order.getHomestay() != null) {
+                    orderNotificationService.sendDisputeResolvedNotification(
+                            order.getId(),
+                            order.getGuest().getId(),
+                            order.getHomestay().getHost() != null ? order.getHomestay().getHost().getId() : null,
+                            order.getOrderNumber(),
+                            order.getHomestay().getTitle(),
+                            "REJECTED",
+                            note);
+                }
+            } catch (Exception e) {
+                log.error("发送争议解决通知失败: {}", e.getMessage(), e);
+            }
 
             return convertToDTO(updatedOrder);
         }

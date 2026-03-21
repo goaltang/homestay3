@@ -8,6 +8,7 @@ public enum PaymentStatus {
     PAID("已支付"),
     PAYMENT_FAILED("支付失败"), // 可选，如果需要追踪失败尝试
     REFUND_PENDING("退款处理中"),
+    DISPUTED("争议中"),
     REFUNDED("已退款"),
     PARTIALLY_REFUNDED("部分退款"), // 可选
     REFUND_FAILED("退款失败"); // 可选

@@ -160,4 +160,31 @@ public interface OrderNotificationService {
      */
     void sendOrderRefundInitiatedNotification(Long guestId, Long orderId, String orderNumber,
                                              Long initiatorId);
+
+    /**
+     * 发送争议发起通知
+     * @param orderId 订单ID
+     * @param guestId 客人用户ID（申请人）
+     * @param hostId 房东用户ID
+     * @param orderNumber 订单号
+     * @param homestayTitle 房源标题
+     * @param disputeReason 争议原因
+     */
+    void sendDisputeRaisedNotification(Long orderId, Long guestId, Long hostId,
+                                       String orderNumber, String homestayTitle,
+                                       String disputeReason);
+
+    /**
+     * 发送争议解决通知
+     * @param orderId 订单ID
+     * @param guestId 客人用户ID
+     * @param hostId 房东用户ID
+     * @param orderNumber 订单号
+     * @param homestayTitle 房源标题
+     * @param resolution 仲裁结果：APPROVED 或 REJECTED
+     * @param note 仲裁备注
+     */
+    void sendDisputeResolvedNotification(Long orderId, Long guestId, Long hostId,
+                                        String orderNumber, String homestayTitle,
+                                        String resolution, String note);
 }
