@@ -521,57 +521,7 @@ public class OrderController {
         }
     }
 
-    /**
-     * 办理入住
-     */
-    @PutMapping("/{id}/check-in")
-    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
-    public ResponseEntity<?> checkIn(@PathVariable Long id, Authentication authentication) {
-        try {
-            // 先获取订单信息
-            OrderDTO order = orderService.getOrderById(id);
-
-            // 验证当前用户是否为该订单的房东
-            verifyOrderOwnership(order, authentication);
-
-            OrderDTO checkedInOrder = orderService.updateOrderStatus(id, OrderStatus.CHECKED_IN.name());
-            return ResponseEntity.ok(checkedInOrder);
-        } catch (AccessDeniedException e) {
-            log.warn("办理入住权限检查失败: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage(),
-                    "errorCode",
-                    e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"));
-        }
-    }
-
-    /**
-     * 办理退房
-     */
-    @PutMapping("/{id}/check-out")
-    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
-    public ResponseEntity<?> checkOut(@PathVariable Long id, Authentication authentication) {
-        try {
-            // 先获取订单信息
-            OrderDTO order = orderService.getOrderById(id);
-
-            // 验证当前用户是否为该订单的房东
-            verifyOrderOwnership(order, authentication);
-
-            OrderDTO completedOrder = orderService.updateOrderStatus(id, OrderStatus.COMPLETED.name());
-            return ResponseEntity.ok(completedOrder);
-        } catch (AccessDeniedException e) {
-            log.warn("办理退房权限检查失败: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "error", e.getMessage(),
-                    "errorCode",
-                    e instanceof IllegalArgumentException ? "INVALID_STATUS_TRANSITION" : "INTERNAL_SERVER_ERROR"));
-        }
-    }
+    // check-in 方法已移至 CheckInController.performCheckIn()
 
     /**
      * 用户申请退款
