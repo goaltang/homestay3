@@ -40,6 +40,10 @@ public class CheckOutServiceImpl implements CheckOutService {
     private static final Logger log = LoggerFactory.getLogger(CheckOutServiceImpl.class);
     private static final String AUTO_CHECKOUT_TIME_KEY = "AUTO_CHECKOUT_TIME";
     private static final String DEFAULT_AUTO_CHECKOUT_TIME = "12:00";
+    private static final String CLEANING_FEE_RATE_KEY = "CLEANING_FEE_RATE";
+    private static final String SERVICE_FEE_RATE_KEY = "SERVICE_FEE_RATE";
+    private static final BigDecimal DEFAULT_CLEANING_FEE_RATE = new BigDecimal("0.10");
+    private static final BigDecimal DEFAULT_SERVICE_FEE_RATE = new BigDecimal("0.15");
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
@@ -69,8 +73,11 @@ public class CheckOutServiceImpl implements CheckOutService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // 计算实际住宿天数
-        int actualNights = calculateActualNights(order.getCheckInDate(), now.toLocalDate());
+        // 计算实际住宿天数（使用实际入住时间，而非计划入住日期）
+        LocalDate actualCheckInDate = order.getCheckedInAt() != null
+                ? order.getCheckedInAt().toLocalDate()
+                : order.getCheckInDate();
+        int actualNights = calculateActualNights(actualCheckInDate, now.toLocalDate());
         if (actualNights < 1) {
             actualNights = 1;
         }
@@ -163,6 +170,9 @@ public class CheckOutServiceImpl implements CheckOutService {
             case "REFUND":
                 // 退还押金
                 record.setDepositStatus("REFUNDED");
+                // 清除订单上的押金金额
+                order.setDepositAmount(BigDecimal.ZERO);
+                orderRepository.save(order);
                 // TODO: 调用支付网关实际退款
                 break;
             case "RETAIN":
@@ -231,6 +241,13 @@ public class CheckOutServiceImpl implements CheckOutService {
         CheckOutRecord record = checkOutRecordRepository.findTopByOrderIdOrderByCreatedAtDesc(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("退房记录不存在"));
 
+        // 押金状态校验：押金未处理时不允许结算
+        String depositStatus = record.getDepositStatus();
+        if ("PENDING".equals(depositStatus) && record.getDepositAmount() != null
+                && record.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalArgumentException("押金尚未处理完毕，请先完成押金操作（收取/退还/扣押/免除）");
+        }
+
         // 生成待结算收益
         try {
             earningService.generatePendingEarningForOrder(orderId);
@@ -276,6 +293,17 @@ public class CheckOutServiceImpl implements CheckOutService {
         return convertToDTO(record, order);
     }
 
+    @Override
+    public void validateAccess(Long orderId, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("用户不存在"));
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+        if (!isOrderAccessible(order, user)) {
+            throw new AccessDeniedException("无权访问此订单的退房信息");
+        }
+    }
+
     // ==================== 私有方法 ====================
 
     private User getCurrentUser() {
@@ -306,13 +334,29 @@ public class CheckOutServiceImpl implements CheckOutService {
         return (int) ChronoUnit.DAYS.between(checkInDate, actualCheckOutDate);
     }
 
+    private BigDecimal getCleaningFeeRate() {
+        String rate = systemConfigService.getConfigValue(CLEANING_FEE_RATE_KEY);
+        if (rate != null && !rate.isEmpty()) {
+            return new BigDecimal(rate);
+        }
+        return DEFAULT_CLEANING_FEE_RATE;
+    }
+
+    private BigDecimal getServiceFeeRate() {
+        String rate = systemConfigService.getConfigValue(SERVICE_FEE_RATE_KEY);
+        if (rate != null && !rate.isEmpty()) {
+            return new BigDecimal(rate);
+        }
+        return DEFAULT_SERVICE_FEE_RATE;
+    }
+
     private BigDecimal calculateSettlementAmount(Order order, int actualNights, BigDecimal depositAmount) {
         // 计算房费
         BigDecimal baseAmount = order.getPrice().multiply(BigDecimal.valueOf(actualNights));
-        // 清洁费 (10%)
-        BigDecimal cleaningFee = baseAmount.multiply(BigDecimal.valueOf(0.1));
-        // 服务费 (15%)
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        // 清洁费（从配置读取，默认10%）
+        BigDecimal cleaningFee = baseAmount.multiply(getCleaningFeeRate());
+        // 服务费（从配置读取，默认15%）
+        BigDecimal serviceFee = baseAmount.multiply(getServiceFeeRate());
 
         BigDecimal totalFee = baseAmount.add(cleaningFee).add(serviceFee);
 
@@ -327,8 +371,8 @@ public class CheckOutServiceImpl implements CheckOutService {
     private void recalculateSettlementAmount(CheckOutRecord record, Order order) {
         int actualNights = record.getActualNights() != null ? record.getActualNights() : 1;
         BigDecimal baseAmount = order.getPrice().multiply(BigDecimal.valueOf(actualNights));
-        BigDecimal cleaningFee = baseAmount.multiply(BigDecimal.valueOf(0.1));
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        BigDecimal cleaningFee = baseAmount.multiply(getCleaningFeeRate());
+        BigDecimal serviceFee = baseAmount.multiply(getServiceFeeRate());
         BigDecimal totalFee = baseAmount.add(cleaningFee).add(serviceFee);
 
         // 加上额外费用

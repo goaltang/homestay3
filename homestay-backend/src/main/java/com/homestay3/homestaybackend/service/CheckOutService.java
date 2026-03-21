@@ -65,4 +65,13 @@ public interface CheckOutService {
      * @return 退房记录DTO
      */
     CheckOutDTO updateExtraCharges(Long orderId, BigDecimal extraCharges, String description);
+
+    /**
+     * 校验用户是否有权访问订单的退房信息
+     *
+     * @param orderId 订单ID
+     * @param username 用户名
+     * @throws AccessDeniedException 如果无权访问
+     */
+    void validateAccess(Long orderId, String username);
 }

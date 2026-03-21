@@ -70,8 +70,13 @@ public class CheckInController {
             Authentication authentication) {
         try {
             log.debug("获取入住凭证 - 订单ID: {}, 用户: {}", id, authentication.getName());
+            // 权限校验：只允许房东或订单客人查看
+            checkInService.validateAccess(id, authentication.getName());
             CheckInCredentialDTO credential = checkInService.getCheckInCredential(id);
             return ResponseEntity.ok(credential);
+        } catch (AccessDeniedException e) {
+            log.warn("获取入住凭证权限不足: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("获取入住凭证失败: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -137,6 +142,7 @@ public class CheckInController {
             Authentication authentication) {
         try {
             log.info("确认到达 - 订单ID: {}, 用户: {}", id, authentication.getName());
+            checkInService.validateAccess(id, authentication.getName());
             CheckInDTO result = checkInService.confirmArrival(id);
             return ResponseEntity.ok(result);
         } catch (AccessDeniedException e) {
@@ -184,8 +190,12 @@ public class CheckInController {
             Authentication authentication) {
         try {
             log.debug("获取入住记录 - 订单ID: {}, 用户: {}", id, authentication.getName());
+            checkInService.validateAccess(id, authentication.getName());
             CheckInDTO result = checkInService.getCheckInRecord(id);
             return ResponseEntity.ok(result);
+        } catch (AccessDeniedException e) {
+            log.warn("获取入住记录权限不足: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("获取入住记录失败: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -285,8 +295,12 @@ public class CheckInController {
             Authentication authentication) {
         try {
             log.debug("获取退房记录 - 订单ID: {}, 用户: {}", id, authentication.getName());
+            checkOutService.validateAccess(id, authentication.getName());
             CheckOutDTO result = checkOutService.getCheckOutRecord(id);
             return ResponseEntity.ok(result);
+        } catch (AccessDeniedException e) {
+            log.warn("获取退房记录权限不足: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("获取退房记录失败: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -316,6 +330,36 @@ public class CheckInController {
             log.error("确认结算失败: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "确认结算失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 更新额外费用
+     */
+    @PutMapping("/{id}/extra-charges")
+    @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
+    public ResponseEntity<?> updateExtraCharges(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request,
+            Authentication authentication) {
+        try {
+            BigDecimal extraCharges = request.get("extraCharges") != null
+                    ? new BigDecimal(request.get("extraCharges").toString()) : null;
+            String description = (String) request.get("description");
+
+            log.info("更新额外费用 - 订单ID: {}, 费用: {}, 用户: {}", id, extraCharges, authentication.getName());
+            CheckOutDTO result = checkOutService.updateExtraCharges(id, extraCharges, description);
+            return ResponseEntity.ok(result);
+        } catch (AccessDeniedException e) {
+            log.warn("更新额外费用权限不足: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            log.warn("更新额外费用参数错误: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("更新额外费用失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "更新额外费用失败: " + e.getMessage()));
         }
     }
 }

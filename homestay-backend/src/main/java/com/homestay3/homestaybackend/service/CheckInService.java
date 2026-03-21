@@ -80,4 +80,13 @@ public interface CheckInService {
      * @return 是否有效
      */
     boolean validateCheckInCode(Long orderId, String checkInCode);
+
+    /**
+     * 校验用户是否有权访问订单的入住信息
+     *
+     * @param orderId 订单ID
+     * @param username 用户名
+     * @throws AccessDeniedException 如果无权访问
+     */
+    void validateAccess(Long orderId, String username);
 }

@@ -300,6 +300,17 @@ public class CheckInServiceImpl implements CheckInService {
         return record.getOrderId().equals(orderId) && "ACTIVE".equals(record.getStatus());
     }
 
+    @Override
+    public void validateAccess(Long orderId, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("用户不存在"));
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+        if (!isOrderAccessible(order, user)) {
+            throw new AccessDeniedException("无权访问此订单的入住信息");
+        }
+    }
+
     // ==================== 私有方法 ====================
 
     private User getCurrentUser() {
