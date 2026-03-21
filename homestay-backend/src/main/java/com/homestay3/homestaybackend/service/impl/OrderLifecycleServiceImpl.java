@@ -919,6 +919,9 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             targetStatus = OrderStatus.CANCELLED;
         }
 
+        // 保存原始取消类型，用于后续判断 RefundType
+        String originalCancelType = cancelType;
+
         // 检查取消状态是否是一种取消状态
         if (targetStatus != OrderStatus.CANCELLED &&
                 targetStatus != OrderStatus.CANCELLED_BY_USER &&
@@ -927,62 +930,93 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             throw new IllegalArgumentException("无效的取消状态");
         }
 
-        // 特殊处理：如果是已支付订单被取消，应该进入退款流程
+        // 获取当前用户信息
+        User currentUser = null;
+        Long actorId = null;
+        String actorUsername = null;
+        try {
+            currentUser = getCurrentUser();
+            actorId = currentUser.getId();
+            actorUsername = currentUser.getUsername();
+        } catch (Exception e) {
+            log.warn("无法获取当前用户，可能是系统调用: {}", e.getMessage());
+        }
+
+        // 根据取消类型判断 RefundType
+        RefundType refundType;
+        if (OrderStatus.CANCELLED_BY_USER.name().equals(originalCancelType)) {
+            refundType = RefundType.USER_REQUESTED;
+        } else if (OrderStatus.CANCELLED_BY_HOST.name().equals(originalCancelType)) {
+            refundType = RefundType.HOST_CANCELLED;
+        } else {
+            // CANCELLED_SYSTEM 或其他管理员取消类型
+            refundType = RefundType.ADMIN_INITIATED;
+        }
+
+        // 特殊处理：如果是已支付订单被取消
         if (order.getPaymentStatus() == PaymentStatus.PAID) {
-            log.info("已支付订单被取消，将进入退款流程，订单号: {}", order.getOrderNumber());
+            log.info("已支付订单被取消，订单号: {}, 取消类型: {}, 退款类型: {}",
+                    order.getOrderNumber(), originalCancelType, refundType);
 
-            targetStatus = OrderStatus.REFUND_PENDING;
+            // 管理员取消（CANCELLED_SYSTEM/CANCELLED）：直接完成退款
+            if (OrderStatus.CANCELLED_SYSTEM.name().equals(originalCancelType)
+                    || OrderStatus.CANCELLED.name().equals(originalCancelType)) {
+                // 管理员取消，直接执行退款（不需要审批流程）
+                BigDecimal calculatedRefund = calculateRefundAmount(order);
+                String refundTradeNo = "ADMIN_REFUND_" + System.currentTimeMillis();
 
-            if (!isValidStatusTransition(currentStatus, targetStatus)) {
-                throw new IllegalArgumentException(
-                        String.format("不允许从当前状态 [%s] 进入退款流程", currentStatus.getDescription()));
-            }
+                order.setStatus(OrderStatus.REFUNDED.name());
+                order.setPaymentStatus(PaymentStatus.REFUNDED);
+                order.setRefundType(RefundType.ADMIN_INITIATED);
+                order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "管理员取消订单");
+                order.setRefundAmount(calculatedRefund);
+                order.setRefundTransactionId(refundTradeNo);
+                order.setRefundInitiatedBy(actorId);
+                order.setRefundInitiatedAt(LocalDateTime.now());
 
-            order.setStatus(targetStatus.name());
-            order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                String refundNote = String.format("管理员取消订单并退款 - 原因: %s, 退款金额: %s, 交易号: %s",
+                        reason != null ? reason : "管理员取消",
+                        calculatedRefund,
+                        refundTradeNo);
+                if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                    order.setRemark(order.getRemark() + "\n" + refundNote);
+                } else {
+                    order.setRemark(refundNote);
+                }
 
-            User currentUser = null;
-            Long actorId = null;
-            String actorUsername = null;
-            try {
-                currentUser = getCurrentUser();
-                actorId = currentUser.getId();
-                actorUsername = currentUser.getUsername();
-            } catch (Exception e) {
-                log.warn("无法获取当前用户，可能是系统调用: {}", e.getMessage());
-            }
-
-            RefundType refundType;
-            if (targetStatus == OrderStatus.CANCELLED_BY_USER ||
-                    (currentUser != null && isOrderGuest(order, currentUser))) {
-                refundType = RefundType.USER_REQUESTED;
-            } else if (targetStatus == OrderStatus.CANCELLED_BY_HOST ||
-                    (currentUser != null && isOrderOwner(order, currentUser))) {
-                refundType = RefundType.HOST_CANCELLED;
+                log.info("管理员取消订单 {} 并直接退款，退款金额: {}", order.getOrderNumber(), calculatedRefund);
             } else {
-                refundType = RefundType.ADMIN_INITIATED;
+                // 用户/房东取消：进入退款审批流程
+                targetStatus = OrderStatus.REFUND_PENDING;
+
+                if (!isValidStatusTransition(currentStatus, targetStatus)) {
+                    throw new IllegalArgumentException(
+                            String.format("不允许从当前状态 [%s] 进入退款流程", currentStatus.getDescription()));
+                }
+
+                order.setStatus(targetStatus.name());
+                order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                order.setRefundType(refundType);
+                order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "订单取消导致退款");
+
+                BigDecimal calculatedRefund = calculateRefundAmount(order);
+                order.setRefundAmount(calculatedRefund);
+
+                order.setRefundInitiatedBy(actorId);
+                order.setRefundInitiatedAt(LocalDateTime.now());
+
+                String refundNote = String.format("已发起退款申请 - 类型: %s, 申请人: %s, 计算退款金额: %s",
+                        refundType.getDescription(),
+                        actorUsername != null ? actorUsername : "System",
+                        calculatedRefund);
+                if (order.getRemark() != null && !order.getRemark().isEmpty()) {
+                    order.setRemark(order.getRemark() + "\n" + refundNote);
+                } else {
+                    order.setRemark(refundNote);
+                }
+
+                log.info("已支付订单 {} 状态已更新为退款中，退款类型: {}", order.getOrderNumber(), refundType.getDescription());
             }
-
-            order.setRefundType(refundType);
-            order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "订单取消导致退款");
-
-            BigDecimal calculatedRefund = calculateRefundAmount(order);
-            order.setRefundAmount(calculatedRefund);
-
-            order.setRefundInitiatedBy(actorId);
-            order.setRefundInitiatedAt(LocalDateTime.now());
-
-            String refundNote = String.format("已发起退款申请 - 类型: %s, 申请人: %s, 计算退款金额: %s",
-                    refundType.getDescription(),
-                    actorUsername != null ? actorUsername : "System",
-                    calculatedRefund);
-            if (order.getRemark() != null && !order.getRemark().isEmpty()) {
-                order.setRemark(order.getRemark() + "\n" + refundNote);
-            } else {
-                order.setRemark(refundNote);
-            }
-
-            log.info("已支付订单 {} 状态已更新为退款中，退款类型: {}", order.getOrderNumber(), refundType.getDescription());
         } else {
             if (!isValidStatusTransition(currentStatus, targetStatus)) {
                 throw new IllegalArgumentException(
@@ -1016,8 +1050,13 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                     orderNotificationService.sendOrderRefundRequestedNotification(
                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
                             reason != null && !reason.isEmpty() ? reason : "未提供原因",
-                            RefundType.HOST_CANCELLED.toString(),
+                            refundType.toString(),
                             "0");
+                } else if (cancelledOrder.getStatus().equals(OrderStatus.REFUNDED.name())) {
+                    // 管理员直接退款完成的通知
+                    orderNotificationService.sendOrderRefundApprovedNotification(
+                            guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
+                            reason != null ? reason : "管理员取消订单");
                 } else {
                     orderNotificationService.sendOrderCancelledNotification(
                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
