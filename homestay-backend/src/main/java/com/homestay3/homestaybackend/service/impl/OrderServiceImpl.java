@@ -626,15 +626,15 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO initiateRefund(Long id /* , RefundRequest refundRequest */) {
-        log.info("管理员发起退款流程，订单ID: {}", id);
-        return paymentProcessingService.initiateRefund(id);
+    public OrderDTO executeRefund(Long id, String reason) {
+        log.info("管理员直接执行退款，订单ID: {}, 原因: {}", id, reason);
+        return paymentProcessingService.executeRefund(id, reason);
     }
 
     @Override
     @Transactional
     public OrderDTO approveRefund(Long id, String refundNote) {
-        log.info("管理员批准退款申请，订单ID: {}, 备注: {}", id, refundNote);
+        log.info("审批退款申请，订单ID: {}, 备注: {}", id, refundNote);
         return paymentProcessingService.approveRefund(id, refundNote);
     }
 
@@ -647,15 +647,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDTO completeRefund(Long id, String refundTransactionId) {
-        log.info("管理员完成退款处理，订单ID: {}, 退款交易号: {}", id, refundTransactionId);
-        return paymentProcessingService.completeRefund(id, refundTransactionId);
-    }
-
-    @Override
-    @Transactional
     public OrderDTO rejectRefund(Long id, String rejectReason) {
-        log.info("管理员拒绝退款申请，订单ID: {}, 拒绝原因: {}", id, rejectReason);
+        log.info("拒绝退款申请，订单ID: {}, 拒绝原因: {}", id, rejectReason);
         return paymentProcessingService.rejectRefund(id, rejectReason);
     }
 

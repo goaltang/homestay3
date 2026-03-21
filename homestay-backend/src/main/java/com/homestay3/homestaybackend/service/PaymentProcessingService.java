@@ -33,14 +33,15 @@ public interface PaymentProcessingService {
     OrderDTO confirmPayment(Long orderId);
 
     /**
-     * 管理员发起退款申请（用于系统/管理员主动发起的退款）
+     * 管理员直接执行退款（ADMIN_INITIATED类型，不需要审批流程）
      * @param orderId 订单ID
-     * @return 发起退款后的订单DTO
+     * @param reason 退款原因
+     * @return 执行退款后的订单DTO
      */
-    OrderDTO initiateRefund(Long orderId);
+    OrderDTO executeRefund(Long orderId, String reason);
 
     /**
-     * 管理员批准退款申请
+     * 审批并执行退款（统一入口：USER_REQUESTED由房东审批，HOST_CANCELLED由管理员审批）
      * @param orderId 订单ID
      * @param refundNote 批准备注
      * @return 批准退款后的订单DTO
@@ -48,7 +49,7 @@ public interface PaymentProcessingService {
     OrderDTO approveRefund(Long orderId, String refundNote);
 
     /**
-     * 管理员拒绝退款申请
+     * 拒绝退款申请
      * @param orderId 订单ID
      * @param rejectReason 拒绝原因
      * @return 拒绝退款后的订单DTO
@@ -56,15 +57,7 @@ public interface PaymentProcessingService {
     OrderDTO rejectRefund(Long orderId, String rejectReason);
 
     /**
-     * 管理员完成退款处理（实际退款成功后）
-     * @param orderId 订单ID
-     * @param refundTransactionId 退款交易号
-     * @return 完成退款后的订单DTO
-     */
-    OrderDTO completeRefund(Long orderId, String refundTransactionId);
-
-    /**
-     * 用户申请退款
+     * 用户申请退款（USER_REQUESTED类型）
      * @param orderId 订单ID
      * @param reason 退款原因
      * @return 申请退款后的订单DTO

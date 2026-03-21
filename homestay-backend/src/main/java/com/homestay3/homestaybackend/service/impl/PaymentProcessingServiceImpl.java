@@ -198,44 +198,77 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
 
     @Override
     @Transactional
-    public OrderDTO initiateRefund(Long orderId) {
-        log.info("管理员发起退款申请，订单ID: {}", orderId);
+    public OrderDTO executeRefund(Long orderId, String reason) {
+        log.info("管理员直接执行退款，订单ID: {}, 原因: {}", orderId, reason);
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + orderId));
 
         // 检查当前状态
         if (order.getPaymentStatus() != PaymentStatus.PAID) {
-            throw new IllegalStateException("只有已支付的订单才能发起退款");
+            throw new IllegalStateException("只有已支付的订单才能执行退款");
         }
 
         // 检查是否已经在退款流程中
-        if (order.getStatus().equals(OrderStatus.REFUND_PENDING.name()) ||
-                order.getStatus().equals(OrderStatus.REFUNDED.name())) {
-            throw new IllegalStateException("订单已在退款流程中，请勿重复申请");
+        if (OrderStatus.REFUND_PENDING.name().equals(order.getStatus()) ||
+                OrderStatus.REFUNDED.name().equals(order.getStatus())) {
+            throw new IllegalStateException("订单已在退款流程中，请勿重复操作");
         }
-
-        // 更新订单状态为退款中
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
 
         // 设置退款相关信息
         User currentUser = getCurrentUser();
         order.setRefundType(RefundType.ADMIN_INITIATED);
-        order.setRefundReason("管理员发起退款");
+        order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "管理员直接退款");
 
-        // 使用新逻辑计算退款金额
+        // 计算退款金额
         BigDecimal calculatedRefund = calculateRefundAmount(order);
         order.setRefundAmount(calculatedRefund);
 
         order.setRefundInitiatedBy(currentUser.getId());
         order.setRefundInitiatedAt(LocalDateTime.now());
 
-        // 添加退款申请记录到备注
-        String refundNote = String.format("退款申请 - 类型: %s, 原因: %s, 申请人: %s, 计算退款金额: %s",
-                RefundType.ADMIN_INITIATED.getDescription(),
-                "管理员发起退款",
-                currentUser.getUsername(),
-                calculatedRefund);
+        // 检查是否存在成功的支付记录
+        java.util.Optional<PaymentRecord> paymentRecordOpt = paymentRecordRepository.findTopByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "SUCCESS");
+
+        String refundTradeNo = null;
+
+        if (paymentRecordOpt.isPresent()) {
+            PaymentRecord paymentRecord = paymentRecordOpt.get();
+            // 检查是否需要真实退款（手动确认的订单不需要）
+            if (Boolean.TRUE.equals(paymentRecord.getNeedRealRefund())) {
+                // 需要真实退款
+                RefundRequest refundRequest = RefundRequest.builder()
+                        .orderId(order.getId())
+                        .refundAmount(order.getRefundAmount())
+                        .refundReason(order.getRefundReason())
+                        .refundType(RefundType.ADMIN_INITIATED)
+                        .build();
+                RefundResponse refundResponse = paymentService.processRefund(refundRequest);
+                if (!refundResponse.isSuccess()) {
+                    throw new RuntimeException("退款失败: " + refundResponse.getMessage());
+                }
+                refundTradeNo = refundResponse.getRefundTradeNo();
+            } else {
+                // 不需要真实退款，直接模拟
+                log.warn("订单 {} 的支付记录不需要真实退款，直接模拟退款成功", orderId);
+                refundTradeNo = "MOCK_REFUND_" + System.currentTimeMillis();
+            }
+        } else {
+            log.warn("订单 {} 没有支付记录，直接模拟退款成功", orderId);
+            refundTradeNo = "MOCK_REFUND_" + System.currentTimeMillis();
+        }
+
+        // 直接设置为已退款（不需要中间状态）
+        order.setStatus(OrderStatus.REFUNDED.name());
+        order.setPaymentStatus(PaymentStatus.REFUNDED);
+        order.setRefundTransactionId(refundTradeNo);
+        order.setRefundProcessedBy(currentUser.getId());
+        order.setRefundProcessedAt(LocalDateTime.now());
+
+        // 添加退款记录到备注
+        String refundNote = String.format("管理员直接退款 - 原因: %s, 退款金额: %s, 交易号: %s",
+                reason != null ? reason : "管理员直接退款",
+                calculatedRefund,
+                refundTradeNo);
         if (order.getRemark() != null && !order.getRemark().isEmpty()) {
             order.setRemark(order.getRemark() + "\n" + refundNote);
         } else {
@@ -243,20 +276,21 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         }
 
         Order updatedOrder = orderRepository.save(order);
+        log.info("管理员直接执行退款完成，订单号: {}", order.getOrderNumber());
 
-        // 发送退款申请通知
+        // 发送退款完成通知
         try {
-            orderNotificationService.sendOrderRefundInitiatedNotification(
-                    order.getGuest().getId(),
-                    order.getId(),
-                    order.getOrderNumber(),
-                    currentUser.getId()); // 触发者：发起退款的管理员
+            if (order.getGuest() != null) {
+                orderNotificationService.sendOrderRefundApprovedNotification(
+                        order.getGuest().getId(),
+                        order.getId(),
+                        order.getOrderNumber(),
+                        reason);
+            }
         } catch (Exception e) {
-            log.error("发送退款启动通知失败: {}", e.getMessage(), e);
-            // 通知发送失败不应影响主业务流程
+            log.error("发送退款通知失败: {}", e.getMessage(), e);
         }
 
-        log.info("管理员退款申请已提交，订单号: {}", order.getOrderNumber());
         return convertToDTO(updatedOrder);
     }
 
@@ -378,38 +412,6 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
                     rejectReason);
         } catch (Exception e) {
             log.error("发送退款拒绝通知失败: {}", e.getMessage(), e);
-        }
-
-        return convertToDTO(updatedOrder);
-    }
-
-    @Override
-    @Transactional
-    public OrderDTO completeRefund(Long orderId, String refundTransactionId) {
-        log.info("管理员完成退款处理，订单ID: {}, 退款交易号: {}", orderId, refundTransactionId);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在: " + orderId));
-
-        // 检查当前状态
-        if (order.getPaymentStatus() != PaymentStatus.REFUNDED) {
-            throw new IllegalStateException("只有已退款的订单才能完成退款处理");
-        }
-
-        // 更新退款交易号
-        order.setRefundTransactionId(refundTransactionId);
-
-        Order updatedOrder = orderRepository.save(order);
-        log.info("订单 {} 退款处理完成", orderId);
-
-        // 发送退款完成通知
-        try {
-            orderNotificationService.sendOrderRefundCompletedNotification(
-                    order.getGuest().getId(),
-                    order.getId(),
-                    order.getOrderNumber(),
-                    refundTransactionId);
-        } catch (Exception e) {
-            log.error("发送退款完成通知失败: {}", e.getMessage(), e);
         }
 
         return convertToDTO(updatedOrder);

@@ -73,18 +73,15 @@ public interface OrderService {
     
     // 管理员手动确认支付
     OrderDTO confirmPayment(Long id);
-    
-    // 管理员发起退款 (可能需要更复杂的参数)
-    OrderDTO initiateRefund(Long id /*, RefundRequest refundRequest */);
-    
-    // 管理员处理退款申请 - 批准退款
+
+    // 管理员直接执行退款（ADMIN_INITIATED类型）
+    OrderDTO executeRefund(Long id, String reason);
+
+    // 管理员/房东审批退款申请 - 批准退款
     OrderDTO approveRefund(Long id, String refundNote);
-    
+
     // 管理员处理退款申请 - 拒绝退款
     OrderDTO rejectRefund(Long id, String rejectReason);
-    
-    // 管理员完成退款处理 - 标记退款完成
-    OrderDTO completeRefund(Long id, String refundTransactionId);
 
     /**
      * 用户申请退款

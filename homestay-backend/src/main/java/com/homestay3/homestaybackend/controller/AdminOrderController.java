@@ -166,35 +166,45 @@ public class AdminOrderController {
     }
 
     /**
-     * 管理员发起退款
+     * 管理员直接执行退款（ADMIN_INITIATED类型，不需要审批）
      */
     @PostMapping("/{id}/refund")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> initiateOrderRefund(@PathVariable Long id /*, @RequestBody RefundRequestDto refundRequest */) {
-        logger.info("管理员发起退款，订单ID: {}", id);
+    public ResponseEntity<?> executeRefund(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        logger.info("管理员直接执行退款，订单ID: {}", id);
         try {
-            // 注意：这里的实现只是标记状态，实际退款需要对接支付网关
-            OrderDTO updatedOrder = paymentProcessingService.initiateRefund(id);
+            String reason = request.getOrDefault("reason", "管理员直接退款");
+            OrderDTO updatedOrder = paymentProcessingService.executeRefund(id, reason);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            logger.error("发起退款失败，订单ID: {}", id, e);
-            return ResponseEntity.status(500).body(Map.of("error", "发起退款失败: " + e.getMessage()));
+            logger.error("执行退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "执行退款失败: " + e.getMessage()));
         }
     }
 
     /**
-     * 管理员批准退款申请
+     * 管理员审批退款申请（仅限HOST_CANCELLED类型）
      */
     @PostMapping("/{id}/refund/approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> approveRefund(@PathVariable Long id, @RequestBody Map<String, String> request) {
-        logger.info("管理员批准退款申请，订单ID: {}", id);
+        logger.info("管理员审批退款申请，订单ID: {}", id);
         try {
             String refundNote = request.getOrDefault("refundNote", "");
+
+            // 先获取订单信息检查退款类型
+            OrderDTO order = orderService.getOrderById(id);
+            // 管理员只能审批房东取消的退款（HOST_CANCELLED类型）
+            if (order.getRefundType() != null && !order.getRefundType().equals("HOST_CANCELLED")) {
+                logger.warn("管理员尝试审批非房东取消的退款，订单ID: {}, 类型: {}", id, order.getRefundType());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "管理员只能审批房东取消的退款申请，其他类型的退款请使用直接执行接口"));
+            }
+
             OrderDTO updatedOrder = paymentProcessingService.approveRefund(id, refundNote);
             return ResponseEntity.ok(updatedOrder);
         } catch (ResourceNotFoundException e) {
@@ -202,8 +212,8 @@ public class AdminOrderController {
         } catch (IllegalStateException e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            logger.error("批准退款失败，订单ID: {}", id, e);
-            return ResponseEntity.status(500).body(Map.of("error", "批准退款失败: " + e.getMessage()));
+            logger.error("审批退款失败，订单ID: {}", id, e);
+            return ResponseEntity.status(500).body(Map.of("error", "审批退款失败: " + e.getMessage()));
         }
     }
 
@@ -225,27 +235,6 @@ public class AdminOrderController {
         } catch (Exception e) {
             logger.error("拒绝退款失败，订单ID: {}", id, e);
             return ResponseEntity.status(500).body(Map.of("error", "拒绝退款失败: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * 管理员完成退款处理
-     */
-    @PostMapping("/{id}/refund/complete")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> completeRefund(@PathVariable Long id, @RequestBody Map<String, String> request) {
-        logger.info("管理员完成退款处理，订单ID: {}", id);
-        try {
-            String refundTransactionId = request.getOrDefault("refundTransactionId", "");
-            OrderDTO updatedOrder = paymentProcessingService.completeRefund(id, refundTransactionId);
-            return ResponseEntity.ok(updatedOrder);
-        } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            logger.error("完成退款失败，订单ID: {}", id, e);
-            return ResponseEntity.status(500).body(Map.of("error", "完成退款失败: " + e.getMessage()));
         }
     }
 
