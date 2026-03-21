@@ -8,6 +8,7 @@ import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
+import com.homestay3.homestaybackend.service.DisputeRecordService;
 import com.homestay3.homestaybackend.service.DisputeService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
@@ -32,6 +33,7 @@ public class DisputeServiceImpl implements DisputeService {
     private final OrderRepository orderRepository;
     private final PaymentProcessingService paymentProcessingService;
     private final OrderNotificationService orderNotificationService;
+    private final DisputeRecordService disputeRecordService;
     private final UserRepository userRepository;
 
     @Override
@@ -74,6 +76,9 @@ public class DisputeServiceImpl implements DisputeService {
 
         Order updatedOrder = orderRepository.save(order);
         log.info("争议已发起，订单号: {}, 状态: {}", order.getOrderNumber(), updatedOrder.getStatus());
+
+        // 创建争议记录
+        disputeRecordService.createDisputeRecord(orderId, reason, currentUser.getId());
 
         // 发送争议发起通知
         try {
@@ -130,6 +135,9 @@ public class DisputeServiceImpl implements DisputeService {
             updatedOrderDTO = paymentProcessingService.approveRefund(orderId, note);
             log.info("争议仲裁通过，订单 {} 已批准退款", orderId);
 
+            // 更新争议记录
+            disputeRecordService.resolveDisputeRecord(orderId, resolution, currentUser.getId(), note);
+
             // 发送争议解决通知
             try {
                 if (order.getGuest() != null && order.getHomestay() != null) {
@@ -156,6 +164,9 @@ public class DisputeServiceImpl implements DisputeService {
 
             Order updatedOrder = orderRepository.save(order);
             log.info("争议仲裁拒绝，订单 {} 已恢复为已支付状态", orderId);
+
+            // 更新争议记录
+            disputeRecordService.resolveDisputeRecord(orderId, resolution, currentUser.getId(), note);
 
             // 发送争议解决通知
             try {
