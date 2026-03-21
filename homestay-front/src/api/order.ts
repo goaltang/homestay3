@@ -605,3 +605,48 @@ export function mockPaymentSuccess(orderId: number) {
       throw error;
     });
 }
+
+// ==================== 用户端入住相关API ====================
+
+/**
+ * 获取入住凭证
+ * @param orderId 订单ID
+ */
+export function getCheckInCredential(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/checkin-credential`,
+    method: "get",
+  }).catch((error) => {
+    handleApiError(error, "获取入住凭证失败");
+    throw error;
+  });
+}
+
+/**
+ * 自助入住（输入入住码）
+ * @param checkInCode 入住码
+ */
+export function selfCheckIn(checkInCode: string) {
+  return request({
+    url: "/api/orders/checkin/self",
+    method: "post",
+    data: { checkInCode },
+  }).catch((error) => {
+    handleApiError(error, "自助入住失败");
+    throw error;
+  });
+}
+
+/**
+ * 确认到达（通知房东）
+ * @param orderId 订单ID
+ */
+export function confirmArrival(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/confirm-arrival`,
+    method: "put",
+  }).catch((error) => {
+    handleApiError(error, "确认到达失败");
+    throw error;
+  });
+}

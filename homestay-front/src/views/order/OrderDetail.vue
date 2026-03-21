@@ -87,6 +87,26 @@
                     :update-time="orderData.updateTime" @timeout="fetchOrderDetail" @warning="handleOrderWarning" />
             </div>
 
+            <!-- 待入住状态提示 -->
+            <div class="status-notice" v-else-if="orderData.status === 'READY_FOR_CHECKIN'">
+                <el-alert title="房源已准备好，等待入住" type="info" description="房东已为您准备好入住凭证，请查看并完成入住" show-icon :closable="false" />
+                <div class="checkin-actions-tip" style="margin-top: 15px;">
+                    <el-button type="primary" size="small" @click="openCheckInCredential">查看入住凭证</el-button>
+                    <el-button type="success" size="small" @click="selfCheckInDialogVisible = true">自助入住</el-button>
+                    <el-button type="warning" plain size="small" @click="handleConfirmArrival" :loading="confirmArrivalLoading">确认到达</el-button>
+                </div>
+            </div>
+
+            <!-- 已入住状态提示 -->
+            <div class="status-notice" v-else-if="orderData.status === 'CHECKED_IN'">
+                <el-alert title="已办理入住" type="success" description="祝您入住愉快！" show-icon :closable="false" />
+            </div>
+
+            <!-- 已退房状态提示 -->
+            <div class="status-notice" v-else-if="orderData.status === 'CHECKED_OUT'">
+                <el-alert title="已办理退房" type="info" description="等待房东确认结算" show-icon :closable="false" />
+            </div>
+
             <div class="status-notice" v-else-if="orderData.status === 'REJECTED'">
                 <el-alert title="预订被拒绝" type="error" description="很抱歉，房东拒绝了您的预订申请。" show-icon :closable="false" />
                 <div class="reject-reason" v-if="orderData.remark">
@@ -259,6 +279,17 @@
                     <el-button type="primary" v-if="orderData.status === 'CONFIRMED'" @click="showPaymentDialog">
                         立即支付
                     </el-button>
+                    <!-- READY_FOR_CHECKIN 状态：入住相关操作 -->
+                    <el-button type="primary" v-if="orderData.status === 'READY_FOR_CHECKIN'" @click="openCheckInCredential">
+                        查看入住凭证
+                    </el-button>
+                    <el-button type="success" v-if="orderData.status === 'READY_FOR_CHECKIN'" @click="selfCheckInDialogVisible = true">
+                        自助入住
+                    </el-button>
+                    <el-button type="warning" plain v-if="orderData.status === 'READY_FOR_CHECKIN'" @click="handleConfirmArrival" :loading="confirmArrivalLoading">
+                        确认到达
+                    </el-button>
+                    <!-- CHECKED_IN 状态 -->
                     <el-button type="warning" plain v-if="canRequestRefund" @click="confirmRequestRefund">
                         申请退款
                     </el-button>
@@ -327,6 +358,61 @@
             </template>
         </el-dialog>
 
+        <!-- 入住凭证查看对话框 -->
+        <el-dialog v-model="checkInCredentialDialogVisible" title="入住凭证" width="450px">
+            <div v-if="checkInCredential" class="credential-content">
+                <el-descriptions :column="1" border>
+                    <el-descriptions-item label="入住方式">
+                        {{ checkInCredential.checkInMethod === 'MANUAL' ? '人工办理' : '自助入住' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="入住码">
+                        <span style="font-weight: bold; font-size: 20px; color: var(--el-color-primary);">
+                            {{ checkInCredential.checkInCode }}
+                        </span>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="门锁密码" v-if="checkInCredential.doorPassword">
+                        {{ checkInCredential.doorPassword }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="密钥箱密码" v-if="checkInCredential.lockboxCode">
+                        {{ checkInCredential.lockboxCode }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="位置描述" :span="2" v-if="checkInCredential.locationDescription">
+                        {{ checkInCredential.locationDescription }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="有效时间" v-if="checkInCredential.validFrom || checkInCredential.validUntil">
+                        {{ checkInCredential.validFrom }} ~ {{ checkInCredential.validUntil }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="备注" :span="2" v-if="checkInCredential.remark">
+                        {{ checkInCredential.remark }}
+                    </el-descriptions-item>
+                </el-descriptions>
+                <el-alert type="info" :closable="false" style="margin-top: 15px;">
+                    请保管好您的入住码，到达后可用于自助办理入住。
+                </el-alert>
+            </div>
+            <template #footer>
+                <el-button @click="checkInCredentialDialogVisible = false">关闭</el-button>
+            </template>
+        </el-dialog>
+
+        <!-- 自助入住对话框 -->
+        <el-dialog v-model="selfCheckInDialogVisible" title="自助入住" width="400px">
+            <div class="self-checkin-content">
+                <el-alert type="info" :closable="false" show-icon style="margin-bottom: 20px;">
+                    请输入房东提供的6位入住码完成入住。
+                </el-alert>
+                <el-form>
+                    <el-form-item label="入住码">
+                        <el-input v-model="selfCheckInCode" placeholder="请输入6位入住码" maxlength="6" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <el-button @click="selfCheckInDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="submitSelfCheckIn" :loading="selfCheckInLoading">确认入住</el-button>
+            </template>
+        </el-dialog>
+
         <!-- Add Edit Modal -->
         <ReviewEditModal v-model:visible="isEditModalVisible" :review-data="currentEditingReview"
             @submitted="handleReviewUpdated" />
@@ -344,7 +430,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Clock, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
-import { getOrderDetail, cancelOrder, generatePaymentQRCode, checkPayment, payOrder } from '../../api/order'
+import { getOrderDetail, cancelOrder, generatePaymentQRCode, checkPayment, payOrder, getCheckInCredential, selfCheckIn, confirmArrival } from '../../api/order'
 import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
@@ -456,6 +542,67 @@ const handleSubmitReview = (success: boolean) => {
     }
 };
 // --- End state ---
+
+// --- Check-in related state ---
+const checkInCredentialDialogVisible = ref(false)
+const selfCheckInDialogVisible = ref(false)
+const checkInCredential = ref<any>(null)
+const selfCheckInCode = ref('')
+const selfCheckInLoading = ref(false)
+const confirmArrivalLoading = ref(false)
+
+// 获取入住凭证
+const openCheckInCredential = async () => {
+    if (!orderData.value?.id) return
+    try {
+        const res = await getCheckInCredential(orderData.value.id)
+        checkInCredential.value = res.data || res
+        checkInCredentialDialogVisible.value = true
+    } catch (error: any) {
+        ElMessage.error(error.message || '获取入住凭证失败')
+    }
+}
+
+// 自助入住
+const submitSelfCheckIn = async () => {
+    if (!selfCheckInCode.value) {
+        ElMessage.warning('请输入入住码')
+        return
+    }
+    selfCheckInLoading.value = true
+    try {
+        await selfCheckIn(selfCheckInCode.value)
+        ElMessage.success('自助入住成功')
+        selfCheckInDialogVisible.value = false
+        fetchOrderDetail()
+    } catch (error: any) {
+        ElMessage.error(error.message || '自助入住失败')
+    } finally {
+        selfCheckInLoading.value = false
+    }
+}
+
+// 确认到达
+const handleConfirmArrival = async () => {
+    if (!orderData.value?.id) return
+    ElMessageBox.confirm('确认已到达房源？', '确认到达', {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'info'
+    }).then(async () => {
+        confirmArrivalLoading.value = true
+        try {
+            await confirmArrival(orderData.value!.id)
+            ElMessage.success('已通知房东您已到达')
+            fetchOrderDetail()
+        } catch (error: any) {
+            ElMessage.error(error.message || '确认到达失败')
+        } finally {
+            confirmArrivalLoading.value = false
+        }
+    }).catch(() => {})
+}
+// --- End check-in state ---
 
 // 获取当前登录用户ID
 const currentUserId = userStore.userInfo?.id
