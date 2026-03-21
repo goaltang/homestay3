@@ -49,6 +49,7 @@ tools/mcp/
 tools/code-stats/*.exe
 tools/code-stats/*.ps1
 tools/code-stats/*.bat
+tools/code-stats/*.txt
 
 # --- 绘图文件扩展 ---
 **/*.drawio
