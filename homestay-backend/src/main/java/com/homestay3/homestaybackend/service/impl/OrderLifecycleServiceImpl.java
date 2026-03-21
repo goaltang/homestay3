@@ -437,6 +437,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
         // 更新订单状态
         order.setStatus(targetStatus.name());
+        order.setCheckedInAt(LocalDateTime.now());
 
         // 保存更新后的订单
         Order updatedOrder = orderRepository.save(order);
@@ -458,7 +459,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         OrderStatus currentStatus = OrderStatus.valueOf(order.getStatus());
-        OrderStatus targetStatus = OrderStatus.COMPLETED;
+        OrderStatus targetStatus = OrderStatus.CHECKED_OUT;
         
         // 检查状态转换是否有效
         if (!isValidStatusTransition(currentStatus, targetStatus)) {
@@ -473,7 +474,8 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
         // 更新订单状态
         order.setStatus(targetStatus.name());
-        
+        order.setCheckedOutAt(LocalDateTime.now());
+
         // 完成订单时生成待结算收益
         try {
             earningService.generatePendingEarningForOrder(order.getId());
@@ -875,8 +877,11 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 OrderStatus.CANCELLED
         ));
 
-        // 已入住状态只能转换为：已完成
-        transitions.put(OrderStatus.CHECKED_IN, List.of(OrderStatus.COMPLETED));
+        // 已入住状态只能转换为：已退房
+        transitions.put(OrderStatus.CHECKED_IN, List.of(OrderStatus.CHECKED_OUT));
+
+        // 已退房状态只能转换为：已完成
+        transitions.put(OrderStatus.CHECKED_OUT, List.of(OrderStatus.COMPLETED));
 
         // 已完成状态不能转换为任何状态
         transitions.put(OrderStatus.COMPLETED, Collections.emptyList());
@@ -1047,11 +1052,25 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
             if (guest != null) {
                 if (cancelledOrder.getStatus().equals(OrderStatus.REFUND_PENDING.name())) {
+                    // 通知客人退款申请已提交
                     orderNotificationService.sendOrderRefundRequestedNotification(
                             guest.getId(), cancelledOrder.getId(), cancelledOrder.getOrderNumber(),
                             reason != null && !reason.isEmpty() ? reason : "未提供原因",
                             refundType.toString(),
-                            "0");
+                            cancelledOrder.getRefundAmount() != null ? cancelledOrder.getRefundAmount().toString() : "0");
+
+                    // 如果是用户申请退款（USER_REQUESTED），需要通知房东审批
+                    if (refundType == RefundType.USER_REQUESTED
+                            && cancelledOrder.getHomestay() != null
+                            && cancelledOrder.getHomestay().getOwner() != null) {
+                        orderNotificationService.sendRefundPendingNotification(
+                                cancelledOrder.getHomestay().getOwner().getId(),
+                                cancelledOrder.getId(),
+                                cancelledOrder.getOrderNumber(),
+                                refundType.toString(),
+                                reason != null ? reason : "用户申请退款",
+                                cancelledOrder.getRefundAmount() != null ? cancelledOrder.getRefundAmount().toString() : "0");
+                    }
                 } else if (cancelledOrder.getStatus().equals(OrderStatus.REFUNDED.name())) {
                     // 管理员直接退款完成的通知
                     orderNotificationService.sendOrderRefundApprovedNotification(

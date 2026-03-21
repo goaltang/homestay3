@@ -187,4 +187,16 @@ public interface OrderNotificationService {
     void sendDisputeResolvedNotification(Long orderId, Long guestId, Long hostId,
                                         String orderNumber, String homestayTitle,
                                         String resolution, String note);
+
+    /**
+     * 发送退款待审批通知（通知房东）
+     * @param hostId 房东用户ID
+     * @param orderId 订单ID
+     * @param orderNumber 订单号
+     * @param refundType 退款类型
+     * @param refundReason 退款原因
+     * @param refundAmount 退款金额
+     */
+    void sendRefundPendingNotification(Long hostId, Long orderId, String orderNumber,
+                                      String refundType, String refundReason, String refundAmount);
 }

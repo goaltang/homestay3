@@ -300,18 +300,26 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                                                      String refundReason, String refundType,
                                                      String refundAmount) {
         try {
-            String refundNote = String.format("退款申请 - 类型: %s, 原因: %s, 申请人: %s, 计算退款金额: %s",
-                    refundType,
-                    refundReason != null && !refundReason.isEmpty() ? refundReason : "用户申请退款",
-                    getCurrentUsername(guestId),
-                    refundAmount);
-            
-            // 这里我们只记录日志，实际的退款申请通知应该在发起退款时由OrderService处理
-            // 或者我们可以创建一个专门的通知，但为了保持与现有逻辑的一致性，这里先记录日志
-            log.info("用户 {} 退款申请已提交，订单号: {}, 退款原因: {}", 
-                    getCurrentUsername(guestId), orderNumber, refundReason);
+            // 通知客人
+            String guestContent = String.format(
+                    "您的订单 %s 退款申请已提交，请等待处理。退款原因: %s",
+                    orderNumber,
+                    refundReason != null && !refundReason.isEmpty() ? refundReason : "用户申请");
+            notificationService.createNotification(
+                    guestId, null,
+                    NotificationType.REFUND_REQUESTED,
+                    EntityType.ORDER,
+                    String.valueOf(orderId),
+                    guestContent);
+
+            // 实时推送
+            webSocketNotificationService.sendNotificationToUser(guestId,
+                    createBasicNotificationDTO(null, guestId, NotificationType.REFUND_REQUESTED,
+                            EntityType.ORDER, String.valueOf(orderId), guestContent));
+
+            log.info("已为用户 {} 发送订单 {} 退款申请通知", getCurrentUsername(guestId), orderNumber);
         } catch (Exception e) {
-            log.error("处理订单退款申请通知失败: {}", e.getMessage(), e);
+            log.error("发送退款申请通知失败: {}", e.getMessage(), e);
             // 不抛出异常，以免影响主业务流程
         }
     }
@@ -585,5 +593,36 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
         dto.setContent(content);
         dto.setRead(false);
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public void sendRefundPendingNotification(Long hostId, Long orderId, String orderNumber,
+                                              String refundType, String refundReason, String refundAmount) {
+        try {
+            // 通知房东
+            String content = String.format(
+                    "您有新订单 %s 的退款申请待审批。类型: %s, 原因: %s, 金额: %s",
+                    orderNumber,
+                    refundType != null ? refundType : "未知",
+                    refundReason != null && !refundReason.isEmpty() ? refundReason : "未提供",
+                    refundAmount != null ? refundAmount : "计算中");
+            notificationService.createNotification(
+                    hostId, null,
+                    NotificationType.REFUND_REQUESTED,
+                    EntityType.ORDER,
+                    String.valueOf(orderId),
+                    content);
+
+            // 实时推送
+            webSocketNotificationService.sendNotificationToUser(hostId,
+                    createBasicNotificationDTO(null, hostId, NotificationType.REFUND_REQUESTED,
+                            EntityType.ORDER, String.valueOf(orderId), content));
+
+            log.info("已为房东 {} 发送订单 {} 退款待审批通知", getCurrentUsername(hostId), orderNumber);
+        } catch (Exception e) {
+            log.error("发送退款待审批通知失败: {}", e.getMessage(), e);
+            // 不抛出异常，以免影响主业务流程
+        }
     }
 }
