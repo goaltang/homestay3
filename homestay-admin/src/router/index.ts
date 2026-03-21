@@ -216,6 +216,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import("@/views/system/Announcement.vue"),
       },
+      {
+        path: "/system/disputes",
+        name: "disputeManage",
+        meta: {
+          title: "争议管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/system/DisputeManage.vue"),
+      },
     ],
   },
   {

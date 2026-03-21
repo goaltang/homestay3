@@ -121,6 +121,12 @@ export const menuData: Menus[] = [
         title: "公告管理",
         index: "/system/announcements",
       },
+      {
+        id: "dispute-manage",
+        pid: "system",
+        title: "争议管理",
+        index: "/system/disputes",
+      },
     ],
   },
 ];
