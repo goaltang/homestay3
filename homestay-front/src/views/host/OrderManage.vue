@@ -167,11 +167,13 @@
                     </el-select>
                 </el-form-item>
                 <el-form-item label="订单状态">
-                    <el-select v-model="filterForm.status" placeholder="全部状态" clearable style="width: 120px;">
+                    <el-select v-model="filterForm.status" placeholder="全部状态" clearable style="width: 150px;">
                         <el-option label="待确认" value="PENDING" />
                         <el-option label="已确认" value="CONFIRMED" />
                         <el-option label="已支付" value="PAID" />
+                        <el-option label="待入住" value="READY_FOR_CHECKIN" />
                         <el-option label="已入住" value="CHECKED_IN" />
+                        <el-option label="已退房" value="CHECKED_OUT" />
                         <el-option label="已完成" value="COMPLETED" />
                         <el-option label="已取消" value="CANCELLED" />
                         <el-option label="系统取消" value="CANCELLED_SYSTEM" />
@@ -278,13 +280,25 @@
                                 @click="handleConfirm(scope.row)">
                                 确认接单
                             </el-button>
-                            <el-button v-else-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'" type="primary" size="small"
-                                @click="handleCheckIn(scope.row)">
+                            <el-button v-if="scope.row.status === 'PAID'" type="primary" size="small"
+                                @click="openPrepareCheckIn(scope.row)">
+                                设置准备入住
+                            </el-button>
+                            <el-button v-if="scope.row.status === 'READY_FOR_CHECKIN'" type="primary" size="small"
+                                @click="handlePerformCheckIn(scope.row)">
                                 办理入住
                             </el-button>
-                            <el-button v-else-if="scope.row.status === 'CHECKED_IN'" type="success" size="small"
-                                @click="handleComplete(scope.row)">
-                                完成订单
+                            <el-button v-if="scope.row.status === 'CHECKED_IN'" type="success" size="small"
+                                @click="openCheckOut(scope.row)">
+                                办理退房
+                            </el-button>
+                            <el-button v-if="scope.row.status === 'CHECKED_OUT'" type="warning" size="small"
+                                @click="openDeposit(scope.row)">
+                                押金操作
+                            </el-button>
+                            <el-button v-if="scope.row.status === 'CHECKED_OUT'" type="success" size="small"
+                                @click="handleConfirmSettlement(scope.row)">
+                                确认结算
                             </el-button>
                             <el-button v-else-if="scope.row.paymentStatus === 'REFUND_PENDING'" type="warning" size="small"
                                 @click="handleReviewRefund(scope.row)">
@@ -313,6 +327,14 @@
                                         <el-dropdown-item v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
                                             @click="handleCancel(scope.row)">
                                             <span style="color: var(--el-color-danger)">取消订单</span>
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="scope.row.status === 'READY_FOR_CHECKIN'"
+                                            @click="handleCancelPrepare(scope.row)">
+                                            <span style="color: var(--el-color-warning)">取消准备</span>
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="scope.row.status === 'PAID'"
+                                            @click="openViewCredential(scope.row)">
+                                            <span style="color: var(--el-color-info)">查看凭证</span>
                                         </el-dropdown-item>
                                         <el-dropdown-item v-if="canInitiateRefund(scope.row)"
                                             @click="handleRefund(scope.row)">
@@ -426,12 +448,28 @@
                         拒绝订单
                     </el-button>
                     <el-button v-if="currentOrder.status === 'PAID'" type="primary"
-                        @click="handleCheckIn(currentOrder)">
+                        @click="openPrepareCheckIn(currentOrder)">
+                        设置准备入住
+                    </el-button>
+                    <el-button v-if="currentOrder.status === 'READY_FOR_CHECKIN'" type="primary"
+                        @click="handlePerformCheckIn(currentOrder)">
                         办理入住
                     </el-button>
-                    <el-button v-if="currentOrder.status === 'CHECKED_IN'" type="info"
-                        @click="handleComplete(currentOrder)">
-                        完成订单
+                    <el-button v-if="currentOrder.status === 'READY_FOR_CHECKIN'" type="warning"
+                        @click="handleCancelPrepare(currentOrder)">
+                        取消准备
+                    </el-button>
+                    <el-button v-if="currentOrder.status === 'CHECKED_IN'" type="success"
+                        @click="openCheckOut(currentOrder)">
+                        办理退房
+                    </el-button>
+                    <el-button v-if="currentOrder.status === 'CHECKED_OUT'" type="warning"
+                        @click="openDeposit(currentOrder)">
+                        押金操作
+                    </el-button>
+                    <el-button v-if="currentOrder.status === 'CHECKED_OUT'" type="success"
+                        @click="handleConfirmSettlement(currentOrder)">
+                        确认结算
                     </el-button>
                     <el-button
                         v-if="(currentOrder.status === 'PENDING' || currentOrder.status === 'CONFIRMED') && currentOrder.paymentStatus === 'UNPAID'"
@@ -642,6 +680,156 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- 设置准备入住对话框 -->
+        <el-dialog v-model="prepareCheckInDialogVisible" title="设置准备入住" width="50%">
+            <div v-if="currentOrder" class="prepare-checkin-content">
+                <el-alert type="info" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #title>
+                        <span>为订单 <strong>#{{ currentOrder.id }}</strong> 设置入住凭证</span>
+                    </template>
+                </el-alert>
+
+                <el-descriptions :column="2" border size="small" style="margin-bottom: 20px;">
+                    <el-descriptions-item label="房源">{{ currentOrder.homestayTitle || currentOrder.homestayName }}</el-descriptions-item>
+                    <el-descriptions-item label="客户">{{ currentOrder.guestName }}</el-descriptions-item>
+                    <el-descriptions-item label="入住日期">{{ currentOrder.checkInDate }}</el-descriptions-item>
+                    <el-descriptions-item label="退房日期">{{ currentOrder.checkOutDate }}</el-descriptions-item>
+                </el-descriptions>
+
+                <el-form :model="prepareCheckInForm" label-width="120px">
+                    <el-form-item label="入住方式">
+                        <el-radio-group v-model="prepareCheckInForm.checkInMethod">
+                            <el-radio label="MANUAL">人工办理</el-radio>
+                            <el-radio label="SELF_SERVICE">自助入住</el-radio>
+                        </el-radio-group>
+                    </el-form-item>
+                    <el-form-item label="门锁密码" v-if="prepareCheckInForm.checkInMethod === 'MANUAL' || prepareCheckInForm.checkInMethod === 'SELF_SERVICE'">
+                        <el-input v-model="prepareCheckInForm.doorPassword" placeholder="请输入门锁密码" />
+                    </el-form-item>
+                    <el-form-item label="密钥箱密码" v-if="prepareCheckInForm.checkInMethod === 'SELF_SERVICE'">
+                        <el-input v-model="prepareCheckInForm.lockboxCode" placeholder="请输入密钥箱密码" />
+                    </el-form-item>
+                    <el-form-item label="位置描述" v-if="prepareCheckInForm.checkInMethod === 'SELF_SERVICE'">
+                        <el-input v-model="prepareCheckInForm.locationDescription" type="textarea" :rows="2" placeholder="请输入房源位置描述，帮助客人找到房源" />
+                    </el-form-item>
+                    <el-form-item label="备注">
+                        <el-input v-model="prepareCheckInForm.remark" type="textarea" :rows="2" placeholder="选填：备注信息" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="prepareCheckInDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="submitPrepareCheckIn" :loading="prepareCheckInSubmitting">
+                        确认设置
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 查看入住凭证对话框 -->
+        <el-dialog v-model="viewCredentialDialogVisible" title="入住凭证" width="50%">
+            <div v-if="checkInCredential" class="credential-content">
+                <el-descriptions :column="2" border size="small">
+                    <el-descriptions-item label="入住方式">{{ checkInCredential.checkInMethod === 'MANUAL' ? '人工办理' : '自助入住' }}</el-descriptions-item>
+                    <el-descriptions-item label="入住码">
+                        <span style="font-weight: bold; font-size: 18px; color: var(--el-color-primary);">{{ checkInCredential.checkInCode }}</span>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="门锁密码" v-if="checkInCredential.doorPassword">{{ checkInCredential.doorPassword }}</el-descriptions-item>
+                    <el-descriptions-item label="密钥箱密码" v-if="checkInCredential.lockboxCode">{{ checkInCredential.lockboxCode }}</el-descriptions-item>
+                    <el-descriptions-item label="位置描述" :span="2" v-if="checkInCredential.locationDescription">{{ checkInCredential.locationDescription }}</el-descriptions-item>
+                    <el-descriptions-item label="有效起始" v-if="checkInCredential.validFrom">{{ checkInCredential.validFrom }}</el-descriptions-item>
+                    <el-descriptions-item label="有效截止" v-if="checkInCredential.validUntil">{{ checkInCredential.validUntil }}</el-descriptions-item>
+                    <el-descriptions-item label="备注" :span="2" v-if="checkInCredential.remark">{{ checkInCredential.remark }}</el-descriptions-item>
+                </el-descriptions>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="viewCredentialDialogVisible = false">关闭</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 办理退房对话框 -->
+        <el-dialog v-model="checkOutDialogVisible" title="办理退房" width="50%">
+            <div v-if="currentOrder" class="checkout-content">
+                <el-alert type="info" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #title>
+                        <span>确认办理订单 <strong>#{{ currentOrder.id }}</strong> 退房</span>
+                    </template>
+                </el-alert>
+
+                <el-descriptions :column="2" border size="small" style="margin-bottom: 20px;">
+                    <el-descriptions-item label="房源">{{ currentOrder.homestayTitle || currentOrder.homestayName }}</el-descriptions-item>
+                    <el-descriptions-item label="客户">{{ currentOrder.guestName }}</el-descriptions-item>
+                    <el-descriptions-item label="入住时间">{{ currentOrder.checkedInAt || currentOrder.checkInDate }}</el-descriptions-item>
+                    <el-descriptions-item label="退房时间">{{ formatDateTime(new Date().toISOString()) }}</el-descriptions-item>
+                    <el-descriptions-item label="押金金额">¥{{ currentOrder.depositAmount || 0 }}</el-descriptions-item>
+                </el-descriptions>
+
+                <el-form :model="checkOutForm" label-width="100px">
+                    <el-form-item label="备注">
+                        <el-input v-model="checkOutForm.remark" type="textarea" :rows="2" placeholder="选填：退房备注" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="checkOutDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="submitCheckOut" :loading="checkOutSubmitting">
+                        确认退房
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- 押金操作对话框 -->
+        <el-dialog v-model="depositDialogVisible" title="押金操作" width="50%">
+            <div v-if="currentOrder && checkOutRecord" class="deposit-content">
+                <el-alert type="info" :closable="false" show-icon style="margin-bottom: 20px;">
+                    <template #title>
+                        <span>请选择押金操作类型</span>
+                    </template>
+                </el-alert>
+
+                <el-descriptions :column="2" border size="small" style="margin-bottom: 20px;">
+                    <el-descriptions-item label="押金状态">
+                        <el-tag :type="getDepositStatusType(checkOutRecord.depositStatus)" size="small">
+                            {{ getDepositStatusText(checkOutRecord.depositStatus) }}
+                        </el-tag>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="押金金额">¥{{ checkOutRecord.depositAmount || 0 }}</el-descriptions-item>
+                    <el-descriptions-item label="结算金额">¥{{ checkOutRecord.settlementAmount || 0 }}</el-descriptions-item>
+                    <el-descriptions-item label="额外费用">¥{{ checkOutRecord.extraCharges || 0 }}</el-descriptions-item>
+                </el-descriptions>
+
+                <el-form :model="depositForm" label-width="100px">
+                    <el-form-item label="操作类型" required>
+                        <el-radio-group v-model="depositForm.action">
+                            <el-radio label="COLLECT">收取押金</el-radio>
+                            <el-radio label="REFUND">退还押金</el-radio>
+                            <el-radio label="RETAIN">扣押押金</el-radio>
+                            <el-radio label="WAIVE">免除押金</el-radio>
+                        </el-radio-group>
+                    </el-form-item>
+                    <el-form-item label="金额" v-if="depositForm.action === 'COLLECT' || depositForm.action === 'RETAIN'">
+                        <el-input-number v-model="depositForm.amount" :min="0" :precision="2" :step="10" style="width: 200px;" />
+                    </el-form-item>
+                    <el-form-item label="说明" v-if="depositForm.action === 'RETAIN'">
+                        <el-input v-model="depositForm.note" type="textarea" :rows="2" placeholder="请输入扣押原因" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="depositDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="submitDeposit" :loading="depositSubmitting">
+                        确认操作
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -661,7 +849,17 @@ import {
     hostInitiateRefund,
     hostApproveRefund,
     hostRejectRefund,
-    hostRaiseDispute
+    hostRaiseDispute,
+    prepareCheckIn,
+    getCheckInCredential,
+    performCheckIn,
+    cancelPrepareCheckIn,
+    getCheckInRecord,
+    performCheckOut,
+    getCheckOutRecord,
+    processDeposit,
+    confirmSettlement,
+    updateExtraCharges
 } from '@/api/hostOrder'
 import { getHostHomestayOptions } from '@/api/host'
 
@@ -797,6 +995,38 @@ const disputeForm = reactive({
     reason: ''
 })
 
+// 设置准备入住对话框相关
+const prepareCheckInDialogVisible = ref(false)
+const prepareCheckInSubmitting = ref(false)
+const prepareCheckInForm = reactive({
+    checkInMethod: 'MANUAL',
+    doorPassword: '',
+    lockboxCode: '',
+    locationDescription: '',
+    remark: ''
+})
+
+// 查看入住凭证对话框相关
+const viewCredentialDialogVisible = ref(false)
+const checkInCredential = ref<any>(null)
+
+// 办理退房对话框相关
+const checkOutDialogVisible = ref(false)
+const checkOutSubmitting = ref(false)
+const checkOutForm = reactive({
+    remark: ''
+})
+
+// 押金操作对话框相关
+const depositDialogVisible = ref(false)
+const depositSubmitting = ref(false)
+const depositForm = reactive({
+    action: 'REFUND',
+    amount: 0,
+    note: ''
+})
+const checkOutRecord = ref<any>(null)
+
 // 处理筛选
 const handleFilter = () => {
     fetchOrders()
@@ -857,6 +1087,7 @@ const getStatusText = (order: HostOrderItem | string) => {
         'PAID': '已支付',
         'READY_FOR_CHECKIN': '待入住',
         'CHECKED_IN': '已入住',
+        'CHECKED_OUT': '已退房',
         'COMPLETED': '已完成',
         'CANCELLED': '已取消',
         'CANCELLED_SYSTEM': '系统取消',
@@ -879,6 +1110,7 @@ const getStatusType = (status: string) => {
         'PAID': 'success',
         'READY_FOR_CHECKIN': 'primary',
         'CHECKED_IN': 'primary',
+        'CHECKED_OUT': 'warning',
         'COMPLETED': 'info',
         'CANCELLED': 'danger',
         'CANCELLED_SYSTEM': 'danger',
@@ -1034,8 +1266,8 @@ const handleConfirm = async (order: HostOrderItem) => {
     }).catch(() => { })
 }
 
-// 办理入住
-const handleCheckIn = async (order: HostOrderItem) => {
+// 办理入住 - 房东手动办理（READY_FOR_CHECKIN -> CHECKED_IN）
+const handlePerformCheckIn = async (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
@@ -1048,8 +1280,8 @@ const handleCheckIn = async (order: HostOrderItem) => {
     }).then(async () => {
         loading.value = true
         try {
-            console.log('入住订单ID:', order.id)
-            await updateOrderStatus(order.id, 'CHECKED_IN')
+            console.log('办理入住，订单ID:', order.id)
+            await performCheckIn(order.id)
             ElMessage.success('已办理入住')
             // 更新本地数据
             const index = orders.value.findIndex(item => item.id === order.id)
@@ -1075,23 +1307,231 @@ const handleCheckIn = async (order: HostOrderItem) => {
     }).catch(() => { })
 }
 
-// 完成订单
-const handleComplete = async (order: HostOrderItem) => {
+// 打开设置准备入住对话框
+const openPrepareCheckIn = (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+    currentOrder.value = order
+    // 重置表单
+    prepareCheckInForm.checkInMethod = 'MANUAL'
+    prepareCheckInForm.doorPassword = ''
+    prepareCheckInForm.lockboxCode = ''
+    prepareCheckInForm.locationDescription = ''
+    prepareCheckInForm.remark = ''
+    prepareCheckInDialogVisible.value = true
+}
+
+// 提交设置准备入住
+const submitPrepareCheckIn = async () => {
+    if (!currentOrder.value || !currentOrder.value.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    prepareCheckInSubmitting.value = true
+    try {
+        console.log('设置准备入住，订单ID:', currentOrder.value.id, prepareCheckInForm)
+        await prepareCheckIn(currentOrder.value.id, {
+            checkInMethod: prepareCheckInForm.checkInMethod,
+            doorPassword: prepareCheckInForm.doorPassword || undefined,
+            lockboxCode: prepareCheckInForm.lockboxCode || undefined,
+            locationDescription: prepareCheckInForm.locationDescription || undefined,
+            remark: prepareCheckInForm.remark || undefined
+        })
+        ElMessage.success('已设置准备入住')
+        prepareCheckInDialogVisible.value = false
+
+        // 关闭详情对话框（如果打开）
+        if (detailsDialogVisible.value) {
+            detailsDialogVisible.value = false
+        }
+
+        updateStats()
+        fetchOrders()
+    } catch (error: any) {
+        console.error('设置准备入住失败:', error)
+        ElMessage.error(error.response?.data?.message || '操作失败，请重试')
+    } finally {
+        prepareCheckInSubmitting.value = false
+    }
+}
+
+// 查看入住凭证
+const openViewCredential = async (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+    try {
+        const res = await getCheckInCredential(order.id)
+        checkInCredential.value = res.data || res
+        viewCredentialDialogVisible.value = true
+    } catch (error: any) {
+        console.error('获取入住凭证失败:', error)
+        ElMessage.error(error.response?.data?.message || '获取入住凭证失败')
+    }
+}
+
+// 取消准备入住
+const handleCancelPrepare = async (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
     }
 
-    ElMessageBox.confirm('确认完成此订单吗？', '完成订单', {
+    ElMessageBox.confirm('确认取消准备入住吗？', '取消准备', {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+    }).then(async () => {
+        loading.value = true
+        try {
+            console.log('取消准备入住，订单ID:', order.id)
+            await cancelPrepareCheckIn(order.id)
+            ElMessage.success('已取消准备入住')
+            // 更新本地数据
+            const index = orders.value.findIndex(item => item.id === order.id)
+            if (index !== -1) {
+                orders.value[index].status = 'PAID'
+            }
+
+            // 关闭详情对话框（如果打开）
+            if (detailsDialogVisible.value) {
+                detailsDialogVisible.value = false
+            }
+
+            updateStats()
+            fetchOrders()
+        } catch (error: any) {
+            console.error('取消准备入住失败:', error)
+            ElMessage.error(error.response?.data?.message || '操作失败，请重试')
+        } finally {
+            loading.value = false
+        }
+    }).catch(() => { })
+}
+
+// 打开退房对话框
+const openCheckOut = (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+    currentOrder.value = order
+    checkOutForm.remark = ''
+    checkOutDialogVisible.value = true
+}
+
+// 提交退房
+const submitCheckOut = async () => {
+    if (!currentOrder.value || !currentOrder.value.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    checkOutSubmitting.value = true
+    try {
+        console.log('办理退房，订单ID:', currentOrder.value.id)
+        await performCheckOut(currentOrder.value.id, {
+            remark: checkOutForm.remark || undefined
+        })
+        ElMessage.success('已办理退房')
+        checkOutDialogVisible.value = false
+
+        // 关闭详情对话框（如果打开）
+        if (detailsDialogVisible.value) {
+            detailsDialogVisible.value = false
+        }
+
+        updateStats()
+        fetchOrders()
+    } catch (error: any) {
+        console.error('办理退房失败:', error)
+        ElMessage.error(error.response?.data?.message || '操作失败，请重试')
+    } finally {
+        checkOutSubmitting.value = false
+    }
+}
+
+// 打开押金操作对话框
+const openDeposit = async (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+    currentOrder.value = order
+    // 获取退房记录
+    try {
+        const res = await getCheckOutRecord(order.id)
+        checkOutRecord.value = res.data || res
+        depositForm.action = 'REFUND'
+        depositForm.amount = checkOutRecord.value?.depositAmount || 0
+        depositForm.note = ''
+        depositDialogVisible.value = true
+    } catch (error: any) {
+        console.error('获取退房记录失败:', error)
+        ElMessage.error(error.response?.data?.message || '获取退房记录失败')
+    }
+}
+
+// 提交押金操作
+const submitDeposit = async () => {
+    if (!currentOrder.value || !currentOrder.value.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    if ((depositForm.action === 'COLLECT' || depositForm.action === 'RETAIN') && depositForm.amount <= 0) {
+        ElMessage.error('请输入有效的金额')
+        return
+    }
+
+    depositSubmitting.value = true
+    try {
+        console.log('押金操作，订单ID:', currentOrder.value.id, depositForm)
+        await processDeposit(
+            currentOrder.value.id,
+            depositForm.action,
+            depositForm.action === 'COLLECT' || depositForm.action === 'RETAIN' ? depositForm.amount : undefined,
+            depositForm.action === 'RETAIN' ? depositForm.note : undefined
+        )
+        ElMessage.success('押金操作成功')
+        depositDialogVisible.value = false
+
+        // 关闭详情对话框（如果打开）
+        if (detailsDialogVisible.value) {
+            detailsDialogVisible.value = false
+        }
+
+        updateStats()
+        fetchOrders()
+    } catch (error: any) {
+        console.error('押金操作失败:', error)
+        ElMessage.error(error.response?.data?.message || '操作失败，请重试')
+    } finally {
+        depositSubmitting.value = false
+    }
+}
+
+// 确认结算
+const handleConfirmSettlement = async (order: HostOrderItem) => {
+    if (!order || !order.id) {
+        ElMessage.error('无效的订单数据')
+        return
+    }
+
+    ElMessageBox.confirm('确认结算此订单吗？结算后将生成收益记录。', '确认结算', {
         confirmButtonText: '确认',
         cancelButtonText: '取消',
         type: 'success'
     }).then(async () => {
         loading.value = true
         try {
-            console.log('完成订单ID:', order.id)
-            await updateOrderStatus(order.id, 'COMPLETED')
-            ElMessage.success('订单已完成')
+            console.log('确认结算，订单ID:', order.id)
+            await confirmSettlement(order.id)
+            ElMessage.success('已确认结算，订单已完成')
             // 更新本地数据
             const index = orders.value.findIndex(item => item.id === order.id)
             if (index !== -1) {
@@ -1104,16 +1544,40 @@ const handleComplete = async (order: HostOrderItem) => {
             }
 
             updateStats()
-
-            // 刷新订单列表
             fetchOrders()
         } catch (error: any) {
-            console.error('完成订单失败:', error)
+            console.error('确认结算失败:', error)
             ElMessage.error(error.response?.data?.message || '操作失败，请重试')
         } finally {
             loading.value = false
         }
     }).catch(() => { })
+}
+
+// 获取押金状态文本
+const getDepositStatusText = (status: string) => {
+    const statusMap: Record<string, string> = {
+        'PENDING': '待处理',
+        'PAID': '已收取',
+        'REFUNDED': '已退还',
+        'RETAINED': '已扣押',
+        'WAIVED': '已免除',
+        'WAITED': '待处理'
+    }
+    return statusMap[status] || status
+}
+
+// 获取押金状态类型
+const getDepositStatusType = (status: string) => {
+    const typeMap: Record<string, string> = {
+        'PENDING': 'warning',
+        'PAID': 'success',
+        'REFUNDED': 'info',
+        'RETAINED': 'danger',
+        'WAIVED': 'info',
+        'WAITED': 'warning'
+    }
+    return typeMap[status] || 'info'
 }
 
 // 取消订单

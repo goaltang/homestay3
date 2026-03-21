@@ -174,3 +174,134 @@ export function hostRaiseDispute(orderId: number, reason: string) {
     data: { reason },
   });
 }
+
+// ==================== 入住相关API ====================
+
+/**
+ * 设置准备入住（生成入住凭证）
+ * @param orderId 订单ID
+ * @param data 入住凭证信息
+ */
+export function prepareCheckIn(orderId: number, data: {
+  checkInMethod?: string;
+  doorPassword?: string;
+  lockboxCode?: string;
+  locationDescription?: string;
+  remark?: string;
+}) {
+  return request({
+    url: `/api/orders/${orderId}/prepare-checkin`,
+    method: "put",
+    data,
+  });
+}
+
+/**
+ * 获取入住凭证
+ * @param orderId 订单ID
+ */
+export function getCheckInCredential(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/checkin-credential`,
+    method: "get",
+  });
+}
+
+/**
+ * 办理入住（房东/管理员手动）
+ * @param orderId 订单ID
+ */
+export function performCheckIn(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/check-in`,
+    method: "put",
+  });
+}
+
+/**
+ * 取消准备入住
+ * @param orderId 订单ID
+ */
+export function cancelPrepareCheckIn(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/cancel-prepare`,
+    method: "put",
+  });
+}
+
+/**
+ * 获取入住记录
+ * @param orderId 订单ID
+ */
+export function getCheckInRecord(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/checkin-record`,
+    method: "get",
+  });
+}
+
+// ==================== 退房相关API ====================
+
+/**
+ * 办理退房
+ * @param orderId 订单ID
+ * @param data 退房信息
+ */
+export function performCheckOut(orderId: number, data?: { remark?: string }) {
+  return request({
+    url: `/api/orders/${orderId}/check-out`,
+    method: "put",
+    data: data || {},
+  });
+}
+
+/**
+ * 获取退房记录
+ * @param orderId 订单ID
+ */
+export function getCheckOutRecord(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/checkout-record`,
+    method: "get",
+  });
+}
+
+/**
+ * 处理押金
+ * @param orderId 订单ID
+ * @param action 操作类型：COLLECT/REFUND/RETAIN/WAIVE
+ * @param amount 金额
+ * @param note 备注
+ */
+export function processDeposit(orderId: number, action: string, amount?: number, note?: string) {
+  return request({
+    url: `/api/orders/${orderId}/deposit`,
+    method: "post",
+    data: { action, amount, note },
+  });
+}
+
+/**
+ * 确认结算
+ * @param orderId 订单ID
+ */
+export function confirmSettlement(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/checkout/settle`,
+    method: "put",
+  });
+}
+
+/**
+ * 更新额外费用
+ * @param orderId 订单ID
+ * @param extraCharges 额外费用
+ * @param description 说明
+ */
+export function updateExtraCharges(orderId: number, extraCharges: number, description?: string) {
+  return request({
+    url: `/api/orders/${orderId}/extra-charges`,
+    method: "put",
+    data: { extraCharges, description },
+  });
+}
