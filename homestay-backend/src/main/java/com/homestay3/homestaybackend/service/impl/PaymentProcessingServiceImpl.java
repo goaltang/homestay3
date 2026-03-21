@@ -5,6 +5,7 @@ import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.dto.refund.RefundRequest;
 import com.homestay3.homestaybackend.dto.refund.RefundResponse;
 import com.homestay3.homestaybackend.entity.Order;
+import com.homestay3.homestaybackend.entity.PaymentRecord;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.model.RefundType;
@@ -176,6 +177,17 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         // order.setPaymentTime(LocalDateTime.now());
 
         Order updatedOrder = orderRepository.save(order);
+
+        // 创建手动确认的支付记录，标记为不需要真实退款
+        PaymentRecord manualPaymentRecord = new PaymentRecord();
+        manualPaymentRecord.setOrderId(orderId);
+        manualPaymentRecord.setPaymentMethod("MANUAL_CONFIRM");
+        manualPaymentRecord.setOutTradeNo("MANUAL_" + orderId + "_" + System.currentTimeMillis());
+        manualPaymentRecord.setAmount(order.getTotalAmount());
+        manualPaymentRecord.setStatus("SUCCESS");
+        manualPaymentRecord.setNeedRealRefund(false);
+        paymentRecordRepository.save(manualPaymentRecord);
+        log.info("订单 {} 已创建手动确认支付记录，不需要真实退款", orderId);
         log.info("订单 {} 已手动确认支付", orderId);
 
         // 触发支付成功后的逻辑（如生成收益）
@@ -261,24 +273,32 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         }
 
         // 检查是否存在成功的支付记录
-        boolean hasPaymentRecord = paymentRecordRepository.findTopByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "SUCCESS").isPresent();
+        java.util.Optional<PaymentRecord> paymentRecordOpt = paymentRecordRepository.findTopByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "SUCCESS");
 
         RefundResponse refundResponse = null;
         String refundTradeNo = null;
 
-        if (hasPaymentRecord) {
-            // 存在支付记录，调用支付服务处理实际退款
-            RefundRequest refundRequest = RefundRequest.builder()
-                    .orderId(order.getId())
-                    .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount())
-                    .refundReason(order.getRefundReason())
-                    .refundType(order.getRefundType())
-                    .build();
-            refundResponse = paymentService.processRefund(refundRequest);
-            if (!refundResponse.isSuccess()) {
-                throw new RuntimeException("退款失败: " + refundResponse.getMessage());
+        if (paymentRecordOpt.isPresent()) {
+            PaymentRecord paymentRecord = paymentRecordOpt.get();
+            // 检查是否需要真实退款（手动确认的订单不需要）
+            if (Boolean.TRUE.equals(paymentRecord.getNeedRealRefund())) {
+                // 需要真实退款，调用支付服务处理实际退款
+                RefundRequest refundRequest = RefundRequest.builder()
+                        .orderId(order.getId())
+                        .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : order.getTotalAmount())
+                        .refundReason(order.getRefundReason())
+                        .refundType(order.getRefundType())
+                        .build();
+                refundResponse = paymentService.processRefund(refundRequest);
+                if (!refundResponse.isSuccess()) {
+                    throw new RuntimeException("退款失败: " + refundResponse.getMessage());
+                }
+                refundTradeNo = refundResponse.getRefundTradeNo();
+            } else {
+                // 不需要真实退款（手动确认/测试订单），直接模拟退款成功
+                log.warn("订单 {} 的支付记录不需要真实退款，直接模拟退款成功", orderId);
+                refundTradeNo = "MOCK_REFUND_" + System.currentTimeMillis();
             }
-            refundTradeNo = refundResponse.getRefundTradeNo();
         } else {
             // 没有支付记录（可能是管理员手动确认的测试订单），直接模拟退款成功
             log.warn("订单 {} 没有支付记录，直接模拟退款成功", orderId);

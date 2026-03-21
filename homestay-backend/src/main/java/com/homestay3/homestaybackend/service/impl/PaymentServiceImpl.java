@@ -67,6 +67,15 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new IllegalArgumentException("订单状态不正确，当前状态：" + order.getStatus());
             }
 
+            // 检查是否已有待支付的支付记录，防止重复创建
+            java.util.Optional<PaymentRecord> existingPendingRecord = paymentRecordRepository
+                    .findTopByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "PENDING");
+            if (existingPendingRecord.isPresent()) {
+                log.info("订单 {} 已有待支付的支付记录，商户订单号: {}，不允许重复创建",
+                        orderId, existingPendingRecord.get().getOutTradeNo());
+                throw new IllegalStateException("订单已有待支付的支付记录，请完成当前支付或等待超时后再试");
+            }
+
             // 生成商户订单号
             String outTradeNo = generateOutTradeNo(orderId);
 

@@ -61,4 +61,10 @@ public class PaymentRecord {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * 是否需要真实退款（true=需要调用支付网关，false=手动确认/测试订单，直接模拟退款）
+     */
+    @Column(name = "need_real_refund")
+    private Boolean needRealRefund = true;
 }
