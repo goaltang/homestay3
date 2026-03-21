@@ -332,7 +332,8 @@ public class OrderServiceImpl implements OrderService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime checkInTime = order.getCheckInDate().atTime(14, 0);
-        long hoursBetween = java.time.Duration.between(now, checkInTime).toHours();
+        // 修复：如果已超过入住时间，hoursBetween会为负数，取绝对值后按"已过入住时间"处理
+        long hoursBetween = Math.abs(java.time.Duration.between(now, checkInTime).toHours());
 
         int policyType = 2;
         if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {

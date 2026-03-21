@@ -484,7 +484,7 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
                 .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
     }
 
-    // 辅助方法：计算退款金额
+    // 辅助方法：计算退款金额（纯计算，不修改order）
     private BigDecimal calculateRefundAmount(Order order) {
         if (order.getCheckInDate() == null || order.getTotalAmount() == null) {
             return BigDecimal.ZERO;
@@ -492,7 +492,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime checkInTime = order.getCheckInDate().atTime(14, 0); // 假设14:00入住
-        long hoursBetween = java.time.Duration.between(now, checkInTime).toHours();
+        // 修复：如果已超过入住时间，hoursBetween会为负数，取绝对值后按"已过入住时间"处理
+        long hoursBetween = Math.abs(java.time.Duration.between(now, checkInTime).toHours());
 
         // 读取房源取消政策类型（1=宽松，2=普通，3=严格），默认为2
         int policyType = 2;
@@ -506,57 +507,46 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         }
 
         BigDecimal refundAmt;
-        String policyNote;
 
         if (policyType == 1) {
             // 宽松政策：入住24小时前取消 → 全额退款；24小时内 → 扣除首晚
             if (hoursBetween >= 24) {
                 refundAmt = order.getTotalAmount();
-                policyNote = "退款测算（宽松政策）: 距离入住大于24小时，提供全额退款。";
             } else {
                 int nights = order.getNights() != null ? order.getNights() : 1;
                 if (nights <= 1) {
                     refundAmt = BigDecimal.ZERO;
-                    policyNote = "退款测算（宽松政策）: 距离入住不足24小时（仅1晚），不予退款。";
                 } else {
                     BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
                     refundAmt = order.getTotalAmount().subtract(perNight);
                     if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
-                    policyNote = "退款测算（宽松政策）: 距离入住不足24小时，扣除首晚房费。";
                 }
             }
         } else if (policyType == 3) {
             // 严格政策：入住72小时前取消 → 全额退款；72小时内 → 退款50%
             if (hoursBetween >= 72) {
                 refundAmt = order.getTotalAmount();
-                policyNote = "退款测算（严格政策）: 距离入住大于72小时，提供全额退款。";
             } else {
                 refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
-                policyNote = "退款测算（严格政策）: 距离入住不足72小时，退款50%。";
             }
         } else {
             // 普通政策（默认policyType=2）：48h前全额退；24-48h退50%；24h内扣首晚
             if (hoursBetween >= 48) {
                 refundAmt = order.getTotalAmount();
-                policyNote = "退款测算（普通政策）: 距离入住大于48小时，提供全额退款。";
             } else if (hoursBetween >= 24) {
                 refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
-                policyNote = "退款测算（普通政策）: 距离入住24-48小时，退款50%。";
             } else {
                 int nights = order.getNights() != null ? order.getNights() : 1;
                 if (nights <= 1) {
                     refundAmt = BigDecimal.ZERO;
-                    policyNote = "退款测算（普通政策）: 距离入住不足24小时（仅1晚），不予退款。";
                 } else {
                     BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
                     refundAmt = order.getTotalAmount().subtract(perNight);
                     if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
-                    policyNote = "退款测算（普通政策）: 距离入住不足24小时，扣除首晚房费。";
                 }
             }
         }
 
-        order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + policyNote);
         return refundAmt;
     }
 
@@ -571,7 +561,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime checkInTime = order.getCheckInDate().atTime(14, 0);
-        long hoursBetween = java.time.Duration.between(now, checkInTime).toHours();
+        // 修复：如果已超过入住时间，hoursBetween会为负数，取绝对值后按"已过入住时间"处理
+        long hoursBetween = Math.abs(java.time.Duration.between(now, checkInTime).toHours());
 
         int policyType = 2;
         if (order.getHomestay() != null && order.getHomestay().getCancelPolicyType() != null) {
