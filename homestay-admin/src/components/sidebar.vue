@@ -1,7 +1,7 @@
 <template>
     <div class="sidebar">
         <el-menu class="sidebar-el-menu" :default-active="onRoutes" :collapse="sidebar.collapse"
-            :background-color="sidebar.bgColor" :text-color="sidebar.textColor" router>
+            :background-color="sidebar.bgColor" :text-color="sidebar.textColor" @select="handleMenuSelect">
             <template v-for="item in menuData">
                 <template v-if="item.children">
                     <el-sub-menu :index="item.index" :key="item.index">
@@ -13,7 +13,9 @@
                         </template>
                         <template v-for="subItem in item.children">
                             <el-sub-menu v-if="subItem.children" :index="subItem.index" :key="subItem.index">
-                                <template #title>{{ subItem.title }}</template>
+                                <template #title>
+                                    <span>{{ subItem.title }}</span>
+                                </template>
                                 <el-menu-item v-for="(threeItem, i) in subItem.children" :key="i"
                                     :index="threeItem.index">
                                     {{ threeItem.title }}
@@ -39,26 +41,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useSidebarStore } from '@/stores/sidebar';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { menuData } from '../config/menu';
 
-// 定义菜单类型
-type MenuItem = {
-    id: string;
-    title: string;
-    index: string;
-    icon: string;
-    children?: MenuItem[];
-};
-
 const route = useRoute();
+const router = useRouter();
 const onRoutes = computed(() => {
     return route.path;
 });
 
 const sidebar = useSidebarStore();
+
+// 手动处理菜单选择，有子菜单的父级不导航
+const handleMenuSelect = (index: string) => {
+    if (index && index !== '/') {
+        router.push(index);
+    }
+};
 </script>
 
 <style scoped>

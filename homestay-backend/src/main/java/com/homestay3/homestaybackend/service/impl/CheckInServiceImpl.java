@@ -333,6 +333,10 @@ public class CheckInServiceImpl implements CheckInService {
         return user.getRole() != null && user.getRole().contains("ADMIN");
     }
 
+    private boolean isOrderAccessible(Order order, User user) {
+        return isOrderOwner(order, user) || isOrderGuest(order, user) || hasAdminAuthority(user);
+    }
+
     private String generateCheckInCode() {
         Random random = new Random();
         return String.format("%06d", random.nextInt(999999));

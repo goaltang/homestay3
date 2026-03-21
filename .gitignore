@@ -51,6 +51,11 @@ tools/code-stats/*.ps1
 tools/code-stats/*.bat
 tools/code-stats/*.txt
 
+# --- AI 与编辑器配置 ---
+.claude/
+.cursor/
+.vscode/
+
 # --- 绘图文件扩展 ---
 **/*.drawio
 
