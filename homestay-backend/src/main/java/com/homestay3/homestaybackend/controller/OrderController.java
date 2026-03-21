@@ -632,6 +632,14 @@ public class OrderController {
             // 验证当前用户是否为该订单的房东
             verifyOrderOwnership(order, authentication);
 
+            // 权限检查：房东只能审批用户申请的退款
+            if (order.getRefundType() != null && !order.getRefundType().equals("USER_REQUESTED")) {
+                log.warn("房东 {} 尝试审批非用户申请的退款，订单ID: {}, 类型: {}",
+                        authentication.getName(), id, order.getRefundType());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "只有用户申请的退款才能由房东审批，其他类型的退款请联系管理员处理"));
+            }
+
             OrderDTO updatedOrder = orderService.approveRefund(id, refundNote);
             log.info("房东同意退款成功，订单ID: {}", id);
             return ResponseEntity.ok(updatedOrder);
@@ -669,6 +677,14 @@ public class OrderController {
             OrderDTO order = orderService.getOrderById(id);
             // 验证当前用户是否为该订单的房东
             verifyOrderOwnership(order, authentication);
+
+            // 权限检查：房东只能拒绝用户申请的退款
+            if (order.getRefundType() != null && !order.getRefundType().equals("USER_REQUESTED")) {
+                log.warn("房东 {} 尝试拒绝非用户申请的退款，订单ID: {}, 类型: {}",
+                        authentication.getName(), id, order.getRefundType());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "只有用户申请的退款才能由房东审批，其他类型的退款请联系管理员处理"));
+            }
 
             OrderDTO updatedOrder = orderService.rejectRefund(id, rejectReason);
             log.info("房东拒绝退款成功，订单ID: {}", id);
