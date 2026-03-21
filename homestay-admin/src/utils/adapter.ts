@@ -1,7 +1,6 @@
 /**
  * 数据适配器 - 处理前后端数据格式转换
  */
-import { HOMESTAY_STATUS, ORDER_STATUS, USER_STATUS } from "./constants";
 import type { Homestay } from "@/types";
 
 // 分页参数转换 - 前端从1开始，后端也从1开始，后端控制器会自行处理

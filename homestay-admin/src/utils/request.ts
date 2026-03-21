@@ -205,23 +205,5 @@ request.interceptors.response.use(
   }
 );
 
-// 增强的错误处理包装函数
-async function safeRequest<T = any>(config: AxiosRequestConfig): Promise<T> {
-  try {
-    const result = (await request(config)) as T;
-    return result;
-  } catch (error: any) {
-    // 这里可以添加全局的错误处理逻辑
-    if (error.name === "AxiosError" && !error.response) {
-      // 网络错误的额外处理
-      console.error("网络错误详情:", error);
-    }
-
-    throw error; // 重新抛出错误，让调用者可以进行特定处理
-  }
-}
-
-// 定义一个类型安全的请求函数
-export default function <T = any>(config: AxiosRequestConfig): Promise<T> {
-  return safeRequest<T>(config);
-}
+// 导出 axios 实例，供 API 文件使用 request.get(), request.post() 等方法
+export default request;
