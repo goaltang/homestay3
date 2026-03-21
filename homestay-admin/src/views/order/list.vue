@@ -563,7 +563,6 @@ const orderStatusMap = {
     REFUNDED: { text: '已退款', type: 'info' },
     REFUND_FAILED: { text: '退款失败', type: 'danger' },
     DISPUTE_PENDING: { text: '争议待处理', type: 'warning' },
-    DISPUTED: { text: '争议中', type: 'warning' },
     REJECTED: { text: '已拒绝', type: 'danger' }
 }
 
@@ -572,6 +571,7 @@ const paymentStatusMap = {
     PAID: { text: '已支付', type: 'success' },
     PAYMENT_FAILED: { text: '支付失败', type: 'danger' },
     REFUND_PENDING: { text: '退款中', type: 'warning' },
+    DISPUTED: { text: '争议中', type: 'warning' },
     REFUNDED: { text: '已退款', type: 'info' },
     PARTIALLY_REFUNDED: { text: '部分退款', type: 'primary' },
     REFUND_FAILED: { text: '退款失败', type: 'danger' }

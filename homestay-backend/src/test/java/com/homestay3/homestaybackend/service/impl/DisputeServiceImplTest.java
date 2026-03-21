@@ -174,6 +174,9 @@ class DisputeServiceImplTest {
         verify(paymentProcessingService).approveRefund(1L, "仲裁批准");
         assertEquals("APPROVED", testOrder.getDisputeResolution());
         assertNotNull(testOrder.getDisputeResolvedAt());
+        // 验证争议解决通知已发送
+        verify(orderNotificationService).sendDisputeResolvedNotification(
+                eq(1L), eq(1L), isNull(), eq("ORDER202403130001"), isNull(), eq("APPROVED"), eq("仲裁批准"));
     }
 
     @Test

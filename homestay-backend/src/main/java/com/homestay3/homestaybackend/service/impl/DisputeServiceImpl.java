@@ -129,6 +129,23 @@ public class DisputeServiceImpl implements DisputeService {
             // 批准退款 - 调用退款批准服务
             updatedOrderDTO = paymentProcessingService.approveRefund(orderId, note);
             log.info("争议仲裁通过，订单 {} 已批准退款", orderId);
+
+            // 发送争议解决通知
+            try {
+                if (order.getGuest() != null && order.getHomestay() != null) {
+                    orderNotificationService.sendDisputeResolvedNotification(
+                            order.getId(),
+                            order.getGuest().getId(),
+                            order.getHomestay().getOwner() != null ? order.getHomestay().getOwner().getId() : null,
+                            order.getOrderNumber(),
+                            order.getHomestay().getTitle(),
+                            "APPROVED",
+                            note);
+                }
+            } catch (Exception e) {
+                log.error("发送争议解决通知失败: {}", e.getMessage(), e);
+            }
+
             return updatedOrderDTO;
         } else {
             // 拒绝退款 - 恢复订单状态为已支付
