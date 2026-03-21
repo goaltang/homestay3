@@ -281,3 +281,159 @@ function convertOrderStatus(backendStatus: string): string {
       return "0"; // 默认为待支付
   }
 }
+
+// ========== 入住相关 API ==========
+
+// 入住凭证类型
+export interface CheckInCredential {
+  checkInMethod?: string;
+  doorPassword?: string;
+  lockboxCode?: string;
+  locationDescription?: string;
+  validFrom?: string;
+  validUntil?: string;
+  checkInCode?: string;
+  remark?: string;
+}
+
+// 入住记录类型
+export interface CheckInRecord {
+  id: number;
+  orderId: number;
+  orderNumber: string;
+  checkInMethod: string;
+  checkedInAt: string;
+  operatorType: string;
+  checkInCode: string;
+  doorPassword: string;
+  lockboxCode: string;
+  locationDescription: string;
+  validFrom: string;
+  validUntil: string;
+  status: string;
+  remark: string;
+  createdAt: string;
+}
+
+// 退房记录类型
+export interface CheckOutRecord {
+  id: number;
+  orderId: number;
+  orderNumber: string;
+  checkOutMethod: string;
+  checkedOutAt: string;
+  operatorType: string;
+  actualNights: number;
+  depositAmount: number;
+  depositStatus: string;
+  extraCharges: number;
+  extraChargesDescription: string;
+  settlementAmount: number;
+  status: string;
+  remark: string;
+  createdAt: string;
+}
+
+// 房东设置准备入住
+export function prepareCheckIn(orderId: number, credential: CheckInCredential) {
+  return request<CheckInRecord>({
+    url: `/api/orders/${orderId}/prepare-checkin`,
+    method: "put",
+    data: credential,
+  });
+}
+
+// 获取入住凭证
+export function getCheckInCredential(orderId: number) {
+  return request<CheckInCredential>({
+    url: `/api/orders/${orderId}/checkin-credential`,
+    method: "get",
+  });
+}
+
+// 办理入住
+export function performCheckIn(orderId: number) {
+  return request<CheckInRecord>({
+    url: `/api/orders/${orderId}/check-in`,
+    method: "put",
+  });
+}
+
+// 自助入住
+export function selfCheckIn(checkInCode: string) {
+  return request<CheckInRecord>({
+    url: `/api/orders/checkin/self`,
+    method: "post",
+    data: { checkInCode },
+  });
+}
+
+// 客人确认到达
+export function confirmArrival(orderId: number) {
+  return request<CheckInRecord>({
+    url: `/api/orders/${orderId}/confirm-arrival`,
+    method: "post",
+  });
+}
+
+// 取消准备入住
+export function cancelPrepareCheckIn(orderId: number) {
+  return request<CheckInRecord>({
+    url: `/api/orders/${orderId}/cancel-prepare`,
+    method: "put",
+  });
+}
+
+// 获取入住记录
+export function getCheckInRecord(orderId: number) {
+  return request<CheckInRecord>({
+    url: `/api/orders/${orderId}/checkin-record`,
+    method: "get",
+  });
+}
+
+// 办理退房
+export function performCheckOut(orderId: number, checkOutData?: any) {
+  return request<CheckOutRecord>({
+    url: `/api/orders/${orderId}/check-out`,
+    method: "put",
+    data: checkOutData || {},
+  });
+}
+
+// 自助退房
+export function selfCheckOut(orderId: number) {
+  return request<CheckOutRecord>({
+    url: `/api/orders/${orderId}/checkout/self`,
+    method: "post",
+  });
+}
+
+// 押金操作
+export function processDeposit(orderId: number, action: string, amount?: number, note?: string) {
+  return request<CheckOutRecord>({
+    url: `/api/orders/${orderId}/deposit`,
+    method: "post",
+    data: {
+      action,
+      amount,
+      note,
+    },
+  });
+}
+
+// 获取退房记录
+export function getCheckOutRecord(orderId: number) {
+  return request<CheckOutRecord>({
+    url: `/api/orders/${orderId}/checkout-record`,
+    method: "get",
+  });
+}
+
+// 确认结算
+export function confirmSettlement(orderId: number) {
+  return request<CheckOutRecord>({
+    url: `/api/orders/${orderId}/checkout/settle`,
+    method: "put",
+  });
+}

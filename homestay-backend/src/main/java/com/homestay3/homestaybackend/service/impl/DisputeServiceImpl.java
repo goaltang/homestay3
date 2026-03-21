@@ -81,7 +81,7 @@ public class DisputeServiceImpl implements DisputeService {
                 orderNotificationService.sendDisputeRaisedNotification(
                         order.getId(),
                         order.getGuest().getId(),
-                        order.getHomestay().getHost() != null ? order.getHomestay().getHost().getId() : null,
+                        order.getHomestay().getOwner() != null ? order.getHomestay().getOwner().getId() : null,
                         order.getOrderNumber(),
                         order.getHomestay().getTitle(),
                         reason);
@@ -146,7 +146,7 @@ public class DisputeServiceImpl implements DisputeService {
                     orderNotificationService.sendDisputeResolvedNotification(
                             order.getId(),
                             order.getGuest().getId(),
-                            order.getHomestay().getHost() != null ? order.getHomestay().getHost().getId() : null,
+                            order.getHomestay().getOwner() != null ? order.getHomestay().getOwner().getId() : null,
                             order.getOrderNumber(),
                             order.getHomestay().getTitle(),
                             "REJECTED",

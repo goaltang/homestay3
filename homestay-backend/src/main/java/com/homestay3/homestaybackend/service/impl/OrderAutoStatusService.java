@@ -4,6 +4,7 @@ import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.OrderService;
+import com.homestay3.homestaybackend.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -26,16 +28,16 @@ import java.util.ArrayList;
 @RequiredArgsConstructor
 @Slf4j
 public class OrderAutoStatusService {
-    
+
+    private static final String AUTO_CHECKIN_TIME_KEY = "AUTO_CHECKIN_TIME";
+    private static final String AUTO_CHECKOUT_TIME_KEY = "AUTO_CHECKOUT_TIME";
+    private static final LocalTime DEFAULT_AUTO_CHECKIN_TIME = LocalTime.of(18, 0); // 默认18:00
+    private static final LocalTime DEFAULT_AUTO_CHECKOUT_TIME = LocalTime.of(12, 0); // 默认12:00
+    private static final LocalTime DEFAULT_CANCEL_MISSED_CHECKIN_TIME = LocalTime.of(12, 0); // 默认12:00
+
     private final OrderRepository orderRepository;
     private final OrderService orderService;
-    
-    /**
-     * 时间配置
-     */
-    private static final LocalTime AUTO_CHECKIN_TIME = LocalTime.of(22, 0); // 入住日22:00自动入住
-    private static final LocalTime AUTO_CHECKOUT_TIME = LocalTime.of(6, 0); // 退房日次日06:00自动完成
-    private static final LocalTime CANCEL_MISSED_CHECKIN_TIME = LocalTime.of(12, 0); // 入住日次日12:00取消未入住订单
+    private final SystemConfigService systemConfigService;
     
     /**
      * 主要定时任务：处理订单自动状态流转
@@ -68,7 +70,8 @@ public class OrderAutoStatusService {
      */
     private void handleAutoCheckIn() {
         LocalDate today = LocalDate.now();
-        LocalDateTime checkThreshold = today.atTime(AUTO_CHECKIN_TIME);
+        LocalTime autoCheckinTime = getAutoCheckinTime();
+        LocalDateTime checkThreshold = today.atTime(autoCheckinTime);
         
         // 只在指定时间点后执行
         if (LocalDateTime.now().isBefore(checkThreshold)) {
@@ -107,11 +110,12 @@ public class OrderAutoStatusService {
     
     /**
      * 处理自动完成
-     * 对于已入住且过了退房时间的订单，自动转为已完成状态
+     * 对于已入住且过了退房时间的订单，自动转为已退房状态
      */
     private void handleAutoComplete() {
         LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDateTime checkThreshold = LocalDate.now().atTime(AUTO_CHECKOUT_TIME);
+        LocalTime autoCheckoutTime = getAutoCheckoutTime();
+        LocalDateTime checkThreshold = LocalDate.now().atTime(autoCheckoutTime);
         
         // 只在指定时间点后执行
         if (LocalDateTime.now().isBefore(checkThreshold)) {
@@ -125,20 +129,19 @@ public class OrderAutoStatusService {
                 OrderStatus.CHECKED_IN.name(), yesterday);
         
         if (!checkedInOrders.isEmpty()) {
-            log.info("找到 {} 个需要自动完成的订单", checkedInOrders.size());
-            
+            log.info("找到 {} 个需要自动退房的订单", checkedInOrders.size());
+
             for (Order order : checkedInOrders) {
                 try {
-                    // 更新为已完成状态
-                    orderService.updateOrderStatus(order.getId(), OrderStatus.COMPLETED.name());
-                    log.info("订单 {} 已自动完成", order.getOrderNumber());
-                    
-                    // TODO: 发送订单完成通知和评价邀请
-                    // notificationService.sendOrderCompletedNotification(order);
-                    // reviewService.sendReviewInvitation(order);
-                    
+                    // 更新为已退房状态
+                    orderService.updateOrderStatus(order.getId(), OrderStatus.CHECKED_OUT.name());
+                    log.info("订单 {} 已自动办理退房", order.getOrderNumber());
+
+                    // TODO: 发送自动退房通知
+                    // notificationService.sendAutoCheckOutNotification(order);
+
                 } catch (Exception e) {
-                    log.error("自动完成订单失败，订单ID: {}, 错误: {}", order.getId(), e.getMessage(), e);
+                    log.error("自动退房失败，订单ID: {}, 错误: {}", order.getId(), e.getMessage(), e);
                 }
             }
         }
@@ -150,7 +153,8 @@ public class OrderAutoStatusService {
      */
     private void handleMissedCheckIn() {
         LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDateTime checkThreshold = LocalDate.now().atTime(CANCEL_MISSED_CHECKIN_TIME);
+        LocalTime missedCheckinTime = getCancelMissedCheckinTime();
+        LocalDateTime checkThreshold = LocalDate.now().atTime(missedCheckinTime);
         
         // 只在指定时间点后执行
         if (LocalDateTime.now().isBefore(checkThreshold)) {
@@ -404,5 +408,43 @@ public class OrderAutoStatusService {
         summary.put("guestId", order.getGuest() != null ? order.getGuest().getId() : null);
         summary.put("homestayId", order.getHomestay() != null ? order.getHomestay().getId() : null);
         return summary;
+    }
+
+    /**
+     * 获取自动入住时间配置
+     */
+    private LocalTime getAutoCheckinTime() {
+        try {
+            String timeStr = systemConfigService.getConfigValue(AUTO_CHECKIN_TIME_KEY);
+            if (timeStr != null && !timeStr.isEmpty()) {
+                return LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
+            }
+        } catch (Exception e) {
+            log.warn("读取自动入住时间配置失败，使用默认值: {}", e.getMessage());
+        }
+        return DEFAULT_AUTO_CHECKIN_TIME;
+    }
+
+    /**
+     * 获取自动退房时间配置
+     */
+    private LocalTime getAutoCheckoutTime() {
+        try {
+            String timeStr = systemConfigService.getConfigValue(AUTO_CHECKOUT_TIME_KEY);
+            if (timeStr != null && !timeStr.isEmpty()) {
+                return LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
+            }
+        } catch (Exception e) {
+            log.warn("读取自动退房时间配置失败，使用默认值: {}", e.getMessage());
+        }
+        return DEFAULT_AUTO_CHECKOUT_TIME;
+    }
+
+    /**
+     * 获取错过入住处理时间配置
+     */
+    private LocalTime getCancelMissedCheckinTime() {
+        // 使用退房时间作为错过入住处理时间
+        return getAutoCheckoutTime();
     }
 } 

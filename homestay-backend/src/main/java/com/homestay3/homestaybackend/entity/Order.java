@@ -122,6 +122,25 @@ public class Order {
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;
 
+    // 入住相关字段
+    @Column(name = "checked_in_at")
+    private LocalDateTime checkedInAt; // 实际入住时间
+
+    @Column(name = "checked_out_at")
+    private LocalDateTime checkedOutAt; // 实际退房时间
+
+    @Column(name = "check_in_code", length = 32)
+    private String checkInCode; // 入住码
+
+    @Column(name = "door_password", length = 32)
+    private String doorPassword; // 门锁密码
+
+    @Column(name = "auto_checkin_time", length = 5)
+    private String autoCheckinTime; // 自动入住时间
+
+    @Column(name = "deposit_amount", precision = 10, scale = 2)
+    private BigDecimal depositAmount; // 押金金额
+
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;

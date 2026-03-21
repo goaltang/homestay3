@@ -65,4 +65,12 @@ public class OrderDTO {
     private LocalDateTime disputeResolvedAt;
     private String disputeResolution;
     private String disputeResolutionNote;
+
+    // 入住相关字段
+    private LocalDateTime checkedInAt;
+    private LocalDateTime checkedOutAt;
+    private String checkInCode;
+    private String doorPassword;
+    private String autoCheckinTime;
+    private BigDecimal depositAmount;
 } 
