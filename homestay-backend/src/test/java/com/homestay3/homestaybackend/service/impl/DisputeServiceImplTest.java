@@ -101,10 +101,16 @@ class DisputeServiceImplTest {
         // then
         assertNotNull(result);
         verify(orderRepository).save(any(Order.class));
+        // 验证订单状态更新
         assertEquals(OrderStatus.DISPUTE_PENDING.name(), testOrder.getStatus());
+        // 验证支付状态同步更新为 DISPUTED
+        assertEquals(PaymentStatus.DISPUTED, testOrder.getPaymentStatus());
         assertEquals(disputeReason, testOrder.getDisputeReason());
         assertEquals(currentUser.getId(), testOrder.getDisputeRaisedBy());
         assertNotNull(testOrder.getDisputeRaisedAt());
+        // 验证争议通知已发送
+        verify(orderNotificationService).sendDisputeRaisedNotification(
+                eq(1L), eq(1L), isNull(), eq("ORDER202403130001"), isNull(), eq(disputeReason));
     }
 
     @Test
@@ -151,6 +157,7 @@ class DisputeServiceImplTest {
     void resolveDispute_ApproveRefund_Success() {
         // given
         testOrder.setStatus(OrderStatus.DISPUTE_PENDING.name());
+        testOrder.setPaymentStatus(PaymentStatus.DISPUTED);
         testOrder.setDisputeReason("房东不同意退款");
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
 
@@ -173,6 +180,7 @@ class DisputeServiceImplTest {
     void resolveDispute_RejectRefund_Success() {
         // given
         testOrder.setStatus(OrderStatus.DISPUTE_PENDING.name());
+        testOrder.setPaymentStatus(PaymentStatus.DISPUTED);
         testOrder.setDisputeReason("房东不同意退款");
         when(orderRepository.findById(1L)).thenReturn(Optional.of(testOrder));
         when(orderRepository.save(any(Order.class))).thenReturn(testOrder);
@@ -187,6 +195,9 @@ class DisputeServiceImplTest {
         assertEquals(PaymentStatus.PAID, testOrder.getPaymentStatus());
         assertEquals("REJECTED", testOrder.getDisputeResolution());
         assertNotNull(testOrder.getDisputeResolvedAt());
+        // 验证争议解决通知已发送
+        verify(orderNotificationService).sendDisputeResolvedNotification(
+                eq(1L), eq(1L), isNull(), eq("ORDER202403130001"), isNull(), eq("REJECTED"), eq("经核实，订单符合退款条件"));
     }
 
     @Test
