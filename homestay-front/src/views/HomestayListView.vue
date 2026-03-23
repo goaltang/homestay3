@@ -521,8 +521,8 @@ const initializeFromRoute = () => {
     if (route.query.keyword) {
         searchParams.value.keyword = route.query.keyword as string;
     }
-    if (route.query.selectedRegion) {
-        searchParams.value.selectedRegion = (route.query.selectedRegion as string).split(',');
+    if (route.query.region) {
+        searchParams.value.selectedRegion = (route.query.region as string).split(',');
     }
     if (route.query.checkIn) {
         searchParams.value.checkIn = route.query.checkIn as string;

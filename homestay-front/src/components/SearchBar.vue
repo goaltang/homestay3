@@ -64,26 +64,10 @@
                     </div>
                 </div>
 
-                <div class="search-divider"></div>
 
-                <!-- 关键词搜索 -->
-                <div class="search-item keyword-item" @click="focusKeyword">
-                    <div class="label">关键词</div>
-                    <div class="content">
-                        <input ref="keywordInput" v-model="searchParams.keyword" placeholder="民宿名称、特色..."
-                            class="keyword-input-native" @click.stop />
-                    </div>
-                </div>
 
                 <!-- 操作按钮区域 -->
                 <div class="search-actions-container">
-                    <!-- 重置按钮 -->
-                    <el-button class="reset-button" @click="handleReset" :loading="loading">
-                        <el-icon>
-                            <Refresh />
-                        </el-icon>
-                    </el-button>
-
                     <!-- 搜索按钮 -->
                     <div class="search-button-container">
                         <el-tooltip content="请先选择目的地" placement="top" :disabled="canSearch">
@@ -107,7 +91,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { regionData } from 'element-china-area-data'
 import SearchSuggestions from './SearchSuggestions.vue'
@@ -138,9 +122,7 @@ const searchParams = reactive({
 
 const showGuestSelector = ref(false)
 const showSuggestions = ref(false)
-const keywordInput = ref()
 
-// 客人数量管理
 const guestCounts = reactive({
     adults: 1,
     children: 0,
@@ -167,15 +149,6 @@ const canSearch = computed(() => {
     return searchParams.selectedRegion.length > 0
 })
 
-// 搜索提示文本
-const searchTooltipText = computed(() => {
-    if (!searchParams.selectedRegion.length) {
-        return '请先选择目的地'
-    }
-    return ''
-})
-
-// 日期验证
 const disabledCheckInDate = (time: Date) => {
     return time.getTime() < Date.now() - 8.64e7 // 不能选择昨天之前的日期
 }
@@ -188,14 +161,6 @@ const disabledCheckOutDate = (time: Date) => {
 // 方法
 const focusInput = (type: string) => {
     showSuggestions.value = type === 'location'
-}
-
-const focusKeyword = () => {
-    nextTick(() => {
-        if (keywordInput.value) {
-            keywordInput.value.focus()
-        }
-    })
 }
 
 const handleLocationChange = () => {
@@ -269,9 +234,8 @@ defineExpose({
     border-radius: 40px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     background-color: white;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    position: relative;
+    z-index: 10;
     padding: 10px 0;
 }
 
