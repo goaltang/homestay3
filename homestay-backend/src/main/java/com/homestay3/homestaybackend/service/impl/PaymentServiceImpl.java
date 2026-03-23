@@ -71,9 +71,40 @@ public class PaymentServiceImpl implements PaymentService {
             java.util.Optional<PaymentRecord> existingPendingRecord = paymentRecordRepository
                     .findTopByOrderIdAndStatusOrderByCreatedAtDesc(orderId, "PENDING");
             if (existingPendingRecord.isPresent()) {
-                log.info("订单 {} 已有待支付的支付记录，商户订单号: {}，不允许重复创建",
-                        orderId, existingPendingRecord.get().getOutTradeNo());
-                throw new IllegalStateException("订单已有待支付的支付记录，请完成当前支付或等待超时后再试");
+                PaymentRecord existingRecord = existingPendingRecord.get();
+                log.info("订单 {} 已有待支付的支付记录，商户订单号: {}，创建时间: {}",
+                        orderId, existingRecord.getOutTradeNo(), existingRecord.getCreatedAt());
+
+                // 检查支付记录是否已过期（支付宝二维码有效期为10分钟）
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime createdAt = existingRecord.getCreatedAt();
+                boolean isExpired = createdAt != null &&
+                        java.time.Duration.between(createdAt, now).toMinutes() >= 10;
+
+                if (isExpired) {
+                    log.info("订单 {} 的待支付记录已超过10分钟，标记为失败并允许创建新支付", orderId);
+                    // 将过期记录标记为失败
+                    existingRecord.setStatus("EXPIRED");
+                    paymentRecordRepository.save(existingRecord);
+                    // 不再直接返回，而是继续执行创建新支付的逻辑
+                } else {
+                    // 返回已有的支付信息，让用户继续之前的支付
+                    // 从 responseParams 中解析之前的支付响应
+                    String responseParams = existingRecord.getResponseParams();
+                    if (responseParams != null && !responseParams.isEmpty()) {
+                        try {
+                            PaymentResponse existingResponse = JSON.parseObject(responseParams, PaymentResponse.class);
+                            String paymentData = existingResponse.getQrCode() != null ?
+                                    existingResponse.getQrCode() : existingResponse.getPaymentUrl();
+                            return paymentData; // 返回已有的支付二维码或链接
+                        } catch (Exception e) {
+                            log.warn("解析已有支付记录响应失败，将抛出异常提示用户", e);
+                        }
+                    }
+
+                    // 如果解析失败，抛出异常提示用户
+                    throw new IllegalStateException("订单已有待支付的支付记录，请完成当前支付或等待超时后再试");
+                }
             }
 
             // 生成商户订单号

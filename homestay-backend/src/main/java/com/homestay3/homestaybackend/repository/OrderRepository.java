@@ -43,9 +43,13 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         Page<Order> findByGuestAndStatus(User guest, String status, Pageable pageable);
 
         // 检查指定房源在日期范围内是否有订单
+        // 正确逻辑：新订单[checkIn, checkOut)和已有订单[o.checkIn, o.checkOut)不重叠的条件是
+        // 新订单的退房 <= 已有订单的入住(checkIn >= o.checkOut) 或者 新订单的入住 >= 已有订单的退房(endDate <= o.checkIn)
+        // 即：存在冲突的条件是 NOT (endDate <= o.checkIn OR checkIn >= o.checkOut)
+        // 简化为：checkIn < o.checkOut AND endDate > o.checkIn
         @Query("SELECT COUNT(o) > 0 FROM Order o WHERE o.homestay.id = :homestayId " +
                         "AND o.status IN ('CONFIRMED', 'PAID') " +
-                        "AND ((o.checkInDate <= :endDate AND o.checkOutDate >= :startDate))")
+                        "AND (:startDate < o.checkOutDate AND :endDate > o.checkInDate)")
         boolean existsOverlappingBooking(@Param("homestayId") Long homestayId,
                         @Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate);
