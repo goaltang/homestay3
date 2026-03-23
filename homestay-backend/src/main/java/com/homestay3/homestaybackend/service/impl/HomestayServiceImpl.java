@@ -17,6 +17,7 @@ import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.HomestayService;
 import com.homestay3.homestaybackend.service.AmenityService;
 import com.homestay3.homestaybackend.service.HomestayFeatureAnalysisService;
+import com.homestay3.homestaybackend.service.HomestayAvailabilityService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +70,7 @@ public class HomestayServiceImpl implements HomestayService {
     private final HomestayTypeRepository homestayTypeRepository;
     private final HomestayAuditLogRepository homestayAuditLogRepository;
     private final OrderRepository orderRepository;
+    private final HomestayAvailabilityService availabilityService;
     private final HomestayFeatureAnalysisService homestayFeatureAnalysisService;
     private final ImageUrlUtil imageUrlUtil;
     private static final Logger log = LoggerFactory.getLogger(HomestayServiceImpl.class);
@@ -1569,35 +1571,11 @@ public class HomestayServiceImpl implements HomestayService {
                 return new ArrayList<>();
             }
 
-            // 查询该房源所有已确认和已支付的订单
-            List<OrderStatus> targetStatuses = Arrays.asList(OrderStatus.CONFIRMED, OrderStatus.PAID,
-                    OrderStatus.CHECKED_IN, OrderStatus.READY_FOR_CHECKIN);
-            List<Order> confirmedOrders = orderRepository.findByHomestayIdAndStatusInOrderByCheckInDate(
-                    homestayId,
-                    targetStatuses);
-
-            log.info("[HomestayService] 房源ID: {} 共有 {} 个已确认/已支付订单", homestayId, confirmedOrders.size());
-
-            // 将所有订单的日期范围转换为不可用日期列表
-            List<LocalDate> unavailableDates = confirmedOrders.stream()
-                    .filter(order -> order.getCheckInDate() != null && order.getCheckOutDate() != null)
-                    .flatMap(order -> {
-                        LocalDate start = order.getCheckInDate();
-                        LocalDate end = order.getCheckOutDate();
-
-                        // 验证日期有效性
-                        if (start.isAfter(end)) {
-                            log.warn("[HomestayService] 订单日期无效，入住日期晚于退房日期: 订单ID={}, 入住={}, 退房={}",
-                                    order.getId(), start, end);
-                            return Stream.empty();
-                        }
-
-                        // 生成从入住日期到退房日期前一天的所有日期
-                        return start.datesUntil(end);
-                    })
-                    .distinct()
-                    .sorted()
-                    .collect(Collectors.toList());
+            // 直接从 HomestayAvailability 表查询 BOOKED 状态的日期
+            // 这与 BookingConflictService 使用同一个数据源，保证数据一致性
+            LocalDate today = LocalDate.now();
+            LocalDate endDate = today.plusYears(1); // 查询未来一年的可用性
+            List<LocalDate> unavailableDates = availabilityService.getBookedDates(homestayId, today, endDate);
 
             log.info("[HomestayService] 房源ID: {} 不可用日期总数: {}", homestayId, unavailableDates.size());
             return unavailableDates;

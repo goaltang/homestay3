@@ -16,6 +16,19 @@
 
             <!-- 提醒信息 -->
             <div class="order-notice">
+                <!-- 日期冲突警告 -->
+                <el-alert v-if="dateConflictFlag" title="日期已被预订" type="warning"
+                    description="您之前选择的日期已被其他用户预订，请重新选择入住日期。您的旅客信息已保留。"
+                    show-icon :closable="false" class="conflict-alert">
+                    <template #default>
+                        <div class="conflict-actions">
+                            <span>您的旅客信息已保留</span>
+                            <el-button type="warning" size="small" @click="goBackToSelectDates">
+                                返回重新选择日期
+                            </el-button>
+                        </div>
+                    </template>
+                </el-alert>
                 <el-alert v-if="orderData.autoConfirm" title="即时预订" type="success"
                     description="🚀 此房源支持即时预订！订单确认后无需等待房东审核，可直接支付。请在2小时内完成支付，超时将被自动取消。" show-icon :closable="false" />
                 <el-alert v-else title="房东确认制" type="info" description="📋 此房源采用房东确认制，订单提交后需等待房东确认才能支付。房东通常会在24小时内回复。"
@@ -236,6 +249,7 @@ import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { createOrder } from '../../api/order'
+import { getHomestayUnavailableDates } from '@/api/homestay'
 import { useAuthStore } from '../../stores/auth'
 import { useUserStore } from '../../stores/user'
 import { getUserInfo } from '../../api/user'
@@ -309,6 +323,9 @@ const cancellationDialogVisible = ref(false)
 
 const editingUserInfo = ref(false)
 
+// 日期冲突标记
+const dateConflictFlag = ref(false)
+
 // 格式化单个日期
 const formatDate = (dateString: string) => {
     if (!dateString) return ''
@@ -340,13 +357,40 @@ const cancelEdit = () => {
 }
 
 // 保存用户信息
-const saveUserInfo = () => {
+const saveUserInfo = async () => {
     if (!guestInfo.name || !guestInfo.phone) {
         ElMessage.warning('联系人姓名和电话不能为空')
         return
     }
+
+    // 保存到本地 userStore（用于下次预订自动填充）
+    if (userStore.userInfo) {
+        userStore.userInfo.phone = guestInfo.phone
+        // 如果 realName 为空，也保存姓名
+        if (!userStore.userInfo.realName && guestInfo.name) {
+            userStore.userInfo.realName = guestInfo.name
+        }
+        // 同步到 localStorage
+        localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+    }
+
+    // 如果用户已登录，同步到后端
+    if (authStore.isAuthenticated) {
+        try {
+            await userStore.updateProfile({
+                username: userStore.userInfo?.username || '',
+                email: userStore.userInfo?.email || '',
+                phone: guestInfo.phone,
+                realName: guestInfo.name || userStore.userInfo?.realName || ''
+            })
+        } catch (error) {
+            console.error('保存手机号到后端失败:', error)
+            // 后端保存失败不影响本地保存的提示
+        }
+    }
+
     editingUserInfo.value = false
-    ElMessage.success('旅客信息已更新')
+    ElMessage.success('旅客信息已保存，下次预订将自动填充')
 }
 
 // 显示协议
@@ -422,17 +466,91 @@ const submitOrder = async () => {
         } else {
             ElMessage.error('订单创建失败')
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('提交订单出错:', error)
-        ElMessage.error('订单提交失败，请稍后重试')
+
+        // 解析错误响应，检测是否是日期冲突错误
+        // 后端 GlobalExceptionHandler 将 IllegalArgumentException 转为 500 错误
+        // 实际错误消息藏在 response.data.data.error（开发模式）或 response.data.message
+        const errorMsg =
+            error?.response?.data?.data?.error ||
+            error?.response?.data?.message ||
+            error?.message ||
+            String(error)
+
+        const isConflictError =
+            errorMsg.includes('conflict') ||
+            errorMsg.includes('已被预订') ||
+            errorMsg.includes('不可用') ||
+            errorMsg.includes('所选日期') ||
+            errorMsg.includes('该日期')
+
+        if (isConflictError) {
+            // 日期冲突：保留旅客信息到sessionStorage
+            dateConflictFlag.value = true
+
+            // 保存旅客信息到 sessionStorage，供返回时恢复
+            sessionStorage.setItem('guest-info-reserved', JSON.stringify({
+                name: guestInfo.name,
+                phone: guestInfo.phone,
+                message: guestInfo.message
+            }))
+
+            // 重新获取最新不可用日期
+            await fetchUnavailableDates()
+
+            // 清除日期，标记冲突状态
+            if (orderData.value) {
+                orderData.value.checkInDate = ''
+                orderData.value.checkOutDate = ''
+                orderData.value.nights = 0
+            }
+
+            ElMessage.error({
+                message: '您所选的日期已被其他用户预订。请返回房源页重新选择日期，您的旅客信息已保留。',
+                duration: 5000
+            })
+        } else {
+            ElMessage.error('订单提交失败，请稍后重试')
+        }
     } finally {
         submitting.value = false
+    }
+}
+
+// 获取最新不可用日期（用于冲突后刷新）
+const fetchUnavailableDates = async () => {
+    if (!orderData.value?.homestayId) return
+
+    try {
+        const response = await getHomestayUnavailableDates(orderData.value.homestayId)
+        const dates = response.data?.data || []
+        // 将更新后的不可用日期通过事件通知父组件
+        // 注意：由于 OrderConfirm 不是 BookingCard 的直接父组件，
+        // 这里实际上需要通过 sessionStorage 或其他机制来传递更新
+        sessionStorage.setItem('unavailable-dates-updated', JSON.stringify(dates))
+        console.log('已更新不可用日期:', dates)
+    } catch (err) {
+        console.error('获取不可用日期失败:', err)
     }
 }
 
 // 返回上一页
 const goBack = () => {
     router.back()
+}
+
+// 返回房源详情页重新选择日期
+const goBackToSelectDates = () => {
+    if (orderData.value?.homestayId) {
+        // 携带日期冲突标记返回，让 BookingCard 知道要恢复旅客信息
+        router.push({
+            path: `/homestay/${orderData.value.homestayId}`,
+            query: { dateConflict: 'true' }
+        })
+    } else {
+        router.back()
+    }
 }
 
 // 自动填充用户信息
@@ -959,6 +1077,22 @@ h2 {
 
 .order-notice {
     margin-bottom: 20px;
+}
+
+.conflict-alert {
+    margin-bottom: 12px;
+    border: 1px solid #e6a23c;
+}
+
+.conflict-alert :deep(.el-alert__title) {
+    font-weight: 600;
+}
+
+.conflict-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 4px;
 }
 
 .price-breakdown {

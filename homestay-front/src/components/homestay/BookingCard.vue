@@ -19,7 +19,9 @@
                 </div>
                 <el-date-picker v-model="localDateRange" type="daterange" range-separator="至" start-placeholder="选择日期"
                     end-placeholder="选择日期" format="YYYY/MM/DD" :disabled-date="disablePastDates"
-                    @change="handleDateRangeChange" :size="'large'" class="date-range-picker" :loading="loadingDates" />
+                    @change="handleDateRangeChange" @calendar-change="handleCalendarChange" :size="'large'"
+                    class="date-range-picker" :loading="loadingDates" popper-class="booking-date-popper"
+                    :cell-class-name="getCellClassName" />
             </div>
 
             <div class="guest-selector-container">
@@ -31,17 +33,30 @@
 
             <!-- 日期可用性提示 -->
             <div class="date-availability-hint" v-if="!loadingDates">
-                <el-text type="info" size="small">
-                    <el-icon>
-                        <InfoFilled />
-                    </el-icon>
-                    <span v-if="unavailableDates.length > 0">
-                        已有 {{ unavailableDates.length }} 个日期被预订，灰色日期无法选择
-                    </span>
-                    <span v-else>
-                        当前该房源暂无已预订日期
-                    </span>
-                </el-text>
+                <el-icon>
+                    <InfoFilled />
+                </el-icon>
+                <span v-if="unavailableDates.length > 0">
+                    部分日期已被预订，置灰日期无法选择
+                </span>
+                <span v-else>
+                    当前房源暂无已被预订的日期
+                </span>
+            </div>
+
+            <!-- 最长可选区间提示 -->
+            <div class="max-stay-hint" v-if="confirmedCheckIn && maxCheckOutDate && !loadingDates">
+                <el-icon><Clock /></el-icon>
+                <span>
+                    从 {{ formatDateToString(confirmedCheckIn) }} 起最多可住至 {{ formatDateToString(maxCheckOutDate) }}
+                    <span class="nights-count">（最多 {{ maxNights }} 晚）</span>
+                </span>
+            </div>
+
+            <!-- 自动修正内联提示 -->
+            <div class="auto-fix-hint" v-if="autoFixMessage">
+                <el-icon><WarningFilled /></el-icon>
+                <span>{{ autoFixMessage }}</span>
             </div>
         </div>
 
@@ -88,8 +103,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { InfoFilled, Lightning } from '@element-plus/icons-vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { InfoFilled, Lightning, Clock, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getHomestayUnavailableDates } from '@/api/homestay'
 
@@ -126,6 +141,13 @@ const localGuests = ref(props.guests)
 const unavailableDates = ref<string[]>([])
 const loadingDates = ref(false)
 
+// 新增：最长可选退房日计算相关状态
+const maxCheckOutDate = ref<Date | null>(null)
+const confirmedCheckIn = ref<Date | null>(null)  // 已确认的入住日（用户选定后不再变更）
+const isAutoFixing = ref(false)  // 标记是否正在自动修正
+const autoFixMessage = ref('')  // 自动修正提示文字
+const pendingCheckIn = ref<Date | null>(null)  // 用户选了第一个日期后暂存（用于高亮计算）
+
 // Watch for prop changes
 watch(() => props.dates, (newDates) => {
     localDateRange.value = newDates
@@ -148,6 +170,14 @@ const totalNights = computed(() => {
             const diffTime = checkOutTime - checkInTime
             return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
         }
+    }
+    return 0
+})
+
+const maxNights = computed(() => {
+    if (confirmedCheckIn.value && maxCheckOutDate.value) {
+        const diffTime = maxCheckOutDate.value.getTime() - confirmedCheckIn.value.getTime()
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     }
     return 0
 })
@@ -248,6 +278,58 @@ onMounted(() => {
     fetchUnavailableDates()
 })
 
+/**
+ * 基于已选入住日计算最长可选退房日
+ * 算法：找到从入住日起，第一个不可用日期的前一天
+ */
+const computeMaxCheckOutDate = (checkIn: Date): Date | null => {
+    if (!unavailableDates.value.length) return null
+
+    const checkInStr = formatDateToString(checkIn)
+    const sortedUnavailable = [...unavailableDates.value].sort()
+
+    // 找第一个 > checkInStr 的不可用日期（不包含入住日本身）
+    const firstConflictIdx = sortedUnavailable.findIndex(d => d > checkInStr)
+
+    if (firstConflictIdx === -1) {
+        // 没有冲突日期，可以选任意远的退房日
+        return null
+    }
+
+    const conflictDate = new Date(sortedUnavailable[firstConflictIdx])
+    conflictDate.setDate(conflictDate.getDate() - 1)
+
+    // 如果冲突日期的前一天 <= 入住日（说明次日就是冲突日期）
+    // 此时允许住1晚（退房日就是冲突日当天）
+    if (conflictDate.getTime() === checkIn.getTime()) {
+        return conflictDate
+    }
+
+    // 确保退房日在入住日之后（至少住1晚）
+    if (conflictDate <= checkIn) return null
+
+    return conflictDate
+}
+
+/**
+ * 检测所选日期范围是否跨越冲突日期
+ * 注意：退房日=冲突日期本身是允许的（只住1晚，当晚入住次日离开）
+ */
+const detectConflictInRange = (checkIn: Date, checkOut: Date): { hasConflict: boolean; conflictDate: Date | null } => {
+    const checkInStr = formatDateToString(checkIn)
+    const checkOutStr = formatDateToString(checkOut)
+
+    // 找范围内第一个冲突日期（大于入住日且小于退房日的不可用日期）
+    // 注意：d < checkOutStr 而不是 d <= checkOutStr
+    // 因为退房日当天不算"入住在冲突日期"，可以选退房日=冲突日期的情况
+    const conflictDateStr = unavailableDates.value.find(d => d > checkInStr && d < checkOutStr)
+
+    if (conflictDateStr) {
+        return { hasConflict: true, conflictDate: new Date(conflictDateStr) }
+    }
+    return { hasConflict: false, conflictDate: null }
+}
+
 // 增强的日期禁用逻辑
 const disablePastDates = (date: Date) => {
     // 禁用过去日期
@@ -259,12 +341,58 @@ const disablePastDates = (date: Date) => {
     const dateStr = formatDateToString(date)
     const isUnavailable = unavailableDates.value.includes(dateStr)
 
+    // 当用户已选入住日（pendingCheckIn 或 confirmedCheckIn）时，
+    // 不禁用紧跟着的第一个冲突日期，因为它可能是合法的退房日
+    if (isUnavailable) {
+        const activeCheckIn = pendingCheckIn.value || confirmedCheckIn.value
+        if (activeCheckIn) {
+            const checkInStr = formatDateToString(activeCheckIn)
+            const sortedUnavailable = [...unavailableDates.value].sort()
+            const firstConflict = sortedUnavailable.find(d => d > checkInStr)
+
+            if (firstConflict === dateStr) {
+                return false
+            }
+        }
+    }
+
     // 调试信息（仅在有不可用日期时输出，避免过度日志）
     if (unavailableDates.value.length > 0 && isUnavailable) {
         console.log('日期 ' + dateStr + ' 已被预订，禁用选择')
     }
 
     return isUnavailable
+}
+
+/**
+ * 给日期单元格添加自定义 class（用于可选范围高亮）
+ * Element Plus 的 cell-class-name 回调
+ */
+const getCellClassName = (date: Date): string => {
+    const activeCheckIn = pendingCheckIn.value || confirmedCheckIn.value
+    if (!activeCheckIn) return ''
+
+    const maxDate = computeMaxCheckOutDate(activeCheckIn)
+    const dateTime = date.getTime()
+    const checkInTime = activeCheckIn.getTime()
+
+    // 高亮入住日之后、最大退房日（含）之前的日期
+    if (maxDate) {
+        if (dateTime > checkInTime && dateTime <= maxDate.getTime()) {
+            return 'available-range'
+        }
+    }
+    return ''
+}
+
+/**
+ * 用户在 daterange 模式选了第一个日期时触发
+ * 立即计算高亮范围，不等两个日期都选完
+ */
+const handleCalendarChange = (dates: Date[]) => {
+    if (dates && dates.length >= 1 && dates[0]) {
+        pendingCheckIn.value = dates[0]
+    }
 }
 
 // 格式化日期为字符串（YYYY-MM-DD格式）
@@ -276,15 +404,57 @@ const formatDateToString = (date: Date): string => {
 }
 
 const handleDateRangeChange = (dates: [Date, Date] | null) => {
+    // 选择完成后，清除临时的 pendingCheckIn
+    pendingCheckIn.value = null
+    autoFixMessage.value = ''
+
     if (dates && dates.length === 2 && dates[0] && dates[1]) {
-        if (dates[1].getTime() <= dates[0].getTime()) {
+        const [newCheckIn, newCheckOut] = dates
+
+        // 先检查基本有效性
+        if (newCheckOut.getTime() <= newCheckIn.getTime()) {
             ElMessage.warning('退房日期必须在入住日期之后')
             localDateRange.value = null
+            confirmedCheckIn.value = null
+            maxCheckOutDate.value = null
             emit('date-changed', null, null)
+            return
+        }
+
+        // 入住日确认后：计算并显示最长可选区间
+        if (!confirmedCheckIn.value || confirmedCheckIn.value.getTime() !== newCheckIn.getTime()) {
+            confirmedCheckIn.value = newCheckIn
+            maxCheckOutDate.value = computeMaxCheckOutDate(newCheckIn)
+        }
+
+        // 检测是否跨越冲突日期
+        const { hasConflict, conflictDate } = detectConflictInRange(newCheckIn, newCheckOut)
+
+        if (hasConflict && conflictDate && maxCheckOutDate.value) {
+            // 自动修正：退房日设为冲突日期前一天
+            isAutoFixing.value = true
+            const autoCheckOut = maxCheckOutDate.value
+
+            // 内联提示（非弹窗）
+            const month = autoCheckOut.getMonth() + 1
+            const day = autoCheckOut.getDate()
+            autoFixMessage.value = `已为你调整至最晚可离店日期 ${month}月${day}日，此后日期已被预订`
+
+            localDateRange.value = [newCheckIn, autoCheckOut]
+
+            nextTick(() => {
+                isAutoFixing.value = false
+            })
+
+            emit('date-changed', newCheckIn, autoCheckOut)
         } else {
+            autoFixMessage.value = ''
             emit('date-changed', dates[0], dates[1])
         }
     } else {
+        confirmedCheckIn.value = null
+        maxCheckOutDate.value = null
+        autoFixMessage.value = ''
         emit('date-changed', null, null)
     }
 }
@@ -344,10 +514,10 @@ watch(localGuests, (newGuests) => {
 }
 
 .night {
-    font-size: 16px;
-    font-weight: normal;
-    color: #606266;
-    margin-left: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #909399;
+    margin-left: 2px;
 }
 
 .rating-info {
@@ -364,7 +534,7 @@ watch(localGuests, (newGuests) => {
 }
 
 .booking-form {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     border: 1px solid #e0e0e0;
     border-radius: 12px;
     overflow: hidden;
@@ -398,7 +568,7 @@ watch(localGuests, (newGuests) => {
 }
 
 .guest-selector-container {
-    padding: 10px 16px;
+    padding: 10px 16px 16px;
 }
 
 .guest-selector-label {
@@ -417,9 +587,9 @@ watch(localGuests, (newGuests) => {
 }
 
 .date-availability-hint {
-    margin-top: 8px;
+    margin: 4px 16px 16px;
     padding: 8px 12px;
-    background-color: #f5f7fa;
+    background-color: #fafafa;
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -429,6 +599,63 @@ watch(localGuests, (newGuests) => {
 .date-availability-hint .el-icon {
     font-size: 14px;
     color: #909399;
+}
+
+/* 已预订日期斜线纹理 */
+.date-range-picker :deep(.el-date-table td.disabled) {
+    position: relative;
+    background-color: #f5f5f5 !important;
+}
+
+.date-range-picker :deep(.el-date-table td.disabled::before) {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 4px,
+        rgba(180, 180, 180, 0.5) 4px,
+        rgba(180, 180, 180, 0.5) 8px
+    );
+    pointer-events: none;
+    z-index: 1;
+}
+
+.date-range-picker :deep(.el-date-table td.disabled .el-date-table-cell__text) {
+    color: #c0c0c0;
+    background-color: transparent;
+    position: relative;
+    z-index: 2;
+}
+
+.date-range-picker :deep(.el-date-table td.disabled:hover .el-date-table-cell) {
+    background-color: transparent !important;
+}
+
+/* 最长可选区间提示 */
+.max-stay-hint {
+    margin: 4px 16px 16px;
+    padding: 8px 12px;
+    background-color: #f0f9ff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #409eff;
+}
+
+.max-stay-hint .el-icon {
+    font-size: 14px;
+}
+
+.max-stay-hint .nights-count {
+    color: #79bbff;
+    font-size: 12px;
 }
 
 .booking-button {
@@ -447,7 +674,7 @@ watch(localGuests, (newGuests) => {
 .price-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     font-size: 14px;
     color: #606266;
 }
@@ -483,18 +710,123 @@ watch(localGuests, (newGuests) => {
 .booking-mode-notice {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f7fa 100%);
-    border: 1px solid #67c23a;
-    border-radius: 8px;
+    justify-content: center;
+    gap: 6px;
     margin-bottom: 16px;
     font-size: 14px;
-    color: #2c7b2f;
+    color: #52c41a;
     font-weight: 500;
 }
 
 .auto-confirm-icon {
-    color: #67c23a;
+    color: #52c41a;
+}
+/* 自动修正内联提示 */
+.auto-fix-hint {
+    margin: 4px 16px 16px;
+    padding: 8px 12px;
+    background-color: #fffbe6;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #d48806;
+    animation: fadeSlideIn 0.3s ease;
+}
+
+.auto-fix-hint .el-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+
+<!-- 全局样式：覆盖 teleported 到 body 的 DatePicker popper -->
+<style>
+/* === 已预订日期样式（斜线纹理 + 置灰 + tooltip） === */
+.booking-date-popper .el-date-table td.disabled {
+    position: relative;
+    cursor: not-allowed !important;
+}
+
+.booking-date-popper .el-date-table td.disabled > div,
+.booking-date-popper .el-date-table td.disabled > span {
+    cursor: not-allowed !important;
+}
+
+/* 斜线纹理覆盖层 */
+.booking-date-popper .el-date-table td.disabled::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    bottom: 2px;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 3px,
+        rgba(160, 160, 160, 0.35) 3px,
+        rgba(160, 160, 160, 0.35) 6px
+    );
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* 禁用日期文字样式 */
+.booking-date-popper .el-date-table td.disabled .el-date-table-cell__text {
+    color: #b0b0b0 !important;
+    background-color: transparent !important;
+    position: relative;
+    z-index: 2;
+}
+
+/* hover 时的 CSS tooltip */
+.booking-date-popper .el-date-table td.disabled::after {
+    content: '该日期已被预订';
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(48, 49, 51, 0.92);
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 999;
+}
+
+/* tooltip 小三角 */
+.booking-date-popper .el-date-table td.disabled:hover::after {
+    opacity: 1;
+}
+
+/* === 可选范围高亮 === */
+.booking-date-popper .el-date-table td.available-range .el-date-table-cell {
+    background-color: rgba(64, 158, 255, 0.08) !important;
+}
+
+.booking-date-popper .el-date-table td.available-range .el-date-table-cell__text {
+    color: #409eff;
+}
+
+.booking-date-popper .el-date-table td.available-range:hover .el-date-table-cell {
+    background-color: rgba(64, 158, 255, 0.18) !important;
 }
 </style>
