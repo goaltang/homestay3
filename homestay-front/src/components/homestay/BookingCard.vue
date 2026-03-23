@@ -20,8 +20,7 @@
                 <el-date-picker v-model="localDateRange" type="daterange" range-separator="至" start-placeholder="选择日期"
                     end-placeholder="选择日期" format="YYYY/MM/DD" :disabled-date="disablePastDates"
                     @change="handleDateRangeChange" @calendar-change="handleCalendarChange" :size="'large'"
-                    class="date-range-picker" :loading="loadingDates" popper-class="booking-date-popper"
-                    :cell-class-name="getCellClassName" />
+                    class="date-range-picker" :loading="loadingDates" popper-class="booking-date-popper" />
             </div>
 
             <div class="guest-selector-container">
@@ -280,7 +279,7 @@ onMounted(() => {
 
 /**
  * 基于已选入住日计算最长可选退房日
- * 算法：找到从入住日起，第一个不可用日期的前一天
+ * 算法：找到从入住日起第一个冲突日，该日期自身可作为退房日。
  */
 const computeMaxCheckOutDate = (checkIn: Date): Date | null => {
     if (!unavailableDates.value.length) return null
@@ -296,24 +295,14 @@ const computeMaxCheckOutDate = (checkIn: Date): Date | null => {
         return null
     }
 
-    const conflictDate = new Date(sortedUnavailable[firstConflictIdx])
-    conflictDate.setDate(conflictDate.getDate() - 1)
-
-    // 如果冲突日期的前一天 <= 入住日（说明次日就是冲突日期）
-    // 此时允许住1晚（退房日就是冲突日当天）
-    if (conflictDate.getTime() === checkIn.getTime()) {
-        return conflictDate
-    }
-
-    // 确保退房日在入住日之后（至少住1晚）
-    if (conflictDate <= checkIn) return null
-
-    return conflictDate
+    const conflictDateStr = sortedUnavailable[firstConflictIdx]
+    const [y, m, d] = conflictDateStr.split('-').map(Number)
+    return new Date(y, m - 1, d)
 }
 
 /**
  * 检测所选日期范围是否跨越冲突日期
- * 注意：退房日=冲突日期本身是允许的（只住1晚，当晚入住次日离开）
+ * 注意：退房日=冲突日期本身是允许的（即早晨退房不再续住）
  */
 const detectConflictInRange = (checkIn: Date, checkOut: Date): { hasConflict: boolean; conflictDate: Date | null } => {
     const checkInStr = formatDateToString(checkIn)
@@ -321,11 +310,12 @@ const detectConflictInRange = (checkIn: Date, checkOut: Date): { hasConflict: bo
 
     // 找范围内第一个冲突日期（大于入住日且小于退房日的不可用日期）
     // 注意：d < checkOutStr 而不是 d <= checkOutStr
-    // 因为退房日当天不算"入住在冲突日期"，可以选退房日=冲突日期的情况
+    // 因为退房日当天不算"入住在冲突日期"
     const conflictDateStr = unavailableDates.value.find(d => d > checkInStr && d < checkOutStr)
 
     if (conflictDateStr) {
-        return { hasConflict: true, conflictDate: new Date(conflictDateStr) }
+        const [y, m, d] = conflictDateStr.split('-').map(Number)
+        return { hasConflict: true, conflictDate: new Date(y, m - 1, d) }
     }
     return { hasConflict: false, conflictDate: null }
 }
@@ -335,54 +325,41 @@ const disablePastDates = (date: Date) => {
     // 禁用过去日期
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    if (date.getTime() < today.getTime()) return true
+    const dateTime = date.getTime()
+    if (dateTime < today.getTime()) return true
 
-    // 禁用已预订日期
     const dateStr = formatDateToString(date)
     const isUnavailable = unavailableDates.value.includes(dateStr)
 
-    // 当用户已选入住日（pendingCheckIn 或 confirmedCheckIn）时，
-    // 不禁用紧跟着的第一个冲突日期，因为它可能是合法的退房日
-    if (isUnavailable) {
-        const activeCheckIn = pendingCheckIn.value || confirmedCheckIn.value
-        if (activeCheckIn) {
-            const checkInStr = formatDateToString(activeCheckIn)
-            const sortedUnavailable = [...unavailableDates.value].sort()
-            const firstConflict = sortedUnavailable.find(d => d > checkInStr)
+    // 当用户开始选择入住日，或者处于部分选中的状态
+    // 我们限制只能选择入住日之后、冲突日及之前的日期
+    const activeCheckIn = pendingCheckIn.value || 
+                          (localDateRange.value && !localDateRange.value[1] ? localDateRange.value[0] : null) || 
+                          confirmedCheckIn.value
 
-            if (firstConflict === dateStr) {
-                return false
+    if (activeCheckIn) {
+        const checkInTime = activeCheckIn.getTime()
+        if (dateTime > checkInTime) {
+            const maxDate = computeMaxCheckOutDate(activeCheckIn)
+            if (maxDate) {
+                // 如果当前日期在最大可退房日期（即首个冲突日）之后，一律禁用
+                if (dateTime > maxDate.getTime()) {
+                    return true
+                }
+                // 允许把第一个冲突日作为退房日（返回 false，即使它在 unavailableDates 中）
+                if (dateTime === maxDate.getTime()) {
+                    return false
+                }
             }
         }
     }
 
     // 调试信息（仅在有不可用日期时输出，避免过度日志）
     if (unavailableDates.value.length > 0 && isUnavailable) {
-        console.log('日期 ' + dateStr + ' 已被预订，禁用选择')
+        console.log('日期 ' + dateStr + '(禁用状态: ' + isUnavailable + ')')
     }
 
     return isUnavailable
-}
-
-/**
- * 给日期单元格添加自定义 class（用于可选范围高亮）
- * Element Plus 的 cell-class-name 回调
- */
-const getCellClassName = (date: Date): string => {
-    const activeCheckIn = pendingCheckIn.value || confirmedCheckIn.value
-    if (!activeCheckIn) return ''
-
-    const maxDate = computeMaxCheckOutDate(activeCheckIn)
-    const dateTime = date.getTime()
-    const checkInTime = activeCheckIn.getTime()
-
-    // 高亮入住日之后、最大退房日（含）之前的日期
-    if (maxDate) {
-        if (dateTime > checkInTime && dateTime <= maxDate.getTime()) {
-            return 'available-range'
-        }
-    }
-    return ''
 }
 
 /**
@@ -817,16 +794,4 @@ watch(localGuests, (newGuests) => {
     opacity: 1;
 }
 
-/* === 可选范围高亮 === */
-.booking-date-popper .el-date-table td.available-range .el-date-table-cell {
-    background-color: rgba(64, 158, 255, 0.08) !important;
-}
-
-.booking-date-popper .el-date-table td.available-range .el-date-table-cell__text {
-    color: #409eff;
-}
-
-.booking-date-popper .el-date-table td.available-range:hover .el-date-table-cell {
-    background-color: rgba(64, 158, 255, 0.18) !important;
-}
 </style>
