@@ -217,7 +217,7 @@ const fetchOrderDetail = async () => {
             guestCount: data.guestCount,
             totalAmount: data.totalAmount,
             status: data.status,
-            paymentStatus: 'UNPAID', // 默认值，如果后端有这个字段会被覆盖
+            paymentStatus: data.paymentStatus || 'UNPAID', // 从后端获取真实支付状态
             updateTime: data.updateTime
         }
     } catch (error: any) {
@@ -397,9 +397,20 @@ const generateQRCode = async () => {
     } catch (error: any) {
         console.error('支付生成失败:', error)
 
+        // 检查是否是"订单已有待支付的支付记录"错误
+        const errorMsg = error.response?.data?.message || ''
+        if (errorMsg.includes('待支付') && errorMsg.includes('支付记录')) {
+            ElMessage.warning('检测到您有未完成的支付，正在为您查询支付状态...')
+            // 自动转为轮询支付状态
+            qrCodeGenerated.value = true
+            startPaymentStatusPoll()
+            paymentLoading.value = false
+            return
+        }
+
         // 检查是否是502错误（支付宝服务器问题）
         if (error.response?.status === 502 ||
-            (error.response?.data?.message && error.response.data.message.includes('502'))) {
+            (errorMsg && errorMsg.includes('502'))) {
             ElMessage.error('支付宝服务暂时不可用，请稍后重试或选择其他支付方式')
             ElNotification({
                 title: '支付服务提示',
@@ -700,8 +711,18 @@ const isTimeUrgent = (startTimeStr: string, hoursLimit: number) => {
 // 自动刷新倒计时
 let autoRefreshTimer: NodeJS.Timeout | null = null;
 
-onMounted(() => {
-    fetchOrderDetail();
+onMounted(async () => {
+    // 重置支付状态，避免上次访问遗留的状态导致页面显示异常
+    qrCode.value = ''
+    qrCodeGenerated.value = false
+    paymentMethod.value = route.query.method?.toString() || ''
+    lastPaymentUrl.value = ''
+    countdown.value = 900
+    if (timer) clearInterval(timer)
+    timer = null
+    stopPaymentStatusPoll()
+
+    await fetchOrderDetail();
 
     // 为自动确认订单提供更流畅的支付体验
     if (route.query.autoConfirm === 'true') {
@@ -723,11 +744,20 @@ onMounted(() => {
         }
     }, 1000);
 
-    // 如果订单已在支付中状态（用户从支付宝返回或刷新页面），自动启动轮询
+    // 如果订单已是待支付状态，自动启动轮询检查支付状态
+    // 但必须满足：paymentMethod 已选择 且 qrCode 已生成
     setTimeout(() => {
-        if (orderData.value && 
-            (orderData.value.status === 'PAYMENT_PENDING' || orderData.value.status === 'PENDING_PAYMENT')) {
-            startPaymentStatusPoll()
+        if (orderData.value &&
+            (orderData.value.status === 'PAYMENT_PENDING' ||
+             orderData.value.status === 'PENDING_PAYMENT' ||
+             orderData.value.status === 'CONFIRMED' ||
+             orderData.value.paymentStatus === 'PENDING')) {
+            // 只有在已有二维码或支付链接时才自动轮询
+            if (qrCode.value || lastPaymentUrl.value) {
+                ElMessage.info('检测到您有未完成的支付，正在查询支付状态...')
+                qrCodeGenerated.value = true
+                startPaymentStatusPoll()
+            }
         }
     }, 1000);
 });

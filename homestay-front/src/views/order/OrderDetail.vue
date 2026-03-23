@@ -17,10 +17,10 @@
             </div>
 
             <!-- 订单状态流程提示 -->
-            <div class="order-status-flow">
+            <div class="order-status-flow card-style">
                 <el-steps :active="getStatusStep(orderData.status)" 
                           :process-status="['REJECTED', 'CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST'].includes(orderData.status) ? 'error' : (orderData.paymentStatus === 'PAID' && orderData.refundRejectionReason ? 'error' : 'process')"
-                          finish-status="success" simple>
+                          finish-status="success" align-center>
                     <el-step title="预订申请" />
                     <el-step title="房东确认" />
                     <el-step title="支付订单" />
@@ -30,44 +30,50 @@
             </div>
 
             <!-- 订单信息卡片 -->
-            <div class="order-summary-card">
+            <div class="order-summary-card card-style">
                 <div class="card-header">
                     <h2>订单信息</h2>
                     <div class="header-right">
                         <span class="order-number">订单号: {{ orderData.orderNumber }}</span>
-                        <el-tag :type="getStatusType(orderData.status, orderData.paymentStatus, orderData.refundRejectionReason)" size="large" class="status-tag">
+                        <el-tag :type="getStatusType(orderData.status, orderData.paymentStatus, orderData.refundRejectionReason)" size="large" class="status-tag" effect="light">
                             {{ getStatusText(orderData.status, orderData.paymentStatus, orderData.refundType, orderData.refundRejectionReason, orderData.disputeResolution) }}
                         </el-tag>
                     </div>
                 </div>
-                <div class="homestay-info">
+                <div class="homestay-info-wrapper">
                     <div class="homestay-image">
                         <img :src="processImageUrl(orderData.imageUrl)" alt="房源图片" @error="handleImageErrorEvent">
                     </div>
                     <div class="homestay-details">
                         <h3>{{ orderData.homestayTitle }}</h3>
-                        <p><i class="el-icon-location"></i> {{ orderData.address }}</p>
-                        <p><i class="el-icon-date"></i> {{ formatDateRange(orderData.checkInDate,
-                            orderData.checkOutDate) }}</p>
-                        <p><i class="el-icon-user"></i> {{ orderData.guestCount }}位房客 · {{ orderData.nights }}晚</p>
+                        <p class="detail-row"><el-icon><Location /></el-icon> {{ orderData.address }}</p>
+                        <p class="detail-row"><el-icon><Calendar /></el-icon> {{ formatDateRange(orderData.checkInDate, orderData.checkOutDate) }}</p>
+                        <p class="detail-row"><el-icon><User /></el-icon> {{ orderData.guestCount }}位房客 · {{ orderData.nights }}晚</p>
                     </div>
                 </div>
 
                 <!-- 旅客信息整合到订单信息中 -->
-                <div class="guest-info-inline">
-                    <div class="info-row">
-                        <div class="info-item">
-                            <span class="label">联系人:</span>
-                            <span>{{ orderData.guestName }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="label">联系电话:</span>
-                            <span>{{ orderData.guestPhone }}</span>
+                <div class="guest-info-grid">
+                    <div class="guest-info-item">
+                        <div class="guest-icon"><el-icon><UserFilled /></el-icon></div>
+                        <div class="guest-text">
+                            <span class="label">联系人</span>
+                            <span class="value">{{ orderData.guestName }}</span>
                         </div>
                     </div>
-                    <div class="info-item" v-if="orderData.remark && orderData.status !== 'REJECTED'">
-                        <span class="label">备注:</span>
-                        <span>{{ orderData.remark }}</span>
+                    <div class="guest-info-item">
+                        <div class="guest-icon"><el-icon><PhoneFilled /></el-icon></div>
+                        <div class="guest-text">
+                            <span class="label">联系电话</span>
+                            <span class="value">{{ orderData.guestPhone }}</span>
+                        </div>
+                    </div>
+                    <div class="guest-info-item remark-item" v-if="orderData.remark && orderData.status !== 'REJECTED'">
+                        <div class="guest-icon"><el-icon><EditPen /></el-icon></div>
+                        <div class="guest-text">
+                            <span class="label">备注</span>
+                            <span class="value">{{ orderData.remark }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -137,38 +143,47 @@
 
 
             <!-- 价格详情 -->
-            <div class="price-details-section">
-                <h2>{{ isRefundStatus ? '费用明细' : '价格详情' }}</h2>
-                <div class="price-item">
-                    <span>每晚价格 x {{ orderData.nights }}晚</span>
-                    <span>¥{{ Math.round(orderData.price * orderData.nights * 100) / 100 }}</span>
+            <div class="price-details-section receipt-style">
+                <div class="receipt-header">
+                    <h2>{{ isRefundStatus ? '费用明细' : '价格详情' }}</h2>
                 </div>
-                <div class="price-item" v-if="orderData.cleaningFee">
-                    <span>清洁费</span>
-                    <span>¥{{ orderData.cleaningFee }}</span>
-                </div>
-                <div class="price-item" v-if="orderData.serviceFee">
-                    <span>服务费</span>
-                    <span>¥{{ orderData.serviceFee }}</span>
-                </div>
-                <!-- 价格分割线 -->
-                <el-divider border-style="dashed" />
-                <div class="price-total">
-                    <span>原始总价</span>
-                    <span>¥{{ orderData.totalAmount }}</span>
-                </div>
-
-                <!-- 退款状态下显示退款信息 -->
-                <template v-if="isRefundStatus && orderData.refundAmount">
-                    <div class="price-item refund-item">
-                        <span>退款金额</span>
-                        <span class="refund-amount">-¥{{ orderData.refundAmount }}</span>
+                
+                <div class="receipt-body">
+                    <div class="price-item">
+                        <span class="item-name">每晚价格 x {{ orderData.nights }}晚</span>
+                        <span class="item-price">¥{{ Math.round(orderData.price * orderData.nights * 100) / 100 }}</span>
                     </div>
-                    <div class="price-total final-amount" v-if="orderData.paymentStatus === 'REFUNDED'">
+                    <div class="price-item" v-if="orderData.cleaningFee">
+                        <span class="item-name">清洁费</span>
+                        <span class="item-price">¥{{ orderData.cleaningFee }}</span>
+                    </div>
+                    <div class="price-item" v-if="orderData.serviceFee">
+                        <span class="item-name">服务费</span>
+                        <span class="item-price">¥{{ orderData.serviceFee }}</span>
+                    </div>
+                    
+                    <template v-if="isRefundStatus && orderData?.refundAmount">
+                        <div class="price-item refund-item">
+                            <span class="item-name">退款金额</span>
+                            <span class="refund-amount">-¥{{ orderData?.refundAmount }}</span>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- 价格分割线 (类似小票齿孔线) -->
+                <div class="receipt-divider"></div>
+                
+                <div class="receipt-footer">
+                    <div class="price-total">
+                        <span>原始总价</span>
+                        <span class="total-amount">¥{{ orderData.totalAmount }}</span>
+                    </div>
+                    
+                    <div class="price-total final-amount" v-if="isRefundStatus && orderData?.paymentStatus === 'REFUNDED'">
                         <span>实际扣费</span>
-                        <span>¥{{ orderData.totalAmount - orderData.refundAmount }}</span>
+                        <span class="actual-amount">¥{{ (orderData?.totalAmount || 0) - (orderData?.refundAmount || 0) }}</span>
                     </div>
-                </template>
+                </div>
             </div>
 
             <!-- 退款信息 -->
@@ -254,15 +269,13 @@
             </div>
 
             <!-- 按钮操作区 -->
-            <div class="action-buttons">
-
-
-                <el-button @click="goToOrders">返回订单列表</el-button>
+            <div class="action-buttons card-style">
+                <el-button @click="goToOrders" class="btn-back">返回订单列表</el-button>
 
                 <!-- 退款被拒特有操作分支 -->
                 <template v-if="orderData.paymentStatus === 'PAID' && orderData.refundRejectionReason">
                     <el-button type="default" plain @click="contactHost">联系房东</el-button>
-                    <el-button type="warning" plain @click="confirmRequestRefund">再次申请退款</el-button>
+                    <el-button type="warning" @click="confirmRequestRefund">再次申请退款</el-button>
                 </template>
 
                 <!-- 非退款状态下的正常操作 -->
@@ -276,7 +289,7 @@
                     <el-button type="danger" plain v-if="canCancel" @click="confirmCancel">
                         取消订单
                     </el-button>
-                    <el-button type="primary" v-if="orderData.status === 'CONFIRMED'" @click="showPaymentDialog">
+                    <el-button type="primary" size="large" v-if="['CONFIRMED', 'PAYMENT_PENDING'].includes(orderData.status)" @click="showPaymentDialog" class="primary-action-btn">
                         立即支付
                     </el-button>
                     <!-- READY_FOR_CHECKIN 状态：入住相关操作 -->
@@ -293,7 +306,7 @@
                     <el-button type="warning" plain v-if="canRequestRefund" @click="confirmRequestRefund">
                         申请退款
                     </el-button>
-                    <el-button type="primary" plain v-if="orderData.status === 'COMPLETED' && !orderData.review" @click="openReviewModal">
+                    <el-button type="primary" v-if="orderData.status === 'COMPLETED' && !orderData.review" @click="openReviewModal" class="primary-action-btn">
                         评价房源
                     </el-button>
                 </template>
@@ -428,7 +441,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Clock, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { Loading, Clock, CircleCheck, CircleClose, Location, Calendar, User, UserFilled, PhoneFilled, EditPen } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
 import { getOrderDetail, cancelOrder, generatePaymentQRCode, checkPayment, payOrder, getCheckInCredential, selfCheckIn, confirmArrival } from '../../api/order'
 import { getHomestayById } from '../../api/homestay'
@@ -932,20 +945,28 @@ const confirmCancel = async () => {
             ElMessage.closeAll();
 
             if (error === 'cancel' || error === 'close') {
-                // 用户选择了返回订单列表
+                // 用户点击了取消或关闭按钮
                 router.push('/user/bookings');
                 return;
             }
 
-            console.error('API调用错误:', error);
-            ElMessage.error(`取消订单失败: ${error.message || '请稍后重试'}`);
+            // 提取错误消息
+            let errorMsg = '取消订单失败，请稍后重试';
+            if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+
+            console.error('取消订单失败:', errorMsg);
+            ElMessage.error(errorMsg);
             // 刷新订单数据
             fetchOrderDetail();
         }
     } catch (error: any) {
-        if (error !== 'cancel') {
-            console.error('取消订单失败:', error)
-            ElMessage.error('取消订单失败，请重试')
+        if (error !== 'cancel' && error !== 'close') {
+            console.error('取消订单确认失败:', error);
+            ElMessage.error('取消订单失败，请重试');
         }
     }
 }
@@ -1327,158 +1348,185 @@ onUnmounted(() => {
 
 <style scoped>
 .order-detail-container {
-    max-width: 800px;
+    max-width: 860px;
     margin: 0 auto;
-    padding: 40px 20px;
-    background-color: #f9f9f9;
+    padding: 30px 20px;
+    background-color: #f5f7fa; /* 更深一点的灰底 */
+    min-height: 100vh;
 }
 
-.loading-container,
-.error-container {
-    padding: 40px;
-    text-align: center;
-    background-color: white;
+/* 通用卡片样式 */
+.card-style {
+    background-color: #ffffff;
     border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    padding: 24px 32px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    margin-bottom: 24px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.order-content {
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
-    padding: 32px;
-}
+
 
 .order-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
+    padding: 0 10px;
 }
 
 h1 {
     font-size: 28px;
     margin: 0;
-    font-weight: 600;
-    color: #333;
+    font-weight: 700;
+    color: #2c3e50;
+    letter-spacing: -0.5px;
 }
 
 .order-status-flow {
-    margin-bottom: 32px;
-    padding: 24px;
-    background-color: #fafafa;
-    border-radius: 8px;
-}
-
-.order-summary-card {
-    background-color: #f8f9fa;
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 32px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    overflow: hidden;
-}
-
-.order-summary-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-}
-
-.header-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-}
-
-.card-header h2 {
-    margin: 0;
-    font-size: 18px;
-    color: #333;
-    font-weight: 600;
-}
-
-.order-number {
-    color: #666;
-    font-size: 14px;
+    padding: 24px 32px;
 }
 
 .status-tag {
     font-weight: 600;
+    font-size: 14px;
+    padding: 6px 14px;
+    border-radius: 20px;
 }
 
-.homestay-info {
+/* 订单信息卡片重构 */
+.card-header {
     display: flex;
-    gap: 20px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #ebeef5;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-direction: row;
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.order-number {
+    color: #909399;
+    font-size: 14px;
+    padding-right: 16px;
+    border-right: 1px solid #dcdfe6;
+}
+
+.homestay-info-wrapper {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 24px;
 }
 
 .homestay-image {
-    width: 160px;
-    height: 120px;
-    border-radius: 10px;
+    width: 200px;
+    height: 140px;
+    border-radius: 12px;
     overflow: hidden;
     flex-shrink: 0;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #f0f2f5;
 }
 
 .homestay-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.4s ease;
+    transition: transform 0.5s ease;
 }
 
 .homestay-image:hover img {
-    transform: scale(1.05);
+    transform: scale(1.03);
 }
 
 .homestay-details h3 {
-    margin: 0 0 12px 0;
-    font-size: 18px;
+    margin: 0 0 16px 0;
+    font-size: 22px;
     font-weight: 600;
-    color: #333;
+    color: #303133;
+    line-height: 1.3;
 }
 
-.homestay-details p {
-    margin: 8px 0;
-    color: #666;
+.homestay-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.detail-row {
+    margin: 6px 0;
+    color: #606266;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    font-size: 15px;
 }
 
-.homestay-details i {
+.detail-row .el-icon {
     color: #409EFF;
+    font-size: 16px;
 }
 
-.guest-info-inline {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
+/* 网格布局的联系人信息 */
+.guest-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
 }
 
-.info-row {
+.guest-info-item {
     display: flex;
-    gap: 32px;
-    margin-bottom: 12px;
+    align-items: center;
+    gap: 12px;
 }
 
-.guest-info-inline .info-item {
+.guest-icon {
+    width: 40px;
+    height: 40px;
+    background-color: #ecf5ff;
+    color: #409eff;
+    border-radius: 50%;
     display: flex;
-    margin-bottom: 8px;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
 }
 
-.guest-info-inline .label {
-    width: 80px;
-    color: #666;
+.guest-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.guest-text .label {
+    font-size: 12px;
+    color: #909399;
+    margin-bottom: 4px;
+}
+
+.guest-text .value {
+    font-size: 15px;
     font-weight: 500;
+    color: #303133;
+}
+
+.remark-item {
+    grid-column: 1 / -1;
 }
 
 .status-notice {
@@ -1501,113 +1549,115 @@ h1 {
     margin: 0;
 }
 
-.price-details-section {
-    margin-bottom: 32px;
-    background-color: #fafafa;
+/* 小票风格的价格明细区块 */
+.receipt-style {
+    background-color: #fcfcfc;
+    border: 1px solid #ebeef5;
     border-radius: 12px;
-    padding: 24px;
-}
-
-.refund-details-section {
+    padding: 0;
     margin-bottom: 32px;
-    background-color: #fff3e0;
-    border-radius: 12px;
-    padding: 24px;
-    border: 1px solid #ffcc02;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
 }
 
-h2 {
-    font-size: 18px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    color: #333;
-    position: relative;
-    display: inline-block;
+.receipt-header {
+    background-color: #f5f7fa;
+    padding: 20px 32px;
+    border-bottom: 1px solid #ebeef5;
+    border-radius: 12px 12px 0 0;
 }
 
-h2::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    left: 0;
-    width: 30px;
-    height: 2px;
-    background-color: #409EFF;
-    border-radius: 2px;
+.receipt-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #2c3e50;
+    font-weight: 700;
 }
 
-.info-item {
-    display: flex;
-    margin-bottom: 12px;
-}
-
-.info-item .label {
-    width: 100px;
-    color: #666;
-    font-weight: 500;
+.receipt-body {
+    padding: 24px 32px;
 }
 
 .price-item {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 12px;
-    padding: 8px 0;
+    margin-bottom: 16px;
+    font-size: 15px;
+}
+
+.price-item:last-child {
+    margin-bottom: 0;
+}
+
+.item-name {
+    color: #606266;
+}
+
+.item-price {
+    color: #303133;
+    font-weight: 500;
+}
+
+.receipt-divider {
+    height: 1px;
+    background-image: linear-gradient(to right, #dcdfe6 50%, transparent 50%);
+    background-size: 12px 1px;
+    background-repeat: repeat-x;
+    margin: 0 32px;
+}
+
+.receipt-footer {
+    padding: 24px 32px;
+    background-color: #ffffff;
+    border-radius: 0 0 12px 12px;
 }
 
 .price-total {
     display: flex;
     justify-content: space-between;
-    font-weight: bold;
-    padding-top: 16px;
-    border-top: 1px solid #eee;
-    margin-top: 16px;
-    font-size: 18px;
-    color: #333;
-}
-
-.price-total span:last-child {
-    color: #ff6b6b;
-    font-size: 20px;
-}
-
-.refund-amount {
-    color: #f39c12;
-    font-weight: 600;
-    font-size: 16px;
-}
-
-.refund-item {
-    background-color: #fff9f0;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin: 8px 0;
-}
-
-.refund-item .refund-amount {
-    color: #e67e22;
+    align-items: center;
     font-weight: 700;
+    font-size: 18px;
+    color: #303133;
+    margin-bottom: 12px;
 }
 
-.final-amount {
-    background-color: #f0f9ff;
-    border-radius: 8px;
-    padding: 12px;
-    border: 1px solid #3b82f6;
+.price-total:last-child {
+    margin-bottom: 0;
 }
 
-.final-amount span:last-child {
+.total-amount {
+    color: #f56c6c;
+    font-size: 24px;
+}
+
+.actual-amount {
     color: #3b82f6;
+    font-size: 24px;
 }
 
+/* 操作按钮区 */
 .action-buttons {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 16px;
-    justify-content: center;
-    margin-top: 40px;
+    margin-top: 10px;
+    padding: 20px 32px;
 }
 
-.action-buttons .el-button {
-    min-width: 120px;
+.btn-back {
+    margin-right: auto; /* 推到左边 */
+}
+
+.primary-action-btn {
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.primary-action-btn:hover {
+    box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
+    transform: translateY(-2px);
 }
 
 
