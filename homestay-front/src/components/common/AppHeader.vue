@@ -1,12 +1,37 @@
 <template>
-    <header class="app-header">
+    <header :class="['app-header', { 'is-scrolled': isScrolled, 'is-home': isHome, 'search-expanded': isSearchExpanded }]">
         <div class="header-content">
             <div class="logo" @click="goToHome">
                 <img src="/logo.svg" alt="Homestay Logo" class="logo-image" />
                 <span class="logo-text">民宿预订</span>
             </div>
 
+            <!-- 中间迷你搜索滑块 (仅页面滚动后或非首页显示) -->
+            <transition name="el-fade-in">
+                <div class="mini-search-bar" v-show="showMiniSearch && !isSearchExpanded" @click="handleMiniSearchClick">
+                    <span class="search-text">任何地点</span>
+                    <span class="divider"></span>
+                    <span class="search-text">任意一周</span>
+                    <span class="divider"></span>
+                    <span class="search-text light">添加房客</span>
+                    <div class="search-icon-wrapper">
+                        <el-icon><Search /></el-icon>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- 顶部文本链接 (展开大搜索框时显示在中间) -->
+            <transition name="el-fade-in">
+                <div class="search-tabs" v-show="isSearchExpanded">
+                    <span class="tab active">住宿</span>
+                    <span class="tab">体验</span>
+                </div>
+            </transition>
+
             <div class="user-menu">
+                <div class="host-link" v-if="!isLoggedIn || (!userStore.isLandlord && !authStore.isLandlord)" @click="goToBecomeHost">
+                    成为房东
+                </div>
                 <NotificationBell v-if="isLoggedIn" />
                 <el-dropdown trigger="click" @command="handleCommand">
                     <div class="user-avatar">
@@ -28,24 +53,97 @@
                 </el-dropdown>
             </div>
         </div>
+
+        <!-- 展开的全局搜索面板 -->
+        <transition name="el-fade-in">
+            <div class="expanded-search-container" v-show="isSearchExpanded">
+                <SearchBar @search="handleGlobalSearch" @reset="isSearchExpanded = false" />
+            </div>
+        </transition>
     </header>
+
+    <!-- 搜索面板的深色遮罩背景 -->
+    <transition name="el-fade-in">
+        <div class="search-backdrop" v-if="isSearchExpanded" @click="isSearchExpanded = false"></div>
+    </transition>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem, ElAvatar, ElIcon } from 'element-plus';
-import { Menu } from '@element-plus/icons-vue';
+import { Menu, Search } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
 import { useAuthStore } from '@/stores/auth';
 import { getAvatarUrl, handleImageError } from '@/utils/image';
 import NotificationBell from '@/components/NotificationBell.vue';
+import SearchBar from '@/components/SearchBar.vue';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const authStore = useAuthStore();
 
 const isLoggedIn = computed(() => userStore.token !== null || authStore.isAuthenticated);
+const isHome = computed(() => route.path === '/');
+const isScrolled = ref(false);
+const isSearchExpanded = ref(false);
+const showMiniSearch = computed(() => !isHome.value || isScrolled.value);
+
+const handleScroll = () => {
+    isScrolled.value = window.scrollY > 200; // 调高阈值，200px 刚好是大搜索框滚出去的大致高度
+};
+
+onMounted(() => {
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+});
+
+onUnmounted(() => {
+    window.removeEventListener('scroll', handleScroll);
+});
+
+const handleMiniSearchClick = () => {
+    isSearchExpanded.value = true;
+};
+
+const handleGlobalSearch = (params: any) => {
+    isSearchExpanded.value = false;
+    
+    // Convert to query params format expected by the backend and homestay list view
+    const newQuery: any = {
+        keyword: params.keyword || undefined,
+        region: params.selectedRegion?.length ? params.selectedRegion.join(',') : undefined,
+        checkIn: params.checkIn || undefined,
+        checkOut: params.checkOut || undefined,
+        guestCount: params.guestCount && params.guestCount > 1 ? params.guestCount : undefined,
+        search: 'true'
+    };
+
+    router.push({
+        path: '/homestays',
+        query: newQuery
+    });
+};
+
+const goToBecomeHost = () => {
+    if (!isLoggedIn.value) {
+        ElMessage.info('请先登录后再访问房东中心');
+        router.push('/login?message=请先登录后再访问房东中心');
+        return;
+    }
+    
+    // Check if user is already a host
+    const isLandlord = authStore.isLandlord || 
+                      userStore.userInfo?.role === 'ROLE_LANDLORD' || 
+                      userStore.userInfo?.role === 'ROLE_HOST';
+                      
+    if (isLandlord) {
+        router.push('/host');
+    } else {
+        router.push('/host/onboarding');
+    }
+};
 const userAvatar = computed(() => {
     const avatarUrl = userStore.userInfo?.avatar;
     if (!avatarUrl) {
@@ -121,18 +219,89 @@ const handleAvatarError = (e: Event) => {
 .app-header {
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 2000;
     background-color: white;
-    border-bottom: 1px solid var(--border-color);
     padding: 16px 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.app-header.is-scrolled,
+.app-header:not(.is-home) {
+    border-bottom: 1px solid var(--border-color, #ebeef5);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.app-header.search-expanded {
+    border-bottom: 1px solid transparent !important;
+    box-shadow: none !important;
+    background-color: white;
+}
+
+.search-tabs {
+    display: flex;
+    gap: 24px;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-regular, #717171);
+}
+
+.search-tabs .tab {
+    cursor: pointer;
+    padding-bottom: 8px;
+    transition: color 0.2s;
+}
+
+.search-tabs .tab:hover {
+    color: var(--text-primary, #222);
+}
+
+.search-tabs .tab.active {
+    color: var(--text-primary, #222);
+    border-bottom: 2px solid var(--text-primary, #222);
+}
+
+.expanded-search-container {
+    position: absolute;
+    top: 80px;
+    left: 0;
+    width: 100%;
+    background-color: white;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border-color, #ebeef5);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    z-index: 2000;
+}
+
+.expanded-search-container :deep(.search-container) {
+    position: relative !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+}
+
+.expanded-search-container :deep(.search-wrapper) {
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15) !important;
+    border: 1px solid #ddd;
+    background-color: #f7f7f7 !important;
+}
+
+.search-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: rgba(0,0,0,0.25);
+    z-index: 100;
 }
 
 .header-content {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 24px;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
 }
 
@@ -140,6 +309,13 @@ const handleAvatarError = (e: Event) => {
     display: flex;
     align-items: center;
     cursor: pointer;
+    justify-self: start;
+}
+
+.mini-search-bar,
+.search-tabs {
+    justify-self: center;
+    grid-column: 2;
 }
 
 .logo-image {
@@ -156,6 +332,8 @@ const handleAvatarError = (e: Event) => {
 .user-menu {
     display: flex;
     align-items: center;
+    justify-self: end;
+    grid-column: 3;
 }
 
 .user-avatar {
@@ -166,5 +344,83 @@ const handleAvatarError = (e: Event) => {
     padding: 8px;
     border: 1px solid var(--border-color);
     border-radius: 24px;
+    transition: box-shadow 0.2s ease;
+}
+
+.user-avatar:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+}
+
+.host-link {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-right: 8px;
+    transition: background-color 0.2s;
+}
+
+.host-link:hover {
+    background-color: var(--border-color, #f0f2f5);
+}
+
+.mini-search-bar {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border-color, #dcdfe6);
+    border-radius: 24px;
+    padding: 0 8px 0 24px;
+    height: 48px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+.mini-search-bar:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+}
+
+.mini-search-bar .search-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary, #303133);
+    padding: 0 8px;
+}
+
+.mini-search-bar .search-text.light {
+    color: var(--text-regular, #717171);
+    font-weight: 400;
+}
+
+.mini-search-bar .divider {
+    width: 1px;
+    height: 24px;
+    background-color: var(--border-color, #e4e7ed);
+}
+
+.mini-search-bar .search-icon-wrapper {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--primary-color, #ff385c);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+    transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
 }
 </style>
