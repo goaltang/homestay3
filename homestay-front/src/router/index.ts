@@ -4,7 +4,7 @@ import { useAuthStore } from "../stores/auth";
 import { useUserStore } from "../stores/user";
 import OrderSubmitSuccess from "../views/order/OrderSubmitSuccess.vue";
 import MyOrders from "../views/order/MyOrders.vue";
-import AppLayout from "@/layouts/AppLayout.vue";
+
 import UserLayout from "@/layouts/UserLayout.vue";
 import HostLayout from "../views/host/HostLayout.vue";
 
@@ -78,15 +78,7 @@ const router = createRouter({
             icon: "dashboard",
           },
         },
-        {
-          path: "onboarding",
-          name: "HostOnboarding",
-          component: () => import("../views/host/HostOnboarding.vue"),
-          meta: {
-            title: "房东信息完善",
-            icon: "guide",
-          },
-        },
+
         {
           path: "homestay",
           name: "HostHomestay",
@@ -181,6 +173,15 @@ const router = createRouter({
           },
         },
       ],
+    },
+    {
+      path: "/host/onboarding",
+      name: "HostOnboarding",
+      component: () => import("../views/host/HostOnboarding.vue"),
+      meta: {
+        title: "房东信息完善",
+        requiresAuth: true
+      },
     },
     {
       path: "/homestay/:id",
@@ -314,16 +315,6 @@ router.beforeEach(async (to, from, next) => {
     "/homestays/:id",
   ];
 
-  // 检查当前页面是否为公开页面
-  const isPublicPage = publicPages.some((page) => {
-    if (page.includes(":")) {
-      // 处理动态路由参数
-      const pattern = page.replace(/:[^/]+/g, "[^/]+");
-      const regex = new RegExp(`^${pattern}$`);
-      return regex.test(to.path);
-    }
-    return to.path === page;
-  });
 
   // 处理需要认证的页面
   if (to.meta.requiresAuth && !isAuthenticated) {
