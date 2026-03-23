@@ -69,51 +69,52 @@
 
             <template v-else>
                 <div v-for="order in paginatedFilteredOrders" :key="order.id" class="order-card">
-                    <div class="order-card-header">
-                        <div class="order-info">
-                            <span class="order-number">订单号: {{ order.orderNumber }}</span>
-                            <span class="order-date">下单时间: {{ formatDate(order.createTime) }}</span>
-                        </div>
-                        <div class="order-status">
-                            <el-tag :type="getStatusType(order)">
-                                {{ getStatusText(order) }}
-                            </el-tag>
-                            <div v-if="order.status === 'PENDING'" class="order-countdown warning">
-                                <el-tooltip content="超过24小时未确认的订单将被自动取消">
-                                    <span><i class="el-icon-time"></i> 剩余: {{ getCountdownTime(order.createTime, 24)
-                                    }}</span>
-                                </el-tooltip>
-                            </div>
-                            <div v-if="order.status === 'CONFIRMED'" class="order-countdown danger">
-                                <el-tooltip content="超过2小时未支付的订单将被自动取消">
-                                    <span><i class="el-icon-time"></i> 剩余: {{ getCountdownTime(order.updateTime, 2)
-                                    }}</span>
-                                </el-tooltip>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="order-card-content">
-                        <div class="homestay-image">
+                        <!-- 左图 -->
+                        <div class="order-image-col">
                             <img :src="processImageUrl(order.imageUrl)" :alt="order.homestayTitle"
                                 @error="handleImageErrorEvent">
                         </div>
-                        <div class="order-details">
-                            <h3>{{ order.homestayTitle }}</h3>
-                            <p class="date-info"><i class="el-icon-date"></i> {{ formatDateRange(order.checkInDate,
-                                order.checkOutDate) }} · {{
-                                    order.nights }}晚</p>
-                            <p class="guest-info"><i class="el-icon-user"></i> {{ order.guestCount }}位房客</p>
-                            <p class="host-info"><i class="el-icon-s-custom"></i> 房东: {{ order.hostName || '未知' }}</p>
-                            <div class="price-container">
-                                <span class="price-label">总价</span>
-                                <span class="price-value">¥{{ order.totalAmount }}</span>
+
+                        <!-- 中间信息 -->
+                        <div class="order-info-col">
+                            <div class="order-title-row">
+                                <h3 class="order-title" :title="order.homestayTitle">{{ order.homestayTitle }}</h3>
+                                <el-tag effect="light" :type="getStatusType(order)" class="status-tag">
+                                    {{ getStatusText(order) }}
+                                </el-tag>
+                            </div>
+
+                            <div class="order-meta-info">
+                                <p class="date-info"><i class="el-icon-date"></i> {{ formatDateRange(order.checkInDate, order.checkOutDate) }} · {{ order.nights }}晚</p>
+                                <p class="guest-info"><i class="el-icon-user"></i> {{ order.guestCount }}位房客</p>
+                                <p class="host-info"><i class="el-icon-s-custom"></i> 房东: {{ order.hostName || '未知' }}</p>
+
+                                <p class="order-number-text">
+                                    订单号: {{ order.orderNumber }} <span class="divider">|</span> 下单时间: {{ formatDate(order.createTime) }}
+                                </p>
+                            </div>
+
+                            <!-- 暂存倒计时 -->
+                            <div v-if="order.status === 'PENDING'" class="order-countdown warning mt-2">
+                                <el-tooltip content="超过24小时未确认的订单将被自动取消">
+                                    <span><i class="el-icon-time"></i> 确认剩余: {{ getCountdownTime(order.createTime, 24) }}</span>
+                                </el-tooltip>
+                            </div>
+                            <div v-if="order.status === 'CONFIRMED'" class="order-countdown danger mt-2">
+                                <el-tooltip content="超过2小时未支付的订单将被自动取消">
+                                    <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime, 2) }}</span>
+                                </el-tooltip>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="order-card-footer">
-                        <div class="action-buttons">
+                        <!-- 右侧操作 -->
+                        <div class="order-action-col">
+                            <div class="price-display">
+                                <span class="price-currency">¥</span>
+                                <span class="price-amount">{{ order.totalAmount }}</span>
+                            </div>
+
+                            <div class="action-buttons-vertical">
                             <!-- 待支付 (已确认 & 未支付 或 支付中状态) -->
                             <template
                                 v-if="(order.status === 'CONFIRMED' && order.paymentStatus === 'UNPAID') || order.status === 'PAYMENT_PENDING'">
@@ -141,21 +142,21 @@
                                     <span class="rejected-icon">❌</span>
                                     <span>退款被拒绝：{{ order.refundRejectionReason }}</span>
                                 </div>
+                                <el-button type="primary" size="small">联系房东</el-button>
+                                <el-button type="info" text bg size="small"
+                                    @click="requestRefund(order.id)">再次申请退款</el-button>
                                 <el-button type="default" size="small"
                                     @click="viewOrderDetail(order.id)">查看详情</el-button>
-                                <el-button type="primary" plain size="small">联系房东</el-button>
-                                <el-button type="warning" plain size="small"
-                                    @click="requestRefund(order.id)">再次申请退款</el-button>
                             </template>
 
                             <!-- 已支付 (且未完成/未取消) -->
                             <template
                                 v-else-if="order.paymentStatus === 'PAID' && order.status !== 'COMPLETED' && order.status !== 'CANCELLED'">
+                                <el-button type="primary" size="small">联系房东</el-button>
+                                <el-button type="info" text bg size="small"
+                                    @click="requestRefund(order.id)">申请退款</el-button>
                                 <el-button type="default" size="small"
                                     @click="viewOrderDetail(order.id)">查看详情</el-button>
-                                <el-button type="primary" plain size="small">联系房东</el-button>
-                                <el-button type="warning" plain size="small"
-                                    @click="requestRefund(order.id)">申请退款</el-button>
                             </template>
 
                             <!-- 新增：支付失败 -->
@@ -538,7 +539,7 @@ const cancelOrder = async (orderId: number) => {
         )
 
         // 显示取消中的加载状态
-        const loadingInstance = ElMessage({
+        ElMessage({
             type: 'info',
             message: '订单取消中...',
             duration: 0
@@ -613,7 +614,7 @@ const requestRefund = async (orderId: number) => {
             return
         }
 
-        const loadingInstance = ElMessage({
+        ElMessage({
             type: 'info',
             message: '正在提交退款申请...',
             duration: 0
@@ -694,8 +695,6 @@ const getStatusType = (order: OrderItem): string => {
 
     // 处理支付成功状态
     if (paymentStatus === 'PAID') {
-        // 如果后端有 CHECKED_IN 状态
-        if (status === 'COMPLETED') return 'info'; // 完成状态用 info
         // Add CHECKED_IN check if applicable
         // if (status === 'CHECKED_IN') return 'primary';
         return 'success'; // 其他 PAID 相关状态用 success
@@ -877,19 +876,15 @@ onMounted(() => {
 
 <style scoped>
 .my-orders-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 40px 20px;
-    background-color: #f9f9f9;
+    width: 100%;
 }
 
 .page-header {
-    margin-bottom: 32px;
-    text-align: center;
+    margin-bottom: 24px;
 }
 
 .page-header h1 {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 600;
     margin: 0;
     color: #333;
@@ -900,21 +895,30 @@ onMounted(() => {
 .page-header h1::after {
     content: '';
     position: absolute;
-    bottom: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 60px;
-    height: 3px;
+    bottom: -8px;
+    left: 0;
+    width: 40px;
+    height: 4px;
     background-color: #409EFF;
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 .filters-bar {
     margin-bottom: 24px;
     background-color: white;
     border-radius: 8px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
-    padding: 16px 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    border: 1px solid #ebeef5;
+    padding: 12px 20px 0 20px;
+}
+
+.filters-bar :deep(.el-tabs__header) {
+    margin-bottom: 0;
+}
+
+.filters-bar :deep(.el-tabs__nav-wrap::after) {
+    height: 1px;
+    background-color: transparent;
 }
 
 .loading-container,
@@ -930,123 +934,139 @@ onMounted(() => {
 .order-card {
     background-color: white;
     border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
     margin-bottom: 24px;
     overflow: hidden;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: none;
+    display: flex;
+    padding: 24px;
+    gap: 24px;
 }
 
 .order-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-.order-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid #f0f0f0;
-    background-color: #fafafa;
-}
-
-.order-info {
-    display: flex;
-    gap: 24px;
-}
-
-.order-number {
-    font-weight: 500;
-    color: #333;
-}
-
-.order-date {
-    color: #606266;
-}
-
-.order-status {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.order-card-content {
-    padding: 24px 20px;
-    display: flex;
-    gap: 24px;
-}
-
-.homestay-image {
-    width: 180px;
-    height: 130px;
-    border-radius: 10px;
+.order-image-col {
+    width: 200px;
+    height: 140px;
+    border-radius: 8px;
     overflow: hidden;
     flex-shrink: 0;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.homestay-image img {
+.order-image-col img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.4s ease;
 }
 
-.homestay-image:hover img {
+.order-image-col:hover img {
     transform: scale(1.05);
 }
 
-.order-details {
+.order-info-col {
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
 }
 
-.order-details h3 {
-    margin: 0 0 12px 0;
+.order-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.order-title {
+    margin: 0;
     font-size: 20px;
     font-weight: 600;
-    color: #333;
+    color: #1a1a1a;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.order-meta-info {
+    flex: 1;
 }
 
 .date-info,
-.guest-info {
-    margin: 8px 0;
-    color: #606266;
+.guest-info,
+.host-info {
+    margin: 6px 0;
+    color: #909399;
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 13px;
 }
 
-.price-container {
+.order-number-text {
     margin-top: 12px;
+    font-size: 13px;
+    color: #909399;
+}
+
+.order-number-text .divider {
+    margin: 0 8px;
+    color: #e4e7ed;
+}
+
+.order-action-col {
+    width: 200px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-left: 1px dashed #ebeef5;
+    padding-left: 24px;
+    flex-shrink: 0;
 }
 
-.price-label {
-    margin-right: 8px;
-    color: #606266;
+.price-display {
+    text-align: right;
+    margin-bottom: 16px;
 }
 
-.price-value {
-    font-size: 20px;
+.price-currency {
+    font-size: 14px;
+    color: #f56c6c;
+    font-weight: bold;
+    margin-right: 2px;
+}
+
+.price-amount {
+    font-size: 24px;
     font-weight: 700;
-    color: #ff6b6b;
+    color: #f56c6c;
 }
 
-.order-card-footer {
-    padding: 16px 20px;
-    border-top: 1px solid #f0f0f0;
+.action-buttons-vertical {
     display: flex;
-    justify-content: flex-end;
-    background-color: #fafafa;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
 }
 
-.action-buttons {
-    display: flex;
-    gap: 12px;
+.action-buttons-vertical :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
+}
+
+.order-countdown {
+    font-size: 12px;
+    color: #606266;
+    padding: 4px 8px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+    display: inline-block;
 }
 
 .pagination-container {
@@ -1104,17 +1124,19 @@ onMounted(() => {
 }
 
 .tab-badge {
-    margin-left: 8px;
+    margin-left: 6px;
 }
 
 .tab-badge :deep(.el-badge__content) {
-    background-color: #409eff;
+    background-color: #e6f1fc;
+    color: #409eff;
     border: none;
     font-size: 11px;
-    height: 16px;
-    line-height: 16px;
-    padding: 0 5px;
-    min-width: 16px;
+    font-weight: 600;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 6px;
+    border-radius: 9px;
 }
 
 .payment-reminder.warning {

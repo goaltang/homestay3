@@ -24,7 +24,9 @@ export type OrderStatus =
   | "REFUND_PENDING"
   | "REFUNDED"
   | "REFUND_FAILED"
-  | "READY_FOR_CHECKIN";
+  | "READY_FOR_CHECKIN"
+  | "DISPUTE_PENDING"
+  | "DISPUTED";
 
 // 支付状态 (新增)
 export type PaymentStatus =
