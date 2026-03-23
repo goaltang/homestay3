@@ -194,70 +194,38 @@ const handleLogin = async (event?: Event) => {
       event.stopPropagation();
     }
 
-    // 根据错误类型提供更具体的错误信息
-    try {
-      // 优先使用后端返回的具体错误信息
-      let errorMessage = "登录失败，请重试";
+    // 提取错误信息
+    let errorMessage = "登录失败，请重试";
 
-      if (error.response?.data) {
-        // 尝试从不同可能的字段获取错误信息
-        if (typeof error.response.data === "string") {
-          errorMessage = error.response.data;
-        } else if (error.response.data.message) {
-          errorMessage = error.response.data.message;
-        } else if (error.response.data.error) {
-          errorMessage = error.response.data.error;
-        } else if (error.displayMessage) {
-          errorMessage = error.displayMessage;
-        }
-      }
+    // 优先使用后端返回的 message 字段（ApiResponse 格式）
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    }
+    // 处理字符串格式的响应
+    else if (typeof error.response?.data === "string" && error.response.data) {
+      errorMessage = error.response.data;
+    }
+    // 根据 HTTP 状态码判断
+    else if (error.response?.status === 401) {
+      errorMessage = "用户名或密码错误，请重新输入";
+    } else if (error.response?.status === 404) {
+      errorMessage = "用户不存在，请检查用户名或先注册账号";
+    } else if (error.response?.status === 429) {
+      errorMessage = "登录尝试过于频繁，请稍后再试";
+    } else if (error.response?.status >= 500) {
+      errorMessage = "服务器暂时无法连接，请稍后重试";
+    } else if (error.message?.includes("Network Error")) {
+      errorMessage = "网络连接失败，请检查网络设置";
+    }
 
-      // 如果后端没有返回具体错误信息，则根据状态码判断
-      if (errorMessage === "登录失败，请重试") {
-        if (error.response?.status === 401) {
-          errorMessage = "用户名或密码错误，请重新输入";
-        } else if (error.response?.status === 404) {
-          errorMessage = "用户不存在，请检查用户名或先注册账号";
-        } else if (error.response?.status === 429) {
-          errorMessage = "登录尝试过于频繁，请稍后再试";
-        } else if (error.response?.status >= 500) {
-          errorMessage = "服务器暂时无法连接，请稍后重试";
-        } else if (error.message?.includes("Network Error")) {
-          errorMessage = "网络连接失败，请检查网络设置";
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      }
+    // 显示错误信息
+    ElMessage.error(errorMessage);
 
-      // 如果是用户不存在的错误，提供注册建议
-      if (errorMessage.includes("用户不存在") || errorMessage.includes("请检查用户名或先注册账号")) {
-        ElMessage({
-          message: errorMessage,
-          type: 'error',
-          duration: 4000,
-          showClose: true
-        });
-
-        // 延迟显示注册提示
-        setTimeout(() => {
-          ElMessage({
-            message: '还没有账号？点击下方"立即注册"创建新账号',
-            type: 'info',
-            duration: 3000,
-            showClose: true
-          });
-        }, 1000);
-      } else {
-        ElMessage.error(errorMessage);
-      }
-    } catch (messageError) {
-      console.error("显示错误消息失败:", messageError);
-      // 兜底错误处理
-      try {
-        ElMessage.error("登录失败，请重试");
-      } catch {
-        alert("登录失败，请重试");
-      }
+    // 如果是用户不存在的错误，延迟显示注册提示
+    if (errorMessage.includes("用户不存在")) {
+      setTimeout(() => {
+        ElMessage.info('还没有账号？点击下方"立即注册"创建新账号');
+      }, 1500);
     }
   } finally {
     loading.value = false;

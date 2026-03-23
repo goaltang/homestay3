@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.*;
 import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.exception.LoginException;
 import com.homestay3.homestaybackend.mapper.UserMapper;
 import com.homestay3.homestaybackend.model.VerificationStatus;
 import com.homestay3.homestaybackend.model.UserRole;
@@ -155,7 +156,7 @@ public class AuthServiceImpl implements AuthService {
         
         if (user == null && !isAdmin) {
             log.warn("用户不存在: {}", request.getUsername());
-            throw new RuntimeException("用户不存在，请检查用户名或先注册账号");
+            throw new LoginException("用户不存在，请检查用户名或先注册账号");
         }
 
         try {
@@ -171,7 +172,7 @@ public class AuthServiceImpl implements AuthService {
             if (user == null && isAdmin) {
                 log.info("管理员登录成功: {}", request.getUsername());
                 // 管理员登录的处理逻辑（如果需要的话）
-                throw new RuntimeException("请使用管理员登录接口");
+                throw new LoginException("请使用管理员登录接口");
             }
 
             log.info("用户信息: id={}, username={}, realName={}",
