@@ -19,6 +19,7 @@ import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
+import com.homestay3.homestaybackend.security.JwtTokenProvider;
 import com.homestay3.homestaybackend.service.FileService;
 import com.homestay3.homestaybackend.service.HostService;
 import jakarta.transaction.Transactional;
@@ -77,6 +78,7 @@ public class HostServiceImpl implements HostService {
     private final ReviewRepository reviewRepository;
     private final FileService fileService;
     private final ObjectMapper objectMapper;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Override
     public HostDTO getHostInfo(String username) {
@@ -468,15 +470,20 @@ public class HostServiceImpl implements HostService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> updateHostProfile(String username, Map<String, Object> profileData) {
         logger.info("更新房东个人资料: username={}, data={}", username, profileData);
-        
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
-        
-        // 确保用户是房东
-        if (!user.getRole().equals(UserRole.ROLE_HOST.name())) {
-            throw new RuntimeException("只有房东才能更新房东资料");
+
+        // 如果用户还不是房东，自动将其转换为房东（支持入驻流程）
+        if (!UserRole.ROLE_HOST.name().equals(user.getRole())) {
+            logger.info("用户还不是房东，自动转换: username={}, currentRole={}", username, user.getRole());
+            user.setRole(UserRole.ROLE_HOST.name());
+            if (user.getHostSince() == null) {
+                user.setHostSince(LocalDateTime.now());
+            }
         }
         
         // 更新用户基本信息
@@ -643,5 +650,55 @@ public class HostServiceImpl implements HostService {
         return homestays.stream()
                 .map(homestay -> new HomestayOptionDTO(homestay.getId(), homestay.getTitle()))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> becomeHost(String username) {
+        logger.info("用户申请成为房东: username={}", username);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("用户不存在: " + username));
+
+        // 如果已经是房东，直接返回成功
+        if (UserRole.ROLE_HOST.name().equals(user.getRole())) {
+            logger.info("用户已是房东: username={}", username);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "您已经是房东");
+            result.put("isAlreadyHost", true);
+            return result;
+        }
+
+        // 将用户角色从 ROLE_USER 转换为 ROLE_HOST
+        String oldRole = user.getRole();
+        user.setRole(UserRole.ROLE_HOST.name());
+
+        // 设置成为房东的时间
+        if (user.getHostSince() == null) {
+            user.setHostSince(LocalDateTime.now());
+        }
+
+        userRepository.save(user);
+
+        logger.info("用户角色转换成功: username={}, {} -> {}", username, oldRole, user.getRole());
+
+        // 生成新的JWT token，包含更新后的角色
+        String newToken = jwtTokenProvider.generateToken(
+            user.getUsername(),
+            user.getId(),
+            UserRole.ROLE_HOST.name()
+        );
+
+        logger.info("为用户 {} 生成新的JWT token", username);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("message", "已成为房东");
+        result.put("isAlreadyHost", false);
+        result.put("role", user.getRole());
+        result.put("token", newToken);
+
+        return result;
     }
 } 

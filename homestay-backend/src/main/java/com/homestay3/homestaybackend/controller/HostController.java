@@ -133,6 +133,29 @@ public class HostController {
     }
 
     /**
+     * 成为房东 - 将普通用户转换为房东角色
+     * @return 转换结果
+     */
+    @PostMapping("/register")
+    public ResponseEntity<?> becomeHost() {
+        logger.info("成为房东请求");
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("请先登录");
+            }
+
+            String username = auth.getName();
+            Map<String, Object> result = hostService.becomeHost(username);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("成为房东失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "成为房东失败: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 更新房东个人资料
      * @param profileData 个人资料数据
      * @return 更新后的个人资料

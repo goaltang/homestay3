@@ -138,7 +138,9 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
-import { updateHostProfile, getHostProfile } from '@/api/host';
+import { useAuthStore } from '@/stores/auth';
+import { updateHostProfile, getHostProfile, becomeHost } from '@/api/host';
+import { getUserInfo } from '@/api/user';
 import {
     Plus,
     HomeFilled,
@@ -150,6 +152,7 @@ import {
 
 const router = useRouter();
 const userStore = useUserStore();
+const authStore = useAuthStore();
 const activeStep = ref(0);
 
 // 表单引用
@@ -286,6 +289,36 @@ const validateAndNext = async (step: number) => {
 // 获取用户已有信息
 onMounted(async () => {
     try {
+        // 先调用 becomeHost 确保用户已成为房东
+        const becomeHostResponse = await becomeHost();
+
+        // 如果返回了新token，更新前端状态
+        if (becomeHostResponse && becomeHostResponse.data && becomeHostResponse.data.token) {
+            const newToken = becomeHostResponse.data.token;
+
+            // 刷新用户信息
+            try {
+                const userInfoResponse = await getUserInfo();
+                if (userInfoResponse && userInfoResponse.data) {
+                    const userData = userInfoResponse.data;
+                    // 更新 userStore
+                    userStore.setToken(newToken);
+                    userStore.setUser(userData.user || userData);
+
+                    // 同步更新 authStore
+                    authStore.setAuth({
+                        token: newToken,
+                        user: userData.user || userData
+                    });
+                }
+            } catch (e) {
+                console.error('刷新用户信息失败:', e);
+                // 即使刷新失败，也更新token
+                userStore.setToken(newToken);
+            }
+        }
+
+        // 然后获取房东资料
         const profileData = await getHostProfile();
         // 填充已有数据
         if (profileData) {

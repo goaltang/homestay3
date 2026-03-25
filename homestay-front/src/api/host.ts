@@ -113,11 +113,10 @@ export function updateHostInfo(data: any) {
 }
 
 // 成为房东
-export function becomeHost(data: any) {
+export function becomeHost() {
   return request({
     url: "/api/host/register",
     method: "post",
-    data,
   });
 }
 

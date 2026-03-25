@@ -286,10 +286,9 @@ public class AuthServiceImpl implements AuthService {
         log.info("获取用户信息: {}", username);
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("用户不存在"));
-        
-        AuthResponse response = new AuthResponse();
-        response.setUser(convertToDTO(user));
-        return response;
+
+        // 使用构造函数确保所有字段正确设置，包括 role
+        return new AuthResponse(user);
     }
 
     @Override

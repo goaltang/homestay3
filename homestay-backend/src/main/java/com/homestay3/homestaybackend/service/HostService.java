@@ -103,4 +103,11 @@ public interface HostService {
      * @return 上传后的文件URL
      */
     String uploadHostDocument(String username, MultipartFile file, String type) throws IOException;
+
+    /**
+     * 成为房东 - 将普通用户转换为房东角色
+     * @param username 用户名
+     * @return 转换后的用户信息
+     */
+    Map<String, Object> becomeHost(String username);
 } 
