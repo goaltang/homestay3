@@ -67,6 +67,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/payment/**").authenticated()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/api/host/register").authenticated()
+                        .requestMatchers("/api/host/profile").authenticated()
                         .requestMatchers("/api/host/**").hasAnyAuthority("ROLE_HOST", "ROLE_ADMIN")
                         .requestMatchers("/api/host/earnings/**").hasAnyAuthority("ROLE_HOST", "ROLE_ADMIN")
                         .anyRequest().authenticated())
