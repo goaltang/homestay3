@@ -1,32 +1,67 @@
 <template>
     <div class="search-suggestions">
-        <div class="suggestion-title">热门目的地</div>
-        <div class="suggestion-items">
-            <div v-for="suggestion in popularDestinations" :key="suggestion.label" class="suggestion-item"
-                @click="$emit('select', suggestion)">
-                {{ suggestion.label }}
+        <!-- 最近搜索 -->
+        <div v-if="showRecentSearches" class="suggestion-section">
+            <div class="suggestion-header">
+                <span class="suggestion-title">最近搜索</span>
+                <el-button link size="small" @click="handleClearRecent">清除</el-button>
+            </div>
+            <div class="suggestion-items">
+                <div v-for="item in recentSearches" :key="item.label + '-' + item.value.join(',')"
+                    class="suggestion-item recent-item" @click="$emit('select', item)">
+                    <el-icon class="recent-icon"><Clock /></el-icon>
+                    <span class="item-label">{{ item.label }}</span>
+                    <el-icon class="close-icon" @click.stop="handleRemoveRecent(item)"><Close /></el-icon>
+                </div>
+            </div>
+        </div>
+
+        <!-- 热门目的地 -->
+        <div v-if="hasPopularDestinations" class="suggestion-section">
+            <div class="suggestion-title">{{ showRecentSearches ? '热门目的地' : '热门目的地' }}</div>
+            <div class="suggestion-items">
+                <div v-for="suggestion in popularDestinations" :key="suggestion.label + '-' + suggestion.value.join(',')"
+                    class="suggestion-item" @click="$emit('select', suggestion)">
+                    <el-icon class="hot-icon"><Star /></el-icon>
+                    {{ suggestion.label }}
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { Clock, Star, Close } from '@element-plus/icons-vue'
+import { useSearchSuggestions } from '@/composables/useSearchSuggestions'
 
 // 定义 emits
-defineEmits<{
+const emit = defineEmits<{
     select: [suggestion: { label: string; value: string[] }]
 }>()
 
-// 热门目的地建议
-const popularDestinations = ref([
-    { label: '北京', value: ['110000', '110100'] },
-    { label: '上海', value: ['310000', '310100'] },
-    { label: '杭州', value: ['330000', '330100'] },
-    { label: '成都', value: ['510000', '510100'] },
-    { label: '西安', value: ['610000', '610100'] },
-    { label: '厦门', value: ['350000', '350200'] }
-])
+const {
+    popularDestinations,
+    recentSearches,
+    showRecentSearches,
+    hasPopularDestinations,
+    clearRecentSearches,
+    removeRecentSearch
+} = useSearchSuggestions()
+
+// 选择目的地
+const handleSelect = (suggestion: { label: string; value: string[] }) => {
+    emit('select', suggestion)
+}
+
+// 清除最近搜索
+const handleClearRecent = () => {
+    clearRecentSearches()
+}
+
+// 删除单条最近搜索
+const handleRemoveRecent = (item: { label: string; value: string[] }) => {
+    removeRecentSearch(item)
+}
 </script>
 
 <style scoped>
@@ -38,11 +73,30 @@ const popularDestinations = ref([
     box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
 }
 
+.suggestion-section {
+    margin-bottom: 16px;
+}
+
+.suggestion-section:last-child {
+    margin-bottom: 0;
+}
+
+.suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
 .suggestion-title {
     font-size: 16px;
     font-weight: 600;
     color: #222;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+}
+
+.suggestion-header .suggestion-title {
+    margin-bottom: 0;
 }
 
 .suggestion-items {
@@ -52,6 +106,9 @@ const popularDestinations = ref([
 }
 
 .suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     padding: 8px 16px;
     background: #f7f7f7;
     border-radius: 20px;
@@ -66,6 +123,44 @@ const popularDestinations = ref([
     color: white;
 }
 
+.suggestion-item .hot-icon {
+    color: #ff385c;
+}
+
+.suggestion-item:hover .hot-icon {
+    color: white;
+}
+
+.recent-item {
+    background: #f0f0f0;
+}
+
+.recent-icon {
+    color: #909399;
+    font-size: 14px;
+}
+
+.suggestion-item:hover .recent-icon {
+    color: white;
+}
+
+.item-label {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.close-icon {
+    font-size: 12px;
+    color: #c0c4cc;
+    margin-left: 4px;
+}
+
+.close-icon:hover {
+    color: #ff385c;
+}
+
 @media (max-width: 480px) {
     .suggestion-items {
         flex-direction: column;
@@ -73,6 +168,7 @@ const popularDestinations = ref([
 
     .suggestion-item {
         text-align: center;
+        justify-content: center;
     }
 }
 </style>

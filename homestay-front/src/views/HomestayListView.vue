@@ -9,7 +9,7 @@
         </div>
 
         <!-- 搜索栏 -->
-        <SearchBar @search="handleSearchBarSearch" @reset="handleSearchBarReset" :loading="loading" />
+        <SearchBar @search="handleSearchBarSearch" @reset="handleSearchBarReset" :loading="loading" :initialParams="searchParams" />
 
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-container">
@@ -113,13 +113,13 @@ const pageTitle = computed(() => {
     return '全部民宿';
 });
 
-// 搜索相关数据
+// 搜索相关数据 - 从 URL 同步
 const searchParams = ref({
-    keyword: '',
-    selectedRegion: [] as string[],
-    checkIn: null as string | null,
-    checkOut: null as string | null,
-    guestCount: 1
+    keyword: route.query.keyword as string || '',
+    selectedRegion: route.query.region ? (route.query.region as string).split(',') : [] as string[],
+    checkIn: (route.query.checkIn as string) || null,
+    checkOut: (route.query.checkOut as string) || null,
+    guestCount: route.query.guestCount ? Number(route.query.guestCount) : 1
 });
 
 // 分页相关

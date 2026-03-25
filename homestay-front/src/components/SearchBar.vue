@@ -90,19 +90,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { regionData } from 'element-china-area-data'
 import SearchSuggestions from './SearchSuggestions.vue'
+import { useSearchSuggestions } from '@/composables/useSearchSuggestions'
+
+// 搜索建议（热门目的地 + 最近搜索）
+const { addToRecentSearches } = useSearchSuggestions()
 
 // 定义 props
+interface SearchParamsProps {
+    selectedRegion?: string[]
+    keyword?: string
+    checkIn?: string | null
+    checkOut?: string | null
+    guestCount?: number
+}
+
 interface Props {
     loading?: boolean
+    initialParams?: SearchParamsProps
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    loading: false
+    loading: false,
+    initialParams: () => ({})
 })
 
 // 定义 emits
@@ -149,6 +163,31 @@ const canSearch = computed(() => {
     return searchParams.selectedRegion.length > 0
 })
 
+// 监听 initialParams 变化，同步到内部状态
+watch(
+    () => props.initialParams,
+    (newParams) => {
+        if (!newParams) return
+        if (newParams.selectedRegion !== undefined) {
+            searchParams.selectedRegion = newParams.selectedRegion
+        }
+        if (newParams.keyword !== undefined) {
+            searchParams.keyword = newParams.keyword
+        }
+        if (newParams.checkIn !== undefined) {
+            searchParams.checkIn = newParams.checkIn
+        }
+        if (newParams.checkOut !== undefined) {
+            searchParams.checkOut = newParams.checkOut
+        }
+        if (newParams.guestCount !== undefined) {
+            searchParams.guestCount = newParams.guestCount
+            guestCounts.adults = newParams.guestCount
+        }
+    },
+    { immediate: true, deep: true }
+)
+
 const disabledCheckInDate = (time: Date) => {
     return time.getTime() < Date.now() - 8.64e7 // 不能选择昨天之前的日期
 }
@@ -194,6 +233,8 @@ const adjustGuestCount = (type: 'adults' | 'children' | 'infants', delta: number
 const selectSuggestion = (suggestion: { label: string; value: string[] }) => {
     searchParams.selectedRegion = suggestion.value
     showSuggestions.value = false
+    // 添加到最近搜索
+    addToRecentSearches(suggestion)
 }
 
 const handleSearch = () => {
