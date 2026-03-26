@@ -21,10 +21,10 @@ public class JwtTokenProvider {
 
     private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 
-    @Value("${jwt.secret}")
+    @Value("${jwt.secret:q8hVpEO8CXfjJ5P6YMcVWeRfQlL1Zn4wdAFZu2xKi7gUsTrm3NbH}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration}")
+    @Value("${jwt.expiration:86400000}")
     private long jwtExpirationInMs;
 
     private Key getSigningKey() {

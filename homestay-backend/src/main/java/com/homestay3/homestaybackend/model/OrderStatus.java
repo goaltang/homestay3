@@ -36,7 +36,7 @@ public enum OrderStatus {
 
     // 拒绝状态
     REJECTED("已拒绝");
-    
+
     private final String description;
     
     OrderStatus(String description) {
