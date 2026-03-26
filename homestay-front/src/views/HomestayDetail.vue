@@ -84,6 +84,8 @@
                     :review-count="reviewsComposable.formattedReviewCount.value" :max-guests="homestay.maxGuests"
                     :homestay-id="homestay.id!" :auto-confirm="homestay.autoConfirm"
                     :dates="bookingComposable.bookingDateRange.value" :guests="bookingComposable.bookingDates.guests"
+                    :calculated-fees="bookingComposable.priceDetails.value"
+                    :is-calculating="bookingComposable.isCalculatingPrice.value"
                     @booking-confirmed="() => bookingComposable.bookHomestay()" @date-changed="handleDateRangeChange"
                     @guests-changed="(value) => bookingComposable.bookingDates.guests = value" />
             </div>

@@ -73,23 +73,28 @@
         </el-button>
 
         <div class="price-breakdown" v-if="totalNights > 0">
-            <div class="price-row">
-                <div class="price-item">¥{{ pricePerNight }} x {{ totalNights }}晚</div>
-                <div class="price-value">¥{{ basePrice }}</div>
+            <div v-if="isCalculating" class="price-loading-placeholder" style="margin: 20px 0;">
+                <el-skeleton animated :rows="3" />
             </div>
-            <div class="price-row">
-                <div class="price-item">清洁费</div>
-                <div class="price-value">¥{{ cleaningFee }}</div>
-            </div>
-            <div class="price-row">
-                <div class="price-item">服务费</div>
-                <div class="price-value">¥{{ serviceFee }}</div>
-            </div>
-            <div class="price-divider"></div>
-            <div class="price-row total">
-                <div class="price-item">总价</div>
-                <div class="price-value">¥{{ totalPrice }}</div>
-            </div>
+            <template v-else-if="calculatedFees">
+                <div class="price-row">
+                    <div class="price-item">¥{{ pricePerNight }} x {{ calculatedFees.nights }}晚</div>
+                    <div class="price-value">¥{{ calculatedFees.basePrice }}</div>
+                </div>
+                <div class="price-row" v-if="calculatedFees.cleaningFee > 0">
+                    <div class="price-item">清洁费</div>
+                    <div class="price-value">¥{{ calculatedFees.cleaningFee }}</div>
+                </div>
+                <div class="price-row" v-if="calculatedFees.serviceFee > 0">
+                    <div class="price-item">服务费</div>
+                    <div class="price-value">¥{{ calculatedFees.serviceFee }}</div>
+                </div>
+                <div class="price-divider"></div>
+                <div class="price-row total">
+                    <div class="price-item">总价</div>
+                    <div class="price-value">¥{{ calculatedFees.totalPrice }}</div>
+                </div>
+            </template>
         </div>
 
         <div class="booking-note">
@@ -117,12 +122,15 @@ interface Props {
     autoConfirm?: boolean
     dates?: [Date, Date] | null
     guests?: number
+    calculatedFees?: any
+    isCalculating?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
     autoConfirm: false,
     dates: null,
-    guests: 1
+    guests: 1,
+    isCalculating: false
 })
 
 // Emits
@@ -181,27 +189,7 @@ const maxNights = computed(() => {
     return 0
 })
 
-const basePrice = computed(() => {
-    return props.pricePerNight * totalNights.value
-})
-
-const cleaningFee = computed(() => {
-    if (totalNights.value > 0 && props.pricePerNight > 0) {
-        return Math.round(props.pricePerNight * 0.1)
-    }
-    return 0
-})
-
-const serviceFee = computed(() => {
-    if (basePrice.value > 0) {
-        return Math.round(basePrice.value * 0.05)
-    }
-    return 0
-})
-
-const totalPrice = computed(() => {
-    return basePrice.value + cleaningFee.value + serviceFee.value
-})
+// 改为由外部通过 computedFees 传入算价结果，不再进行本地本地算费以免导致各处算价不统一的业务灾难
 
 // Methods
 const fetchUnavailableDates = async () => {

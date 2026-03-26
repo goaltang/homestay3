@@ -1,3 +1,4 @@
+import { calculateOrderPrice } from "@/api/order";
 import { codeToText } from "element-china-area-data";
 import type { HomestayDetail } from "@/types/homestay";
 
@@ -95,20 +96,6 @@ export const calculateNights = (
   return 0;
 };
 
-export const calculateFees = (pricePerNight: number, nights: number) => {
-  const basePrice = pricePerNight * nights;
-  const cleaningFee =
-    nights > 0 && pricePerNight > 0 ? Math.round(pricePerNight * 0.1) : 0;
-  const serviceFee = basePrice > 0 ? Math.round(basePrice * 0.05) : 0;
-  const totalPrice = basePrice + cleaningFee + serviceFee;
-
-  return {
-    basePrice,
-    cleaningFee,
-    serviceFee,
-    totalPrice,
-  };
-};
 
 // 图片处理工具
 export const processImages = (homestay: HomestayDetail | null): string[] => {
@@ -155,4 +142,52 @@ export const formatPropertyType = (type?: string): string => {
     return typeMap[type];
   }
   return type || "特色住宿";
+};
+
+// 模拟异步的后端算价接口，代替前端硬编码计算费率
+export interface PriceCalculationResult {
+  basePrice: number;
+  cleaningFee: number;
+  serviceFee: number;
+  totalPrice: number;
+  nights: number;
+}
+
+export const fetchCalculatePrice = async (
+  homestayId: number,
+  pricePerNight: number, // 保留为了兼容签名，实际后端会读取数据库的
+  checkIn: Date,
+  checkOut: Date,
+  guests: number
+): Promise<PriceCalculationResult> => {
+  try {
+    const res = await calculateOrderPrice({
+      homestayId,
+      checkInDate: formatDateString(checkIn),
+      checkOutDate: formatDateString(checkOut),
+      guestCount: guests
+    });
+    // 假设后端返回的数据结构如：{ data: { basePrice, cleaningFee, serviceFee, totalPrice, nights } }
+    // 如果返回直接是结果对象则根据axios拦截器配置可能是 res.data 或是直接的 res
+    const result = res.data || res;
+    return {
+      basePrice: result.basePrice || 0,
+      cleaningFee: result.cleaningFee || 0,
+      serviceFee: result.serviceFee || 0,
+      totalPrice: result.totalPrice || 0,
+      nights: result.nights || calculateNights(checkIn, checkOut)
+    };
+  } catch (err) {
+    console.error("计算价格失败，降级为本地估算", err);
+    // 降级为本地计算，保证应用可用性
+    const nights = calculateNights(checkIn, checkOut);
+    const basePrice = pricePerNight * nights;
+    return {
+      nights,
+      basePrice,
+      cleaningFee: 0,
+      serviceFee: 0,
+      totalPrice: basePrice
+    };
+  }
 };

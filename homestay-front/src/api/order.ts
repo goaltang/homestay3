@@ -650,3 +650,22 @@ export function confirmArrival(orderId: number) {
     throw error;
   });
 }
+
+/**
+ * 实时计算订单价格（通过后端动态配置算费）
+ */
+export function calculateOrderPrice(data: {
+  homestayId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  guestCount: number;
+}) {
+  return request({
+    url: "/api/orders/calculate-price",
+    method: "post",
+    data,
+  }).catch((error) => {
+    handleApiError(error, "获取实时价格失败");
+    throw error;
+  });
+}

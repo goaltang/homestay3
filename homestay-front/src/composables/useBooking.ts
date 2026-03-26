@@ -1,12 +1,12 @@
-import { ref, reactive, computed, type Ref } from "vue";
+import { ref, reactive, computed, type Ref, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useAuthStore } from "@/stores/auth";
-import { useUserStore } from "@/stores/user";
 import {
   formatDateString,
   calculateNights,
-  calculateFees,
+  fetchCalculatePrice,
+  type PriceCalculationResult
 } from "@/utils/homestayUtils";
 import type { BookingDates, HomestayDetail } from "@/types/homestay";
 
@@ -29,9 +29,35 @@ export function useBooking(
     return calculateNights(bookingDates.checkIn, bookingDates.checkOut);
   });
 
-  const fees = computed(() => {
-    return calculateFees(pricePerNight.value, totalNights.value);
-  });
+  const isCalculatingPrice = ref(false);
+  const priceDetails = ref<PriceCalculationResult | null>(null);
+  let calcTimer: number | null = null;
+
+  watch([() => bookingDates.checkIn, () => bookingDates.checkOut, () => bookingDates.guests], () => {
+    if (bookingDates.checkIn && bookingDates.checkOut && homestay.value?.id) {
+       if (calcTimer) clearTimeout(calcTimer);
+       isCalculatingPrice.value = true;
+       // 这里如果日期无效，直接返回
+       if (bookingDates.checkOut.getTime() <= bookingDates.checkIn.getTime()) {
+          isCalculatingPrice.value = false;
+          priceDetails.value = null;
+          return;
+       }
+       calcTimer = window.setTimeout(async () => {
+          try {
+             const result = await fetchCalculatePrice(homestay.value!.id!, pricePerNight.value, bookingDates.checkIn!, bookingDates.checkOut!, bookingDates.guests);
+             priceDetails.value = result;
+          } catch(e) {
+             console.error("算价失败", e);
+             priceDetails.value = null;
+          } finally {
+             isCalculatingPrice.value = false;
+          }
+       }, 500);
+    } else {
+       priceDetails.value = null;
+    }
+  }, { immediate: true });
 
   const disablePastDates = (date: Date) => {
     const today = new Date();
@@ -90,7 +116,7 @@ export function useBooking(
       checkInDate: formatDateString(bookingDates.checkIn),
       checkOutDate: formatDateString(bookingDates.checkOut),
       guestCount: bookingDates.guests,
-      totalPrice: fees.value.totalPrice,
+      totalPrice: priceDetails.value?.totalPrice || 0,
       // 完整的订单数据
       homestayData: {
         id: homestay.value.id!,
@@ -102,9 +128,9 @@ export function useBooking(
         autoConfirm: homestay.value.autoConfirm || false,
         price: pricePerNight.value,
       },
-      nights: totalNights.value,
-      cleaningFee: fees.value.cleaningFee,
-      serviceFee: fees.value.serviceFee,
+      nights: priceDetails.value?.nights || totalNights.value,
+      cleaningFee: priceDetails.value?.cleaningFee || 0,
+      serviceFee: priceDetails.value?.serviceFee || 0,
     };
 
     console.log("准备跳转到订单确认页，传递数据:", bookingDetails);
@@ -146,7 +172,8 @@ export function useBooking(
     bookingDates,
     bookingDateRange,
     totalNights,
-    fees,
+    priceDetails,
+    isCalculatingPrice,
     disablePastDates,
     handleDateRangeChange,
     bookHomestay,
