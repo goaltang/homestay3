@@ -28,6 +28,10 @@ export enum OrderStatus {
 
   // 入住相关状态
   READY_FOR_CHECKIN = "READY_FOR_CHECKIN", // 待入住
+  CHECKED_OUT = "CHECKED_OUT", // 已退房
+
+  // 争议状态
+  DISPUTE_PENDING = "DISPUTE_PENDING", // 争议待处理
 }
 
 /**
@@ -67,7 +71,8 @@ export const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
     OrderStatus.CHECKED_IN,
     OrderStatus.REFUND_PENDING,
   ],
-  [OrderStatus.CHECKED_IN]: [OrderStatus.COMPLETED],
+  [OrderStatus.CHECKED_IN]: [OrderStatus.COMPLETED, OrderStatus.CHECKED_OUT],
+  [OrderStatus.CHECKED_OUT]: [OrderStatus.COMPLETED],
   [OrderStatus.COMPLETED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.CANCELLED_BY_USER]: [],
@@ -76,6 +81,11 @@ export const statusTransitions: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.REFUND_PENDING]: [
     OrderStatus.REFUNDED,
     OrderStatus.REFUND_FAILED,
+    OrderStatus.DISPUTE_PENDING,
+  ],
+  [OrderStatus.DISPUTE_PENDING]: [
+    OrderStatus.REFUNDED,
+    OrderStatus.PAID,
   ],
   [OrderStatus.REFUNDED]: [],
   [OrderStatus.REFUND_FAILED]: [OrderStatus.REFUND_PENDING],
@@ -127,6 +137,8 @@ export const orderStatusText: Record<string, string> = {
   [OrderStatus.REFUND_PENDING]: "退款中",
   [OrderStatus.REFUNDED]: "已退款",
   [OrderStatus.REFUND_FAILED]: "退款失败",
+  [OrderStatus.CHECKED_OUT]: "已退房",
+  [OrderStatus.DISPUTE_PENDING]: "争议待处理",
 };
 
 /**
@@ -149,6 +161,8 @@ export const orderStatusType: Record<string, string> = {
   [OrderStatus.REFUND_PENDING]: "warning",
   [OrderStatus.REFUNDED]: "info",
   [OrderStatus.REFUND_FAILED]: "danger",
+  [OrderStatus.CHECKED_OUT]: "info",
+  [OrderStatus.DISPUTE_PENDING]: "warning",
 };
 
 // --- 新增：用于状态显示的订单接口定义 ---
@@ -174,6 +188,8 @@ export function getDisplayOrderStatusText(order: DisplayOrder): string {
     return orderStatusText[OrderStatus.COMPLETED];
   if (status === OrderStatus.PAYMENT_FAILED)
     return orderStatusText[OrderStatus.PAYMENT_FAILED];
+  if (status === OrderStatus.DISPUTE_PENDING)
+    return orderStatusText[OrderStatus.DISPUTE_PENDING];
 
   // 处理支付成功相关状态
   if (paymentStatus === "PAID") {
@@ -215,6 +231,8 @@ export function getDisplayOrderStatusType(order: DisplayOrder): string {
     return orderStatusType[OrderStatus.COMPLETED];
   if (status === OrderStatus.PAYMENT_FAILED)
     return orderStatusType[OrderStatus.PAYMENT_FAILED];
+  if (status === OrderStatus.DISPUTE_PENDING)
+    return orderStatusType[OrderStatus.DISPUTE_PENDING];
 
   // 处理支付成功相关状态
   if (paymentStatus === "PAID") {

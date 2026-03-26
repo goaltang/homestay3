@@ -23,6 +23,8 @@ export enum OrderAction {
   CHECK_OUT = "checkOut", // 办理退房
   REVIEW = "review", // 评价订单
   EDIT = "edit", // 编辑订单
+  DISPUTE = "dispute", // 发起争议
+  RETRY_REFUND = "retryRefund", // 重试退款
 }
 
 // 用户身份类型
@@ -155,6 +157,20 @@ export function canPerformActionOnStatus(
     case OrderAction.EDIT:
       // 订单一旦创建就不能编辑
       return false;
+
+    case OrderAction.DISPUTE:
+      // 用户可以对退款中的订单发起争议
+      return (
+        userRole === UserRole.USER &&
+        orderStatus === OrderStatus.REFUND_PENDING
+      );
+
+    case OrderAction.RETRY_REFUND:
+      // 用户可以对退款失败的订单重试退款
+      return (
+        userRole === UserRole.USER &&
+        orderStatus === OrderStatus.REFUND_FAILED
+      );
 
     case OrderAction.VIEW:
       // 所有人都可以查看订单

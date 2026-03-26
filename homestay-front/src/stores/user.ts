@@ -105,17 +105,21 @@ export const useUserStore = defineStore("user", () => {
         // 设置token
         setToken(response.data.token);
 
-        // 直接从响应中提取角色信息
-        let role = response.data.role;
-        console.log("从响应中直接获取的角色:", role);
-
-        // 如果响应中有user对象并包含角色
+        // 角色提取优先级：嵌套user对象 > 顶层role > authorities > 默认ROLE_USER
+        let role = "";
+        
+        // 优先从嵌套的user对象获取角色（后端login接口主要设置此字段）
         if (response.data.user && response.data.user.role) {
           role = response.data.user.role;
           console.log("从user对象获取的角色:", role);
         }
+        // 其次从顶层role获取
+        else if (response.data.role) {
+          role = response.data.role;
+          console.log("从响应顶层获取的角色:", role);
+        }
 
-        // 如果role为空但authorities存在，从authorities中提取角色
+        // 如果role仍然为空，从authorities中提取角色
         if (
           (!role || role === "") &&
           response.data.authorities &&
@@ -134,34 +138,22 @@ export const useUserStore = defineStore("user", () => {
           }
         }
 
-        // 确保userData的role字段有值
+        // 优先使用嵌套user对象中的字段
+        const userObj = response.data.user;
         const userData = {
-          id:
-            response.data.id ||
-            (response.data.user ? response.data.user.id : 0),
-          username:
-            response.data.username ||
-            (response.data.user ? response.data.user.username : username),
-          email:
-            response.data.email ||
-            (response.data.user ? response.data.user.email : ""),
-          phone:
-            response.data.phone ||
-            (response.data.user ? response.data.user.phone : ""),
-          realName:
-            response.data.realName ||
-            (response.data.user ? response.data.user.realName : ""),
-          idCard:
-            response.data.idCard ||
-            (response.data.user ? response.data.user.idCard : ""),
+          id: userObj?.id || response.data.id || 0,
+          username: userObj?.username || response.data.username || username,
+          email: userObj?.email || response.data.email || "",
+          phone: userObj?.phone || response.data.phone || "",
+          realName: userObj?.realName || response.data.realName || "",
+          idCard: userObj?.idCard || response.data.idCard || "",
           role: role || "ROLE_USER", // 确保始终有角色
-          avatar:
-            response.data.avatar ||
-            (response.data.user ? response.data.user.avatar : ""),
+          avatar: userObj?.avatar || response.data.avatar || "",
           verificationStatus:
-            response.data.verificationStatus ||
-            (response.data.user ? response.data.user.verificationStatus : ""),
+            userObj?.verificationStatus || response.data.verificationStatus || "",
         };
+
+        console.log("最终确定的用户角色:", userData.role);
 
         // 处理头像URL，确保如果是完整URL带域名的，转换为相对路径
         if (
@@ -437,7 +429,9 @@ export const useUserStore = defineStore("user", () => {
             role:
               response.data.role ||
               (response.data.authorities && response.data.authorities.length > 0
-                ? response.data.authorities[0].authority
+                ? (typeof response.data.authorities[0] === "string"
+                    ? response.data.authorities[0]
+                    : response.data.authorities[0].authority)
                 : "ROLE_USER"),
             avatar: response.data.avatar || "",
             verificationStatus: response.data.verificationStatus || "",
@@ -459,7 +453,9 @@ export const useUserStore = defineStore("user", () => {
               role:
                 userDataObj.role ||
                 (userDataObj.authorities && userDataObj.authorities.length > 0
-                  ? userDataObj.authorities[0].authority
+                  ? (typeof userDataObj.authorities[0] === "string"
+                      ? userDataObj.authorities[0]
+                      : userDataObj.authorities[0].authority)
                   : "ROLE_USER"),
               avatar: userDataObj.avatar || "",
               verificationStatus: userDataObj.verificationStatus || "",

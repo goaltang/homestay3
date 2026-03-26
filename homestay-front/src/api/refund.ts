@@ -54,3 +54,12 @@ export const getRefundPreview = (orderId: number) => {
     method: "get",
   });
 };
+
+// 用户发起争议
+export const raiseDispute = (orderId: number, reason: string) => {
+  return request({
+    url: `/api/orders/${orderId}/dispute`,
+    method: "post",
+    data: { reason },
+  });
+};

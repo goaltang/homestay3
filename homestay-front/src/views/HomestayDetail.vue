@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Star, StarFilled, Location, Share } from '@element-plus/icons-vue'
@@ -148,13 +148,15 @@ import type { HostDTO } from '@/types/host'
 // 组件导入
 import ImageGallery from '@/components/homestay/ImageGallery.vue'
 import BookingCard from '@/components/homestay/BookingCard.vue'
-import ReviewsSection from '@/components/homestay/ReviewsSection.vue'
-import LocationInfo from '@/components/homestay/LocationInfo.vue'
 import FeaturesList from '@/components/homestay/FeaturesList.vue'
 import AmenitiesList from '@/components/homestay/AmenitiesList.vue'
 import HostInfo from '@/components/homestay/HostInfo.vue'
-import PoliciesAndRules from '@/components/homestay/PoliciesAndRules.vue'
-import ChatDialog from '@/components/chat/ChatDialog.vue'
+
+// 使用异步按需加载，提升首屏体积和性能
+const ReviewsSection = defineAsyncComponent(() => import('@/components/homestay/ReviewsSection.vue'))
+const LocationInfo = defineAsyncComponent(() => import('@/components/homestay/LocationInfo.vue'))
+const PoliciesAndRules = defineAsyncComponent(() => import('@/components/homestay/PoliciesAndRules.vue'))
+const ChatDialog = defineAsyncComponent(() => import('@/components/chat/ChatDialog.vue'))
 
 // 基础状态
 const route = useRoute()
@@ -180,36 +182,42 @@ const isFavorite = computed(() => homestay.value ? favoritesStore.isFavorite(hom
 // 预订相关
 const bookingComposable = useBooking(homestay, pricePerNight)
 
-// 修复预订组件的日期处理
+// 修复预订组件的日期处理，使用封闭的状态修改方法
 const handleDateRangeChange = (checkIn: Date | null, checkOut: Date | null) => {
     console.log('handleDateRangeChange called:', { checkIn, checkOut })
     if (checkIn && checkOut) {
-        bookingComposable.bookingDateRange.value = [checkIn, checkOut]
-        bookingComposable.bookingDates.checkIn = checkIn
-        bookingComposable.bookingDates.checkOut = checkOut
+        bookingComposable.updateBookingDates([checkIn, checkOut])
         console.log('Updated booking dates:', bookingComposable.bookingDates)
     } else {
-        bookingComposable.bookingDateRange.value = null
-        bookingComposable.bookingDates.checkIn = null
-        bookingComposable.bookingDates.checkOut = null
+        bookingComposable.updateBookingDates(null)
         console.log('Cleared booking dates')
     }
 }
 
 // 关键特色
 const keyFeatures = computed(() => {
-    if (!homestay.value?.amenities) return []
+    if (!homestay.value?.amenities || !Array.isArray(homestay.value.amenities)) return []
     const features: string[] = []
     const amenityList = homestay.value.amenities
 
-    // 提取特色服务
-    const specialServices = amenityList.filter((a: any) => a.categoryName === '特色服务').slice(0, 2).map((a: any) => a.label)
-    features.push(...specialServices)
+    try {
+        // 提取特色服务 (加强防御性)
+        const specialServices = amenityList
+            .filter((a: any) => a && a.categoryName === '特色服务' && a.label)
+            .slice(0, 2)
+            .map((a: any) => a.label)
+        features.push(...specialServices)
 
-    // 补充便利设施
-    if (features.length < 2) {
-        const convenience = amenityList.filter((a: any) => a.categoryName === '便利设施').slice(0, 2 - features.length).map((a: any) => a.label)
-        features.push(...convenience)
+        // 补充便利设施
+        if (features.length < 2) {
+            const convenience = amenityList
+                .filter((a: any) => a && a.categoryName === '便利设施' && a.label)
+                .slice(0, 2 - features.length)
+                .map((a: any) => a.label)
+            features.push(...convenience)
+        }
+    } catch (e) {
+        console.warn('提取特色设施时出错:', e)
     }
 
     return features.slice(0, 3)
@@ -279,6 +287,12 @@ const fetchData = async () => {
         }
         homestay.value = homestayResponse.data as HomestayDetail
 
+        // 立刻提前结束全局骨架屏，加速首屏基础信息（标题、大图、价格等）的渲染
+        loading.value = false
+
+        // 动态修改浏览器标题，有利于 SEO
+        document.title = `${homestay.value.title || '房源详情'} - 民宿预订`
+
         console.log("民宿基础信息已获取:", {
             id: homestay.value.id,
             title: homestay.value.title,
@@ -287,10 +301,14 @@ const fetchData = async () => {
             images: homestay.value.images?.length || 0
         })
 
-        // 并行获取其他数据
+        // 并行获取其他数据，添加 catch 避免内部异常阻断整个页面的渲染
         const promises = [
-            reviewsComposable.fetchReviewsAndStats(homestayId),
-            mapComposable.initializeMap(homestay.value)
+            reviewsComposable.fetchReviewsAndStats(homestayId).catch((err: any) => {
+                console.warn("获取评价信息失败，已降级忽略:", err)
+            }),
+            mapComposable.initializeMap(homestay.value).catch((err: any) => {
+                console.warn("初始化地图图源失败，已降级忽略:", err)
+            })
         ]
 
         // 获取房东信息

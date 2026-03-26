@@ -238,20 +238,34 @@ const handleLogin = async (event?: Event) => {
 const handleLoginSuccess = async () => {
   await nextTick(); // 确保 DOM 更新完成
 
-  const role = userStore.userInfo?.role || '';
-  const isLandlord = ['ROLE_LANDLORD', 'ROLE_HOST', 'LANDLORD', 'HOST'].includes(role.toUpperCase());
+  // 从最新的 userInfo 中获取角色，确保使用 fetchUserInfo 后的最新数据
+  const role = userStore.userInfo?.role?.toUpperCase() || '';
 
-  console.log("导航决策:", { role, isLandlord });
+  console.log("导航决策:", {
+    role: userStore.userInfo?.role,
+    normalizedRole: role,
+    isAdmin: userStore.isAdmin,
+    isLandlord: userStore.isLandlord
+  });
 
-  if (isLandlord) {
+  // 管理员 → 管理后台
+  if (userStore.isAdmin) {
+    await router.push('/admin');
+    return;
+  }
+
+  // 房东 → 房东管理页
+  if (userStore.isLandlord) {
     await router.push('/host');
+    return;
+  }
+
+  // 普通用户 → 检查 redirect 参数，否则去首页
+  const redirectPath = route.query.redirect as string;
+  if (redirectPath && !redirectPath.includes('login') && !redirectPath.includes('register')) {
+    await router.push(redirectPath);
   } else {
-    const redirectPath = route.query.redirect as string;
-    if (redirectPath && !redirectPath.includes('login') && !redirectPath.includes('register')) {
-      await router.push(redirectPath);
-    } else {
-      await router.push('/');
-    }
+    await router.push('/');
   }
 };
 

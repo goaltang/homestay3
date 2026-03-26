@@ -17,7 +17,6 @@ export function useBooking(
   const router = useRouter();
   const route = useRoute();
   const authStore = useAuthStore();
-  const userStore = useUserStore();
 
   const bookingDates = reactive<BookingDates>({
     checkIn: null,
@@ -132,6 +131,17 @@ export function useBooking(
     bookingDateRange.value = null;
   };
 
+  const updateBookingDates = (dates: [Date, Date] | null) => {
+    bookingDateRange.value = dates;
+    if (dates && dates.length === 2 && dates[0] && dates[1]) {
+      bookingDates.checkIn = dates[0];
+      bookingDates.checkOut = dates[1];
+    } else {
+      bookingDates.checkIn = null;
+      bookingDates.checkOut = null;
+    }
+  };
+
   return {
     bookingDates,
     bookingDateRange,
@@ -141,5 +151,6 @@ export function useBooking(
     handleDateRangeChange,
     bookHomestay,
     resetBooking,
+    updateBookingDates,
   };
 }

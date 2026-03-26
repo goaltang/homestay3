@@ -313,6 +313,14 @@
 
                 <!-- 退款状态下的简化操作 -->
                 <template v-else>
+                    <el-button type="warning" @click="confirmRaiseDispute"
+                        v-if="orderData.paymentStatus === 'REFUND_PENDING'">
+                        申请争议
+                    </el-button>
+                    <el-button type="warning" @click="confirmRequestRefund"
+                        v-if="orderData.paymentStatus === 'REFUND_FAILED'">
+                        重试退款
+                    </el-button>
                     <el-button type="info" plain @click="contactCustomerService"
                         v-if="orderData.paymentStatus === 'REFUND_FAILED'">
                         联系客服
@@ -448,7 +456,7 @@ import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
 import { deleteReview } from '@/api/review'
-import { requestRefund, getRefundPreview } from '@/api/refund'
+import { requestRefund, getRefundPreview, raiseDispute } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
 import ReviewEditModal from '@/components/ReviewEditModal.vue'
 import ReviewForm from '@/components/ReviewForm.vue'
@@ -1236,6 +1244,60 @@ const confirmRequestRefund = async () => {
         // 用户取消了对话框
         if (error !== 'cancel') {
             console.error('退款申请确认框错误:', error)
+        }
+    }
+}
+
+// 确认发起争议
+const confirmRaiseDispute = async () => {
+    if (!orderData.value) return
+
+    try {
+        const result = await ElMessageBox.prompt(
+            '请说明发起争议的原因（必填），平台将在1-3个工作日内处理。\n\n注意：发起争议后，退款处理将暂停，等待仲裁结果。',
+            '申请争议',
+            {
+                confirmButtonText: '确认提交',
+                cancelButtonText: '取消',
+                inputPattern: /\S/,
+                inputErrorMessage: '争议原因不能为空',
+                inputPlaceholder: '请输入发起争议的原因...',
+                type: 'warning',
+            }
+        )
+
+        if (!result.value || !orderData.value) {
+            ElMessage.warning('争议原因不能为空')
+            return
+        }
+
+        const loadingInstance = ElMessage({
+            type: 'info',
+            message: '正在提交争议申请...',
+            duration: 0
+        })
+
+        try {
+            await raiseDispute(orderData.value.id, result.value.trim())
+            ElMessage.closeAll()
+            ElMessage.success('争议申请已提交，平台将在1-3个工作日内处理')
+
+            // 刷新订单详情
+            fetchOrderDetail()
+        } catch (error: any) {
+            ElMessage.closeAll()
+            console.error('发起争议失败:', error)
+
+            let errorMessage = '发起争议失败，请稍后重试'
+            if (error.response && error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message
+            }
+            ElMessage.error(errorMessage)
+        }
+    } catch (error) {
+        // 用户取消了对话框
+        if (error !== 'cancel') {
+            console.error('争议申请确认框错误:', error)
         }
     }
 }

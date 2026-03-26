@@ -141,9 +141,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
-import { useAuthStore } from '@/stores/auth';
 import { updateHostProfile, getHostProfile, becomeHost } from '@/api/host';
-import { getUserInfo } from '@/api/user';
 import {
     Plus,
     HomeFilled,
@@ -155,7 +153,7 @@ import {
 
 const router = useRouter();
 const userStore = useUserStore();
-const authStore = useAuthStore();
+
 const activeStep = ref(0);
 
 // 表单引用
@@ -250,8 +248,20 @@ const validateAndNext = async (step: number) => {
         if (!introFormRef.value) return;
         await introFormRef.value.validate(async (valid) => {
             if (valid) {
-                // 保存介绍信息
                 try {
+                    // 先调用 becomeHost 将用户角色转换为房东（此时用户已填写完个人介绍）
+                    const becomeHostResponse = await becomeHost();
+                    
+                    // 如果返回了新 token，更新前端状态
+                    if (becomeHostResponse && becomeHostResponse.data && becomeHostResponse.data.token) {
+                        // 更新 localStorage 中的 token
+                        localStorage.setItem('token', becomeHostResponse.data.token);
+                    }
+
+                    // 刷新用户信息以同步角色变更
+                    await userStore.fetchUserInfo();
+
+                    // 然后保存介绍信息
                     await updateHostProfile({
                         gender: introForm.gender,
                         occupation: introForm.occupation,
@@ -289,39 +299,10 @@ const validateAndNext = async (step: number) => {
     }
 };
 
-// 获取用户已有信息
+// 获取用户已有信息（不再自动调用 becomeHost）
 onMounted(async () => {
     try {
-        // 先调用 becomeHost 确保用户已成为房东
-        const becomeHostResponse = await becomeHost();
-
-        // 如果返回了新token，更新前端状态
-        if (becomeHostResponse && becomeHostResponse.data && becomeHostResponse.data.token) {
-            const newToken = becomeHostResponse.data.token;
-
-            // 刷新用户信息
-            try {
-                const userInfoResponse = await getUserInfo();
-                if (userInfoResponse && userInfoResponse.data) {
-                    const userData = userInfoResponse.data;
-                    // 更新 userStore
-                    userStore.setToken(newToken);
-                    userStore.setUser(userData.user || userData);
-
-                    // 同步更新 authStore
-                    authStore.setAuth({
-                        token: newToken,
-                        user: userData.user || userData
-                    });
-                }
-            } catch (e) {
-                console.error('刷新用户信息失败:', e);
-                // 即使刷新失败，也更新token
-                userStore.setToken(newToken);
-            }
-        }
-
-        // 然后获取房东资料
+        // 仅获取已有资料用于预填表单（非房东用户会报错，正常忽略）
         const profileData = await getHostProfile();
         // 填充已有数据
         if (profileData) {
@@ -345,7 +326,8 @@ onMounted(async () => {
             }
         }
     } catch (error) {
-        console.error('获取用户信息失败:', error);
+        // 非房东用户获取资料会失败，这是正常的，忽略错误
+        console.log('获取房东资料失败（可能是新用户首次入驻），将使用空表单');
     }
 });
 
