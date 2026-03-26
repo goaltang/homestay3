@@ -477,13 +477,9 @@ public class HostServiceImpl implements HostService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
 
-        // 如果用户还不是房东，自动将其转换为房东（支持入驻流程）
+        // 角色转换应通过 becomeHost() 方法完成，此处不再自动转换
         if (!UserRole.ROLE_HOST.name().equals(user.getRole())) {
-            logger.info("用户还不是房东，自动转换: username={}, currentRole={}", username, user.getRole());
-            user.setRole(UserRole.ROLE_HOST.name());
-            if (user.getHostSince() == null) {
-                user.setHostSince(LocalDateTime.now());
-            }
+            throw new RuntimeException("请先完成房东入驻流程");
         }
         
         // 更新用户基本信息
@@ -559,10 +555,8 @@ public class HostServiceImpl implements HostService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("用户不存在"));
         
-        // 确保用户是房东
-        if (!user.getRole().equals(UserRole.ROLE_HOST.name())) {
-            throw new RuntimeException("只有房东才能查看房东资料");
-        }
+        // 允许非房东用户也能调用此接口（入驻流程需要预填已有信息）
+        // 非房东用户会返回基本资料
         
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());
