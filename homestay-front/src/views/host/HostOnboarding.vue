@@ -1,6 +1,9 @@
 <template>
     <div class="host-onboarding">
         <div class="onboarding-header">
+            <div class="header-top">
+                <el-button :icon="ArrowLeft" @click="handleBack" class="back-btn">返回</el-button>
+            </div>
             <h1>欢迎成为房东</h1>
             <p>完善以下信息，开始您的房东之旅</p>
         </div>
@@ -396,6 +399,10 @@ const goToCreateHomestay = () => {
 const goToDashboard = () => {
     router.push('/host');
 };
+
+const handleBack = () => {
+    router.back();
+};
 </script>
 
 <style scoped>
@@ -408,6 +415,16 @@ const goToDashboard = () => {
 .onboarding-header {
     text-align: center;
     margin-bottom: 30px;
+}
+
+.header-top {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+}
+
+.back-btn {
+    margin-bottom: 10px;
 }
 
 .onboarding-header h1 {
