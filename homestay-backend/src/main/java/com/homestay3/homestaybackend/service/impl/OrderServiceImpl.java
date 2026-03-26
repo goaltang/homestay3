@@ -1,6 +1,8 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.dto.PriceCalculationRequest;
+import com.homestay3.homestaybackend.dto.PriceCalculationResponse;
 import com.homestay3.homestaybackend.dto.ReviewDTO;
 import com.homestay3.homestaybackend.dto.EarningDTO;
 import com.homestay3.homestaybackend.dto.refund.RefundRequest;
@@ -21,6 +23,7 @@ import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
+import com.homestay3.homestaybackend.service.SystemConfigService;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.service.OrderService;
@@ -35,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -45,6 +49,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -64,6 +70,7 @@ public class OrderServiceImpl implements OrderService {
     private final BookingConflictService bookingConflictService;
     private final PaymentProcessingService paymentProcessingService;
     private final OrderLifecycleService orderLifecycleService;
+    private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     public OrderServiceImpl(OrderRepository orderRepository,
                             UserRepository userRepository,
@@ -74,7 +81,8 @@ public class OrderServiceImpl implements OrderService {
                             ReviewRepository reviewRepository,
                             BookingConflictService bookingConflictService,
                             PaymentProcessingService paymentProcessingService,
-                            OrderLifecycleService orderLifecycleService) {
+                            OrderLifecycleService orderLifecycleService,
+                            ObjectProvider<SystemConfigService> systemConfigServiceProvider) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.homestayRepository = homestayRepository;
@@ -85,6 +93,7 @@ public class OrderServiceImpl implements OrderService {
         this.bookingConflictService = bookingConflictService;
         this.paymentProcessingService = paymentProcessingService;
         this.orderLifecycleService = orderLifecycleService;
+        this.systemConfigServiceProvider = systemConfigServiceProvider;
     }
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
@@ -475,11 +484,11 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal pricePerNight = homestay.getPrice();
         BigDecimal baseAmount = pricePerNight.multiply(BigDecimal.valueOf(nights));
 
-        // 假设清洁费为每晚价格的10%
-        BigDecimal cleaningFee = pricePerNight.multiply(BigDecimal.valueOf(0.1));
-
-        // 假设服务费为总价的15%
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        // 从系统配置动态读取费用配置
+        // 清洁费：固定金额 = 单晚价格 × 配置比例（一次性，不论住多少晚）
+        BigDecimal cleaningFee = pricePerNight.multiply(getPricingConfig("pricing.cleaning_fee", "0.1"));
+        // 服务费：按订单总价的百分比收取
+        BigDecimal serviceFee = baseAmount.multiply(getPricingConfig("pricing.service_fee", "0.15"));
 
         // 计算总价
         BigDecimal totalAmount = baseAmount.add(cleaningFee).add(serviceFee);
@@ -924,10 +933,13 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 计算明细费用
+        // 从系统配置动态读取费用配置
         BigDecimal baseAmount = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(order.getNights())) : BigDecimal.ZERO;
-        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(0.1)) : BigDecimal.ZERO;
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        // 清洁费：固定金额 = 单晚价格 × 配置比例
+        BigDecimal cleaningFeeAmount = getPricingConfig("pricing.cleaning_fee", "0.1");
+        BigDecimal serviceFeeRate = getPricingConfig("pricing.service_fee", "0.15");
+        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(cleaningFeeAmount) : BigDecimal.ZERO;
+        BigDecimal serviceFee = baseAmount.multiply(serviceFeeRate);
 
         // 获取homestay信息（处理homestay已被删除的边缘情况）
         Long homestayId = null;
@@ -1039,5 +1051,206 @@ public class OrderServiceImpl implements OrderService {
                 .isPublic(review.getIsPublic())
                 // isOwnerResponse 在 OrderServiceImpl 中难以判断，可留空或移除
                 .build();
+    }
+
+    // ========== 价格计算 ==========
+
+    @Override
+    public PriceCalculationResponse calculatePrice(PriceCalculationRequest request) {
+        // 1. 参数验证
+        if (request.getHomestayId() == null) {
+            throw new IllegalArgumentException("房源ID不能为空");
+        }
+        if (request.getCheckInDate() == null || request.getCheckOutDate() == null) {
+            throw new IllegalArgumentException("入住日期和退房日期不能为空");
+        }
+        if (request.getCheckInDate().isAfter(request.getCheckOutDate()) ||
+            request.getCheckInDate().isEqual(request.getCheckOutDate())) {
+            throw new IllegalArgumentException("退房日期必须晚于入住日期");
+        }
+
+        // 2. 获取房源信息
+        Homestay homestay = homestayRepository.findById(request.getHomestayId())
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在"));
+
+        // 3. 验证人数
+        if (request.getGuestCount() != null && request.getGuestCount() > homestay.getMaxGuests()) {
+            throw new IllegalArgumentException("入住人数不能超过房源最大容纳人数：" + homestay.getMaxGuests());
+        }
+
+        // 4. 计算住宿晚数
+        long nights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
+        if (nights < homestay.getMinNights()) {
+            throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
+        }
+
+        // 5. 获取系统配置的费用配置
+        // 清洁费：固定金额 = 单晚价格 × 配置比例（一次性，不论住多少晚）
+        BigDecimal cleaningFeeAmount = getPricingConfig("pricing.cleaning_fee", "0.1");
+        // 服务费：按订单总价的百分比收取
+        BigDecimal serviceFeeRate = getPricingConfig("pricing.service_fee", "0.15");
+        BigDecimal weekendRate = getPricingConfig("pricing.weekend_rate", "1.2");
+        BigDecimal holidayRate = getPricingConfig("pricing.holiday_rate", "1.5");
+
+        // 6. 获取房源折扣
+        BigDecimal discountRate = getHomestayDiscount(request.getHomestayId());
+
+        // 7. 计算每日价格
+        BigDecimal basePricePerNight = homestay.getPrice();
+        List<PriceCalculationResponse.DailyPrice> dailyPrices = new ArrayList<>();
+        BigDecimal totalBasePrice = BigDecimal.ZERO;
+
+        LocalDate currentDate = request.getCheckInDate();
+        for (int i = 0; i < nights; i++) {
+            LocalDate date = currentDate.plusDays(i);
+            BigDecimal dailyPrice = calculateDailyPrice(date, basePricePerNight, weekendRate, holidayRate);
+
+            String holidayName = getHolidayName(date);
+
+            dailyPrices.add(PriceCalculationResponse.DailyPrice.builder()
+                    .date(date)
+                    .price(dailyPrice)
+                    .isWeekend(date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY)
+                    .isHoliday(holidayName != null)
+                    .holidayName(holidayName)
+                    .build());
+
+            totalBasePrice = totalBasePrice.add(dailyPrice);
+        }
+
+        // 8. 计算折扣
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        BigDecimal finalBasePrice = totalBasePrice;
+        if (discountRate != null && discountRate.compareTo(BigDecimal.ONE) < 0) {
+            discountAmount = totalBasePrice.multiply(BigDecimal.ONE.subtract(discountRate));
+            finalBasePrice = totalBasePrice.subtract(discountAmount);
+        }
+
+        // 9. 计算清洁费和服务费
+        // 清洁费：固定金额 = 单晚价格 × 配置比例（不论住多少晚都一样）
+        BigDecimal cleaningFee = homestay.getPrice().multiply(cleaningFeeAmount).setScale(2, RoundingMode.HALF_UP);
+        // 服务费：按折后订单总价的百分比收取
+        BigDecimal serviceFee = finalBasePrice.multiply(serviceFeeRate).setScale(2, RoundingMode.HALF_UP);
+
+        // 10. 计算总价
+        BigDecimal totalPrice = finalBasePrice.add(cleaningFee).add(serviceFee);
+
+        // 11. 构建响应
+        return PriceCalculationResponse.builder()
+                .homestayId(homestay.getId())
+                .homestayTitle(homestay.getTitle())
+                .checkInDate(request.getCheckInDate())
+                .checkOutDate(request.getCheckOutDate())
+                .guestCount(request.getGuestCount())
+                .nights((int) nights)
+                .dailyPrices(dailyPrices)
+                .basePrice(totalBasePrice)
+                .discountAmount(discountAmount)
+                .finalBasePrice(finalBasePrice)
+                .cleaningFee(cleaningFee)
+                .serviceFee(serviceFee)
+                .totalPrice(totalPrice)
+                .priceDetails(PriceCalculationResponse.PriceDetails.builder()
+                        .cleaningFeeAmount(cleaningFeeAmount)
+                        .serviceFeeRate(serviceFeeRate)
+                        .weekendRate(weekendRate)
+                        .holidayRate(holidayRate)
+                        .discountRate(discountRate)
+                        .build())
+                .build();
+    }
+
+    /**
+     * 获取定价配置，默认值
+     */
+    private BigDecimal getPricingConfig(String key, String defaultValue) {
+        String value = systemConfigServiceProvider.getObject().getConfigValue(key, defaultValue);
+        log.info("读取配置: {} = {} (默认: {})", key, value, defaultValue);
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException e) {
+            log.warn("定价配置 {} 格式错误，使用默认值 {}，错误: {}", key, defaultValue, e.getMessage());
+            return new BigDecimal(defaultValue);
+        }
+    }
+
+    /**
+     * 获取房源折扣率
+     */
+    private BigDecimal getHomestayDiscount(Long homestayId) {
+        String discountKey = "homestay.discount." + homestayId;
+        String discountValue = systemConfigServiceProvider.getObject().getConfigValue(discountKey);
+        if (discountValue != null) {
+            try {
+                return new BigDecimal(discountValue);
+            } catch (NumberFormatException e) {
+                log.warn("房源折扣配置 {} 格式错误: {}", discountKey, e.getMessage());
+            }
+        }
+        return null; // 无折扣
+    }
+
+    /**
+     * 计算单日价格（考虑周末和节假日）
+     */
+    private BigDecimal calculateDailyPrice(LocalDate date, BigDecimal basePrice,
+            BigDecimal weekendRate, BigDecimal holidayRate) {
+        BigDecimal rate = BigDecimal.ONE;
+
+        // 检查节假日
+        String holidayName = getHolidayName(date);
+        if (holidayName != null) {
+            rate = holidayRate;
+        } else if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            rate = weekendRate;
+        }
+
+        return basePrice.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 获取日期对应的节假日名称（简单实现，可扩展）
+     */
+    private String getHolidayName(LocalDate date) {
+        // 中国2026年主要节假日（简单版本，实际应从数据库或API获取）
+        Map<LocalDate, String> holidays = new HashMap<>();
+
+        // 元旦
+        holidays.put(LocalDate.of(2026, 1, 1), "元旦");
+
+        // 春节（2026年2月17日-2月23日，假设7天）
+        for (int i = 17; i <= 23; i++) {
+            holidays.put(LocalDate.of(2026, 2, i), "春节");
+        }
+
+        // 清明节（2026年4月4日-4月6日）
+        for (int i = 4; i <= 6; i++) {
+            holidays.put(LocalDate.of(2026, 4, i), "清明节");
+        }
+
+        // 劳动节（2026年5月1日-5月3日）
+        for (int i = 1; i <= 3; i++) {
+            holidays.put(LocalDate.of(2026, 5, i), "劳动节");
+        }
+
+        // 端午节（2026年5月31日-6月2日）
+        for (int i = 31; i <= 31; i++) {
+            holidays.put(LocalDate.of(2026, 5, i), "端午节");
+        }
+        for (int i = 1; i <= 2; i++) {
+            holidays.put(LocalDate.of(2026, 6, i), "端午节");
+        }
+
+        // 中秋节（2026年10月1日-10月3日，与国庆合并）
+        for (int i = 1; i <= 3; i++) {
+            holidays.put(LocalDate.of(2026, 10, i), "中秋节");
+        }
+
+        // 国庆节（2026年10月1日-10月7日）
+        for (int i = 1; i <= 7; i++) {
+            holidays.put(LocalDate.of(2026, 10, i), "国庆节");
+        }
+
+        return holidays.get(date);
     }
 }

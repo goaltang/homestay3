@@ -1,6 +1,8 @@
 package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.dto.PriceCalculationRequest;
+import com.homestay3.homestaybackend.dto.PriceCalculationResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -104,4 +106,13 @@ public interface OrderService {
      * @return 包含各类异常订单数量的Map
      */
     Map<String, Long> getExceptionOrderStats();
+
+    // ========== 价格计算 ==========
+
+    /**
+     * 计算订单价格
+     * @param request 价格计算请求
+     * @return 价格计算结果
+     */
+    PriceCalculationResponse calculatePrice(PriceCalculationRequest request);
 } 

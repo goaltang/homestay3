@@ -23,9 +23,11 @@ import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderLifecycleService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
+import com.homestay3.homestaybackend.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -65,6 +67,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
     private final BookingConflictService bookingConflictService;
+    private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     // Note: Payment processing is handled by PaymentProcessingService, not here
 
@@ -112,8 +115,10 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
         // 5. 计算总价
         BigDecimal baseAmount = homestay.getPrice().multiply(BigDecimal.valueOf(nights));
-        BigDecimal cleaningFee = homestay.getPrice().multiply(BigDecimal.valueOf(0.1));
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        // 清洁费：固定金额 = 单晚价格 × 配置比例（一次性，不论住多少晚）
+        BigDecimal cleaningFee = homestay.getPrice().multiply(getPricingConfig("pricing.cleaning_fee", "0.1"));
+        // 服务费：按订单总价的百分比收取
+        BigDecimal serviceFee = baseAmount.multiply(getPricingConfig("pricing.service_fee", "0.15"));
         BigDecimal totalAmount = baseAmount.add(cleaningFee).add(serviceFee);
         log.info("计算订单总价: {} (基础房费: {}, 清洁费: {}, 服务费: {})", totalAmount, baseAmount, cleaningFee, serviceFee);
 
@@ -793,6 +798,19 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     }
 
     /**
+     * 获取定价配置
+     */
+    private BigDecimal getPricingConfig(String key, String defaultValue) {
+        String value = systemConfigServiceProvider.getObject().getConfigValue(key, defaultValue);
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException e) {
+            log.warn("定价配置 {} 格式错误，使用默认值 {}", key, defaultValue);
+            return new BigDecimal(defaultValue);
+        }
+    }
+
+    /**
      * 检查用户是否有权访问和操作此订单
      */
     private boolean isOrderAccessible(Order order, User user) {
@@ -1212,8 +1230,11 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         BigDecimal baseAmount = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(order.getNights())) : BigDecimal.ZERO;
-        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(0.1)) : BigDecimal.ZERO;
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        // 清洁费：固定金额 = 单晚价格 × 配置比例
+        BigDecimal cleaningFeeAmount = getPricingConfig("pricing.cleaning_fee", "0.1");
+        BigDecimal serviceFeeRate = getPricingConfig("pricing.service_fee", "0.15");
+        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(cleaningFeeAmount) : BigDecimal.ZERO;
+        BigDecimal serviceFee = baseAmount.multiply(serviceFeeRate);
 
         return OrderDTO.builder()
                 .id(order.getId())

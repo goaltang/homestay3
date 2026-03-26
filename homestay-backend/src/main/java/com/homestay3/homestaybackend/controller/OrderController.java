@@ -1,6 +1,8 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.dto.PriceCalculationRequest;
+import com.homestay3.homestaybackend.dto.PriceCalculationResponse;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
@@ -207,6 +209,26 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "创建订单预览失败: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 计算订单价格（不创建订单）
+     * 根据房源ID、入住日期、退房日期和人数计算价格明细
+     */
+    @PostMapping("/calculate-price")
+    public ResponseEntity<?> calculatePrice(@RequestBody PriceCalculationRequest request) {
+        try {
+            PriceCalculationResponse response = orderService.calculatePrice(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("计算价格失败: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "计算价格失败: " + e.getMessage()));
         }
     }
 

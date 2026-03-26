@@ -21,10 +21,12 @@ import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.service.PaymentService;
+import com.homestay3.homestaybackend.service.SystemConfigService;
 import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,7 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private final OrderNotificationService orderNotificationService;
     private final WebSocketNotificationService webSocketNotificationService;
     private final PaymentService paymentService;
+    private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     @Override
     @Transactional
@@ -652,10 +655,13 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         String guestName = guest != null ? (guest.getNickname() != null ? guest.getNickname() : guest.getUsername()) : null;
         Long guestId = guest != null ? guest.getId() : null;
 
-        // 计算明细费用
+        // 从系统配置动态读取费用配置
         BigDecimal baseAmount = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(order.getNights())) : BigDecimal.ZERO;
-        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(BigDecimal.valueOf(0.1)) : BigDecimal.ZERO;
-        BigDecimal serviceFee = baseAmount.multiply(BigDecimal.valueOf(0.15));
+        // 清洁费：固定金额 = 单晚价格 × 配置比例
+        BigDecimal cleaningFeeAmount = getPricingConfig("pricing.cleaning_fee", "0.1");
+        BigDecimal serviceFeeRate = getPricingConfig("pricing.service_fee", "0.15");
+        BigDecimal cleaningFee = order.getPrice() != null ? order.getPrice().multiply(cleaningFeeAmount) : BigDecimal.ZERO;
+        BigDecimal serviceFee = baseAmount.multiply(serviceFeeRate);
 
         // 构建 OrderDTO
         return OrderDTO.builder()
@@ -684,5 +690,17 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
                 .updateTime(order.getUpdatedAt())
                 .isReviewed(isReviewed)
                 .build();
+    }
+
+    /**
+     * 获取定价配置
+     */
+    private BigDecimal getPricingConfig(String key, String defaultValue) {
+        String value = systemConfigServiceProvider.getObject().getConfigValue(key, defaultValue);
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException e) {
+            return new BigDecimal(defaultValue);
+        }
     }
 }
