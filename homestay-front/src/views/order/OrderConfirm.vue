@@ -247,7 +247,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { createOrder } from '../../api/order'
 import { getHomestayUnavailableDates } from '@/api/homestay'
 import { useAuthStore } from '../../stores/auth'
@@ -432,6 +432,32 @@ const submitOrder = async () => {
         return
     }
 
+    // 【关键改进】提交前二次校验：重新拉取最新不可用日期，防止页面停留期间库存被抢占
+    try {
+        const availResponse = await getHomestayUnavailableDates(orderData.value.homestayId)
+        const latestUnavailable: string[] = availResponse.data?.data || []
+        const checkInStr = orderData.value.checkInDate
+        const checkOutStr = orderData.value.checkOutDate
+
+        // 检查入住日期区间内是否有不可用日期
+        const hasConflict = latestUnavailable.some(d => d > checkInStr && d < checkOutStr)
+
+        if (hasConflict) {
+            ElMessage.warning('您选择的日期已被其他用户预订，请返回重新选择')
+            // 标记冲突状态并刷新
+            dateConflictFlag.value = true
+            await fetchUnavailableDates()
+            // 清除日期
+            orderData.value.checkInDate = ''
+            orderData.value.checkOutDate = ''
+            orderData.value.nights = 0
+            return
+        }
+    } catch (e) {
+        console.warn('预校验可用性失败，跳过预检直接提交:', e)
+        // 预检失败不影响正常提交流程
+    }
+
     try {
         submitting.value = true
         const orderRequestData = {
@@ -472,18 +498,24 @@ const submitOrder = async () => {
         // 解析错误响应，检测是否是日期冲突错误
         // 后端 GlobalExceptionHandler 将 IllegalArgumentException 转为 500 错误
         // 实际错误消息藏在 response.data.data.error（开发模式）或 response.data.message
+        const httpStatus = error?.response?.status
         const errorMsg =
             error?.response?.data?.data?.error ||
             error?.response?.data?.message ||
             error?.message ||
             String(error)
 
+        // 改进的冲突检测：优先通过 HTTP 状态码判断，其次通过错误消息
         const isConflictError =
+            httpStatus === 409 ||  // 明确的状态码表示冲突
+            httpStatus === 400 ||  // 某些冲突返回 400
             errorMsg.includes('conflict') ||
             errorMsg.includes('已被预订') ||
             errorMsg.includes('不可用') ||
             errorMsg.includes('所选日期') ||
-            errorMsg.includes('该日期')
+            errorMsg.includes('该日期') ||
+            errorMsg.includes('已被其他用户') ||
+            errorMsg.includes('日期冲突')
 
         if (isConflictError) {
             // 日期冲突：保留旅客信息到sessionStorage
@@ -506,9 +538,26 @@ const submitOrder = async () => {
                 orderData.value.nights = 0
             }
 
-            ElMessage.error({
-                message: '您所选的日期已被其他用户预订。请返回房源页重新选择日期，您的旅客信息已保留。',
-                duration: 5000
+            // 使用更醒目的对话框提示，而非 toast
+            ElMessageBox.alert(
+                '您所选的日期已被其他用户预订，请返回房源页重新选择日期。\n\n您的旅客联系信息已保留，返回后可快速重新预订。',
+                '日期已被预订',
+                {
+                    confirmButtonText: '返回重新选择日期',
+                    cancelButtonText: '留在当前页',
+                    type: 'warning',
+                    center: true,
+                    distinguishCancelAndClose: true
+                }
+            ).then(() => {
+                // 用户点击确定，返回重新选择日期
+                goBackToSelectDates()
+            }).catch((action) => {
+                // 用户点击取消或关闭，留在当前页
+                if (action !== 'cancel' && action !== 'close') {
+                    // 其他情况也尝试返回
+                    goBackToSelectDates()
+                }
             })
         } else {
             ElMessage.error('订单提交失败，请稍后重试')
