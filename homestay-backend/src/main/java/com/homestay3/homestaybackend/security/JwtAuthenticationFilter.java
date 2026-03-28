@@ -162,6 +162,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 path.startsWith("/api/homestays/type/") || // GET by Type
                 path.startsWith("/api/v1/homestays/type/") ||
                 path.matches("/api/homestays/\\d+/amenities") || // GET amenities by homestay ID
+                path.matches("/api/homestays/\\d+/unavailable-dates") || // GET unavailable-dates by homestay ID
                 path.startsWith("/api/amenities/") || // 允许公开 GET 设施信息
                 path.startsWith("/api/v1/amenities/")) { // 允许公开 GET v1 设施信息
                 log.debug("匹配公开 GET API: {} {}", method, path);
@@ -169,9 +170,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         
-        // 6. 允许公开的 POST /search
-        if (method.equals("POST") && 
-           (path.equals("/api/homestays/search") || path.equals("/api/v1/homestays/search"))) {
+        // 6. 允许公开的 POST /search 和价格计算
+        if (method.equals("POST") &&
+           (path.equals("/api/homestays/search") || path.equals("/api/v1/homestays/search") ||
+            path.equals("/api/orders/calculate-price"))) {
              log.debug("匹配公开 POST API: {} {}", method, path);
              return true;
         }
