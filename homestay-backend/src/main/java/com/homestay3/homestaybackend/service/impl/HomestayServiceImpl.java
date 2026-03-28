@@ -467,6 +467,7 @@ public class HomestayServiceImpl implements HomestayService {
         String description = homestayDTO.getDescription();
         Integer maxGuests = homestayDTO.getMaxGuests();
         Integer minNights = homestayDTO.getMinNights();
+        Integer maxNights = homestayDTO.getMaxNights();
         Boolean featured = homestayDTO.getFeatured();
 
         if (isDraft) {
@@ -511,6 +512,7 @@ public class HomestayServiceImpl implements HomestayService {
                 .status(initialStatus)
                 .maxGuests(maxGuests)
                 .minNights(minNights)
+                .maxNights(maxNights)
                 .provinceCode(homestayDTO.getProvinceCode())
                 .cityCode(homestayDTO.getCityCode())
                 .districtCode(homestayDTO.getDistrictCode())
@@ -701,6 +703,7 @@ public class HomestayServiceImpl implements HomestayService {
 
             homestay.setMaxGuests(homestayDTO.getMaxGuests());
             homestay.setMinNights(homestayDTO.getMinNights());
+            homestay.setMaxNights(homestayDTO.getMaxNights());
 
             // --- 地址字段修改 ---
             homestay.setProvinceCode(homestayDTO.getProvinceCode()); // 使用 DTO 的 Code 字段
@@ -1067,6 +1070,7 @@ public class HomestayServiceImpl implements HomestayService {
             dto.setStatus(homestay.getStatus() != null ? homestay.getStatus().name() : "UNKNOWN");
             dto.setMaxGuests(homestay.getMaxGuests() != null ? homestay.getMaxGuests() : 1);
             dto.setMinNights(homestay.getMinNights() != null ? homestay.getMinNights() : 1);
+            dto.setMaxNights(homestay.getMaxNights());
             dto.setProvinceText(homestay.getProvinceText());
             dto.setCityText(homestay.getCityText());
             dto.setDistrictText(homestay.getDistrictText());
@@ -1304,6 +1308,7 @@ public class HomestayServiceImpl implements HomestayService {
 
         homestay.setMaxGuests(dto.getMaxGuests());
         homestay.setMinNights(dto.getMinNights());
+        homestay.setMaxNights(dto.getMaxNights());
 
         // 将AmenityDTO转换为Amenity
         try {

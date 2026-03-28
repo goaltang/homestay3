@@ -45,6 +45,9 @@ public class Homestay {
     @Column(name = "min_nights", nullable = false)
     private Integer minNights;
 
+    @Column(name = "max_nights")
+    private Integer maxNights;
+
     @Column(name = "province_text")
     private String provinceText;
 

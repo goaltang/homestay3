@@ -7,6 +7,7 @@ export interface Homestay {
   status: string;
   maxGuests: number;
   minNights: number;
+  maxNights?: number;
   provinceText?: string;
   cityText?: string;
   districtText?: string;

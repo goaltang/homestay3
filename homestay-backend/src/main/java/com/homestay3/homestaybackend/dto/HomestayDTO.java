@@ -25,6 +25,7 @@ public class HomestayDTO {
     private String status;
     private Integer maxGuests;
     private Integer minNights;
+    private Integer maxNights;
     private String provinceText;
     private String cityText;
     private String districtText;

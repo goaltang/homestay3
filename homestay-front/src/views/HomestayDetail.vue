@@ -86,6 +86,8 @@
                     :dates="bookingComposable.bookingDateRange.value" :guests="bookingComposable.bookingDates.guests"
                     :calculated-fees="bookingComposable.priceDetails.value"
                     :is-calculating="bookingComposable.isCalculatingPrice.value"
+                    :min-nights="homestay.minNights || 1"
+                    :max-nights="homestay.maxNights || 0"
                     @booking-confirmed="() => bookingComposable.bookHomestay()" @date-changed="handleDateRangeChange"
                     @guests-changed="(value) => bookingComposable.bookingDates.guests = value" />
             </div>

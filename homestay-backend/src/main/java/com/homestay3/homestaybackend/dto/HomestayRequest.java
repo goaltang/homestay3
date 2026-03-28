@@ -38,6 +38,8 @@ public class HomestayRequest {
     @Positive(message = "最少入住晚数必须大于0")
     private Integer minNights;
 
+    private Integer maxNights;  // 最大入住晚数，null表示不限制
+
     @NotBlank(message = "省份编码不能为空")
     private String provinceCode;
 
