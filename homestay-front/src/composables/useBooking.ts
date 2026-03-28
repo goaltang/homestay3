@@ -18,12 +18,69 @@ export function useBooking(
   const route = useRoute();
   const authStore = useAuthStore();
 
+  // sessionStorage key for preserving booking dates across login redirect
+  const PENDING_BOOKING_KEY = 'pending-booking-dates';
+
   const bookingDates = reactive<BookingDates>({
     checkIn: null,
     checkOut: null,
     guests: 1,
   });
   const bookingDateRange = ref<[Date, Date] | null>(null);
+
+  // 从 sessionStorage 恢复上次未提交预订的日期（解决登录跳转丢失问题）
+  const restorePendingBookingDates = () => {
+    const stored = sessionStorage.getItem(PENDING_BOOKING_KEY);
+    if (!stored) return;
+
+    try {
+      const data = JSON.parse(stored);
+      // 仅当匹配的民宿 ID 时才恢复，防止切到其他民宿后遗留旧数据
+      if (data.homestayId !== homestay.value?.id) {
+        sessionStorage.removeItem(PENDING_BOOKING_KEY);
+        return;
+      }
+
+      const checkIn = new Date(data.checkIn);
+      const checkOut = new Date(data.checkOut);
+      if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+        bookingDates.checkIn = checkIn;
+        bookingDates.checkOut = checkOut;
+        bookingDates.guests = data.guests || 1;
+        bookingDateRange.value = [checkIn, checkOut];
+        sessionStorage.removeItem(PENDING_BOOKING_KEY);
+        console.log("已恢复登录前的预订日期:", bookingDates);
+      }
+    } catch {
+      sessionStorage.removeItem(PENDING_BOOKING_KEY);
+    }
+  };
+
+  // 登录跳转前保存当前选择的日期
+  const savePendingBookingDates = () => {
+    if (bookingDates.checkIn && bookingDates.checkOut) {
+      sessionStorage.setItem(
+        PENDING_BOOKING_KEY,
+        JSON.stringify({
+          checkIn: bookingDates.checkIn.toISOString(),
+          checkOut: bookingDates.checkOut.toISOString(),
+          guests: bookingDates.guests,
+          homestayId: homestay.value?.id,
+        })
+      );
+    }
+  };
+
+  // homestay 数据加载完成后尝试恢复（避免 homestayId 为 null 时误判）
+  watch(
+    () => homestay.value?.id,
+    (newId) => {
+      if (newId) {
+        restorePendingBookingDates();
+      }
+    },
+    { immediate: true }
+  );
 
   const totalNights = computed(() => {
     return calculateNights(bookingDates.checkIn, bookingDates.checkOut);
@@ -85,6 +142,8 @@ export function useBooking(
   const bookHomestay = async () => {
     // 检查登录状态
     if (!authStore.isAuthenticated) {
+      // 保存当前选择的日期，登录返回后可恢复
+      savePendingBookingDates();
       ElMessageBox.confirm("您需要登录才能预订，是否现在登录？", "提示", {
         confirmButtonText: "去登录",
         cancelButtonText: "取消",
