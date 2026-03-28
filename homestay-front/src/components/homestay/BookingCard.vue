@@ -48,8 +48,20 @@
                 <el-icon><Clock /></el-icon>
                 <span>
                     从 {{ formatDateToString(confirmedCheckIn) }} 起最多可住至 {{ formatDateToString(maxCheckOutDate) }}
-                    <span class="nights-count">（最多 {{ maxNights }} 晚）</span>
+                    <span class="nights-count">（最多 {{ availableMaxNights }} 晚）</span>
                 </span>
+            </div>
+
+            <!-- 最低晚数要求提示 -->
+            <div class="min-stay-hint" v-if="minNights > 1">
+                <el-icon><InfoFilled /></el-icon>
+                <span>此房源最少需入住 <strong>{{ minNights }} 晚</strong></span>
+            </div>
+
+            <!-- 最高晚数限制提示 -->
+            <div class="max-stay-limit-hint" v-if="maxNights > 0">
+                <el-icon><InfoFilled /></el-icon>
+                <span>此房源最多可入住 <strong>{{ maxNights }} 晚</strong></span>
             </div>
 
             <!-- 自动修正内联提示 -->
@@ -68,8 +80,8 @@
         </div>
 
         <el-button type="primary" class="booking-button" @click="handleBooking"
-            :disabled="!localDateRange || !localDateRange[0] || !localDateRange[1]">
-            {{ autoConfirm ? '立即预订' : '申请预订' }}
+            :disabled="!localDateRange || !localDateRange[0] || !localDateRange[1]" :loading="isVerifying">
+            {{ isVerifying ? '验证中...' : (autoConfirm ? '立即预订' : '申请预订') }}
         </el-button>
 
         <div class="price-breakdown" v-if="totalNights > 0">
@@ -107,9 +119,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { InfoFilled, Lightning, Clock, WarningFilled } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getHomestayUnavailableDates } from '@/api/homestay'
 
 // Props
@@ -124,13 +136,17 @@ interface Props {
     guests?: number
     calculatedFees?: any
     isCalculating?: boolean
+    minNights?: number  // 房东设置的最低入住晚数
+    maxNights?: number  // 房东设置的最大入住晚数
 }
 
 const props = withDefaults(defineProps<Props>(), {
     autoConfirm: false,
     dates: null,
     guests: 1,
-    isCalculating: false
+    isCalculating: false,
+    minNights: 1,
+    maxNights: 0  // 0 表示不限制
 })
 
 // Emits
@@ -147,6 +163,10 @@ const localGuests = ref(props.guests)
 // 不可用日期
 const unavailableDates = ref<string[]>([])
 const loadingDates = ref(false)
+
+// 定时轮询：每 60 秒静默刷新不可用日期，防止用户长时间停留导致库存数据过期
+const POLL_INTERVAL_MS = 60 * 1000
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 // 新增：最长可选退房日计算相关状态
 const maxCheckOutDate = ref<Date | null>(null)
@@ -181,7 +201,8 @@ const totalNights = computed(() => {
     return 0
 })
 
-const maxNights = computed(() => {
+// 基于可用日期计算的最长可住晚数（受限于已预订日期）
+const availableMaxNights = computed(() => {
     if (confirmedCheckIn.value && maxCheckOutDate.value) {
         const diffTime = maxCheckOutDate.value.getTime() - confirmedCheckIn.value.getTime()
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
@@ -247,6 +268,105 @@ const fetchUnavailableDates = async () => {
     }
 }
 
+/**
+ * 静默刷新不可用日期（不显示 loading 状态，不打断用户操作）
+ * 刷新后主动检测已选日期是否被抢，若冲突则提示用户重新选择
+ */
+const silentRefreshUnavailableDates = async () => {
+    if (!props.homestayId) return
+
+    try {
+        const response = await getHomestayUnavailableDates(props.homestayId)
+        const responseData = response.data || {}
+        const dates = responseData.data || []
+
+        if (!Array.isArray(dates)) return
+
+        // 解析为标准日期字符串
+        const latestUnavailable = dates.map((date: any) => {
+            if (typeof date === 'string') return date.includes('-') ? date : formatStringToStandardDate(date)
+            if (date instanceof Date) return formatDateToString(date)
+            if (Array.isArray(date) && date.length >= 3) {
+                const [year, month, day] = date
+                return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            }
+            if (typeof date === 'object' && date?.year && date?.month && date?.day) {
+                return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
+            }
+            return String(date)
+        })
+
+        // 检查是否有新增的不可用日期（对比之前的数据）
+        const previousSet = new Set(unavailableDates.value)
+        const newlyUnavailable = latestUnavailable.filter((d: string) => !previousSet.has(d))
+
+        // 更新不可用日期列表
+        unavailableDates.value = latestUnavailable
+
+        // 如果有新的不可用日期，检测对已选范围的影响
+        if (newlyUnavailable.length > 0) {
+            const newDatesDisplay = newlyUnavailable.length > 3
+                ? `${newlyUnavailable.slice(0, 3).join('、')}...等${newlyUnavailable.length}天`
+                : newlyUnavailable.join('、')
+
+            // 有已选日期范围的情况
+            if (localDateRange.value?.[0] && localDateRange.value?.[1]) {
+                const checkInStr = formatDateToString(localDateRange.value[0])
+                const checkOutStr = formatDateToString(localDateRange.value[1])
+
+                // 入住日被抢，或住宿期间某天被抢（退房日当天不算）
+                const selectedDateConflict = latestUnavailable.some(
+                    (d: string) => (d >= checkInStr && d < checkOutStr)
+                )
+
+                if (selectedDateConflict) {
+                    // 严重冲突：已选日期被抢 → 弹窗警告
+                    ElMessageBox.alert(
+                        `您选择的入住日期范围内有日期（${newDatesDisplay}）刚刚被其他用户预订，请返回重新选择。`,
+                        '日期已被预订',
+                        {
+                            confirmButtonText: '重新选择日期',
+                            type: 'warning',
+                            center: true
+                        }
+                    ).then(() => {
+                        // 清除已选日期
+                        localDateRange.value = null
+                        confirmedCheckIn.value = null
+                        maxCheckOutDate.value = null
+                        autoFixMessage.value = ''
+                        emit('date-changed', null, null)
+                    }).catch(() => {
+                        // 取消也清空，保持一致
+                        localDateRange.value = null
+                        confirmedCheckIn.value = null
+                        maxCheckOutDate.value = null
+                        autoFixMessage.value = ''
+                        emit('date-changed', null, null)
+                    })
+                } else {
+                    // 无冲突但有新日期被订 → 轻提示
+                    ElMessage.info({
+                        message: `部分日期（${newDatesDisplay}）刚刚被预订，可能影响您的选择`,
+                        duration: 4000,
+                        showClose: true
+                    })
+                }
+            } else {
+                // 没有选日期范围，但也提示有日期被预订
+                ElMessage.info({
+                    message: `部分日期（${newDatesDisplay}）刚刚被预订，置灰日期无法选择`,
+                    duration: 4000,
+                    showClose: true
+                })
+            }
+        }
+    } catch (error) {
+        // 静默刷新失败不影响用户操作，仅记录日志
+        console.warn('静默刷新不可用日期失败:', error)
+    }
+}
+
 // 辅助函数：格式化字符串日期为标准格式
 const formatStringToStandardDate = (dateStr: string): string => {
     try {
@@ -263,7 +383,30 @@ const formatStringToStandardDate = (dateStr: string): string => {
 // 组件挂载时获取不可用日期
 onMounted(() => {
     fetchUnavailableDates()
+
+    // 定时轮询：每 60 秒静默刷新，防止用户长时间停留导致库存过期
+    pollTimer = setInterval(silentRefreshUnavailableDates, POLL_INTERVAL_MS)
+
+    // 页面切回前台时立即刷新（补充轮询间隔内的空窗期）
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 })
+
+onUnmounted(() => {
+    // 清除定时器，防止组件销毁后还在轮询
+    if (pollTimer) {
+        clearInterval(pollTimer)
+        pollTimer = null
+    }
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
+
+// 页面可见性变化：切回前台时立即刷新一次
+const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+        console.log('页面重新可见，立即刷新不可用日期')
+        silentRefreshUnavailableDates()
+    }
+}
 
 /**
  * 基于已选入住日计算最长可选退房日
@@ -386,6 +529,29 @@ const handleDateRangeChange = (dates: [Date, Date] | null) => {
             return
         }
 
+        // 计算入住晚数
+        const nights = Math.ceil((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24))
+
+        // 校验最低晚数要求
+        if (nights < props.minNights) {
+            ElMessage.warning(`此房源最少需入住 ${props.minNights} 晚，您选择了 ${nights} 晚`)
+            localDateRange.value = null
+            confirmedCheckIn.value = null
+            maxCheckOutDate.value = null
+            emit('date-changed', null, null)
+            return
+        }
+
+        // 校验最高晚数限制（如果房东设置了）
+        if (props.maxNights > 0 && nights > props.maxNights) {
+            ElMessage.warning(`此房源最多可入住 ${props.maxNights} 晚，您选择了 ${nights} 晚`)
+            localDateRange.value = null
+            confirmedCheckIn.value = null
+            maxCheckOutDate.value = null
+            emit('date-changed', null, null)
+            return
+        }
+
         // 入住日确认后：计算并显示最长可选区间
         if (!confirmedCheckIn.value || confirmedCheckIn.value.getTime() !== newCheckIn.getTime()) {
             confirmedCheckIn.value = newCheckIn
@@ -424,7 +590,9 @@ const handleDateRangeChange = (dates: [Date, Date] | null) => {
     }
 }
 
-const handleBooking = () => {
+const isVerifying = ref(false)  // 轻量方案：预订前验证状态
+
+const handleBooking = async () => {
     if (!localDateRange.value || !localDateRange.value[0] || !localDateRange.value[1]) {
         ElMessage.warning('请先选择有效的入住和退房日期')
         return
@@ -435,7 +603,40 @@ const handleBooking = () => {
         return
     }
 
-    emit('booking-confirmed')
+    // 轻量方案：点击预订时先验证日期是否仍可用
+    isVerifying.value = true
+    try {
+        // 重新拉取最新的不可用日期
+        const response = await getHomestayUnavailableDates(props.homestayId)
+        const responseData = response.data || {}
+        const latestUnavailable: string[] = responseData.data || []
+
+        // 格式化当前选择的日期
+        const checkInStr = formatDateToString(localDateRange.value[0])
+        const checkOutStr = formatDateToString(localDateRange.value[1])
+
+        // 检查入住日期区间内是否有不可用日期（入住日本身被订走不行，退房日当天可以）
+        const hasConflict = latestUnavailable.some(d => d > checkInStr && d < checkOutStr)
+
+        if (hasConflict) {
+            ElMessage.error('您选择的日期已被其他用户预订，请重新选择')
+            // 刷新不可用日期列表
+            unavailableDates.value = latestUnavailable
+            // 清除已选日期
+            localDateRange.value = null
+            confirmedCheckIn.value = null
+            maxCheckOutDate.value = null
+            emit('date-changed', null, null)
+            return
+        }
+
+        emit('booking-confirmed')
+    } catch (error) {
+        console.error('验证可用性失败:', error)
+        ElMessage.error('验证预订可用性失败，请稍后重试')
+    } finally {
+        isVerifying.value = false
+    }
 }
 
 // Watch guests change
@@ -615,6 +816,38 @@ watch(localGuests, (newGuests) => {
 }
 
 .max-stay-hint .el-icon {
+    font-size: 14px;
+}
+
+.min-stay-hint {
+    margin: 4px 16px 16px;
+    padding: 8px 12px;
+    background-color: #fff7e6;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #d48806;
+}
+
+.min-stay-hint .el-icon {
+    font-size: 14px;
+}
+
+.max-stay-limit-hint {
+    margin: 4px 16px 16px;
+    padding: 8px 12px;
+    background-color: #fff7e6;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #d48806;
+}
+
+.max-stay-limit-hint .el-icon {
     font-size: 14px;
 }
 
