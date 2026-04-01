@@ -13,7 +13,9 @@ import com.homestay3.homestaybackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -227,5 +229,54 @@ public class HomestayGroupService {
                 .createdAt(group.getCreatedAt() != null ? group.getCreatedAt().format(FORMATTER) : null)
                 .updatedAt(group.getUpdatedAt() != null ? group.getUpdatedAt().format(FORMATTER) : null)
                 .build();
+    }
+
+    // ==================== 管理员方法 ====================
+
+    public Page<HomestayGroupDTO> adminGetGroups(Pageable pageable, String keyword, Long ownerId) {
+        Page<HomestayGroup> groups;
+        if (keyword != null && !keyword.isBlank()) {
+            groups = groupRepository.searchByKeyword(keyword, pageable);
+        } else if (ownerId != null) {
+            groups = groupRepository.findByOwnerId(ownerId, pageable);
+        } else {
+            groups = groupRepository.findAllOrderByCreatedAtDesc(pageable);
+        }
+        return groups.map(this::toDTO);
+    }
+
+    public HomestayGroupDTO adminGetGroupById(Long groupId) {
+        HomestayGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("分组不存在: " + groupId));
+        return toDTO(group);
+    }
+
+    @Transactional
+    public HomestayGroupDTO adminToggleGroupEnabled(Long groupId, boolean enabled) {
+        HomestayGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("分组不存在: " + groupId));
+        group.setEnabled(enabled);
+        HomestayGroup saved = groupRepository.save(group);
+        log.info("管理员{}分组: id={}, name={}, enabled={}", enabled ? "启用" : "禁用", saved.getId(), saved.getName(), enabled);
+        return toDTO(saved);
+    }
+
+    @Transactional
+    public void adminDeleteGroup(Long groupId) {
+        HomestayGroup group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("分组不存在: " + groupId));
+
+        if (Boolean.TRUE.equals(group.getIsDefault())) {
+            throw new IllegalArgumentException("默认分组不能删除");
+        }
+
+        List<Homestay> homestays = homestayRepository.findByOwnerIdAndGroupId(group.getOwner().getId(), groupId);
+        for (Homestay homestay : homestays) {
+            homestay.setGroup(null);
+        }
+        homestayRepository.saveAll(homestays);
+
+        groupRepository.delete(group);
+        log.info("管理员删除分组: id={}, name={}, owner={}", groupId, group.getName(), group.getOwner().getUsername());
     }
 }

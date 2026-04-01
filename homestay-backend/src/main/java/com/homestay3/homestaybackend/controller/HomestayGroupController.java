@@ -29,7 +29,7 @@ public class HomestayGroupController {
     private final HomestayGroupService groupService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<List<HomestayGroupDTO>> getMyGroups(Authentication authentication) {
         String username = authentication.getName();
         log.info("获取房东 {} 的房源分组列表", username);
@@ -38,7 +38,7 @@ public class HomestayGroupController {
     }
 
     @GetMapping("/{groupId}")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<HomestayGroupDTO> getGroup(
             @PathVariable Long groupId,
             Authentication authentication) {
@@ -48,7 +48,7 @@ public class HomestayGroupController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<?> createGroup(
             @Valid @RequestBody HomestayGroupRequest request,
             Authentication authentication) {
@@ -63,7 +63,7 @@ public class HomestayGroupController {
     }
 
     @PutMapping("/{groupId}")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<?> updateGroup(
             @PathVariable Long groupId,
             @Valid @RequestBody HomestayGroupRequest request,
@@ -82,7 +82,7 @@ public class HomestayGroupController {
     }
 
     @DeleteMapping("/{groupId}")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<?> deleteGroup(
             @PathVariable Long groupId,
             Authentication authentication) {
@@ -97,7 +97,7 @@ public class HomestayGroupController {
     }
 
     @PostMapping("/{groupId}/assign")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<?> assignHomestays(
             @PathVariable Long groupId,
             @RequestBody Map<String, List<Long>> request,
@@ -114,7 +114,7 @@ public class HomestayGroupController {
     }
 
     @PostMapping("/remove")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<?> removeHomestays(
             @RequestBody Map<String, List<Long>> request,
             Authentication authentication) {
@@ -130,7 +130,7 @@ public class HomestayGroupController {
     }
 
     @GetMapping("/{groupId}/homestays")
-    @PreAuthorize("hasAnyRole('LANDLORD', 'HOST')")
+    @PreAuthorize("hasAnyRole('HOST')")
     public ResponseEntity<Page<HomestayDTO>> getGroupHomestays(
             @PathVariable Long groupId,
             Authentication authentication,

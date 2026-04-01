@@ -280,15 +280,23 @@ const clearSearchAndBrowse = () => {
 // 初始化数据加载
 const initializeData = async () => {
   try {
-    const [typesResponse, amenitiesResponse, groupsResponse] = await Promise.all([
+    const [typesResponse, amenitiesResponse] = await Promise.all([
       getHomestayTypes(),
-      getAvailableAmenitiesGrouped(),
-      getHomestayGroups()
+      getAvailableAmenitiesGrouped()
     ])
 
     homestayTypes.value = typesResponse || []
     groupedAmenities.value = amenitiesResponse || []
-    groupOptions.value = (groupsResponse || []).filter((g: any) => g.enabled)
+
+    // 仅房东加载分组数据
+    if (userStore.isLandlord) {
+      try {
+        const groupsResponse = await getHomestayGroups()
+        groupOptions.value = (groupsResponse || []).filter((g: any) => g.enabled)
+      } catch (error) {
+        console.warn('加载分组列表失败（非房东用户忽略）:', error)
+      }
+    }
   } catch (error) {
     console.error('初始化数据失败:', error)
   }

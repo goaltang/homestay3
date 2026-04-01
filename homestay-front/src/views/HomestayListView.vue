@@ -428,6 +428,7 @@ const loadHomestayTypes = async () => {
 
 // 获取分组数据
 const loadGroups = async () => {
+    if (!userStore.isLandlord) return;
     try {
         const groups = await getHomestayGroups();
         groupOptions.value = groups.filter((g: any) => g.enabled);

@@ -145,6 +145,15 @@ const routes: RouteRecordRaw[] = [
           }),
       },
       {
+        path: "/groups",
+        name: "groupManage",
+        meta: {
+          title: "房源分组管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/homestay/GroupManage.vue"),
+      },
+      {
         path: "/notifications",
         name: "notifications",
         meta: {

@@ -49,14 +49,20 @@ export const menuData: Menus[] = [
             title: "设施列表",
             index: "/amenities/manage",
           },
-          {
-            id: "amenities-categories",
-            pid: "amenities",
-            title: "设施分类",
-            index: "/amenities/categories",
-          },
-        ],
+      {
+        id: "amenities-categories",
+        pid: "amenities",
+        title: "设施分类",
+        index: "/amenities/categories",
       },
+      {
+        id: "homestay-groups",
+        pid: "homestay",
+        title: "房源分组管理",
+        index: "/groups",
+      },
+    ],
+  },
     ],
   },
   {

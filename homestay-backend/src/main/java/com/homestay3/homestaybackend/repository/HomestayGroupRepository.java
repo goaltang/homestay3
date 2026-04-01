@@ -2,6 +2,8 @@ package com.homestay3.homestaybackend.repository;
 
 import com.homestay3.homestaybackend.entity.HomestayGroup;
 import com.homestay3.homestaybackend.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,4 +35,13 @@ public interface HomestayGroupRepository extends JpaRepository<HomestayGroup, Lo
     List<HomestayGroup> findByOwnerIdAndIsDefaultTrue(Long ownerId);
 
     void deleteByOwnerIdAndId(Long ownerId, Long id);
+
+    @Query("SELECT hg FROM HomestayGroup hg ORDER BY hg.createdAt DESC")
+    Page<HomestayGroup> findAllOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query("SELECT hg FROM HomestayGroup hg WHERE hg.owner.username LIKE %:keyword% OR hg.name LIKE %:keyword%")
+    Page<HomestayGroup> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT hg FROM HomestayGroup hg WHERE hg.owner.id = :ownerId")
+    Page<HomestayGroup> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
 }
