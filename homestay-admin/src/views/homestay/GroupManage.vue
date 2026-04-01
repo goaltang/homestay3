@@ -50,7 +50,7 @@
               {{ scope.row.createdAt || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right" align="center">
+          <el-table-column label="操作" width="140" fixed="right" align="center">
             <template #default="scope">
               <el-button type="primary" link size="small" @click="handleToggle(scope.row)">
                 {{ scope.row.enabled ? '禁用' : '启用' }}

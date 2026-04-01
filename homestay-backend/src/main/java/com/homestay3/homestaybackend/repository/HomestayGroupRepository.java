@@ -39,9 +39,12 @@ public interface HomestayGroupRepository extends JpaRepository<HomestayGroup, Lo
     @Query("SELECT hg FROM HomestayGroup hg ORDER BY hg.createdAt DESC")
     Page<HomestayGroup> findAllOrderByCreatedAtDesc(Pageable pageable);
 
-    @Query("SELECT hg FROM HomestayGroup hg WHERE hg.owner.username LIKE %:keyword% OR hg.name LIKE %:keyword%")
+    @Query("SELECT hg FROM HomestayGroup hg WHERE hg.owner.username LIKE %:keyword% OR hg.name LIKE %:keyword% OR hg.code LIKE %:keyword% OR hg.description LIKE %:keyword%")
     Page<HomestayGroup> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     @Query("SELECT hg FROM HomestayGroup hg WHERE hg.owner.id = :ownerId")
     Page<HomestayGroup> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
+
+    @Query("SELECT hg FROM HomestayGroup hg WHERE (hg.owner.username LIKE %:keyword% OR hg.name LIKE %:keyword% OR hg.code LIKE %:keyword% OR hg.description LIKE %:keyword%) AND hg.owner.id = :ownerId")
+    Page<HomestayGroup> searchByKeywordAndOwnerId(@Param("keyword") String keyword, @Param("ownerId") Long ownerId, Pageable pageable);
 }

@@ -235,9 +235,14 @@ public class HomestayGroupService {
 
     public Page<HomestayGroupDTO> adminGetGroups(Pageable pageable, String keyword, Long ownerId) {
         Page<HomestayGroup> groups;
-        if (keyword != null && !keyword.isBlank()) {
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        boolean hasOwnerId = ownerId != null;
+
+        if (hasKeyword && hasOwnerId) {
+            groups = groupRepository.searchByKeywordAndOwnerId(keyword, ownerId, pageable);
+        } else if (hasKeyword) {
             groups = groupRepository.searchByKeyword(keyword, pageable);
-        } else if (ownerId != null) {
+        } else if (hasOwnerId) {
             groups = groupRepository.findByOwnerId(ownerId, pageable);
         } else {
             groups = groupRepository.findAllOrderByCreatedAtDesc(pageable);
