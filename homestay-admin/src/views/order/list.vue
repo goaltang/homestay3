@@ -1,99 +1,85 @@
 <template>
     <div class="order-list app-container">
         <!-- 异常订单统计卡片 -->
-        <el-row :gutter="16" class="stats-row" v-loading="statsLoading">
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('pendingTimeout')">
-                    <div class="stat-content">
-                        <div class="stat-icon warning">
-                            <el-icon><Clock /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.pendingTimeout }}</div>
-                            <div class="stat-label">待处理超时</div>
-                        </div>
+        <div class="stats-grid" v-loading="statsLoading">
+            <el-card shadow="hover" class="stat-card exception-card" @click="filterException('pendingTimeout')">
+                <div class="stat-content">
+                    <div class="stat-icon warning">
+                        <el-icon><Clock /></el-icon>
                     </div>
-                </el-card>
-            </el-col>
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('paymentFailed')">
-                    <div class="stat-content">
-                        <div class="stat-icon danger">
-                            <el-icon><Money /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.paymentFailed }}</div>
-                            <div class="stat-label">支付失败</div>
-                        </div>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.pendingTimeout }}</div>
+                        <div class="stat-label">待处理超时</div>
                     </div>
-                </el-card>
-            </el-col>
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('refundFailed')">
-                    <div class="stat-content">
-                        <div class="stat-icon danger">
-                            <el-icon><Warning /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.refundFailed }}</div>
-                            <div class="stat-label">退款失败</div>
-                        </div>
+                </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card exception-card" @click="filterException('paymentFailed')">
+                <div class="stat-content">
+                    <div class="stat-icon danger">
+                        <el-icon><Money /></el-icon>
                     </div>
-                </el-card>
-            </el-col>
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('notCheckedIn')">
-                    <div class="stat-content">
-                        <div class="stat-icon warning">
-                            <el-icon><House /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.notCheckedIn }}</div>
-                            <div class="stat-label">未入住</div>
-                        </div>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.paymentFailed }}</div>
+                        <div class="stat-label">支付失败</div>
                     </div>
-                </el-card>
-            </el-col>
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('refundPending')">
-                    <div class="stat-content">
-                        <div class="stat-icon info">
-                            <el-icon><Refresh /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.refundPending }}</div>
-                            <div class="stat-label">退款处理中</div>
-                        </div>
+                </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card exception-card" @click="filterException('refundFailed')">
+                <div class="stat-content">
+                    <div class="stat-icon danger">
+                        <el-icon><Warning /></el-icon>
                     </div>
-                </el-card>
-            </el-col>
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card exception-card" @click="filterException('disputePending')">
-                    <div class="stat-content">
-                        <div class="stat-icon warning">
-                            <el-icon><Warning /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.disputePending }}</div>
-                            <div class="stat-label">争议待处理</div>
-                        </div>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.refundFailed }}</div>
+                        <div class="stat-label">退款失败</div>
                     </div>
-                </el-card>
-            </el-col>
-            <el-col :span="4">
-                <el-card shadow="hover" class="stat-card total-card" @click="filterException('all')">
-                    <div class="stat-content">
-                        <div class="stat-icon primary">
-                            <el-icon><WarningFilled /></el-icon>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-value">{{ exceptionStats.total }}</div>
-                            <div class="stat-label">异常订单总数</div>
-                        </div>
+                </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card exception-card" @click="filterException('notCheckedIn')">
+                <div class="stat-content">
+                    <div class="stat-icon warning">
+                        <el-icon><House /></el-icon>
                     </div>
-                </el-card>
-            </el-col>
-        </el-row>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.notCheckedIn }}</div>
+                        <div class="stat-label">未入住</div>
+                    </div>
+                </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card exception-card" @click="filterException('refundPending')">
+                <div class="stat-content">
+                    <div class="stat-icon info">
+                        <el-icon><Refresh /></el-icon>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.refundPending }}</div>
+                        <div class="stat-label">退款处理中</div>
+                    </div>
+                </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card exception-card" @click="filterException('disputePending')">
+                <div class="stat-content">
+                    <div class="stat-icon warning">
+                        <el-icon><Warning /></el-icon>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.disputePending }}</div>
+                        <div class="stat-label">争议待处理</div>
+                    </div>
+                </div>
+            </el-card>
+            <el-card shadow="hover" class="stat-card total-card" @click="filterException('all')">
+                <div class="stat-content">
+                    <div class="stat-icon primary">
+                        <el-icon><WarningFilled /></el-icon>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value">{{ exceptionStats.total }}</div>
+                        <div class="stat-label">异常订单总数</div>
+                    </div>
+                </div>
+            </el-card>
+        </div>
 
         <!-- 当前筛选提示 -->
         <el-alert
@@ -119,54 +105,66 @@
                 <el-form-item label="住客名称" prop="guestName">
                     <el-input v-model="searchForm.guestName" placeholder="请输入住客名称" clearable />
                 </el-form-item>
-                <el-form-item label="房源标题" prop="homestayTitle">
-                    <el-input v-model="searchForm.homestayTitle" placeholder="请输入房源标题" clearable />
-                </el-form-item>
-                <el-form-item label="房东名称" prop="hostName">
-                    <el-input v-model="searchForm.hostName" placeholder="请输入房东名称" clearable />
-                </el-form-item>
                 <el-form-item label="订单状态" prop="status">
-                    <el-select v-model="searchForm.status" placeholder="订单状态" clearable>
+                    <el-select v-model="searchForm.status" placeholder="订单状态" clearable style="width: 140px">
                         <el-option v-for="(item, key) in orderStatusMap" :key="key" :label="item.text" :value="key" />
                     </el-select>
                 </el-form-item>
-                <el-form-item label="支付状态" prop="paymentStatus">
-                    <el-select v-model="searchForm.paymentStatus" placeholder="支付状态" clearable>
-                        <el-option v-for="(item, key) in paymentStatusMap" :key="key" :label="item.text" :value="key" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="支付方式" prop="paymentMethod">
-                    <el-input v-model="searchForm.paymentMethod" placeholder="支付方式 (e.g., alipay)" clearable />
-                </el-form-item>
-                <el-form-item label="入住日期" prop="checkInDateRange">
-                    <el-date-picker v-model="searchForm.checkInDateRange" type="daterange" range-separator="至"
-                        start-placeholder="开始日期" end-placeholder="结束日期" clearable />
-                </el-form-item>
-                <el-form-item label="创建日期" prop="createTimeRange">
-                    <el-date-picker v-model="searchForm.createTimeRange" type="daterange" range-separator="至"
-                        start-placeholder="开始日期" end-placeholder="结束日期" clearable />
-                </el-form-item>
-                <el-form-item>
+
+                <!-- 高级搜索条件 -->
+                <transition name="el-zoom-in-top">
+                    <div v-show="isSearchExpanded" style="display: inline-block;">
+                        <el-form-item label="房源标题" prop="homestayTitle">
+                            <el-input v-model="searchForm.homestayTitle" placeholder="请输入房源标题" clearable />
+                        </el-form-item>
+                        <el-form-item label="房东名称" prop="hostName">
+                            <el-input v-model="searchForm.hostName" placeholder="请输入房东名称" clearable />
+                        </el-form-item>
+                        <el-form-item label="支付状态" prop="paymentStatus">
+                            <el-select v-model="searchForm.paymentStatus" placeholder="支付状态" clearable style="width: 140px">
+                                <el-option v-for="(item, key) in paymentStatusMap" :key="key" :label="item.text" :value="key" />
+                            </el-select>
+                        </el-form-item>
+                        <el-form-item label="支付方式" prop="paymentMethod">
+                            <el-input v-model="searchForm.paymentMethod" placeholder="支付方式" clearable />
+                        </el-form-item>
+                        <el-form-item label="入住日期" prop="checkInDateRange">
+                            <el-date-picker v-model="searchForm.checkInDateRange" type="daterange" range-separator="至"
+                                start-placeholder="开始" end-placeholder="结束" clearable style="width: 240px" />
+                        </el-form-item>
+                        <el-form-item label="创建日期" prop="createTimeRange">
+                            <el-date-picker v-model="searchForm.createTimeRange" type="daterange" range-separator="至"
+                                start-placeholder="开始" end-placeholder="结束" clearable style="width: 240px" />
+                        </el-form-item>
+                    </div>
+                </transition>
+
+                <el-form-item class="search-actions">
                     <el-button type="primary" @click="handleSearch" :icon="Search">搜索</el-button>
                     <el-button @click="resetSearch" :icon="Refresh">重置</el-button>
-                    <el-button type="success" @click="handleExport" :icon="Download">导出订单</el-button>
+                    <el-button type="info" plain @click="toggleSearch">
+                        {{ isSearchExpanded ? '收起' : '高级搜索' }}
+                        <el-icon class="search-toggle-icon"><component :is="isSearchExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                    </el-button>
+                    <el-button type="success" @click="handleExport" :icon="Download" style="margin-left: 12px;">导出订单</el-button>
                 </el-form-item>
             </el-form>
         </div>
 
-        <!-- 批量操作区域 -->
-        <div class="batch-operation" v-if="selectedRows.length > 0">
-            <el-alert title="批量操作" type="info" :closable="false" show-icon>
-                <template #default>
-                    已选择 <strong>{{ selectedRows.length }}</strong> 项
-                    <div class="batch-buttons">
-                        <el-button size="small" type="warning" @click="handleBatchRefund">批量发起退款</el-button>
-                        <el-button size="small" type="danger" @click="handleBatchCancel">批量强制取消</el-button>
-                        <el-button size="small" type="primary" @click="handleBatchExport">批量导出</el-button>
-                    </div>
-                </template>
-            </el-alert>
-        </div>
+        <!-- 批量操作悬浮条 -->
+        <transition name="el-zoom-in-bottom">
+            <div class="batch-operation-bar" v-if="selectedRows.length > 0">
+                <div class="batch-info">
+                    <el-icon class="info-icon"><InfoFilled /></el-icon>
+                    <span>已选择 <strong style="color: #409eff; font-size: 16px;">{{ selectedRows.length }}</strong> 项订单可以进行操作</span>
+                </div>
+                <div class="batch-buttons">
+                    <el-button size="default" type="warning" plain @click="handleBatchRefund">批量发起退款</el-button>
+                    <el-button size="default" type="danger" plain @click="handleBatchCancel">批量强制取消</el-button>
+                    <el-button size="default" type="primary" @click="handleBatchExport">批量导出Excel</el-button>
+                </div>
+            </div>
+        </transition>
 
         <el-table :data="tableData" border style="width: 100%" v-loading="loading"
             @selection-change="handleSelectionChange" @sort-change="handleSortChange"
@@ -253,90 +251,63 @@
             <!-- 操作 -->
             <el-table-column label="操作" width="200" fixed="right" align="center">
                 <template #default="scope">
-                    <!-- 基础功能：查看详情 -->
-                    <el-button type="primary" link size="small" @click="handleDetail(scope.row)">详情</el-button>
+                    <div class="action-buttons">
+                        <!-- 核心操作外露 -->
+                        <el-button type="primary" link size="small" @click="handleDetail(scope.row)">详情</el-button>
 
-                    <!-- 支付异常处理：确认支付 -->
-                    <el-button type="success" link size="small" @click="handleConfirmPayment(scope.row)"
-                        v-if="scope.row.paymentStatus === 'UNPAID'">
-                        确认支付
-                    </el-button>
+                        <el-button type="success" link size="small" @click="handleConfirmPayment(scope.row)"
+                            v-if="scope.row.paymentStatus === 'UNPAID'">
+                            确认支付
+                        </el-button>
 
-                    <!-- 退款管理：发起退款 -->
-                    <el-button type="warning" link size="small" @click="handleRefund(scope.row)"
-                        v-if="scope.row.paymentStatus === 'PAID' && !['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(scope.row.status)">
-                        发起退款
-                    </el-button>
+                        <el-button type="primary" link size="small" @click="openPrepareCheckIn(scope.row)"
+                            v-if="scope.row.status === 'PAID' && scope.row.paymentStatus === 'PAID'">
+                            准备入住
+                        </el-button>
 
-                    <!-- 退款管理：批准退款申请 -->
-                    <el-button type="success" link size="small" @click="handleApproveRefund(scope.row)"
-                        v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
-                        批准退款
-                    </el-button>
+                        <el-button type="success" link size="small" @click="handlePerformCheckIn(scope.row)"
+                            v-if="scope.row.status === 'READY_FOR_CHECKIN'">
+                            办理入住
+                        </el-button>
 
-                    <!-- 退款管理：拒绝退款申请 -->
-                    <el-button type="danger" link size="small" @click="handleRejectRefund(scope.row)"
-                        v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
-                        拒绝退款
-                    </el-button>
+                        <el-button type="primary" link size="small" @click="openCheckOut(scope.row)"
+                            v-if="scope.row.status === 'CHECKED_IN'">
+                            办理退房
+                        </el-button>
 
-                    <!-- 争议管理：发起争议 -->
-                    <el-button type="warning" link size="small" @click="handleRaiseDispute(scope.row)"
-                        v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
-                        发起争议
-                    </el-button>
+                        <el-button type="success" link size="small" @click="handleConfirmSettlement(scope.row)"
+                            v-if="scope.row.status === 'CHECKED_OUT'">
+                            确认结算
+                        </el-button>
 
-                    <!-- 争议管理：解决争议（仲裁） -->
-                    <el-button type="primary" link size="small" @click="handleResolveDispute(scope.row)"
-                        v-if="scope.row.status === 'DISPUTE_PENDING'">
-                        处理争议
-                    </el-button>
+                        <!-- 退款申请比较重要，保留在外侧 -->
+                        <template v-if="scope.row.paymentStatus === 'REFUND_PENDING'">
+                            <el-button type="success" link size="small" @click="handleApproveRefund(scope.row)">
+                                批准退款
+                            </el-button>
+                            <el-button type="danger" link size="small" @click="handleRejectRefund(scope.row)">
+                                拒绝退款
+                            </el-button>
+                        </template>
 
-                    <!-- 异常处理：强制完成订单（仅针对已入住但未完成的订单） -->
-                    <el-button type="primary" link size="small" @click="handleComplete(scope.row)"
-                        v-if="['CHECKED_IN', 'CHECKED_OUT'].includes(scope.row.status)">
-                        强制完成
-                    </el-button>
-
-                    <!-- ========== 入住管理 ========== -->
-
-                    <!-- PAID状态：设置准备入住 -->
-                    <el-button type="primary" link size="small" @click="openPrepareCheckIn(scope.row)"
-                        v-if="scope.row.status === 'PAID' && scope.row.paymentStatus === 'PAID'">
-                        设置准备入住
-                    </el-button>
-
-                    <!-- READY_FOR_CHECKIN状态：办理入住/取消准备 -->
-                    <el-button type="success" link size="small" @click="handlePerformCheckIn(scope.row)"
-                        v-if="scope.row.status === 'READY_FOR_CHECKIN'">
-                        办理入住
-                    </el-button>
-                    <el-button type="warning" link size="small" @click="handleCancelPrepare(scope.row)"
-                        v-if="scope.row.status === 'READY_FOR_CHECKIN'">
-                        取消准备
-                    </el-button>
-
-                    <!-- CHECKED_IN状态：办理退房 -->
-                    <el-button type="warning" link size="small" @click="openCheckOut(scope.row)"
-                        v-if="scope.row.status === 'CHECKED_IN'">
-                        办理退房
-                    </el-button>
-
-                    <!-- CHECKED_OUT状态：押金操作/确认结算 -->
-                    <el-button type="primary" link size="small" @click="openDeposit(scope.row)"
-                        v-if="scope.row.status === 'CHECKED_OUT'">
-                        押金操作
-                    </el-button>
-                    <el-button type="success" link size="small" @click="handleConfirmSettlement(scope.row)"
-                        v-if="scope.row.status === 'CHECKED_OUT'">
-                        确认结算
-                    </el-button>
-
-                    <!-- 异常处理：强制取消订单 -->
-                    <el-button type="danger" link size="small" @click="handleCancel(scope.row)"
-                        v-if="!['COMPLETED', 'CANCELLED', 'REFUNDED', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST', 'CANCELLED_SYSTEM'].includes(scope.row.status) && scope.row.paymentStatus !== 'REFUNDED'">
-                        强制取消
-                    </el-button>
+                        <!-- 更多操作 dropdown -->
+                        <el-dropdown trigger="click" @command="(cmd: string) => handleCommand(cmd, scope.row)" v-if="hasMoreActions(scope.row)">
+                            <el-button type="primary" link size="small" class="more-btn">
+                                更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
+                            </el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item command="refund" v-if="scope.row.paymentStatus === 'PAID' && !['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(scope.row.status)">发起退款</el-dropdown-item>
+                                    <el-dropdown-item command="raiseDispute" v-if="scope.row.paymentStatus === 'REFUND_PENDING'">发起争议</el-dropdown-item>
+                                    <el-dropdown-item command="resolveDispute" v-if="scope.row.status === 'DISPUTE_PENDING'">处理争议</el-dropdown-item>
+                                    <el-dropdown-item command="cancelPrepare" v-if="scope.row.status === 'READY_FOR_CHECKIN'">取消准备</el-dropdown-item>
+                                    <el-dropdown-item command="deposit" v-if="scope.row.status === 'CHECKED_OUT'">押金操作</el-dropdown-item>
+                                    <el-dropdown-item command="complete" v-if="['CHECKED_IN', 'CHECKED_OUT'].includes(scope.row.status)">强制完成</el-dropdown-item>
+                                    <el-dropdown-item command="cancel" v-if="!['COMPLETED', 'CANCELLED', 'REFUNDED', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST', 'CANCELLED_SYSTEM'].includes(scope.row.status) && scope.row.paymentStatus !== 'REFUNDED'" divided class="danger-item">强制取消</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
+                    </div>
                 </template>
             </el-table-column>
         </el-table>
@@ -516,7 +487,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { format } from 'date-fns'
-import { Search, Refresh, Download, Clock, Money, Warning, WarningFilled, House } from '@element-plus/icons-vue'
+import { Search, Refresh, Download, Clock, Money, Warning, WarningFilled, House, ArrowDown } from '@element-plus/icons-vue'
 import {
     getAdminOrders,
     updateOrderStatus,
@@ -1507,6 +1478,45 @@ const handleConfirmSettlement = async (row: AdminOrder) => {
     }
 }
 
+// ====== 更多操作菜单 ======
+const hasMoreActions = (row: AdminOrder) => {
+    const canRefund = row.paymentStatus === 'PAID' && !['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(row.status);
+    const canRaiseDispute = row.paymentStatus === 'REFUND_PENDING';
+    const canResolveDispute = row.status === 'DISPUTE_PENDING';
+    const canCancelPrepare = row.status === 'READY_FOR_CHECKIN';
+    const canDeposit = row.status === 'CHECKED_OUT';
+    const canComplete = ['CHECKED_IN', 'CHECKED_OUT'].includes(row.status);
+    const canCancel = !['COMPLETED', 'CANCELLED', 'REFUNDED', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST', 'CANCELLED_SYSTEM'].includes(row.status) && row.paymentStatus !== 'REFUNDED';
+    
+    return canRefund || canRaiseDispute || canResolveDispute || canCancelPrepare || canDeposit || canComplete || canCancel;
+}
+
+const handleCommand = (command: string, row: AdminOrder) => {
+    switch (command) {
+        case 'refund':
+            handleRefund(row);
+            break;
+        case 'raiseDispute':
+            handleRaiseDispute(row);
+            break;
+        case 'resolveDispute':
+            handleResolveDispute(row);
+            break;
+        case 'cancelPrepare':
+            handleCancelPrepare(row);
+            break;
+        case 'deposit':
+            openDeposit(row);
+            break;
+        case 'complete':
+            handleComplete(row);
+            break;
+        case 'cancel':
+            handleCancel(row);
+            break;
+    }
+}
+
 // 初始化
 onMounted(() => {
     fetchData()
@@ -1519,12 +1529,29 @@ onMounted(() => {
     padding: 20px;
 
     // 异常订单统计卡片样式
-    .stats-row {
-        margin-bottom: 16px;
+    .stats-grid {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 20px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 8px; /* 留出阴影和滚动条空间 */
+
+        /* 可选：美化或隐藏滚动条 */
+        &::-webkit-scrollbar {
+            height: 4px;
+        }
+        &::-webkit-scrollbar-thumb {
+            background-color: #dcdfe6;
+            border-radius: 4px;
+        }
 
         .stat-card {
+            flex: 1;
+            min-width: 180px; /* 防止被无限挤压 */
             cursor: pointer;
             transition: all 0.3s;
+            border-radius: 8px;
 
             &:hover {
                 transform: translateY(-2px);
@@ -1715,6 +1742,36 @@ onMounted(() => {
     .text-gray {
         color: #c0c4cc;
         font-style: italic;
+    }
+
+    /* 确保证下拉按钮文字颜色对于危险操作的展示 */
+    :deep(.danger-item) {
+        color: #f56c6c;
+    }
+
+    .action-buttons {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        
+        .el-button {
+            margin-left: 0;
+            margin-bottom: 2px;
+            margin-top: 2px;
+        }
+
+        .more-btn {
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 2px;
+            margin-top: 2px;
+            
+            .el-icon {
+                margin-left: 2px;
+            }
+        }
     }
 
     /* 确保 tooltip 生效 */
