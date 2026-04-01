@@ -23,6 +23,7 @@ export interface SearchState {
   minRating: number | null
   sortBy: string
   sortDirection: string
+  groupId: number | null
 }
 
 // 默认搜索参数
@@ -38,7 +39,8 @@ const defaultSearchState: SearchState = {
   amenities: [],
   minRating: null,
   sortBy: 'id',
-  sortDirection: 'desc'
+  sortDirection: 'desc',
+  groupId: null
 }
 
 // 搜索超时时间（毫秒）

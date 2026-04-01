@@ -30,6 +30,11 @@
             <div class="homestay-distance" v-if="homestay.distanceFromCenter">
                 距离市中心 {{ homestay.distanceFromCenter }} 公里
             </div>
+            <div class="group-tag" v-if="homestay.groupName">
+                <span class="group-badge" :style="{ backgroundColor: homestay.groupColor || '#409eff' }">
+                    {{ homestay.groupName }}
+                </span>
+            </div>
             <div class="homestay-features" v-if="features.length > 0">
                 <span v-for="feature in features" :key="feature" class="feature-tag">{{ feature }}</span>
             </div>
@@ -289,6 +294,19 @@ const handleCardClick = () => {
     color: #717171;
     font-size: 14px;
     margin-bottom: 4px;
+}
+
+.group-tag {
+    margin-bottom: 6px;
+}
+
+.group-badge {
+    display: inline-block;
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 500;
 }
 
 .homestay-price {

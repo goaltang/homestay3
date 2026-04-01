@@ -21,6 +21,14 @@
                 <el-col :span="6">
                     <el-card shadow="hover" class="dashboard-card">
                         <div class="dashboard-card-content">
+                            <h3>房源分组</h3>
+                            <div class="dashboard-stat">{{ groupCount }}</div>
+                        </div>
+                    </el-card>
+                </el-col>
+                <el-col :span="6">
+                    <el-card shadow="hover" class="dashboard-card">
+                        <div class="dashboard-card-content">
                             <h3>待处理订单</h3>
                             <div class="dashboard-stat">{{ statsData?.pendingOrders || 0 }}</div>
                         </div>
@@ -31,14 +39,6 @@
                         <div class="dashboard-card-content">
                             <h3>本月收入</h3>
                             <div class="dashboard-stat">¥{{ monthlyEarnings || 0 }}</div>
-                        </div>
-                    </el-card>
-                </el-col>
-                <el-col :span="6">
-                    <el-card shadow="hover" class="dashboard-card">
-                        <div class="dashboard-card-content">
-                            <h3>新评价</h3>
-                            <div class="dashboard-stat">{{ statsData?.reviewCount || 0 }}</div>
                         </div>
                     </el-card>
                 </el-col>
@@ -105,11 +105,13 @@ import {
     type HostStatisticsData,
     type HostOrderData
 } from '@/api/host'
+import { getHomestayGroups } from '@/api/homestay'
 
 const loading = ref(false)
 const statsData = ref<HostStatisticsData | null>(null)
 const monthlyEarnings = ref<number>(0)
 const recentOrders = ref<HostOrderData[]>([])
+const groupCount = ref(0)
 
 const getOrderStatusType = (status: string): string => {
     const types: Record<string, string> = {
@@ -163,19 +165,22 @@ const formatAmount = (amount: number | string): string => {
 const fetchDashboardData = async () => {
     loading.value = true;
     try {
-        const [statsResponse, ordersResponse, earningsResponse] = await Promise.all([
+        const [statsResponse, ordersResponse, earningsResponse, groupsResponse] = await Promise.all([
             getHostStatistics(),
             getHostRecentOrders(5),
-            getHostMonthlyEarnings()
+            getHostMonthlyEarnings(),
+            getHomestayGroups()
         ]);
 
         statsData.value = statsResponse;
         recentOrders.value = ordersResponse;
         monthlyEarnings.value = earningsResponse;
+        groupCount.value = (groupsResponse || []).length;
 
         console.log("Dashboard 统计数据:", statsData.value);
         console.log("Dashboard 最近订单:", recentOrders.value);
         console.log("Dashboard 本月收入:", monthlyEarnings.value);
+        console.log("Dashboard 房源分组数:", groupCount.value);
 
     } catch (error) {
         console.error("获取控制台数据失败:", error);

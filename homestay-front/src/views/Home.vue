@@ -6,8 +6,9 @@
     <!-- 筛选栏组件 - 只在搜索后显示 -->
     <FilterBar v-if="searchStore.isSearchMode" :property-types="homestayTypes" :grouped-amenities="groupedAmenities"
       :amenities-loading="amenitiesLoading" :selected-property-type="searchStore.searchParams.propertyType"
+      :groups="groupOptions" :selected-group-id="searchStore.searchParams.groupId || null"
       @property-type-change="handlePropertyTypeChange" @filters-change="handleFiltersChange"
-      @filters-reset="handleFiltersReset" />
+      @filters-reset="handleFiltersReset" @group-change="handleGroupChange" />
 
     <!-- 搜索模式：显示搜索结果 -->
     <SearchResults v-if="searchStore.isSearchMode"
@@ -52,6 +53,7 @@ import { debounce } from '@/utils/debounce'
 import {
   getHomestayTypes,
   getAvailableAmenitiesGrouped,
+  getHomestayGroups,
   type HomestayType,
   type AmenityCategoryOption
 } from '@/api/homestay'
@@ -71,6 +73,7 @@ const searchStore = useSearchStore()
 // 房源类型和设施数据（页面级别，不需要放入 store）
 const homestayTypes = ref<HomestayType[]>([])
 const groupedAmenities = ref<AmenityCategoryOption[]>([])
+const groupOptions = ref<any[]>([])
 const amenitiesLoading = ref(false)
 
 // 搜索请求取消控制
@@ -108,6 +111,12 @@ const handleFiltersReset = () => {
   searchStore.updateParam('minPrice', null)
   searchStore.updateParam('maxPrice', null)
   searchStore.updateParam('amenities', [])
+  debouncedSearchHomestays()
+}
+
+const handleGroupChange = (groupId: number | null) => {
+  searchStore.updateParam('groupId', groupId)
+  searchStore.syncToUrl()
   debouncedSearchHomestays()
 }
 
@@ -271,13 +280,15 @@ const clearSearchAndBrowse = () => {
 // 初始化数据加载
 const initializeData = async () => {
   try {
-    const [typesResponse, amenitiesResponse] = await Promise.all([
+    const [typesResponse, amenitiesResponse, groupsResponse] = await Promise.all([
       getHomestayTypes(),
-      getAvailableAmenitiesGrouped()
+      getAvailableAmenitiesGrouped(),
+      getHomestayGroups()
     ])
 
     homestayTypes.value = typesResponse || []
     groupedAmenities.value = amenitiesResponse || []
+    groupOptions.value = (groupsResponse || []).filter((g: any) => g.enabled)
   } catch (error) {
     console.error('初始化数据失败:', error)
   }

@@ -56,3 +56,25 @@ export function batchDeleteHomestays(ids: number[]) {
     });
   });
 }
+
+/**
+ * 批量分配房源到分组
+ */
+export function batchAssignToGroup(groupId: number, homestayIds: number[]) {
+  return request({
+    url: `/api/host/groups/${groupId}/assign`,
+    method: "post",
+    data: { homestayIds },
+  });
+}
+
+/**
+ * 批量移除房源分组
+ */
+export function batchRemoveFromGroup(homestayIds: number[]) {
+  return request({
+    url: "/api/host/groups/remove",
+    method: "post",
+    data: { homestayIds },
+  });
+}

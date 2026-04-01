@@ -47,7 +47,7 @@ import { ElMessage } from 'element-plus';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useUserStore } from '@/stores/user';
 import request from '@/utils/request';
-import { getActiveHomestays, getHomestayTypes, searchHomestays, type HomestaySearchRequest } from '@/api/homestay';
+import { getActiveHomestays, getHomestayTypes, searchHomestays, getHomestayGroups, type HomestaySearchRequest } from '@/api/homestay';
 import { getPopularHomestaysPage, getRecommendedHomestaysPage, getPersonalizedRecommendations } from '@/api/recommendation';
 import HomestayCard from '@/components/homestay/HomestayCard.vue';
 import SearchBar from '@/components/SearchBar.vue';
@@ -139,6 +139,9 @@ const allSearchResults = ref<Homestay[]>([]);
 // 房源类型数据
 const homestayTypes = ref<any[]>([]);
 
+// 分组数据
+const groupOptions = ref<any[]>([]);
+
 // 检查是否有搜索条件
 const hasSearchConditions = () => {
     return route.query.keyword ||
@@ -176,6 +179,7 @@ const loadHomestays = async () => {
                 minPrice: route.query.minPrice ? Number(route.query.minPrice) : null,
                 maxPrice: route.query.maxPrice ? Number(route.query.maxPrice) : null,
                 requiredAmenities: route.query.amenities ? (route.query.amenities as string).split(',') : null,
+                groupId: route.query.groupId ? Number(route.query.groupId) : null,
                 page: currentPage.value - 1,  // 后端分页从0开始
                 size: pageSize.value,
                 sortBy: 'id',
@@ -422,6 +426,16 @@ const loadHomestayTypes = async () => {
     }
 };
 
+// 获取分组数据
+const loadGroups = async () => {
+    try {
+        const groups = await getHomestayGroups();
+        groupOptions.value = groups.filter((g: any) => g.enabled);
+    } catch (error) {
+        console.error('获取分组列表失败:', error);
+    }
+};
+
 // 搜索栏搜索处理
 const handleSearchBarSearch = (params: any) => {
     console.log('执行搜索，参数:', params);
@@ -549,6 +563,7 @@ watch(() => route.query, (newQuery, oldQuery) => {
 onMounted(() => {
     initializeFromRoute();
     loadHomestayTypes();
+    loadGroups();
     loadHomestays();
     console.log('路由查询参数:', route.query);
 });

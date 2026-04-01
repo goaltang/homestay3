@@ -10,6 +10,12 @@
                 :class="{ active: selectedPropertyType === type.name }" @click="selectPropertyType(type.name)">
                 <span>{{ type.name }}</span>
             </div>
+            <!-- 分组筛选按钮 -->
+            <div v-if="groups.length > 0" class="group-filter-divider"></div>
+            <div v-for="group in groups" :key="group.id" class="filter-item group-item"
+                :class="{ active: selectedGroupId === group.id }" @click="selectGroup(group.id)">
+                <span :style="selectedGroupId === group.id && group.color ? { color: group.color } : {}">{{ group.name }}</span>
+            </div>
         </div>
 
         <div class="filter-actions">
@@ -83,19 +89,30 @@ interface AmenityCategoryOption {
     amenities: AmenityOption[]
 }
 
+interface GroupOption {
+    id: number
+    name: string
+    color?: string
+    homestayCount?: number
+}
+
 // 定义 props
 interface Props {
     propertyTypes?: HomestayType[]
     groupedAmenities?: AmenityCategoryOption[]
     amenitiesLoading?: boolean
     selectedPropertyType?: string | null
+    groups?: GroupOption[]
+    selectedGroupId?: number | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
     propertyTypes: () => [],
     groupedAmenities: () => [],
     amenitiesLoading: false,
-    selectedPropertyType: null
+    selectedPropertyType: null,
+    groups: () => [],
+    selectedGroupId: null
 })
 
 // 定义 emits
@@ -103,6 +120,7 @@ const emit = defineEmits<{
     'property-type-change': [type: string | null]
     'filters-change': [filters: any]
     'filters-reset': []
+    'group-change': [groupId: number | null]
 }>()
 
 // 响应式数据
@@ -123,6 +141,10 @@ const activeFilterCount = computed(() => {
 // 方法
 const selectPropertyType = (typeName: string | null) => {
     emit('property-type-change', typeName)
+}
+
+const selectGroup = (groupId: number | null) => {
+    emit('group-change', groupId)
 }
 
 const handleResetFilters = () => {
@@ -194,6 +216,21 @@ defineExpose({
 
 .filter-badge {
     margin-left: 8px;
+}
+
+.group-filter-divider {
+    width: 1px;
+    background-color: #e4e7ed;
+    align-self: stretch;
+    margin: 0 8px;
+}
+
+.group-item {
+    position: relative;
+}
+
+.group-item.active span {
+    font-weight: 600;
 }
 
 .filter-popover {

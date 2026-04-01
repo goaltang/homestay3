@@ -130,6 +130,7 @@ export function getOwnerHomestays(params?: {
   size?: number;
   status?: string;
   type?: string;
+  groupId?: number;
 }) {
   return request({
     url: "/api/homestays/owner",

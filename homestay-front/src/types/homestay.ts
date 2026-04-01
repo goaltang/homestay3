@@ -15,7 +15,7 @@ export interface Homestay {
   provinceCode?: string;
   cityCode?: string;
   districtCode?: string;
-  amenities: any[]; // 改为any[]支持AmenityDTO格式
+  amenities: any[];
   description: string;
   coverImage: string;
   images: string[];
@@ -32,6 +32,9 @@ export interface Homestay {
   houseRules?: string;
   createdAt?: string;
   updatedAt?: string;
+  groupId?: number;
+  groupName?: string;
+  groupCode?: string;
 }
 
 // 扩展详情页专用的Homestay接口
@@ -131,6 +134,7 @@ export interface HomestaySearchRequest {
   hasWasher?: boolean;
   hasParking?: boolean;
   hasPool?: boolean;
+  groupId?: number;
   page?: number;
   size?: number;
   sortBy?: string;
@@ -201,4 +205,32 @@ export interface OwnerAuditStats {
   rejected: number;
   suspended: number;
   avgReviewTime?: number;
+}
+
+// 房源分组相关
+export interface HomestayGroup {
+  id: number;
+  name: string;
+  code?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  ownerId: number;
+  ownerUsername?: string;
+  sortOrder: number;
+  isDefault: boolean;
+  enabled: boolean;
+  homestayCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface HomestayGroupRequest {
+  name: string;
+  code?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  sortOrder?: number;
+  enabled?: boolean;
 }

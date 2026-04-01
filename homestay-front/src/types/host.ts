@@ -180,6 +180,8 @@ export interface HostHomestay {
   createdAt: string;
   coverImage: string;
   location: string;
+  groupId?: number;
+  groupName?: string;
 }
 
 export interface HostOrder {

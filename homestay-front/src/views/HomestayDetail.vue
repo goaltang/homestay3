@@ -28,6 +28,11 @@
                         </el-icon>
                         <span>{{ formattedLocation }}</span>
                     </div>
+                    <div class="group-badge-detail" v-if="homestay.groupName">
+                        <span class="group-tag-detail" :style="{ backgroundColor: homestay.groupColor || '#409eff' }">
+                            {{ homestay.groupName }}
+                        </span>
+                    </div>
                 </div>
                 <div class="actions">
                     <el-button type="text" @click="shareHomestay">
@@ -380,10 +385,20 @@ onMounted(() => {
 }
 
 .rating,
-.location {
+.location,
+.group-badge-detail {
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+.group-tag-detail {
+    display: inline-block;
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 500;
 }
 
 .review-count {

@@ -337,4 +337,12 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
             @Param("excludeHomestayId") Long excludeHomestayId,
             @Param("status") HomestayStatus status
     );
+
+    List<Homestay> findByOwnerIdAndGroupId(Long ownerId, Long groupId);
+
+    @Query("SELECT COUNT(h) FROM Homestay h WHERE h.group.id = :groupId")
+    Long countByGroupId(@Param("groupId") Long groupId);
+
+    @Query("SELECT h FROM Homestay h WHERE h.group.id = :groupId AND h.owner.id = :ownerId")
+    Page<Homestay> findByGroupIdAndOwnerId(@Param("groupId") Long groupId, @Param("ownerId") Long ownerId, Pageable pageable);
 } 

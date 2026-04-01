@@ -78,3 +78,20 @@ export interface OrderBasic {
   paymentStatus: PaymentStatus; // 新增
   createTime: string;
 }
+
+export interface HomestayGroup {
+  id: number;
+  name: string;
+  code?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  ownerId: number;
+  ownerUsername?: string;
+  sortOrder: number;
+  isDefault: boolean;
+  enabled: boolean;
+  homestayCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}

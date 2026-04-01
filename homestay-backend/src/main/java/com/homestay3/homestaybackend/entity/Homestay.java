@@ -128,4 +128,8 @@ public class Homestay {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Set<Amenity> amenities = new HashSet<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private HomestayGroup group;
 }

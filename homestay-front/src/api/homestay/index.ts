@@ -16,6 +16,7 @@ export * from "./audit";
 export * from "./image";
 export * from "./batch";
 export * from "./meta";
+export * from "./group";
 
 // 向后兼容的别名
 export { getOwnerHomestays as getHomestaysByOwner } from "./core";
