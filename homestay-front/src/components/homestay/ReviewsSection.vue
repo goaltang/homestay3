@@ -42,6 +42,18 @@
                 <div class="review-content">
                     {{ review.content }}
                 </div>
+                <!-- 评价图片 -->
+                <div class="review-images" v-if="review.images && review.images.length > 0">
+                    <el-image
+                        v-for="(img, imgIndex) in review.images"
+                        :key="imgIndex"
+                        :src="getImageUrl(img)"
+                        :preview-src-list="review.images.map(i => getImageUrl(i))"
+                        :initial-index="imgIndex"
+                        fit="cover"
+                        class="review-image"
+                    />
+                </div>
                 <div class="host-response" v-if="review.response">
                     <div class="response-header">房东回复:</div>
                     <div class="response-content">{{ review.response }}</div>
@@ -69,6 +81,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Star } from '@element-plus/icons-vue'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/zh-cn'
+
+dayjs.extend(relativeTime)
+dayjs.locale('zh-cn')
 
 // Types
 interface Review {
@@ -140,15 +158,31 @@ const getReviewerAvatar = (review: Review): string => {
     return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
 }
 
+const getImageUrl = (url: string): string => {
+    if (!url) return ''
+    if (url.startsWith('/')) {
+        return `http://localhost:8080${url}`
+    }
+    return url
+}
+
 const formatDisplayDate = (date: Date | string | null): string => {
     if (!date) return '日期无效'
     try {
         const d = typeof date === 'string' ? new Date(date) : date
         if (!(d instanceof Date) || isNaN(d.getTime())) return '日期无效'
-        const year = d.getFullYear()
-        const month = d.getMonth() + 1
-        const day = d.getDate()
-        return `${year}年${month}月${day}日`
+
+        const now = dayjs()
+        const target = dayjs(d)
+        const diffDays = now.diff(target, 'day')
+
+        // 30天内显示相对时间
+        if (diffDays < 30) {
+            return target.fromNow()
+        }
+
+        // 超过30天显示具体日期
+        return target.format('YYYY年MM月DD日')
     } catch (e) {
         return '日期格式错误'
     }
@@ -289,6 +323,20 @@ const formatDisplayDate = (date: Date | string | null): string => {
     margin-bottom: 16px;
     color: #484848;
     font-size: 15px;
+}
+
+.review-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.review-image {
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    cursor: pointer;
 }
 
 .host-response {

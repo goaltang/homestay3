@@ -6,20 +6,18 @@ export function useReviews() {
   const reviews = ref<Review[]>([]);
   const reviewStats = ref<ReviewStatItem[]>([]);
   const totalReviewCount = ref(0);
+  const averageRating = ref<number>(0); // 后端返回的平均评分
   const reviewsPage = ref(1);
   const reviewsPageSize = 5;
   const loading = ref(false);
 
   const formattedRating = computed(() => {
-    // 优先使用评价统计中的平均评分
-    if (reviewStats.value.length > 0) {
-      const avgRating =
-        reviewStats.value.reduce((sum, stat) => sum + stat.score, 0) /
-        reviewStats.value.length;
-      return avgRating.toFixed(1);
+    // 优先使用后端返回的平均评分
+    if (averageRating.value > 0) {
+      return averageRating.value.toFixed(1);
     }
 
-    // 如果有评价但没有评价统计，根据评价数量给出默认评分
+    // 如果后端没有返回，但有评价数据，则根据评价列表计算
     if (totalReviewCount.value > 0 || reviews.value.length > 0) {
       if (reviews.value.length > 0) {
         const ratingsWithScores = reviews.value.filter(
@@ -80,6 +78,8 @@ export function useReviews() {
       // 获取评价统计
       const statsResponse = await getHomestayReviewStats(homestayId);
       if (statsResponse?.data) {
+        // 保存后端返回的平均评分
+        averageRating.value = statsResponse.data.averageRating || 0;
         reviewStats.value = [
           { name: "清洁度", score: statsResponse.data.cleanlinessRating || 0 },
           { name: "准确性", score: statsResponse.data.accuracyRating || 0 },
@@ -109,6 +109,7 @@ export function useReviews() {
     reviews.value = [];
     reviewStats.value = [];
     totalReviewCount.value = 0;
+    averageRating.value = 0;
     reviewsPage.value = 1;
     loading.value = false;
   };

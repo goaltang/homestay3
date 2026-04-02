@@ -29,6 +29,10 @@
             </transition>
 
             <div class="user-menu">
+                <div class="map-search-link" @click="goToMapSearch">
+                    <el-icon><Location /></el-icon>
+                    地图找房
+                </div>
                 <div class="host-link" v-if="!isLoggedIn || (!userStore.isLandlord && !authStore.isLandlord)" @click="goToBecomeHost">
                     成为房东
                 </div>
@@ -72,7 +76,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem, ElAvatar, ElIcon } from 'element-plus';
-import { Menu, Search } from '@element-plus/icons-vue';
+import { Menu, Search, Location } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
 import { useAuthStore } from '@/stores/auth';
 import { getAvatarUrl, handleImageError } from '@/utils/image';
@@ -124,6 +128,10 @@ const handleGlobalSearch = (params: any) => {
         path: '/homestays',
         query: newQuery
     });
+};
+
+const goToMapSearch = () => {
+    router.push('/map-search');
 };
 
 const goToBecomeHost = () => {
@@ -360,6 +368,24 @@ const handleAvatarError = (e: Event) => {
     border-radius: 20px;
     margin-right: 8px;
     transition: background-color 0.2s;
+}
+
+.map-search-link {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-right: 8px;
+    transition: background-color 0.2s;
+}
+
+.map-search-link:hover {
+    background-color: var(--border-color, #f0f2f5);
 }
 
 .host-link:hover {

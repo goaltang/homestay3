@@ -32,6 +32,18 @@ const router = createRouter({
       component: () => import("../views/HomestayListView.vue"),
     },
     {
+      path: "/map-search",
+      name: "map-search",
+      component: () => import("../views/MapSearch.vue"),
+      meta: { title: "地图找房" },
+    },
+    {
+      path: "/about",
+      name: "about",
+      component: () => import("../views/About.vue"),
+      meta: { title: "关于我们" },
+    },
+    {
       path: "/homestays/:id",
       name: "homestay-detail",
       component: () => import("../views/HomestayDetail.vue"),
@@ -313,6 +325,7 @@ router.beforeEach(async (to, from, next) => {
     "/homestays",
     "/homestay/:id",
     "/homestays/:id",
+    "/map-search",
   ];
 
 

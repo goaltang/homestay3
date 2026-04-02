@@ -5,6 +5,7 @@ import com.homestay3.homestaybackend.dto.UpdateReviewRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Map;
 
 public interface ReviewService {
@@ -75,12 +76,29 @@ public interface ReviewService {
      * @return 更新后的评价 DTO
      */
     ReviewDTO updateReview(Long reviewId, UpdateReviewRequest updateRequest, String username);
+
+    /**
+     * 更新评价图片
+     * @param reviewId 评价ID
+     * @param imageUrls 图片URL列表
+     */
+    void updateReviewImages(Long reviewId, List<String> imageUrls);
     
     /**
      * 设置评价可见性
      */
     void setReviewVisibility(Long id, boolean isVisible);
-    
+
+    /**
+     * 批量设置评价可见性
+     */
+    void batchSetVisibility(List<Long> ids, boolean isVisible);
+
+    /**
+     * 批量删除评价（软删除）
+     */
+    void batchDelete(List<Long> ids);
+
     /**
      * 获取评价统计数据（管理员）
      */

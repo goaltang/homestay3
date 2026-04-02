@@ -48,6 +48,24 @@
                 <el-input v-model="reviewForm.content" type="textarea" :rows="4" placeholder="分享您的入住体验..."
                     maxlength="500" show-word-limit />
             </el-form-item>
+
+            <el-form-item label="上传图片">
+                <div class="image-upload-container">
+                    <el-upload
+                        action="/api/files/upload"
+                        list-type="picture-card"
+                        :auto-upload="false"
+                        :limit="9"
+                        :on-change="handleImageChange"
+                        :on-remove="handleImageRemove"
+                        :file-list="imageFileList"
+                        accept="image/*"
+                    >
+                        <el-icon><Plus /></el-icon>
+                    </el-upload>
+                    <div class="upload-tip">最多上传9张图片</div>
+                </div>
+            </el-form-item>
         </el-form>
         <template #footer>
             <span class="dialog-footer">
@@ -60,8 +78,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch, defineProps, defineEmits } from 'vue';
-import type { FormInstance, FormRules } from 'element-plus';
+import type { FormInstance, FormRules, UploadFile, UploadRawFile } from 'element-plus';
 import { ElMessage } from 'element-plus';
+import { Plus } from '@element-plus/icons-vue';
+import request from '@/utils/request';
 
 // --- Props --- 
 const props = defineProps({
@@ -86,11 +106,13 @@ const props = defineProps({
 // --- Emits --- 
 const emit = defineEmits(['update:visible', 'submit']);
 
-// --- Refs and Reactive Variables --- 
+// --- Refs and Reactive Variables ---
 const dialogVisible = ref(props.visible);
 const reviewFormRef = ref<FormInstance>();
 const loading = ref(false);
 const activeCollapse = ref<string[]>([]); // 控制折叠面板默认不展开
+const imageFileList = ref<UploadFile[]>([]);
+const imageUrls = ref<string[]>([]);
 
 const initialFormState = () => ({
     orderId: props.orderId,
@@ -158,17 +180,64 @@ const handleClose = () => {
     emit('update:visible', false);
 };
 
+// 处理图片选择
+const handleImageChange = async (file: UploadFile, files: UploadFile[]) => {
+    imageFileList.value = files;
+};
+
+// 处理图片删除
+const handleImageRemove = (file: UploadFile, files: UploadFile[]) => {
+    imageFileList.value = files;
+};
+
+// 上传图片并获取URL
+const uploadImages = async (): Promise<string[]> => {
+    const files = imageFileList.value.filter(f => !f.url || f.url.startsWith('blob:'));
+    if (files.length === 0) {
+        return imageUrls.value;
+    }
+
+    const urls: string[] = [];
+    for (const file of files) {
+        const rawFile = file.raw as UploadRawFile;
+        if (!rawFile) continue;
+
+        try {
+            const formData = new FormData();
+            formData.append('file', rawFile);
+            const response = await request({
+                url: '/api/files/upload',
+                method: 'post',
+                data: formData,
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            if (response.data?.url) {
+                urls.push(response.data.url);
+            }
+        } catch (error) {
+            console.error('图片上传失败:', error);
+            ElMessage.error('图片上传失败');
+        }
+    }
+    return urls;
+};
+
 const submitForm = async () => {
     if (!reviewFormRef.value) return;
     await reviewFormRef.value.validate(async (valid) => {
         if (valid) {
             loading.value = true;
             try {
+                // 先上传图片
+                const uploadedUrls = await uploadImages();
+                // 合并已有图片URL和新上传的图片URL
+                const allImages = [...imageUrls.value, ...uploadedUrls];
+
                 console.log('Submitting review form:', reviewForm);
-                // Emit the form data including all ratings
-                emit('submit', { ...reviewForm });
+                // Emit the form data including all ratings and images
+                emit('submit', { ...reviewForm, images: allImages });
                 // Optionally close dialog here or let parent decide after API call
-                // handleClose(); 
+                // handleClose();
             } catch (error) {
                 console.error('Error preparing review submission:', error);
                 ElMessage.error('提交评价准备失败，请稍后重试');
@@ -218,5 +287,21 @@ const submitForm = async () => {
 
 :deep(.el-collapse-item__header) {
     border-bottom: none;
+}
+
+.image-upload-container {
+    width: 100%;
+}
+
+.upload-tip {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 8px;
+}
+
+:deep(.el-upload-list--picture-card) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 </style>

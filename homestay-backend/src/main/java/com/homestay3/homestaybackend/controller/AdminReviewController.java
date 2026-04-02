@@ -14,6 +14,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -100,5 +101,39 @@ public class AdminReviewController {
         logger.info("管理员获取评价统计数据");
         Map<String, Object> stats = reviewService.getAdminReviewStats();
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * 批量设置评价可见性
+     */
+    @PostMapping("/batch/visibility")
+    public ResponseEntity<?> batchSetVisibility(@RequestBody Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        List<Long> ids = (List<Long>) request.get("ids");
+        Boolean isVisible = (Boolean) request.get("isVisible");
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body("IDs不能为空");
+        }
+        if (isVisible == null) {
+            return ResponseEntity.badRequest().body("isVisible不能为空");
+        }
+        logger.info("批量设置评价可见性, IDs数量: {}, isVisible: {}", ids.size(), isVisible);
+        reviewService.batchSetVisibility(ids, isVisible);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 批量删除评价
+     */
+    @PostMapping("/batch/delete")
+    public ResponseEntity<?> batchDelete(@RequestBody Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        List<Long> ids = (List<Long>) request.get("ids");
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body("IDs不能为空");
+        }
+        logger.info("批量删除评价, IDs数量: {}", ids.size());
+        reviewService.batchDelete(ids);
+        return ResponseEntity.ok().build();
     }
 } 

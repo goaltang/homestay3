@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.ReviewDTO;
+import com.homestay3.homestaybackend.dto.ReviewResponseRequest;
 import com.homestay3.homestaybackend.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import com.homestay3.homestaybackend.dto.UpdateReviewRequest;
 import jakarta.validation.Valid;
 
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -104,18 +106,13 @@ public class ReviewController {
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> respondToReview(
             @PathVariable Long reviewId,
-            @RequestBody Map<String, String> response,
+            @Valid @RequestBody ReviewResponseRequest request,
             Authentication authentication) {
-        
-        String responseText = response.get("response");
-        if (responseText == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "回复内容不能为空"));
-        }
-        
+
         String username = authentication.getName();
         logger.info("房东回复评价, 房东: {}, 评价ID: {}", username, reviewId);
-        
-        ReviewDTO updatedReview = reviewService.respondToReview(reviewId, responseText, username);
+
+        ReviewDTO updatedReview = reviewService.respondToReview(reviewId, request.getResponse(), username);
         return ResponseEntity.ok(updatedReview);
     }
 
@@ -169,6 +166,34 @@ public class ReviewController {
         } catch (Exception e) { // 可以考虑捕获 ValidationException 等更具体的异常
             logger.error("更新评价时发生内部错误, ID: {}, 用户: {}, 错误: {}", reviewId, username, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "更新评价时发生错误"));
+        }
+    }
+
+    /**
+     * 更新评价图片
+     */
+    @PatchMapping("/{reviewId}/images")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> updateReviewImages(
+            @PathVariable Long reviewId,
+            @RequestBody Map<String, List<String>> request,
+            Authentication authentication) {
+
+        List<String> images = request.get("images");
+        if (images != null && images.size() > 9) {
+            return ResponseEntity.badRequest().body(Map.of("error", "每条评价最多上传9张图片"));
+        }
+
+        logger.info("更新评价图片, 评价ID: {}", reviewId);
+        try {
+            reviewService.updateReviewImages(reviewId, images);
+            return ResponseEntity.ok().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

@@ -6,6 +6,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "reviews")
@@ -36,6 +38,10 @@ public class Review {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
+
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ReviewImage> images = new ArrayList<>();
 
     @Column(columnDefinition = "TEXT")
     private String response;
@@ -70,4 +76,8 @@ public class Review {
     // 是否公开
     @Builder.Default
     private Boolean isPublic = true;
+
+    // 是否已删除（软删除标记）
+    @Builder.Default
+    private Boolean deleted = false;
 }

@@ -6,8 +6,7 @@ import { codeToText } from "element-china-area-data";
 
 // 高德地图API配置
 const AMAP_CONFIG = {
-  // 请替换为你申请的API Key
-  apiKey: "13725cc6ef2c302a407b3a2d12247ac5", // 🔑 请在这里填入你申请到的API Key
+  apiKey: import.meta.env.VITE_AMAP_API_KEY || "13725cc6ef2c302a407b3a2d12247ac5",
   version: "2.0",
   plugins: ["AMap.Geocoder", "AMap.PlaceSearch"],
 };

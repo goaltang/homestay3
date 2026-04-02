@@ -14,6 +14,8 @@ import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.ReviewService;
 import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.service.ContentFilterService;
+import com.homestay3.homestaybackend.service.ReviewImageService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -53,6 +55,8 @@ public class ReviewServiceImpl implements ReviewService {
     private final HomestayRepository homestayRepository;
     private final OrderRepository orderRepository;
     private final NotificationService notificationService;
+    private final ContentFilterService contentFilterService;
+    private final ReviewImageService reviewImageService;
 
     @Override
     public Page<ReviewDTO> getReviewsByUser(String username, int page, int size) {
@@ -71,7 +75,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
         
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
-        return reviewRepository.findByHomestay_IdAndIsPublicTrue(homestayId, pageable)
+        return reviewRepository.findByHomestay_IdAndIsPublicTrueAndDeletedFalse(homestayId, pageable)
                 .map(this::convertToDTO);
     }
 
@@ -142,7 +146,10 @@ public class ReviewServiceImpl implements ReviewService {
         
         Homestay homestay = order.getHomestay(); // 直接从订单获取民宿，避免二次查询
 
-        // 5. 检查是否已评论
+        // 5. 敏感词过滤
+        contentFilterService.validate(reviewDTO.getContent());
+
+        // 6. 检查是否已评论（排除已删除的）
         if (reviewRepository.existsByOrder(order)) {
             throw new IllegalArgumentException("You have already reviewed this order.");
         }
@@ -165,7 +172,12 @@ public class ReviewServiceImpl implements ReviewService {
                 .build();
         
         Review savedReview = reviewRepository.save(review);
-        
+
+        // 保存评价图片
+        if (reviewDTO.getImages() != null && !reviewDTO.getImages().isEmpty()) {
+            reviewImageService.saveReviewImages(savedReview.getId(), reviewDTO.getImages());
+        }
+
         // --- 添加通知逻辑 (通知房东) ---
         try {
             User host = homestay.getOwner();
@@ -209,7 +221,10 @@ public class ReviewServiceImpl implements ReviewService {
         if (!review.getHomestay().getOwner().getId().equals(host.getId())) {
             throw new IllegalStateException("只有房东才能回复评价");
         }
-        
+
+        // 敏感词过滤
+        contentFilterService.validate(response);
+
         review.setResponse(response);
         review.setResponseTime(LocalDateTime.now());
         
@@ -400,9 +415,10 @@ public class ReviewServiceImpl implements ReviewService {
             throw new AccessDeniedException("You do not have permission to delete this review.");
         }
 
-        logger.info("Permission granted. Deleting review {} requested by user '{}' (Is Owner: {}, Is Admin: {})", id, currentUsername, isOwner, isAdmin);
-        reviewRepository.delete(review); // 使用 delete(entity) 更安全
-        logger.info("Review deleted successfully with id: {}", id);
+        logger.info("Permission granted. Soft deleting review {} requested by user '{}' (Is Owner: {}, Is Admin: {})", id, currentUsername, isOwner, isAdmin);
+        review.setDeleted(true);
+        reviewRepository.save(review);
+        logger.info("Review soft deleted successfully with id: {}", id);
     }
 
     @Override
@@ -412,6 +428,44 @@ public class ReviewServiceImpl implements ReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + id));
         review.setIsPublic(isVisible);
         reviewRepository.save(review);
+    }
+
+    @Override
+    @Transactional
+    public void batchSetVisibility(List<Long> ids, boolean isVisible) {
+        logger.info("批量设置评价可见性, IDs: {}, isVisible: {}", ids, isVisible);
+        for (Long id : ids) {
+            try {
+                Review review = reviewRepository.findById(id)
+                        .orElse(null);
+                if (review != null) {
+                    review.setIsPublic(isVisible);
+                    reviewRepository.save(review);
+                }
+            } catch (Exception e) {
+                logger.error("批量设置可见性失败, ID: {}, 错误: {}", id, e.getMessage());
+            }
+        }
+        logger.info("批量设置评价可见性完成");
+    }
+
+    @Override
+    @Transactional
+    public void batchDelete(List<Long> ids) {
+        logger.info("批量删除评价, IDs: {}", ids);
+        for (Long id : ids) {
+            try {
+                Review review = reviewRepository.findById(id)
+                        .orElse(null);
+                if (review != null) {
+                    review.setDeleted(true);
+                    reviewRepository.save(review);
+                }
+            } catch (Exception e) {
+                logger.error("批量删除失败, ID: {}, 错误: {}", id, e.getMessage());
+            }
+        }
+        logger.info("批量删除评价完成");
     }
 
     @Override
@@ -467,20 +521,39 @@ public class ReviewServiceImpl implements ReviewService {
 
         // 3. 权限验证：确保是评价的作者本人
         if (!review.getUser().getId().equals(user.getId())) {
-            logger.warn("更新评价失败 - 权限不足, 评价ID: {}, 请求用户: {}, 评价作者ID: {}", 
+            logger.warn("更新评价失败 - 权限不足, 评价ID: {}, 请求用户: {}, 评价作者ID: {}",
                 reviewId, username, review.getUser().getId());
             throw new AccessDeniedException("您没有权限修改此评价");
         }
 
-        // 4. 更新评价字段
+        // 4. 敏感词过滤
+        contentFilterService.validate(updateRequest.getContent());
+
+        // 5. 更新评价字段
         review.setRating(updateRequest.getRating());
         review.setContent(updateRequest.getContent());
-        review.setUpdateTime(LocalDateTime.now()); // 更新修改时间
-        
-        // 如果 UpdateReviewRequest 中包含子评分，也在此处更新
-        // review.setCleanlinessRating(updateRequest.getCleanlinessRating());
-        // ...
-        
+        review.setUpdateTime(LocalDateTime.now());
+
+        // 更新子评分（如果提供了的话）
+        if (updateRequest.getCleanlinessRating() != null) {
+            review.setCleanlinessRating(updateRequest.getCleanlinessRating());
+        }
+        if (updateRequest.getAccuracyRating() != null) {
+            review.setAccuracyRating(updateRequest.getAccuracyRating());
+        }
+        if (updateRequest.getCommunicationRating() != null) {
+            review.setCommunicationRating(updateRequest.getCommunicationRating());
+        }
+        if (updateRequest.getLocationRating() != null) {
+            review.setLocationRating(updateRequest.getLocationRating());
+        }
+        if (updateRequest.getCheckInRating() != null) {
+            review.setCheckInRating(updateRequest.getCheckInRating());
+        }
+        if (updateRequest.getValueRating() != null) {
+            review.setValueRating(updateRequest.getValueRating());
+        }
+
         // 5. 保存更新
         Review updatedReview = reviewRepository.save(review);
         logger.info("评价更新成功, ID: {}", updatedReview.getId());
@@ -539,10 +612,20 @@ public class ReviewServiceImpl implements ReviewService {
                 .responseTime(review.getResponseTime() != null ? review.getResponseTime() : null)
                 .createTime(review.getCreateTime())
                 .isPublic(review.getIsPublic())
+                .images(reviewImageService.getImageUrlsByReviewId(review.getId()))
                 .build();
         if (review.getOrder() != null) {
              dto.setOrderId(review.getOrder().getId());
          }
          return dto;
+    }
+
+    @Override
+    @Transactional
+    public void updateReviewImages(Long reviewId, List<String> imageUrls) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + reviewId));
+        reviewImageService.saveReviewImages(reviewId, imageUrls);
+        logger.info("更新评价图片, reviewId: {}, count: {}", reviewId, imageUrls != null ? imageUrls.size() : 0);
     }
 } 

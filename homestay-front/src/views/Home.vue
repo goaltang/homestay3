@@ -3,6 +3,20 @@
     <!-- 搜索栏组件 -->
     <SearchBar :loading="searchStore.loading" @search="handleSearch" @reset="handleReset" />
 
+    <!-- 地图找房入口 - 仅浏览模式显示 -->
+    <div v-if="!searchStore.isSearchMode" class="map-search-entry" @click="goToMapSearch">
+      <div class="entry-icon">
+        <el-icon :size="32"><Location /></el-icon>
+      </div>
+      <div class="entry-content">
+        <h3>地图找房</h3>
+        <p>在地图上探索房源，位置一目了然</p>
+      </div>
+      <div class="entry-arrow">
+        <el-icon :size="24"><ArrowRight /></el-icon>
+      </div>
+    </div>
+
     <!-- 筛选栏组件 - 只在搜索后显示 -->
     <FilterBar v-if="searchStore.isSearchMode" :property-types="homestayTypes" :grouped-amenities="groupedAmenities"
       :amenities-loading="amenitiesLoading" :selected-property-type="searchStore.searchParams.propertyType"
@@ -48,6 +62,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Location, ArrowRight } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { debounce } from '@/utils/debounce'
 import {
@@ -126,6 +141,10 @@ const handleHomestayClick = (homestay: any) => {
 
 const handleViewAll = (route: string, query: Record<string, any>) => {
   router.push({ path: route, query })
+}
+
+const goToMapSearch = () => {
+  router.push('/map-search');
 }
 
 // 分页处理
@@ -379,6 +398,78 @@ onMounted(async () => {
   .homestay-grid {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+}
+
+/* 地图找房入口 */
+.map-search-entry {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.map-search-entry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+.entry-icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.entry-content {
+  flex: 1;
+}
+
+.entry-content h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.entry-content p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.entry-arrow {
+  color: #fff;
+  opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+  .map-search-entry {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .entry-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .entry-content h3 {
+    font-size: 16px;
+  }
+
+  .entry-content p {
+    font-size: 13px;
   }
 }
 </style>

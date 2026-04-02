@@ -191,12 +191,26 @@ export function submitReview(data: {
   locationRating?: number;
   checkInRating?: number;
   valueRating?: number;
+  images?: string[];
 }) {
   console.log("Submitting review with data:", data);
   return request({
     url: "/api/reviews",
     method: "post",
     data,
+  });
+}
+
+/**
+ * 更新评价图片
+ * @param reviewId 评价ID
+ * @param images 图片URL列表
+ */
+export function updateReviewImages(reviewId: number, images: string[]) {
+  return request({
+    url: `/api/reviews/${reviewId}/images`,
+    method: "patch",
+    data: { images },
   });
 }
 

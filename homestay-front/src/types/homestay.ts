@@ -74,6 +74,7 @@ export interface Review {
   createTime: string;
   response?: string;
   responseTime?: string;
+  images?: string[];
 }
 
 export interface ReviewStatItem {

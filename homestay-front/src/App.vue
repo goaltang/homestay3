@@ -68,7 +68,7 @@ const showHeader = computed(() => {
 
 const showFooter = computed(() => {
   const path = route.path;
-  return !path.startsWith('/host') && path !== '/login' && path !== '/register';
+  return !path.startsWith('/host') && path !== '/login' && path !== '/register' && path !== '/map-search';
 });
 
 </script>
