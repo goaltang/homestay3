@@ -476,7 +476,7 @@ public class HomestayServiceImpl implements HomestayService {
                 title = "未命名房源";
             }
             if (type == null || type.isEmpty()) {
-                type = "整套房子";
+                type = "ENTIRE";
             }
             try {
                 price = homestayDTO.getPrice() != null ? new BigDecimal(homestayDTO.getPrice()) : BigDecimal.ZERO;
@@ -521,6 +521,8 @@ public class HomestayServiceImpl implements HomestayService {
                 .coverImage(homestayDTO.getCoverImage())
                 .featured(featured)
                 .owner(owner)
+                .latitude(homestayDTO.getLatitude() != null ? BigDecimal.valueOf(homestayDTO.getLatitude()) : null)
+                .longitude(homestayDTO.getLongitude() != null ? BigDecimal.valueOf(homestayDTO.getLongitude()) : null)
                 .build();
 
         // 添加图片集合
@@ -715,6 +717,14 @@ public class HomestayServiceImpl implements HomestayService {
             // homestay.setCityText(homestayDTO.getCityText());
             // homestay.setDistrictText(homestayDTO.getDistrictText());
             // --- 地址字段修改结束 ---
+
+            // 更新经纬度坐标
+            if (homestayDTO.getLatitude() != null) {
+                homestay.setLatitude(BigDecimal.valueOf(homestayDTO.getLatitude()));
+            }
+            if (homestayDTO.getLongitude() != null) {
+                homestay.setLongitude(BigDecimal.valueOf(homestayDTO.getLongitude()));
+            }
 
             homestay.setDescription(homestayDTO.getDescription());
 
@@ -1129,6 +1139,14 @@ public class HomestayServiceImpl implements HomestayService {
             dto.setAutoConfirm(homestay.getAutoConfirm() != null ? homestay.getAutoConfirm() : false);
             dto.setCreatedAt(homestay.getCreatedAt());
             dto.setUpdatedAt(homestay.getUpdatedAt());
+
+            // 经纬度坐标（用于地图找房）
+            if (homestay.getLatitude() != null) {
+                dto.setLatitude(homestay.getLatitude().doubleValue());
+            }
+            if (homestay.getLongitude() != null) {
+                dto.setLongitude(homestay.getLongitude().doubleValue());
+            }
 
             // 设施转换 - 增强异常处理
             try {

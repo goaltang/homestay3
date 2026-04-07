@@ -143,12 +143,21 @@ export interface HomestaySearchRequest {
 }
 
 // API 相关类型
-export interface HomestayType {
+// 房源类型实体（来自后端 homestay_types 表）
+export interface PropertyTypeInfo {
   id: number;
   code: string;
   name: string;
-  icon: string;
+  icon?: string;
+  description?: string;
+  active?: boolean;
+  sortOrder?: number;
+  categoryId?: number;
+  categoryName?: string;
 }
+
+// 兼容旧名称
+export type HomestayType = PropertyTypeInfo;
 
 export interface HomestayListParams {
   page?: number;

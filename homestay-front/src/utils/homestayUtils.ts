@@ -127,14 +127,37 @@ export const processImages = (homestay: HomestayDetail | null): string[] => {
   return finalImages;
 };
 
-// 房源类型格式化
+// 房源类型格式化（code → 中文展示）
 export const formatPropertyType = (type?: string): string => {
   const typeMap: Record<string, string> = {
+    // 标准房源类型 code
+    ENTIRE: "整套公寓",
+    PRIVATE: "独立房间",
+    LOFT: "复式住宅",
+    VILLA: "别墅",
+    STUDIO: "开间/单间",
+    TOWNHOUSE: "联排别墅",
+    COURTYARD: "四合院/院子",
+    HOTEL: "酒店公寓",
+    // 兼容旧中文值（迁移前的数据）
+    "整套公寓": "整套公寓",
+    "整套房子": "整套公寓",
+    "复式住宅": "复式住宅",
+    "Loft": "复式住宅",
+    "LOFT": "复式住宅",
+    "独立房间": "独立房间",
+    "单间": "独立房间",
+    "别墅": "别墅",
+    "洋房": "别墅",
+    "四合院": "四合院/院子",
+    "家庭旅馆": "四合院/院子",
+    "院子": "四合院/院子",
+    "酒店公寓": "酒店公寓",
+    // 旧版英文 code
     TRADITIONAL: "传统民居",
     APARTMENT: "公寓",
     UNIQUE_STAY: "特色房源",
     BOUTIQUE_HOTEL: "精品酒店",
-    VILLA: "别墅",
     CABIN: "小木屋",
   };
 

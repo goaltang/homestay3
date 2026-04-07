@@ -98,8 +98,14 @@ const featuresText = computed(() => {
   }
   if (props.homestay.propertyType) {
     const typeMap: Record<string, string> = {
-      'ENTIRE': '整套房源',
-      'PRIVATE': '私人房间',
+      'ENTIRE': '整套公寓',
+      'PRIVATE': '独立房间',
+      'LOFT': '复式住宅',
+      'VILLA': '别墅',
+      'STUDIO': '开间/单间',
+      'TOWNHOUSE': '联排别墅',
+      'COURTYARD': '四合院/院子',
+      'HOTEL': '酒店公寓',
       'SHARED': '合住房间',
     };
     parts.push(typeMap[props.homestay.propertyType] || props.homestay.propertyType);

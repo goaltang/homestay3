@@ -35,7 +35,7 @@
                         <div class="homestay-info">
                             <h3 class="title">{{ homestay.title }}</h3>
                             <div class="type">
-                                <el-tag size="small">{{ homestay.type === 'ENTIRE' ? '整套' : '独立房间' }}</el-tag>
+                                <el-tag size="small">{{ formatPropertyType(homestay.type) }}</el-tag>
                             </div>
                             <div class="price">¥{{ homestay.price }}/晚</div>
                         </div>
@@ -57,6 +57,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { HomestayBasic } from '@/types';
+import { formatPropertyType } from '@/utils/homestayUtils';
 
 const router = useRouter();
 const loading = ref(false);

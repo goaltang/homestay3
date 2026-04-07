@@ -59,6 +59,7 @@ import { Star, StarFilled, Lightning } from '@element-plus/icons-vue'
 import { useFavoritesStore } from '@/stores/favorites'
 import { useUserStore } from '@/stores/user'
 import { codeToText } from 'element-china-area-data'
+import { formatPropertyType } from '@/utils/homestayUtils'
 
 interface Props {
     homestay: any
@@ -169,7 +170,7 @@ const features = computed(() => {
     // 使用类型转码功能
     if (props.homestay.propertyType || props.homestay.type) {
         const typeCode = props.homestay.propertyType || props.homestay.type
-        features.push(getHomestayTypeText(typeCode))
+        features.push(formatPropertyType(typeCode))
     }
 
     if (props.homestay.amenities && Array.isArray(props.homestay.amenities)) {
