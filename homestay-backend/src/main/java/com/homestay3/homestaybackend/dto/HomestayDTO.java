@@ -74,4 +74,8 @@ public class HomestayDTO {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // 经纬度坐标（用于地图找房）
+    private Double latitude;
+    private Double longitude;
 }

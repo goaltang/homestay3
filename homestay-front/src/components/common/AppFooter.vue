@@ -4,7 +4,7 @@
             <div class="footer-section">
                 <h3>关于我们</h3>
                 <ul>
-                    <li>公司简介</li>
+                    <li><router-link to="/about">公司简介</router-link></li>
                     <li>加入我们</li>
                     <li>新闻中心</li>
                 </ul>

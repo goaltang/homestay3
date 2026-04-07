@@ -82,6 +82,7 @@ declare module 'vue' {
     ImageGallery: typeof import('./src/components/homestay/ImageGallery.vue')['default']
     LocationInfo: typeof import('./src/components/homestay/LocationInfo.vue')['default']
     Logo: typeof import('./src/components/common/Logo.vue')['default']
+    MapHomestayCard: typeof import('./src/components/homestay/MapHomestayCard.vue')['default']
     MessageBell: typeof import('./src/components/MessageBell.vue')['default']
     NotificationBell: typeof import('./src/components/NotificationBell.vue')['default']
     OrderTimeoutIndicator: typeof import('./src/components/order/OrderTimeoutIndicator.vue')['default']
