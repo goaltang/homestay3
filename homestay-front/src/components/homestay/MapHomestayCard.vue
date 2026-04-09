@@ -2,6 +2,7 @@
   <div
     class="map-homestay-card"
     :class="{ active: isActive, hovered: isHovered }"
+    :data-id="homestay.id"
     @click="handleClick"
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
@@ -27,9 +28,14 @@
           <el-icon :size="14" color="#ffb800"><Star /></el-icon>
           <span>{{ homestay.rating.toFixed(1) }}</span>
         </div>
-        <div class="card-price">
-          <span class="price">¥{{ homestay.price }}</span>
-          <span class="unit">/晚</span>
+        <div class="card-actions">
+          <button class="detail-button" type="button" @click.stop="handleViewDetail">
+            查看详情
+          </button>
+          <div class="card-price">
+            <span class="price">¥{{ homestay.price }}</span>
+            <span class="unit">/晚</span>
+          </div>
         </div>
       </div>
     </div>
@@ -38,7 +44,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { Location, Star, Lightning } from '@element-plus/icons-vue';
 import { codeToText } from 'element-china-area-data';
 import type { MapHomestay } from '@/composables/useMapSearch';
@@ -57,9 +62,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   click: [homestay: MapHomestay];
   hover: [id: number | null];
+  viewDetail: [id: number];
 }>();
-
-const router = useRouter();
 
 // 处理图片URL
 const imageUrl = computed(() => {
@@ -116,7 +120,6 @@ const featuresText = computed(() => {
 // 方法
 const handleClick = () => {
   emit('click', props.homestay);
-  router.push(`/homestays/${props.homestay.id}`);
 };
 
 const handleMouseEnter = () => {
@@ -125,6 +128,10 @@ const handleMouseEnter = () => {
 
 const handleMouseLeave = () => {
   emit('hover', null);
+};
+
+const handleViewDetail = () => {
+  emit('viewDetail', props.homestay.id);
 };
 </script>
 
@@ -231,6 +238,26 @@ const handleMouseLeave = () => {
 
 .card-price {
   text-align: right;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-button {
+  border: none;
+  background: transparent;
+  color: #ff385c;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.detail-button:hover {
+  color: #e31c5f;
 }
 
 .card-price .price {

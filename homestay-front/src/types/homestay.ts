@@ -126,6 +126,10 @@ export interface HomestaySearchRequest {
   maxGuests?: number;
   minPrice?: number;
   maxPrice?: number;
+  northEastLat?: number;
+  northEastLng?: number;
+  southWestLat?: number;
+  southWestLng?: number;
   checkInDate?: string;
   checkOutDate?: string;
   requiredAmenities?: string[];

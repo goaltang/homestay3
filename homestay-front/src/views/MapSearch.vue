@@ -54,6 +54,46 @@
           />
         </div>
 
+        <div class="filter-item">
+          <label>Check-in</label>
+          <el-date-picker
+            v-model="checkInDate"
+            type="date"
+            placeholder="Select check-in date"
+            value-format="YYYY-MM-DD"
+            size="large"
+            class="date-picker"
+            :disabled-date="disabledCheckInDate"
+            @change="handleCheckInChange"
+          />
+        </div>
+
+        <div class="filter-item">
+          <label>Check-out</label>
+          <el-date-picker
+            v-model="checkOutDate"
+            type="date"
+            placeholder="Select check-out date"
+            value-format="YYYY-MM-DD"
+            size="large"
+            class="date-picker"
+            :disabled-date="disabledCheckOutDate"
+          />
+        </div>
+
+        <div class="filter-item filter-switch">
+          <div class="switch-row">
+            <span>仅看当前地图范围</span>
+            <el-switch
+              v-model="viewportSearchEnabled"
+              @change="handleViewportModeChange"
+            />
+          </div>
+          <p class="switch-hint">
+            开启后，拖动或缩放地图会按当前视口范围刷新房源
+          </p>
+        </div>
+
         <!-- 搜索按钮 -->
         <div class="filter-actions">
           <el-button type="primary" @click="handleSearch" :loading="isLoading">
@@ -68,6 +108,14 @@
         <div v-if="isLoading && homestays.length === 0" class="loading-state">
           <el-icon class="is-loading"><Loading /></el-icon>
           <span>加载中...</span>
+        </div>
+
+        <div v-else-if="searchError && homestays.length === 0" class="error-state">
+          <el-icon :size="44" color="#f56c6c"><LocationInformation /></el-icon>
+          <p>{{ searchError }}</p>
+          <el-button type="primary" @click="handleRetrySearch">
+            重试加载
+          </el-button>
         </div>
 
         <div v-else-if="homestays.length === 0" class="empty-state">
@@ -89,6 +137,7 @@
               :is-hovered="hoveredHomestayId === homestay.id"
               @click="handleCardClick"
               @hover="handleCardHover"
+              @view-detail="handleViewDetail"
             />
           </div>
         </template>
@@ -97,7 +146,14 @@
 
     <!-- 右侧地图 -->
     <div class="right-map" ref="mapContainerRef">
-      <div v-if="!isMapReady" class="map-loading">
+      <div v-if="mapError" class="map-loading map-error">
+        <el-icon :size="48" color="#f56c6c"><LocationInformation /></el-icon>
+        <span>{{ mapError }}</span>
+        <el-button type="primary" @click="handleRetryMap">
+          重新加载地图
+        </el-button>
+      </div>
+      <div v-else-if="!isMapReady" class="map-loading">
         <el-icon class="is-loading" :size="48"><Loading /></el-icon>
         <span>地图加载中...</span>
       </div>
@@ -106,15 +162,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { Loading, LocationInformation } from '@element-plus/icons-vue';
 import { regionOptions } from 'element-china-area-data';
 import { useMapSearch, type MapHomestay } from '@/composables/useMapSearch';
 import MapHomestayCard from '@/components/homestay/MapHomestayCard.vue';
 
 const router = useRouter();
+const route = useRoute();
 
 // Refs
 const mapContainerRef = ref<HTMLElement | null>(null);
@@ -125,10 +181,15 @@ const {
   homestays,
   selectedHomestayId,
   hoveredHomestayId,
+  viewportSearchEnabled,
   isLoading,
   isMapReady,
+  mapError,
+  searchError,
+  mapView,
   initMap,
-  updateFilters,
+  applySearchState,
+  retrySearch,
   selectHomestay,
   hoverHomestay,
   destroyMap,
@@ -139,18 +200,27 @@ const selectedRegion = ref<string[]>([]);
 const minPrice = ref<number | undefined>(undefined);
 const maxPrice = ref<number | undefined>(undefined);
 const guestCount = ref<number | undefined>(undefined);
+const checkInDate = ref<string | undefined>(undefined);
+const checkOutDate = ref<string | undefined>(undefined);
+const hasRestoredRouteState = ref(false);
+const skipNextRouteReplay = ref(false);
 
-// 地区选择变化
-const handleRegionChange = (value: string[]) => {
-  // 自动触发搜索
-  handleSearch();
+const getQueryString = (value: unknown): string | undefined => {
+  return typeof value === 'string' && value.trim() ? value : undefined;
 };
 
-// 搜索
-const handleSearch = async () => {
-  const filters: any = {};
+const getQueryNumber = (value: unknown): number | undefined => {
+  const rawValue = getQueryString(value);
+  if (!rawValue) return undefined;
 
-  if (selectedRegion.value && selectedRegion.value.length > 0) {
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const buildFiltersFromForm = () => {
+  const filters: Record<string, number | string> = {};
+
+  if (selectedRegion.value.length > 0) {
     if (selectedRegion.value[0]) filters.provinceCode = selectedRegion.value[0];
     if (selectedRegion.value[1]) filters.cityCode = selectedRegion.value[1];
     if (selectedRegion.value[2]) filters.districtCode = selectedRegion.value[2];
@@ -158,23 +228,255 @@ const handleSearch = async () => {
 
   if (minPrice.value !== undefined) filters.minPrice = minPrice.value;
   if (maxPrice.value !== undefined) filters.maxPrice = maxPrice.value;
-  if (guestCount.value !== undefined) filters.maxGuests = guestCount.value;
+  if (guestCount.value !== undefined) filters.minGuests = guestCount.value;
+  if (checkInDate.value) filters.checkInDate = checkInDate.value;
+  if (checkOutDate.value) filters.checkOutDate = checkOutDate.value;
 
-  await updateFilters(filters);
+  return filters;
+};
+
+const getQuerySignature = (query: Record<string, string>) => {
+  return JSON.stringify(
+    Object.entries(query).sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+  );
+};
+
+const getTrackedRouteQuery = () => {
+  const nextQuery: Record<string, string> = {};
+
+  const region = getQueryString(route.query.region);
+  const minPriceQuery = getQueryString(route.query.minPrice);
+  const maxPriceQuery = getQueryString(route.query.maxPrice);
+  const guestCountQuery = getQueryString(route.query.guestCount);
+  const checkInQuery = getQueryString(route.query.checkIn);
+  const checkOutQuery = getQueryString(route.query.checkOut);
+  const viewportOnlyQuery = getQueryString(route.query.viewportOnly);
+  const mapLatQuery = getQueryString(route.query.mapLat);
+  const mapLngQuery = getQueryString(route.query.mapLng);
+  const mapZoomQuery = getQueryString(route.query.mapZoom);
+
+  if (region) {
+    nextQuery.region = region;
+  }
+  if (minPriceQuery) {
+    nextQuery.minPrice = minPriceQuery;
+  }
+  if (maxPriceQuery) {
+    nextQuery.maxPrice = maxPriceQuery;
+  }
+  if (guestCountQuery) {
+    nextQuery.guestCount = guestCountQuery;
+  }
+  if (checkInQuery) {
+    nextQuery.checkIn = checkInQuery;
+  }
+  if (checkOutQuery) {
+    nextQuery.checkOut = checkOutQuery;
+  }
+  if (viewportOnlyQuery === '0') {
+    nextQuery.viewportOnly = viewportOnlyQuery;
+  }
+  if (mapLatQuery) {
+    nextQuery.mapLat = mapLatQuery;
+  }
+  if (mapLngQuery) {
+    nextQuery.mapLng = mapLngQuery;
+  }
+  if (mapZoomQuery) {
+    nextQuery.mapZoom = mapZoomQuery;
+  }
+
+  return nextQuery;
+};
+
+const buildQueryFromForm = () => {
+  const nextQuery: Record<string, string> = {};
+
+  if (selectedRegion.value.length > 0) {
+    nextQuery.region = selectedRegion.value.join(',');
+  }
+  if (minPrice.value !== undefined) {
+    nextQuery.minPrice = String(minPrice.value);
+  }
+  if (maxPrice.value !== undefined) {
+    nextQuery.maxPrice = String(maxPrice.value);
+  }
+  if (guestCount.value !== undefined) {
+    nextQuery.guestCount = String(guestCount.value);
+  }
+  if (checkInDate.value) {
+    nextQuery.checkIn = checkInDate.value;
+  }
+  if (checkOutDate.value) {
+    nextQuery.checkOut = checkOutDate.value;
+  }
+  if (!viewportSearchEnabled.value) {
+    nextQuery.viewportOnly = '0';
+  }
+  if (mapView.value.centerLat !== undefined) {
+    nextQuery.mapLat = mapView.value.centerLat.toFixed(6);
+  }
+  if (mapView.value.centerLng !== undefined) {
+    nextQuery.mapLng = mapView.value.centerLng.toFixed(6);
+  }
+  if (mapView.value.zoom !== undefined) {
+    nextQuery.mapZoom = String(Math.round(mapView.value.zoom * 100) / 100);
+  }
+
+  return nextQuery;
+};
+
+const syncQueryFromForm = async (
+  mode: 'push' | 'replace' = 'replace',
+  options: { skipRouteReplay?: boolean } = {}
+) => {
+  const nextQuery = buildQueryFromForm();
+  if (getQuerySignature(nextQuery) === getQuerySignature(getTrackedRouteQuery())) {
+    return false;
+  }
+
+  if (options.skipRouteReplay) {
+    skipNextRouteReplay.value = true;
+  }
+
+  await router[mode]({
+    path: route.path,
+    query: nextQuery,
+  });
+
+  return true;
+};
+
+const hydrateFiltersFromQuery = () => {
+  const regionQuery = getQueryString(route.query.region);
+  selectedRegion.value = regionQuery ? regionQuery.split(',').filter(Boolean) : [];
+  minPrice.value = getQueryNumber(route.query.minPrice);
+  maxPrice.value = getQueryNumber(route.query.maxPrice);
+  guestCount.value = getQueryNumber(route.query.guestCount);
+  checkInDate.value = getQueryString(route.query.checkIn);
+  checkOutDate.value = getQueryString(route.query.checkOut);
+  viewportSearchEnabled.value = getQueryString(route.query.viewportOnly) !== '0';
+};
+
+const getMapViewFromQuery = () => {
+  const centerLat = getQueryNumber(route.query.mapLat);
+  const centerLng = getQueryNumber(route.query.mapLng);
+  const zoom = getQueryNumber(route.query.mapZoom);
+
+  if (centerLat === undefined && centerLng === undefined && zoom === undefined) {
+    return undefined;
+  }
+
+  return {
+    centerLat,
+    centerLng,
+    zoom,
+  };
+};
+
+const applyRouteStateFromQuery = async () => {
+  if (!isMapReady.value) {
+    return;
+  }
+
+  hydrateFiltersFromQuery();
+  const restoredMapView = getMapViewFromQuery();
+  await applySearchState(buildFiltersFromForm(), {
+    viewportOnly: viewportSearchEnabled.value,
+    fitView: !restoredMapView && !viewportSearchEnabled.value,
+    skipCityCenter: Boolean(restoredMapView),
+    mapView: restoredMapView,
+  });
+};
+
+const disabledCheckInDate = (time: Date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return time.getTime() < today.getTime();
+};
+
+const disabledCheckOutDate = (time: Date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (!checkInDate.value) {
+    return time.getTime() < today.getTime();
+  }
+
+  const checkIn = new Date(checkInDate.value);
+  checkIn.setHours(0, 0, 0, 0);
+  return time.getTime() <= checkIn.getTime();
+};
+
+const handleCheckInChange = (value: string | null) => {
+  if (!value || !checkOutDate.value) {
+    return;
+  }
+
+  const nextCheckIn = new Date(value);
+  const currentCheckOut = new Date(checkOutDate.value);
+  if (currentCheckOut > nextCheckIn) {
+    return;
+  }
+
+  const nextDay = new Date(nextCheckIn);
+  nextDay.setDate(nextDay.getDate() + 1);
+  checkOutDate.value = nextDay.toISOString().split('T')[0];
+};
+
+// 地区选择变化
+const handleRegionChange = () => {
+  // 自动触发搜索
+  handleSearch();
+};
+
+const handleViewportModeChange = async (enabled: boolean) => {
+  viewportSearchEnabled.value = enabled;
+  const changed = await syncQueryFromForm('push');
+  if (!changed) {
+    await applyRouteStateFromQuery();
+  }
+};
+
+// 搜索
+const handleSearch = async () => {
+  const changed = await syncQueryFromForm('push');
+  if (!changed) {
+    await applyRouteStateFromQuery();
+  }
 };
 
 // 重置筛选条件
-const handleReset = () => {
+const handleReset = async () => {
   selectedRegion.value = [];
   minPrice.value = undefined;
   maxPrice.value = undefined;
   guestCount.value = undefined;
-  updateFilters({});
+  checkInDate.value = undefined;
+  checkOutDate.value = undefined;
+  const changed = await syncQueryFromForm('push');
+  if (!changed) {
+    await applyRouteStateFromQuery();
+  }
+};
+
+const handleRetryMap = async () => {
+  if (!mapContainerRef.value) return;
+  await initMap(mapContainerRef.value);
+  await retrySearch();
+};
+
+const handleRetrySearch = async () => {
+  await retrySearch();
 };
 
 // 卡片点击
 const handleCardClick = (homestay: MapHomestay) => {
   selectHomestay(homestay.id);
+};
+
+const handleViewDetail = (id: number) => {
+  router.push(`/homestays/${id}`);
 };
 
 // 卡片悬停
@@ -199,6 +501,43 @@ watch(selectedHomestayId, (newId) => {
   }
 });
 
+watch(
+  () => route.query,
+  async () => {
+    if (!hasRestoredRouteState.value || !isMapReady.value) {
+      return;
+    }
+
+    if (skipNextRouteReplay.value) {
+      skipNextRouteReplay.value = false;
+      return;
+    }
+
+    await applyRouteStateFromQuery();
+  },
+  { deep: true }
+);
+
+watch(
+  mapView,
+  async (nextMapView) => {
+    if (!hasRestoredRouteState.value || !isMapReady.value) {
+      return;
+    }
+
+    if (
+      nextMapView.centerLat === undefined ||
+      nextMapView.centerLng === undefined ||
+      nextMapView.zoom === undefined
+    ) {
+      return;
+    }
+
+    await syncQueryFromForm('replace', { skipRouteReplay: true });
+  },
+  { deep: true }
+);
+
 // 挂载
 onMounted(async () => {
   // 初始化地图
@@ -206,8 +545,8 @@ onMounted(async () => {
     await initMap(mapContainerRef.value);
   }
 
-  // 默认加载数据
-  await updateFilters({});
+  await applyRouteStateFromQuery();
+  hasRestoredRouteState.value = true;
 });
 
 // 卸载
@@ -251,6 +590,13 @@ onUnmounted(() => {
   margin-bottom: 16px;
 }
 
+.filter-switch {
+  padding: 12px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
 .filter-item label {
   display: block;
   font-size: 14px;
@@ -260,6 +606,10 @@ onUnmounted(() => {
 }
 
 .filter-item :deep(.el-cascader) {
+  width: 100%;
+}
+
+.filter-item :deep(.date-picker) {
   width: 100%;
 }
 
@@ -274,6 +624,23 @@ onUnmounted(() => {
 }
 
 .range-separator {
+  color: #909399;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.switch-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: #909399;
 }
 
@@ -295,6 +662,7 @@ onUnmounted(() => {
 }
 
 .loading-state,
+.error-state,
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -308,6 +676,11 @@ onUnmounted(() => {
 .empty-state .hint {
   font-size: 12px;
   color: #c0c4cc;
+}
+
+.error-state p {
+  margin: 0;
+  color: #606266;
 }
 
 .list-header {
@@ -334,14 +707,19 @@ onUnmounted(() => {
 
 .map-loading {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
+  padding: 24px;
   gap: 12px;
+  background: rgba(245, 245, 245, 0.92);
   color: #909399;
+}
+
+.map-error {
+  gap: 16px;
 }
 
 /* 响应式 */

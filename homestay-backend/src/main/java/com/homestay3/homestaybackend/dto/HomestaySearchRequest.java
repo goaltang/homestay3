@@ -24,6 +24,10 @@ public class HomestaySearchRequest {
     private Integer maxGuests;
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
+    private BigDecimal northEastLat;
+    private BigDecimal northEastLng;
+    private BigDecimal southWestLat;
+    private BigDecimal southWestLng;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private List<String> requiredAmenities;

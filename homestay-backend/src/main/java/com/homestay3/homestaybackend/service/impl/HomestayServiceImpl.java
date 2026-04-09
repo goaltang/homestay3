@@ -238,6 +238,23 @@ public class HomestayServiceImpl implements HomestayService {
                 predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"), request.getMaxPrice()));
             }
 
+            if (Stream.of(
+                    request.getNorthEastLat(),
+                    request.getNorthEastLng(),
+                    request.getSouthWestLat(),
+                    request.getSouthWestLng()
+            ).allMatch(Objects::nonNull)) {
+                BigDecimal minLatitude = request.getNorthEastLat().min(request.getSouthWestLat());
+                BigDecimal maxLatitude = request.getNorthEastLat().max(request.getSouthWestLat());
+                BigDecimal minLongitude = request.getNorthEastLng().min(request.getSouthWestLng());
+                BigDecimal maxLongitude = request.getNorthEastLng().max(request.getSouthWestLng());
+
+                predicates.add(criteriaBuilder.isNotNull(root.get("latitude")));
+                predicates.add(criteriaBuilder.isNotNull(root.get("longitude")));
+                predicates.add(criteriaBuilder.between(root.get("latitude"), minLatitude, maxLatitude));
+                predicates.add(criteriaBuilder.between(root.get("longitude"), minLongitude, maxLongitude));
+            }
+
             // 入住人数
             if (request.getMinGuests() != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("maxGuests"), request.getMinGuests()));
