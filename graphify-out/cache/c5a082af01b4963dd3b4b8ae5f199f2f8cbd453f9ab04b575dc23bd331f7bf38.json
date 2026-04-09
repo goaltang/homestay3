@@ -1,0 +1,1 @@
+{"nodes": [{"id": "menu", "label": "menu.ts", "file_type": "code", "source_file": "homestay-admin\\src\\config\\menu.ts", "source_location": "L1"}], "edges": [{"source": "menu", "target": "menu", "relation": "imports_from", "confidence": "EXTRACTED", "source_file": "homestay-admin\\src\\config\\menu.ts", "source_location": "L1", "weight": 1.0}]}

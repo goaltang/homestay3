@@ -1,0 +1,332 @@
+---
+type: community
+cohesion: 0.03
+members: 203
+---
+
+# Admin Controller Layer
+
+**Cohesion:** 0.03 - loosely connected
+**Members:** 203 nodes
+
+## Members
+- [[.AccessDeniedException()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\AccessDeniedException.java
+- [[.AmenityDTO()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\AmenityDTO.java
+- [[.AutoStatusStats()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderAutoStatusService.java
+- [[.LoginException()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\LoginException.java
+- [[.PriceStatistics()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\PriceAnalysisServiceImpl.java
+- [[.ResourceAlreadyExistsException()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceAlreadyExistsException.java
+- [[.ResourceInUseException()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceInUseException.java
+- [[.ResourceNotFoundException()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceNotFoundException.java
+- [[.analyzeFeatures()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\HomestayFeatureAnalysisService.java
+- [[.findAllByOrderBySortOrderAsc()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\AmenityCategoryRepository.java
+- [[.findByNameContainingIgnoreCase()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\AmenityCategoryRepository.java
+- [[.getMonthString()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\MonthlyEarningDTO.java
+- [[.handleTimeoutOrders()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\IOrderTimeoutService.java
+- [[.onCreate()_1]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Earning.java
+- [[.onCreate()_2]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Homestay.java
+- [[.onCreate()_4]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\HomestayGroup.java
+- [[.onCreate()_5]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Order.java
+- [[.onUpdate()_1]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Earning.java
+- [[.onUpdate()_2]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Homestay.java
+- [[.onUpdate()_4]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\HomestayGroup.java
+- [[.onUpdate()_5]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Order.java
+- [[.raiseDispute()_2]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\DisputeService.java
+- [[.resolveDispute()_1]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\DisputeService.java
+- [[.run()_1]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\config\DataInitializer.java
+- [[.sendNotificationToUser()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\WebSocketNotificationService.java
+- [[.sendUnreadCountToUser()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\WebSocketNotificationService.java
+- [[AccessDeniedException]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\AccessDeniedException.java
+- [[AccessDeniedException.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\AccessDeniedException.java
+- [[AdminHomestayController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\AdminHomestayController.java
+- [[AdminOrderController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\AdminOrderController.java
+- [[AdminReviewController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\AdminReviewController.java
+- [[AmenitiesController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\AmenitiesController.java
+- [[Amenity]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Amenity.java
+- [[Amenity.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Amenity.java
+- [[AmenityCategory]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\AmenityCategory.java
+- [[AmenityCategory.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\AmenityCategory.java
+- [[AmenityCategoryDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\AmenityCategoryDTO.java
+- [[AmenityCategoryDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\AmenityCategoryDTO.java
+- [[AmenityCategoryRepository]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\AmenityCategoryRepository.java
+- [[AmenityCategoryRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\AmenityCategoryRepository.java
+- [[AmenityDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\AmenityDTO.java
+- [[AmenityDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\AmenityDTO.java
+- [[AmenityRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\AmenityRepository.java
+- [[AmenityService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\AmenityService.java
+- [[AmenityServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\AmenityServiceImpl.java
+- [[AuthServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\AuthServiceImpl.java
+- [[AutoStatusStats]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderAutoStatusService.java
+- [[BookingConflictService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\BookingConflictService.java
+- [[BookingWorkflowIntegrationTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\integration\BookingWorkflowIntegrationTest.java
+- [[CheckInServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\CheckInServiceImpl.java
+- [[CheckOutServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\CheckOutServiceImpl.java
+- [[ConcurrentBookingTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\ConcurrentBookingTest.java
+- [[DailyEarningDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\DailyEarningDTO.java
+- [[DailyEarningDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\DailyEarningDTO.java
+- [[DailyPrice]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCalculationResponse.java
+- [[DataInitializer]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\config\DataInitializer.java
+- [[DataInitializer.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\config\DataInitializer.java
+- [[DisputeRecordServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\DisputeRecordServiceImpl.java
+- [[DisputeService]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\DisputeService.java
+- [[DisputeService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\DisputeService.java
+- [[DisputeServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\DisputeServiceImpl.java
+- [[DisputeServiceImplTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\service\impl\DisputeServiceImplTest.java
+- [[Earning]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Earning.java
+- [[Earning.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Earning.java
+- [[EarningController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\EarningController.java
+- [[EarningDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\EarningDTO.java
+- [[EarningDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\EarningDTO.java
+- [[EarningRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\EarningRepository.java
+- [[EarningService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\EarningService.java
+- [[EarningServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\EarningServiceImpl.java
+- [[EarningsSummaryDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\EarningsSummaryDTO.java
+- [[EarningsSummaryDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\EarningsSummaryDTO.java
+- [[EarningsTrendDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\EarningsTrendDTO.java
+- [[EarningsTrendDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\EarningsTrendDTO.java
+- [[EntityType.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\enums\EntityType.java
+- [[Homestay]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Homestay.java
+- [[Homestay.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Homestay.java
+- [[HomestayAuditLogRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\HomestayAuditLogRepository.java
+- [[HomestayAuditServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\HomestayAuditServiceImpl.java
+- [[HomestayController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\HomestayController.java
+- [[HomestayDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayDTO.java
+- [[HomestayDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayDTO.java
+- [[HomestayFeatureAnalysisService]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\HomestayFeatureAnalysisService.java
+- [[HomestayFeatureAnalysisService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\HomestayFeatureAnalysisService.java
+- [[HomestayFeatureAnalysisServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\HomestayFeatureAnalysisServiceImpl.java
+- [[HomestayGroup]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\HomestayGroup.java
+- [[HomestayGroup.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\HomestayGroup.java
+- [[HomestayGroupController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\HomestayGroupController.java
+- [[HomestayGroupDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayGroupDTO.java
+- [[HomestayGroupDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayGroupDTO.java
+- [[HomestayGroupRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\HomestayGroupRepository.java
+- [[HomestayGroupRequest]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayGroupRequest.java
+- [[HomestayGroupRequest.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayGroupRequest.java
+- [[HomestayGroupService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\HomestayGroupService.java
+- [[HomestayGroupServiceTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\service\HomestayGroupServiceTest.java
+- [[HomestayMapper.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\mapper\HomestayMapper.java
+- [[HomestayRecommendationServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\HomestayRecommendationServiceImpl.java
+- [[HomestayRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\HomestayRepository.java
+- [[HomestayRequest]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayRequest.java
+- [[HomestayRequest.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestayRequest.java
+- [[HomestaySearchRequest]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestaySearchRequest.java
+- [[HomestaySearchRequest.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HomestaySearchRequest.java
+- [[HomestayService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\HomestayService.java
+- [[HomestayServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\HomestayServiceImpl.java
+- [[HomestayServiceImplTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\service\impl\HomestayServiceImplTest.java
+- [[HomestayStatus()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\HomestayStatus.java
+- [[HomestayStatus.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\HomestayStatus.java
+- [[HostServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\HostServiceImpl.java
+- [[IOrderTimeoutService]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\IOrderTimeoutService.java
+- [[IOrderTimeoutService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\IOrderTimeoutService.java
+- [[ImageUrlUtil.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\util\ImageUrlUtil.java
+- [[LoginException]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\LoginException.java
+- [[LoginException.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\LoginException.java
+- [[MonthlyEarningDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\MonthlyEarningDTO.java
+- [[MonthlyEarningDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\MonthlyEarningDTO.java
+- [[Notification]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Notification.java
+- [[Notification.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Notification.java
+- [[NotificationController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\NotificationController.java
+- [[NotificationDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\NotificationDTO.java
+- [[NotificationDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\NotificationDTO.java
+- [[NotificationRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\NotificationRepository.java
+- [[NotificationService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\NotificationService.java
+- [[NotificationServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\NotificationServiceImpl.java
+- [[NotificationType.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\enums\NotificationType.java
+- [[Order]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Order.java
+- [[Order.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Order.java
+- [[OrderAutoStatusService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderAutoStatusService.java
+- [[OrderController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\OrderController.java
+- [[OrderDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\OrderDTO.java
+- [[OrderDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\OrderDTO.java
+- [[OrderLifecycleService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\OrderLifecycleService.java
+- [[OrderLifecycleServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderLifecycleServiceImpl.java
+- [[OrderNotificationService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\OrderNotificationService.java
+- [[OrderNotificationServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderNotificationServiceImpl.java
+- [[OrderNotificationServiceImplDisputeTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\service\impl\OrderNotificationServiceImplDisputeTest.java
+- [[OrderRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\OrderRepository.java
+- [[OrderService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\OrderService.java
+- [[OrderServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderServiceImpl.java
+- [[OrderServiceImplTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\service\impl\OrderServiceImplTest.java
+- [[OrderStatus()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\OrderStatus.java
+- [[OrderStatus.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\OrderStatus.java
+- [[OrderTimeoutService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\OrderTimeoutService.java
+- [[PaymentProcessingService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\PaymentProcessingService.java
+- [[PaymentProcessingServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\PaymentProcessingServiceImpl.java
+- [[PaymentStatus()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\PaymentStatus.java
+- [[PaymentStatus.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\PaymentStatus.java
+- [[PriceAnalysisService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\PriceAnalysisService.java
+- [[PriceAnalysisServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\PriceAnalysisServiceImpl.java
+- [[PriceCalculationRequest]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCalculationRequest.java
+- [[PriceCalculationRequest.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCalculationRequest.java
+- [[PriceCalculationResponse]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCalculationResponse.java
+- [[PriceCalculationResponse.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCalculationResponse.java
+- [[PriceCompetitivenessDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCompetitivenessDTO.java
+- [[PriceCompetitivenessDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCompetitivenessDTO.java
+- [[PriceDetails]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\PriceCalculationResponse.java
+- [[PriceStatistics]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\PriceAnalysisServiceImpl.java
+- [[RefundType()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\RefundType.java
+- [[RefundType.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\RefundType.java
+- [[ResourceAlreadyExistsException]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceAlreadyExistsException.java
+- [[ResourceAlreadyExistsException.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceAlreadyExistsException.java
+- [[ResourceInUseException]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceInUseException.java
+- [[ResourceInUseException.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceInUseException.java
+- [[ResourceNotFoundException]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceNotFoundException.java
+- [[ResourceNotFoundException.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\exception\ResourceNotFoundException.java
+- [[Review]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Review.java
+- [[Review.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Review.java
+- [[ReviewController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\ReviewController.java
+- [[ReviewDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\ReviewDTO.java
+- [[ReviewDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\ReviewDTO.java
+- [[ReviewRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\ReviewRepository.java
+- [[ReviewResponseRequest]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\ReviewResponseRequest.java
+- [[ReviewResponseRequest.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\ReviewResponseRequest.java
+- [[ReviewService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\ReviewService.java
+- [[ReviewServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\ReviewServiceImpl.java
+- [[StatisticsServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\StatisticsServiceImpl.java
+- [[SuggestedFeatureDTO]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\SuggestedFeatureDTO.java
+- [[SuggestedFeatureDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\SuggestedFeatureDTO.java
+- [[SystemConfigService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\SystemConfigService.java
+- [[TestDataFactory.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\utils\TestDataFactory.java
+- [[UpdateReviewRequest]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\UpdateReviewRequest.java
+- [[UpdateReviewRequest.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\UpdateReviewRequest.java
+- [[User.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\User.java
+- [[UserFavorite.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\UserFavorite.java
+- [[UserFavoriteController.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\UserFavoriteController.java
+- [[UserFavoriteDTO.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\UserFavoriteDTO.java
+- [[UserFavoriteRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\UserFavoriteRepository.java
+- [[UserFavoriteService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\UserFavoriteService.java
+- [[UserFavoriteServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\UserFavoriteServiceImpl.java
+- [[UserRepository.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\repository\UserRepository.java
+- [[UserRole.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\UserRole.java
+- [[ViolationServiceImplTest.java]] - code - homestay-backend\src\test\java\com\homestay3\homestaybackend\service\impl\ViolationServiceImplTest.java
+- [[WebSocketNotificationService]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\WebSocketNotificationService.java
+- [[WebSocketNotificationService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\WebSocketNotificationService.java
+- [[WebSocketNotificationServiceImpl.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\WebSocketNotificationServiceImpl.java
+- [[WebSocketService.java]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\WebSocketService.java
+- [[WeightConfig]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\service\impl\HomestayFeatureAnalysisServiceImpl.java
+- [[canTransitionTo()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\HomestayStatus.java
+- [[getDescription()_3]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\HomestayStatus.java
+- [[getDescription()_4]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\OrderStatus.java
+- [[getDescription()_5]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\PaymentStatus.java
+- [[getDescription()_7]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\RefundType.java
+- [[getReviewableStatuses()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\HomestayStatus.java
+- [[getSubmittableStatuses()]] - code - homestay-backend\src\main\java\com\homestay3\homestaybackend\model\HomestayStatus.java
+
+## Live Query (requires Dataview plugin)
+
+```dataview
+TABLE source_file, type FROM #community/Admin_Controller_Layer
+SORT file.name ASC
+```
+
+## Connections to other communities
+- 36 edges to [[_COMMUNITY_Payment Integration (AlipayWechat)]]
+- 22 edges to [[_COMMUNITY_Admin User Management]]
+- 11 edges to [[_COMMUNITY_Admin Statistics & Audit]]
+- 9 edges to [[_COMMUNITY_Violation & Report Handling]]
+- 8 edges to [[_COMMUNITY_API Response & Chat System]]
+- 8 edges to [[_COMMUNITY_Admin Authentication & Admin Domain]]
+- 7 edges to [[_COMMUNITY_Dispute Management]]
+- 6 edges to [[_COMMUNITY_Homestay Recommendation Controller]]
+- 5 edges to [[_COMMUNITY_Check-in & Check-out Flow]]
+- 5 edges to [[_COMMUNITY_Host Management]]
+- 3 edges to [[_COMMUNITY_Community 45]]
+- 3 edges to [[_COMMUNITY_Homestay Recommendation Engine]]
+- 2 edges to [[_COMMUNITY_Community 95]]
+- 2 edges to [[_COMMUNITY_Community 79]]
+- 2 edges to [[_COMMUNITY_Community 89]]
+- 2 edges to [[_COMMUNITY_Homestay Type & Category Management]]
+- 2 edges to [[_COMMUNITY_Homestay Availability]]
+- 2 edges to [[_COMMUNITY_System Configuration]]
+- 2 edges to [[_COMMUNITY_Combination Rule & Feature Analysis]]
+- 1 edge to [[_COMMUNITY_Community 58]]
+- 1 edge to [[_COMMUNITY_Community 59]]
+- 1 edge to [[_COMMUNITY_Community 87]]
+- 1 edge to [[_COMMUNITY_System Config Admin]]
+- 1 edge to [[_COMMUNITY_Community 34]]
+- 1 edge to [[_COMMUNITY_Community 88]]
+- 1 edge to [[_COMMUNITY_Community 31]]
+- 1 edge to [[_COMMUNITY_Community 76]]
+- 1 edge to [[_COMMUNITY_Community 36]]
+- 1 edge to [[_COMMUNITY_Community 77]]
+- 1 edge to [[_COMMUNITY_Community 78]]
+- 1 edge to [[_COMMUNITY_Order Controller]]
+- 1 edge to [[_COMMUNITY_Community 52]]
+- 1 edge to [[_COMMUNITY_Community 64]]
+- 1 edge to [[_COMMUNITY_Community 67]]
+- 1 edge to [[_COMMUNITY_User Entity & Profile]]
+- 1 edge to [[_COMMUNITY_Community 50]]
+- 1 edge to [[_COMMUNITY_Community 73]]
+- 1 edge to [[_COMMUNITY_Community 57]]
+- 1 edge to [[_COMMUNITY_Community 65]]
+- 1 edge to [[_COMMUNITY_Community 46]]
+- 1 edge to [[_COMMUNITY_Community 66]]
+- 1 edge to [[_COMMUNITY_Community 53]]
+- 1 edge to [[_COMMUNITY_Homestay Repository]]
+- 1 edge to [[_COMMUNITY_Community 80]]
+- 1 edge to [[_COMMUNITY_Order Repository & Queries]]
+- 1 edge to [[_COMMUNITY_Review Repository]]
+- 1 edge to [[_COMMUNITY_Community 81]]
+- 1 edge to [[_COMMUNITY_Community 54]]
+- 1 edge to [[_COMMUNITY_Amenity Service]]
+- 1 edge to [[_COMMUNITY_Community 124]]
+- 1 edge to [[_COMMUNITY_Community 98]]
+- 1 edge to [[_COMMUNITY_Community 90]]
+- 1 edge to [[_COMMUNITY_File Storage & Management]]
+- 1 edge to [[_COMMUNITY_Community 55]]
+- 1 edge to [[_COMMUNITY_Community 39]]
+- 1 edge to [[_COMMUNITY_Community 82]]
+- 1 edge to [[_COMMUNITY_Community 113]]
+- 1 edge to [[_COMMUNITY_Community 47]]
+- 1 edge to [[_COMMUNITY_Community 48]]
+- 1 edge to [[_COMMUNITY_Order Service Interface]]
+- 1 edge to [[_COMMUNITY_Community 93]]
+- 1 edge to [[_COMMUNITY_Community 109]]
+- 1 edge to [[_COMMUNITY_Community 41]]
+- 1 edge to [[_COMMUNITY_Community 74]]
+- 1 edge to [[_COMMUNITY_Community 70]]
+- 1 edge to [[_COMMUNITY_Community 99]]
+- 1 edge to [[_COMMUNITY_Amenity Service]]
+- 1 edge to [[_COMMUNITY_Community 56]]
+- 1 edge to [[_COMMUNITY_Community 37]]
+- 1 edge to [[_COMMUNITY_Community 32]]
+- 1 edge to [[_COMMUNITY_Community 94]]
+- 1 edge to [[_COMMUNITY_Community 102]]
+- 1 edge to [[_COMMUNITY_Community 83]]
+- 1 edge to [[_COMMUNITY_Community 49]]
+- 1 edge to [[_COMMUNITY_Community 110]]
+- 1 edge to [[_COMMUNITY_Community 111]]
+- 1 edge to [[_COMMUNITY_Community 112]]
+- 1 edge to [[_COMMUNITY_Homestay Service Impl]]
+- 1 edge to [[_COMMUNITY_Community 42]]
+- 1 edge to [[_COMMUNITY_Community 60]]
+- 1 edge to [[_COMMUNITY_Community 61]]
+- 1 edge to [[_COMMUNITY_Order Lifecycle Management]]
+- 1 edge to [[_COMMUNITY_Community 33]]
+- 1 edge to [[_COMMUNITY_Order Service & Refunds]]
+- 1 edge to [[_COMMUNITY_Community 75]]
+- 1 edge to [[_COMMUNITY_Community 62]]
+- 1 edge to [[_COMMUNITY_Community 51]]
+- 1 edge to [[_COMMUNITY_Community 40]]
+- 1 edge to [[_COMMUNITY_Community 91]]
+- 1 edge to [[_COMMUNITY_Community 69]]
+- 1 edge to [[_COMMUNITY_Community 114]]
+- 1 edge to [[_COMMUNITY_Community 100]]
+- 1 edge to [[_COMMUNITY_Community 105]]
+- 1 edge to [[_COMMUNITY_Community 101]]
+- 1 edge to [[_COMMUNITY_Community 44]]
+- 1 edge to [[_COMMUNITY_Community 71]]
+- 1 edge to [[_COMMUNITY_Community 84]]
+- 1 edge to [[_COMMUNITY_Community 85]]
+- 1 edge to [[_COMMUNITY_Community 30]]
+- 1 edge to [[_COMMUNITY_Community 38]]
+- 1 edge to [[_COMMUNITY_Community 72]]
+
+## Top bridge nodes
+- [[User.java]] - degree 49, connects to 8 communities
+- [[UserRepository.java]] - degree 37, connects to 6 communities
+- [[HomestayRecommendationServiceImpl.java]] - degree 21, connects to 5 communities
+- [[HomestayServiceImpl.java]] - degree 27, connects to 4 communities
+- [[HostServiceImpl.java]] - degree 20, connects to 4 communities

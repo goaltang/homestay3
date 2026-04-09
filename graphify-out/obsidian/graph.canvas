@@ -1,0 +1,4883 @@
+{
+  "nodes": [
+    {
+      "id": "g0",
+      "type": "group",
+      "label": "Homestay Batch Operations",
+      "x": 0,
+      "y": 0,
+      "width": 1320,
+      "height": 1120,
+      "color": "1"
+    },
+    {
+      "id": "n_batch",
+      "type": "file",
+      "file": "graphify/obsidian/batch.ts.md",
+      "x": 20,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_batch_batchactivatehomestays",
+      "type": "file",
+      "file": "graphify/obsidian/batchActivateHomestays().md",
+      "x": 220,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_batch_batchassigntogroup",
+      "type": "file",
+      "file": "graphify/obsidian/batchAssignToGroup().md",
+      "x": 420,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_batch_batchdeactivatehomestays",
+      "type": "file",
+      "file": "graphify/obsidian/batchDeactivateHomestays().md",
+      "x": 20,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_batch_batchdeletehomestays",
+      "type": "file",
+      "file": "graphify/obsidian/batchDeleteHomestays().md",
+      "x": 220,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_batch_batchremovefromgroup",
+      "type": "file",
+      "file": "graphify/obsidian/batchRemoveFromGroup().md",
+      "x": 420,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_user_changepassword",
+      "type": "file",
+      "file": "graphify/obsidian/changePassword().md",
+      "x": 20,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_chat",
+      "type": "file",
+      "file": "graphify/obsidian/chat.ts.md",
+      "x": 220,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notificationservice_deletenotification",
+      "type": "file",
+      "file": "graphify/obsidian/deleteNotification().md",
+      "x": 420,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_websocketservice_disconnectwebsocket",
+      "type": "file",
+      "file": "graphify/obsidian/disconnectWebSocket().md",
+      "x": 20,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notificationservice_getnotifications",
+      "type": "file",
+      "file": "graphify/obsidian/getNotifications().md",
+      "x": 220,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notificationservice_getunreadcount",
+      "type": "file",
+      "file": "graphify/obsidian/getUnreadCount().md",
+      "x": 420,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_user_getuserinfo",
+      "type": "file",
+      "file": "graphify/obsidian/getUserInfo().md",
+      "x": 20,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_index",
+      "type": "file",
+      "file": "graphify/obsidian/index.ts.md",
+      "x": 220,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_websocketservice_initwebsocket",
+      "type": "file",
+      "file": "graphify/obsidian/initWebSocket().md",
+      "x": 420,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_main_initializeapp",
+      "type": "file",
+      "file": "graphify/obsidian/initializeApp().md",
+      "x": 20,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_websocketservice_iswebsocketconnected",
+      "type": "file",
+      "file": "graphify/obsidian/isWebSocketConnected().md",
+      "x": 220,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_user_login",
+      "type": "file",
+      "file": "graphify/obsidian/login().md",
+      "x": 420,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_main",
+      "type": "file",
+      "file": "graphify/obsidian/main.ts.md",
+      "x": 20,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notificationservice_markallasread",
+      "type": "file",
+      "file": "graphify/obsidian/markAllAsRead().md",
+      "x": 220,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notificationservice_markasread",
+      "type": "file",
+      "file": "graphify/obsidian/markAsRead().md",
+      "x": 420,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notification",
+      "type": "file",
+      "file": "graphify/obsidian/notification.ts.md",
+      "x": 20,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_notificationservice",
+      "type": "file",
+      "file": "graphify/obsidian/notificationService.ts.md",
+      "x": 220,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_user_register",
+      "type": "file",
+      "file": "graphify/obsidian/register().md",
+      "x": 420,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_request",
+      "type": "file",
+      "file": "graphify/obsidian/request.ts.md",
+      "x": 20,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_user_updateuserinfo",
+      "type": "file",
+      "file": "graphify/obsidian/updateUserInfo().md",
+      "x": 220,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_websocketservice_usewebsocket",
+      "type": "file",
+      "file": "graphify/obsidian/useWebSocket().md",
+      "x": 420,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_user",
+      "type": "file",
+      "file": "graphify/obsidian/user.ts.md",
+      "x": 20,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_websocketservice",
+      "type": "file",
+      "file": "graphify/obsidian/websocketService.ts.md",
+      "x": 220,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g1",
+      "type": "group",
+      "label": "Order Lifecycle",
+      "x": 1400,
+      "y": 0,
+      "width": 1320,
+      "height": 1120,
+      "color": "2"
+    },
+    {
+      "id": "n_order_calculateorderprice",
+      "type": "file",
+      "file": "graphify/obsidian/calculateOrderPrice().md",
+      "x": 1420,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_cancelorder",
+      "type": "file",
+      "file": "graphify/obsidian/cancelOrder()_1.md",
+      "x": 1620,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_checkinorder",
+      "type": "file",
+      "file": "graphify/obsidian/checkInOrder().md",
+      "x": 1820,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_checkoutorder",
+      "type": "file",
+      "file": "graphify/obsidian/checkOutOrder().md",
+      "x": 1420,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_checkpayment",
+      "type": "file",
+      "file": "graphify/obsidian/checkPayment().md",
+      "x": 1620,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_confirmarrival",
+      "type": "file",
+      "file": "graphify/obsidian/confirmArrival().md",
+      "x": 1820,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_confirmorder",
+      "type": "file",
+      "file": "graphify/obsidian/confirmOrder()_1.md",
+      "x": 1420,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_createorder",
+      "type": "file",
+      "file": "graphify/obsidian/createOrder().md",
+      "x": 1620,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_createorderpreview",
+      "type": "file",
+      "file": "graphify/obsidian/createOrderPreview().md",
+      "x": 1820,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_generatepaymentqrcode",
+      "type": "file",
+      "file": "graphify/obsidian/generatePaymentQRCode().md",
+      "x": 1420,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getcheckincredential",
+      "type": "file",
+      "file": "graphify/obsidian/getCheckInCredential()_1.md",
+      "x": 1620,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getdisplayorderstatustext",
+      "type": "file",
+      "file": "graphify/obsidian/getDisplayOrderStatusText().md",
+      "x": 1820,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getdisplayorderstatustype",
+      "type": "file",
+      "file": "graphify/obsidian/getDisplayOrderStatusType().md",
+      "x": 1420,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getmyorders",
+      "type": "file",
+      "file": "graphify/obsidian/getMyOrders().md",
+      "x": 1620,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getorderbyid",
+      "type": "file",
+      "file": "graphify/obsidian/getOrderById().md",
+      "x": 1820,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getorderdetail",
+      "type": "file",
+      "file": "graphify/obsidian/getOrderDetail().md",
+      "x": 1420,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getorderlist",
+      "type": "file",
+      "file": "graphify/obsidian/getOrderList().md",
+      "x": 1620,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getorders",
+      "type": "file",
+      "file": "graphify/obsidian/getOrders().md",
+      "x": 1820,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getpendingordercount",
+      "type": "file",
+      "file": "graphify/obsidian/getPendingOrderCount()_1.md",
+      "x": 1420,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_getuserorders",
+      "type": "file",
+      "file": "graphify/obsidian/getUserOrders().md",
+      "x": 1620,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_isordercancelled",
+      "type": "file",
+      "file": "graphify/obsidian/isOrderCancelled().md",
+      "x": 1820,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_isvalidstatustransition",
+      "type": "file",
+      "file": "graphify/obsidian/isValidStatusTransition().md",
+      "x": 1420,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_mockpaymentsuccess",
+      "type": "file",
+      "file": "graphify/obsidian/mockPaymentSuccess().md",
+      "x": 1620,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order",
+      "type": "file",
+      "file": "graphify/obsidian/order.ts.md",
+      "x": 1820,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_payorder",
+      "type": "file",
+      "file": "graphify/obsidian/payOrder().md",
+      "x": 1420,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_rejectorder",
+      "type": "file",
+      "file": "graphify/obsidian/rejectOrder()_1.md",
+      "x": 1620,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_revieworder",
+      "type": "file",
+      "file": "graphify/obsidian/reviewOrder().md",
+      "x": 1820,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order_selfcheckin",
+      "type": "file",
+      "file": "graphify/obsidian/selfCheckIn().md",
+      "x": 1420,
+      "y": 800,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g2",
+      "type": "group",
+      "label": "Authentication & Access Control",
+      "x": 2800,
+      "y": 0,
+      "width": 1320,
+      "height": 1020,
+      "color": "3"
+    },
+    {
+      "id": "n_auth_authmanager_checkaccess",
+      "type": "file",
+      "file": "graphify/obsidian/.checkAccess().md",
+      "x": 2820,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_getinstance",
+      "type": "file",
+      "file": "graphify/obsidian/.getInstance().md",
+      "x": 3020,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_getuserrole",
+      "type": "file",
+      "file": "graphify/obsidian/.getUserRole().md",
+      "x": 3220,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_handleaccessdenied",
+      "type": "file",
+      "file": "graphify/obsidian/.handleAccessDenied().md",
+      "x": 2820,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_isadmin",
+      "type": "file",
+      "file": "graphify/obsidian/.isAdmin().md",
+      "x": 3020,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_isauthenticated",
+      "type": "file",
+      "file": "graphify/obsidian/.isAuthenticated().md",
+      "x": 3220,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_ishost",
+      "type": "file",
+      "file": "graphify/obsidian/.isHost().md",
+      "x": 2820,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_requireauth",
+      "type": "file",
+      "file": "graphify/obsidian/.requireAuth().md",
+      "x": 3020,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager_requireauthforaction",
+      "type": "file",
+      "file": "graphify/obsidian/.requireAuthForAction().md",
+      "x": 3220,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_authmanager",
+      "type": "file",
+      "file": "graphify/obsidian/AuthManager.md",
+      "x": 2820,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_alertlogin",
+      "type": "file",
+      "file": "graphify/obsidian/alertLogin().md",
+      "x": 3020,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth",
+      "type": "file",
+      "file": "graphify/obsidian/auth.ts.md",
+      "x": 3220,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_checkauthentication",
+      "type": "file",
+      "file": "graphify/obsidian/checkAuthentication().md",
+      "x": 2820,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_detailedauthcheck",
+      "type": "file",
+      "file": "graphify/obsidian/detailedAuthCheck().md",
+      "x": 3020,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_ensureuserloggedin",
+      "type": "file",
+      "file": "graphify/obsidian/ensureUserLoggedIn().md",
+      "x": 3220,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_getcurrentuser",
+      "type": "file",
+      "file": "graphify/obsidian/getCurrentUser().md",
+      "x": 2820,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_gettoken",
+      "type": "file",
+      "file": "graphify/obsidian/getToken().md",
+      "x": 3020,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_isadmin",
+      "type": "file",
+      "file": "graphify/obsidian/isAdmin().md",
+      "x": 3220,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_isauthenticated",
+      "type": "file",
+      "file": "graphify/obsidian/isAuthenticated().md",
+      "x": 2820,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_ishost",
+      "type": "file",
+      "file": "graphify/obsidian/isHost().md",
+      "x": 3020,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_isloggedin",
+      "type": "file",
+      "file": "graphify/obsidian/isLoggedIn().md",
+      "x": 3220,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_removetoken",
+      "type": "file",
+      "file": "graphify/obsidian/removeToken().md",
+      "x": 2820,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_requireauth",
+      "type": "file",
+      "file": "graphify/obsidian/requireAuth().md",
+      "x": 3020,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_requireauthforaction",
+      "type": "file",
+      "file": "graphify/obsidian/requireAuthForAction().md",
+      "x": 3220,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_settoken",
+      "type": "file",
+      "file": "graphify/obsidian/setToken().md",
+      "x": 2820,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_auth_testrequestwithtoken",
+      "type": "file",
+      "file": "graphify/obsidian/testRequestWithToken().md",
+      "x": 3020,
+      "y": 720,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g3",
+      "type": "group",
+      "label": "Host Order Management",
+      "x": 4200,
+      "y": 0,
+      "width": 1100,
+      "height": 920,
+      "color": "4"
+    },
+    {
+      "id": "n_hostorder_cancelorder",
+      "type": "file",
+      "file": "graphify/obsidian/cancelOrder().md",
+      "x": 4220,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_cancelpreparecheckin",
+      "type": "file",
+      "file": "graphify/obsidian/cancelPrepareCheckIn().md",
+      "x": 4420,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_confirmorder",
+      "type": "file",
+      "file": "graphify/obsidian/confirmOrder().md",
+      "x": 4620,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_confirmsettlement",
+      "type": "file",
+      "file": "graphify/obsidian/confirmSettlement().md",
+      "x": 4220,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_getcheckincredential",
+      "type": "file",
+      "file": "graphify/obsidian/getCheckInCredential().md",
+      "x": 4420,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_getcheckinrecord",
+      "type": "file",
+      "file": "graphify/obsidian/getCheckInRecord().md",
+      "x": 4620,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_getcheckoutrecord",
+      "type": "file",
+      "file": "graphify/obsidian/getCheckOutRecord().md",
+      "x": 4220,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_gethostorderstats",
+      "type": "file",
+      "file": "graphify/obsidian/getHostOrderStats().md",
+      "x": 4420,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_gethostorders",
+      "type": "file",
+      "file": "graphify/obsidian/getHostOrders()_1.md",
+      "x": 4620,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_getordersbyhomestay",
+      "type": "file",
+      "file": "graphify/obsidian/getOrdersByHomestay().md",
+      "x": 4220,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_getpendingordercount",
+      "type": "file",
+      "file": "graphify/obsidian/getPendingOrderCount().md",
+      "x": 4420,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_getrefunddetails",
+      "type": "file",
+      "file": "graphify/obsidian/getRefundDetails().md",
+      "x": 4620,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_hostapproverefund",
+      "type": "file",
+      "file": "graphify/obsidian/hostApproveRefund().md",
+      "x": 4220,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_hostinitiaterefund",
+      "type": "file",
+      "file": "graphify/obsidian/hostInitiateRefund().md",
+      "x": 4420,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder",
+      "type": "file",
+      "file": "graphify/obsidian/hostOrder.ts.md",
+      "x": 4620,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_hostraisedispute",
+      "type": "file",
+      "file": "graphify/obsidian/hostRaiseDispute().md",
+      "x": 4220,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_hostrejectrefund",
+      "type": "file",
+      "file": "graphify/obsidian/hostRejectRefund().md",
+      "x": 4420,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_performcheckin",
+      "type": "file",
+      "file": "graphify/obsidian/performCheckIn().md",
+      "x": 4620,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_performcheckout",
+      "type": "file",
+      "file": "graphify/obsidian/performCheckOut().md",
+      "x": 4220,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_preparecheckin",
+      "type": "file",
+      "file": "graphify/obsidian/prepareCheckIn().md",
+      "x": 4420,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_processdeposit",
+      "type": "file",
+      "file": "graphify/obsidian/processDeposit().md",
+      "x": 4620,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_rejectorder",
+      "type": "file",
+      "file": "graphify/obsidian/rejectOrder().md",
+      "x": 4220,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_updateextracharges",
+      "type": "file",
+      "file": "graphify/obsidian/updateExtraCharges().md",
+      "x": 4420,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostorder_updateorderstatus",
+      "type": "file",
+      "file": "graphify/obsidian/updateOrderStatus().md",
+      "x": 4620,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g4",
+      "type": "group",
+      "label": "Homestay Group Management",
+      "x": 5380,
+      "y": 0,
+      "width": 1100,
+      "height": 920,
+      "color": "5"
+    },
+    {
+      "id": "n_group_assignhomestaystogroup",
+      "type": "file",
+      "file": "graphify/obsidian/assignHomestaysToGroup().md",
+      "x": 5400,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_calculatenights",
+      "type": "file",
+      "file": "graphify/obsidian/calculateNights().md",
+      "x": 5600,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_createhomestaygroup",
+      "type": "file",
+      "file": "graphify/obsidian/createHomestayGroup().md",
+      "x": 5800,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_deletehomestaygroup",
+      "type": "file",
+      "file": "graphify/obsidian/deleteHomestayGroup().md",
+      "x": 5400,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_fetchcalculateprice",
+      "type": "file",
+      "file": "graphify/obsidian/fetchCalculatePrice().md",
+      "x": 5600,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_formatdatestring",
+      "type": "file",
+      "file": "graphify/obsidian/formatDateString().md",
+      "x": 5800,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_formatdisplaydate",
+      "type": "file",
+      "file": "graphify/obsidian/formatDisplayDate().md",
+      "x": 5400,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_formatlocation",
+      "type": "file",
+      "file": "graphify/obsidian/formatLocation().md",
+      "x": 5600,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_formatpropertytype",
+      "type": "file",
+      "file": "graphify/obsidian/formatPropertyType().md",
+      "x": 5800,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_gethomestaygroupbyid",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayGroupById().md",
+      "x": 5400,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_gethomestaygroups",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayGroups().md",
+      "x": 5600,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_gethomestaysbygroup",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestaysByGroup().md",
+      "x": 5800,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group",
+      "type": "file",
+      "file": "graphify/obsidian/group.ts.md",
+      "x": 5400,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestay",
+      "type": "file",
+      "file": "graphify/obsidian/homestay.ts.md",
+      "x": 5600,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils",
+      "type": "file",
+      "file": "graphify/obsidian/homestayUtils.ts.md",
+      "x": 5800,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_parseprice",
+      "type": "file",
+      "file": "graphify/obsidian/parsePrice().md",
+      "x": 5400,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestayutils_processimages",
+      "type": "file",
+      "file": "graphify/obsidian/processImages().md",
+      "x": 5600,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_removehomestaysfromgroup",
+      "type": "file",
+      "file": "graphify/obsidian/removeHomestaysFromGroup().md",
+      "x": 5800,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_group_updatehomestaygroup",
+      "type": "file",
+      "file": "graphify/obsidian/updateHomestayGroup().md",
+      "x": 5400,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usebooking_usebooking",
+      "type": "file",
+      "file": "graphify/obsidian/useBooking().md",
+      "x": 5600,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usebooking",
+      "type": "file",
+      "file": "graphify/obsidian/useBooking.ts.md",
+      "x": 5800,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usemap_usemap",
+      "type": "file",
+      "file": "graphify/obsidian/useMap().md",
+      "x": 5400,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usemap",
+      "type": "file",
+      "file": "graphify/obsidian/useMap.ts.md",
+      "x": 5600,
+      "y": 640,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g5",
+      "type": "group",
+      "label": "Homestay Audit Workflow",
+      "x": 6560,
+      "y": 0,
+      "width": 1100,
+      "height": 820,
+      "color": "6"
+    },
+    {
+      "id": "n_core_activatehomestay",
+      "type": "file",
+      "file": "graphify/obsidian/activateHomestay().md",
+      "x": 6580,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit",
+      "type": "file",
+      "file": "graphify/obsidian/audit.ts.md",
+      "x": 6780,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_checkhomestayownership",
+      "type": "file",
+      "file": "graphify/obsidian/checkHomestayOwnership().md",
+      "x": 6980,
+      "y": 80,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_checkhomestayreadyforreview",
+      "type": "file",
+      "file": "graphify/obsidian/checkHomestayReadyForReview().md",
+      "x": 6580,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core",
+      "type": "file",
+      "file": "graphify/obsidian/core.ts.md",
+      "x": 6780,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_createhomestay",
+      "type": "file",
+      "file": "graphify/obsidian/createHomestay().md",
+      "x": 6980,
+      "y": 160,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_deactivatehomestay",
+      "type": "file",
+      "file": "graphify/obsidian/deactivateHomestay().md",
+      "x": 6580,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_deletehomestay",
+      "type": "file",
+      "file": "graphify/obsidian/deleteHomestay().md",
+      "x": 6780,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_getactivehomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getActiveHomestays().md",
+      "x": 6980,
+      "y": 240,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_gethomestayaudithistory",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayAuditHistory().md",
+      "x": 6580,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_gethomestaybyid",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayById().md",
+      "x": 6780,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_gethomestayunavailabledates",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayUnavailableDates().md",
+      "x": 6980,
+      "y": 320,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_gethomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestays().md",
+      "x": 6580,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_gethomestaysbyids",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestaysByIds().md",
+      "x": 6780,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_getownerauditstats",
+      "type": "file",
+      "file": "graphify/obsidian/getOwnerAuditStats().md",
+      "x": 6980,
+      "y": 400,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_getownerhomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getOwnerHomestays().md",
+      "x": 6580,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_requestreactivation",
+      "type": "file",
+      "file": "graphify/obsidian/requestReactivation().md",
+      "x": 6780,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_savehomestaydraft",
+      "type": "file",
+      "file": "graphify/obsidian/saveHomestayDraft().md",
+      "x": 6980,
+      "y": 480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_submithomestayforreview",
+      "type": "file",
+      "file": "graphify/obsidian/submitHomestayForReview().md",
+      "x": 6580,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_core_updatehomestay",
+      "type": "file",
+      "file": "graphify/obsidian/updateHomestay().md",
+      "x": 6780,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_audit_withdrawhomestayreview",
+      "type": "file",
+      "file": "graphify/obsidian/withdrawHomestayReview().md",
+      "x": 6980,
+      "y": 560,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g6",
+      "type": "group",
+      "label": "Error Handler & Host Utils",
+      "x": 0,
+      "y": 1200,
+      "width": 1100,
+      "height": 820,
+      "color": "1"
+    },
+    {
+      "id": "n_host_becomehost",
+      "type": "file",
+      "file": "graphify/obsidian/becomeHost().md",
+      "x": 20,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_errorhandler",
+      "type": "file",
+      "file": "graphify/obsidian/errorHandler.ts.md",
+      "x": 220,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethomestayhostinfo",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayHostInfo().md",
+      "x": 420,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostearnings",
+      "type": "file",
+      "file": "graphify/obsidian/getHostEarnings().md",
+      "x": 20,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethosthomestayoptions",
+      "type": "file",
+      "file": "graphify/obsidian/getHostHomestayOptions().md",
+      "x": 220,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethosthomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getHostHomestays().md",
+      "x": 420,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostinfo",
+      "type": "file",
+      "file": "graphify/obsidian/getHostInfo().md",
+      "x": 20,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostmonthlyearnings",
+      "type": "file",
+      "file": "graphify/obsidian/getHostMonthlyEarnings().md",
+      "x": 220,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostorders",
+      "type": "file",
+      "file": "graphify/obsidian/getHostOrders().md",
+      "x": 420,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostprofile",
+      "type": "file",
+      "file": "graphify/obsidian/getHostProfile().md",
+      "x": 20,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostrecentorders",
+      "type": "file",
+      "file": "graphify/obsidian/getHostRecentOrders().md",
+      "x": 220,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethostreviews",
+      "type": "file",
+      "file": "graphify/obsidian/getHostReviews().md",
+      "x": 420,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_gethoststatistics",
+      "type": "file",
+      "file": "graphify/obsidian/getHostStatistics().md",
+      "x": 20,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_errorhandler_handleapierror",
+      "type": "file",
+      "file": "graphify/obsidian/handleApiError().md",
+      "x": 220,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host",
+      "type": "file",
+      "file": "graphify/obsidian/host.ts.md",
+      "x": 420,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils",
+      "type": "file",
+      "file": "graphify/obsidian/hostUtils.ts.md",
+      "x": 20,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_errorhandler_normalizeapierror",
+      "type": "file",
+      "file": "graphify/obsidian/normalizeApiError().md",
+      "x": 220,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_updatehostinfo",
+      "type": "file",
+      "file": "graphify/obsidian/updateHostInfo().md",
+      "x": 420,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_updatehostprofile",
+      "type": "file",
+      "file": "graphify/obsidian/updateHostProfile().md",
+      "x": 20,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_uploadhostavatar",
+      "type": "file",
+      "file": "graphify/obsidian/uploadHostAvatar().md",
+      "x": 220,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host_uploadhostdocument",
+      "type": "file",
+      "file": "graphify/obsidian/uploadHostDocument().md",
+      "x": 420,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g7",
+      "type": "group",
+      "label": "Map API & Order Status Docs",
+      "x": 1400,
+      "y": 1200,
+      "width": 1100,
+      "height": 820,
+      "color": "2"
+    },
+    {
+      "id": "n_api-whitelist-mechanism",
+      "type": "file",
+      "file": "graphify/obsidian/API Whitelist Mechanism.md",
+      "x": 1420,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amap-api",
+      "type": "file",
+      "file": "graphify/obsidian/Amap (\u9ad8\u5fb7\u5730\u56fe) API.md",
+      "x": 1620,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_privacy-protection",
+      "type": "file",
+      "file": "graphify/obsidian/Coordinate Privacy Protection.md",
+      "x": 1820,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_element-china-area-data",
+      "type": "file",
+      "file": "graphify/obsidian/Element Plus Logo.md",
+      "x": 1420,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_frontend-filtering",
+      "type": "file",
+      "file": "graphify/obsidian/Frontend-based Filtering.md",
+      "x": 1620,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_geocoding",
+      "type": "file",
+      "file": "graphify/obsidian/Geocoding Service.md",
+      "x": 1820,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_interactive-map",
+      "type": "file",
+      "file": "graphify/obsidian/Interactive Map Feature.md",
+      "x": 1420,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_map-service",
+      "type": "file",
+      "file": "graphify/obsidian/Map Service Module.md",
+      "x": 1620,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mock-mode",
+      "type": "file",
+      "file": "graphify/obsidian/Mock Mode Fallback.md",
+      "x": 1820,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_count-badge",
+      "type": "file",
+      "file": "graphify/obsidian/Order Count Badge.md",
+      "x": 1420,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order-filtering",
+      "type": "file",
+      "file": "graphify/obsidian/Order Status Filtering.md",
+      "x": 1620,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_order-status-system",
+      "type": "file",
+      "file": "graphify/obsidian/Order Status System.md",
+      "x": 1820,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_poi-search",
+      "type": "file",
+      "file": "graphify/obsidian/POI (\u5468\u8fb9\u8bbe\u65bd) Search.md",
+      "x": 1420,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_public-access",
+      "type": "file",
+      "file": "graphify/obsidian/Public Access System.md",
+      "x": 1620,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_read-only-paths",
+      "type": "file",
+      "file": "graphify/obsidian/Read-Only Path Access Control.md",
+      "x": 1820,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_request-ts",
+      "type": "file",
+      "file": "graphify/obsidian/Request Interceptor Utility.md",
+      "x": 1420,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_static-map",
+      "type": "file",
+      "file": "graphify/obsidian/Static Map Generation.md",
+      "x": 1620,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_status-badge",
+      "type": "file",
+      "file": "graphify/obsidian/Status Badge Component.md",
+      "x": 1820,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_test-public-access-vue",
+      "type": "file",
+      "file": "graphify/obsidian/TestPublicAccess Vue Component.md",
+      "x": 1420,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_time-reminder",
+      "type": "file",
+      "file": "graphify/obsidian/Time-based Reminder.md",
+      "x": 1620,
+      "y": 1760,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g8",
+      "type": "group",
+      "label": "Earnings & Financial",
+      "x": 2800,
+      "y": 1200,
+      "width": 1100,
+      "height": 720,
+      "color": "3"
+    },
+    {
+      "id": "n_earnings_addbankaccount",
+      "type": "file",
+      "file": "graphify/obsidian/addBankAccount().md",
+      "x": 2820,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_cancelwithdrawal",
+      "type": "file",
+      "file": "graphify/obsidian/cancelWithdrawal().md",
+      "x": 3020,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_deletebankaccount",
+      "type": "file",
+      "file": "graphify/obsidian/deleteBankAccount().md",
+      "x": 3220,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings",
+      "type": "file",
+      "file": "graphify/obsidian/earnings.ts.md",
+      "x": 2820,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_exportearningsdata",
+      "type": "file",
+      "file": "graphify/obsidian/exportEarningsData().md",
+      "x": 3020,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getbankaccounts",
+      "type": "file",
+      "file": "graphify/obsidian/getBankAccounts().md",
+      "x": 3220,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getearningsdetail",
+      "type": "file",
+      "file": "graphify/obsidian/getEarningsDetail().md",
+      "x": 2820,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getearningssummary",
+      "type": "file",
+      "file": "graphify/obsidian/getEarningsSummary().md",
+      "x": 3020,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getearningstrend",
+      "type": "file",
+      "file": "graphify/obsidian/getEarningsTrend().md",
+      "x": 3220,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getmonthlyearnings",
+      "type": "file",
+      "file": "graphify/obsidian/getMonthlyEarnings().md",
+      "x": 2820,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getpendingearnings",
+      "type": "file",
+      "file": "graphify/obsidian/getPendingEarnings().md",
+      "x": 3020,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getwithdrawalbalance",
+      "type": "file",
+      "file": "graphify/obsidian/getWithdrawalBalance().md",
+      "x": 3220,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_getwithdrawalhistory",
+      "type": "file",
+      "file": "graphify/obsidian/getWithdrawalHistory().md",
+      "x": 2820,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_requestwithdrawal",
+      "type": "file",
+      "file": "graphify/obsidian/requestWithdrawal().md",
+      "x": 3020,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_setdefaultbankaccount",
+      "type": "file",
+      "file": "graphify/obsidian/setDefaultBankAccount().md",
+      "x": 3220,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_settlehostearnings",
+      "type": "file",
+      "file": "graphify/obsidian/settleHostEarnings().md",
+      "x": 2820,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_earnings_updatebankaccount",
+      "type": "file",
+      "file": "graphify/obsidian/updateBankAccount().md",
+      "x": 3020,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g9",
+      "type": "group",
+      "label": "Review Management",
+      "x": 4200,
+      "y": 1200,
+      "width": 1100,
+      "height": 720,
+      "color": "4"
+    },
+    {
+      "id": "n_review_createreview",
+      "type": "file",
+      "file": "graphify/obsidian/createReview().md",
+      "x": 4220,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_deletereview",
+      "type": "file",
+      "file": "graphify/obsidian/deleteReview().md",
+      "x": 4420,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_deletereviewresponse",
+      "type": "file",
+      "file": "graphify/obsidian/deleteReviewResponse().md",
+      "x": 4620,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_gethomestayreviewstats",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayReviewStats().md",
+      "x": 4220,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_gethomestayreviews",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayReviews().md",
+      "x": 4420,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_gethostreviewstats",
+      "type": "file",
+      "file": "graphify/obsidian/getHostReviewStats().md",
+      "x": 4620,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_gethostreviews",
+      "type": "file",
+      "file": "graphify/obsidian/getHostReviews()_1.md",
+      "x": 4220,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_getreviewdetail",
+      "type": "file",
+      "file": "graphify/obsidian/getReviewDetail().md",
+      "x": 4420,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_getreviews",
+      "type": "file",
+      "file": "graphify/obsidian/getReviews().md",
+      "x": 4620,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_getuserreviews",
+      "type": "file",
+      "file": "graphify/obsidian/getUserReviews().md",
+      "x": 4220,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_respondtoreview",
+      "type": "file",
+      "file": "graphify/obsidian/respondToReview().md",
+      "x": 4420,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review",
+      "type": "file",
+      "file": "graphify/obsidian/review.ts.md",
+      "x": 4620,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_submitreview",
+      "type": "file",
+      "file": "graphify/obsidian/submitReview().md",
+      "x": 4220,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_updatereview",
+      "type": "file",
+      "file": "graphify/obsidian/updateReview().md",
+      "x": 4420,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_review_updatereviewimages",
+      "type": "file",
+      "file": "graphify/obsidian/updateReviewImages().md",
+      "x": 4620,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usereviews_usereviews",
+      "type": "file",
+      "file": "graphify/obsidian/useReviews().md",
+      "x": 4220,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usereviews",
+      "type": "file",
+      "file": "graphify/obsidian/useReviews.ts.md",
+      "x": 4420,
+      "y": 1680,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g10",
+      "type": "group",
+      "label": "Image Handling",
+      "x": 5380,
+      "y": 1200,
+      "width": 880,
+      "height": 620,
+      "color": "5"
+    },
+    {
+      "id": "n_image_addtimestamptourl",
+      "type": "file",
+      "file": "graphify/obsidian/addTimestampToUrl().md",
+      "x": 5400,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_deleteallhomestayimages",
+      "type": "file",
+      "file": "graphify/obsidian/deleteAllHomestayImages().md",
+      "x": 5600,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_deletehomestayimage",
+      "type": "file",
+      "file": "graphify/obsidian/deleteHomestayImage().md",
+      "x": 5800,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_getavatarurl",
+      "type": "file",
+      "file": "graphify/obsidian/getAvatarUrl().md",
+      "x": 5400,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_getcommonimageurl",
+      "type": "file",
+      "file": "graphify/obsidian/getCommonImageUrl().md",
+      "x": 5600,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_gethomestayimageurl",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayImageUrl().md",
+      "x": 5800,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_gethomestayimages",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayImages().md",
+      "x": 5400,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_getreviewavatarurl",
+      "type": "file",
+      "file": "graphify/obsidian/getReviewAvatarUrl().md",
+      "x": 5600,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_handleimageerror",
+      "type": "file",
+      "file": "graphify/obsidian/handleImageError().md",
+      "x": 5800,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image",
+      "type": "file",
+      "file": "graphify/obsidian/image.ts.md",
+      "x": 5400,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_processbaseimageurl",
+      "type": "file",
+      "file": "graphify/obsidian/processBaseImageUrl().md",
+      "x": 5600,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_processmultipleimages",
+      "type": "file",
+      "file": "graphify/obsidian/processMultipleImages().md",
+      "x": 5800,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_uploadhomestayimage",
+      "type": "file",
+      "file": "graphify/obsidian/uploadHomestayImage().md",
+      "x": 5400,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_image_uploadhomestayimages",
+      "type": "file",
+      "file": "graphify/obsidian/uploadHomestayImages().md",
+      "x": 5600,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g11",
+      "type": "group",
+      "label": "Host Display Utilities",
+      "x": 6560,
+      "y": 1200,
+      "width": 880,
+      "height": 620,
+      "color": "6"
+    },
+    {
+      "id": "n_hostutils_hostutils_formatjoindate",
+      "type": "file",
+      "file": "graphify/obsidian/.formatJoinDate().md",
+      "x": 6580,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_formatlanguages",
+      "type": "file",
+      "file": "graphify/obsidian/.formatLanguages().md",
+      "x": 6780,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getachievementbadges",
+      "type": "file",
+      "file": "graphify/obsidian/.getAchievementBadges().md",
+      "x": 6980,
+      "y": 1280,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getdisplayavatar",
+      "type": "file",
+      "file": "graphify/obsidian/.getDisplayAvatar().md",
+      "x": 6580,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getdisplayinfo",
+      "type": "file",
+      "file": "graphify/obsidian/.getDisplayInfo().md",
+      "x": 6780,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getdisplayname",
+      "type": "file",
+      "file": "graphify/obsidian/.getDisplayName().md",
+      "x": 6980,
+      "y": 1360,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getdisplayrating",
+      "type": "file",
+      "file": "graphify/obsidian/.getDisplayRating().md",
+      "x": 6580,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getjoinduration",
+      "type": "file",
+      "file": "graphify/obsidian/.getJoinDuration().md",
+      "x": 6780,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getprofessionallevel",
+      "type": "file",
+      "file": "graphify/obsidian/.getProfessionalLevel().md",
+      "x": 6980,
+      "y": 1440,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_getstatistics",
+      "type": "file",
+      "file": "graphify/obsidian/.getStatistics().md",
+      "x": 6580,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_isverified",
+      "type": "file",
+      "file": "graphify/obsidian/.isVerified().md",
+      "x": 6780,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_safegethostinfo",
+      "type": "file",
+      "file": "graphify/obsidian/.safeGetHostInfo().md",
+      "x": 6980,
+      "y": 1520,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils_validatehostdata",
+      "type": "file",
+      "file": "graphify/obsidian/.validateHostData().md",
+      "x": 6580,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_hostutils_hostutils",
+      "type": "file",
+      "file": "graphify/obsidian/HostUtils.md",
+      "x": 6780,
+      "y": 1600,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g12",
+      "type": "group",
+      "label": "Order Timeout & Timers",
+      "x": 0,
+      "y": 2100,
+      "width": 880,
+      "height": 620,
+      "color": "1"
+    },
+    {
+      "id": "n_ordertimeout_calculateremainingtime",
+      "type": "file",
+      "file": "graphify/obsidian/calculateRemainingTime().md",
+      "x": 20,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_clearalltimers",
+      "type": "file",
+      "file": "graphify/obsidian/clearAllTimers().md",
+      "x": 220,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_clearordertimers",
+      "type": "file",
+      "file": "graphify/obsidian/clearOrderTimers().md",
+      "x": 420,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_getcurrenttime",
+      "type": "file",
+      "file": "graphify/obsidian/getCurrentTime().md",
+      "x": 20,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_getorderurgency",
+      "type": "file",
+      "file": "graphify/obsidian/getOrderUrgency().md",
+      "x": 220,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_gettimeoutcountdowntext",
+      "type": "file",
+      "file": "graphify/obsidian/getTimeoutCountdownText().md",
+      "x": 420,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_gettimeoutstatuscolor",
+      "type": "file",
+      "file": "graphify/obsidian/getTimeoutStatusColor().md",
+      "x": 20,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_handleordertimeout",
+      "type": "file",
+      "file": "graphify/obsidian/handleOrderTimeout().md",
+      "x": 220,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_isordertimedout",
+      "type": "file",
+      "file": "graphify/obsidian/isOrderTimedOut().md",
+      "x": 420,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout",
+      "type": "file",
+      "file": "graphify/obsidian/orderTimeout.ts.md",
+      "x": 20,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_sendtimeoutwarning",
+      "type": "file",
+      "file": "graphify/obsidian/sendTimeoutWarning().md",
+      "x": 220,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_setuptimeouthandler",
+      "type": "file",
+      "file": "graphify/obsidian/setupTimeoutHandler().md",
+      "x": 420,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_ordertimeout_syncservertime",
+      "type": "file",
+      "file": "graphify/obsidian/syncServerTime().md",
+      "x": 20,
+      "y": 2500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g13",
+      "type": "group",
+      "label": "Host Info Documentation",
+      "x": 1400,
+      "y": 2100,
+      "width": 880,
+      "height": 620,
+      "color": "2"
+    },
+    {
+      "id": "n_achievement-badges",
+      "type": "file",
+      "file": "graphify/obsidian/Achievement Badges System.md",
+      "x": 1420,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host-brief-card",
+      "type": "file",
+      "file": "graphify/obsidian/Host Brief Card Component.md",
+      "x": 1620,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host-info-module",
+      "type": "file",
+      "file": "graphify/obsidian/Host Information Module.md",
+      "x": 1820,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host-profile",
+      "type": "file",
+      "file": "graphify/obsidian/Host Profile Display.md",
+      "x": 1420,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_response-rate",
+      "type": "file",
+      "file": "graphify/obsidian/Host Response Rate Display.md",
+      "x": 1620,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host-dto",
+      "type": "file",
+      "file": "graphify/obsidian/HostDTO Interface.md",
+      "x": 1820,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_host-utils",
+      "type": "file",
+      "file": "graphify/obsidian/HostUtils Utility Class.md",
+      "x": 1420,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_language-mapping",
+      "type": "file",
+      "file": "graphify/obsidian/Language Mapping System.md",
+      "x": 1620,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_professional-level",
+      "type": "file",
+      "file": "graphify/obsidian/Professional Level Assessment.md",
+      "x": 1820,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_responsive-design",
+      "type": "file",
+      "file": "graphify/obsidian/Responsive Design.md",
+      "x": 1420,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_smart-intro",
+      "type": "file",
+      "file": "graphify/obsidian/Smart Introduction Truncation.md",
+      "x": 1620,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_scroll-to-host",
+      "type": "file",
+      "file": "graphify/obsidian/Smooth Scroll to Host Section.md",
+      "x": 1820,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_verification-badge",
+      "type": "file",
+      "file": "graphify/obsidian/Verification Badge.md",
+      "x": 1420,
+      "y": 2500,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g14",
+      "type": "group",
+      "label": "Amenity Management",
+      "x": 2800,
+      "y": 2100,
+      "width": 880,
+      "height": 520,
+      "color": "3"
+    },
+    {
+      "id": "n_amenities_addallamenitiestohomestayapi",
+      "type": "file",
+      "file": "graphify/obsidian/addAllAmenitiesToHomestayApi().md",
+      "x": 2820,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_addamenitytohomestayapi",
+      "type": "file",
+      "file": "graphify/obsidian/addAmenityToHomestayApi().md",
+      "x": 3020,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities",
+      "type": "file",
+      "file": "graphify/obsidian/amenities.ts.md",
+      "x": 3220,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_createamenityapi",
+      "type": "file",
+      "file": "graphify/obsidian/createAmenityApi().md",
+      "x": 2820,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_deleteamenityapi",
+      "type": "file",
+      "file": "graphify/obsidian/deleteAmenityApi().md",
+      "x": 3020,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_getamenitiesapi",
+      "type": "file",
+      "file": "graphify/obsidian/getAmenitiesApi().md",
+      "x": 3220,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_getamenitiesbycategoryapi",
+      "type": "file",
+      "file": "graphify/obsidian/getAmenitiesByCategoryApi().md",
+      "x": 2820,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_gethomestayamenitiesapi",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayAmenitiesApi().md",
+      "x": 3020,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_removeallamenitiesfromhomestayapi",
+      "type": "file",
+      "file": "graphify/obsidian/removeAllAmenitiesFromHomestayApi().md",
+      "x": 3220,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_removeamenityfromhomestayapi",
+      "type": "file",
+      "file": "graphify/obsidian/removeAmenityFromHomestayApi().md",
+      "x": 2820,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_amenities_updateamenityapi",
+      "type": "file",
+      "file": "graphify/obsidian/updateAmenityApi().md",
+      "x": 3020,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g15",
+      "type": "group",
+      "label": "Map & Geocoding Service",
+      "x": 4200,
+      "y": 2100,
+      "width": 880,
+      "height": 520,
+      "color": "4"
+    },
+    {
+      "id": "n_mapservice_addprivacyoffset",
+      "type": "file",
+      "file": "graphify/obsidian/addPrivacyOffset().md",
+      "x": 4220,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mapservice_calculatedistance",
+      "type": "file",
+      "file": "graphify/obsidian/calculateDistance().md",
+      "x": 4420,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mapservice_formatdistance",
+      "type": "file",
+      "file": "graphify/obsidian/formatDistance().md",
+      "x": 4620,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mapservice_generatestaticmapurl",
+      "type": "file",
+      "file": "graphify/obsidian/generateStaticMapUrl().md",
+      "x": 4220,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mapservice_geocodeaddress",
+      "type": "file",
+      "file": "graphify/obsidian/geocodeAddress().md",
+      "x": 4420,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mapservice",
+      "type": "file",
+      "file": "graphify/obsidian/mapService.ts.md",
+      "x": 4620,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_search",
+      "type": "file",
+      "file": "graphify/obsidian/search.ts.md",
+      "x": 4220,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_search_searchhomestays",
+      "type": "file",
+      "file": "graphify/obsidian/searchHomestays().md",
+      "x": 4420,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_mapservice_searchnearbyplaces",
+      "type": "file",
+      "file": "graphify/obsidian/searchNearbyPlaces().md",
+      "x": 4620,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usemapsearch_usemapsearch",
+      "type": "file",
+      "file": "graphify/obsidian/useMapSearch().md",
+      "x": 4220,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usemapsearch",
+      "type": "file",
+      "file": "graphify/obsidian/useMapSearch.ts.md",
+      "x": 4420,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g16",
+      "type": "group",
+      "label": "Favorites Management",
+      "x": 5380,
+      "y": 2100,
+      "width": 880,
+      "height": 520,
+      "color": "5"
+    },
+    {
+      "id": "n_favorites_addfavorite",
+      "type": "file",
+      "file": "graphify/obsidian/addFavorite().md",
+      "x": 5400,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_checkfavoritestatus",
+      "type": "file",
+      "file": "graphify/obsidian/checkFavoriteStatus().md",
+      "x": 5600,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_checkfavoritesstatus",
+      "type": "file",
+      "file": "graphify/obsidian/checkFavoritesStatus().md",
+      "x": 5800,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_clearuserfavorites",
+      "type": "file",
+      "file": "graphify/obsidian/clearUserFavorites().md",
+      "x": 5400,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites",
+      "type": "file",
+      "file": "graphify/obsidian/favorites.ts.md",
+      "x": 5600,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_getuserfavoritecount",
+      "type": "file",
+      "file": "graphify/obsidian/getUserFavoriteCount().md",
+      "x": 5800,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_getuserfavoriteids",
+      "type": "file",
+      "file": "graphify/obsidian/getUserFavoriteIds().md",
+      "x": 5400,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_getuserfavorites",
+      "type": "file",
+      "file": "graphify/obsidian/getUserFavorites().md",
+      "x": 5600,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_removefavorite",
+      "type": "file",
+      "file": "graphify/obsidian/removeFavorite().md",
+      "x": 5800,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_favorites_togglefavorite",
+      "type": "file",
+      "file": "graphify/obsidian/toggleFavorite().md",
+      "x": 5400,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g17",
+      "type": "group",
+      "label": "Recommendation Engine",
+      "x": 6560,
+      "y": 2100,
+      "width": 880,
+      "height": 520,
+      "color": "6"
+    },
+    {
+      "id": "n_recommendation_getlocationbasedrecommendations",
+      "type": "file",
+      "file": "graphify/obsidian/getLocationBasedRecommendations().md",
+      "x": 6580,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getpersonalizedrecommendations",
+      "type": "file",
+      "file": "graphify/obsidian/getPersonalizedRecommendations().md",
+      "x": 6780,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getpopularhomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getPopularHomestays().md",
+      "x": 6980,
+      "y": 2180,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getpopularhomestayspage",
+      "type": "file",
+      "file": "graphify/obsidian/getPopularHomestaysPage().md",
+      "x": 6580,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getrecommendationsbyrequest",
+      "type": "file",
+      "file": "graphify/obsidian/getRecommendationsByRequest().md",
+      "x": 6780,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getrecommendedhomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getRecommendedHomestays().md",
+      "x": 6980,
+      "y": 2260,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getrecommendedhomestayspage",
+      "type": "file",
+      "file": "graphify/obsidian/getRecommendedHomestaysPage().md",
+      "x": 6580,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_getsimilarhomestays",
+      "type": "file",
+      "file": "graphify/obsidian/getSimilarHomestays().md",
+      "x": 6780,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation",
+      "type": "file",
+      "file": "graphify/obsidian/recommendation.ts.md",
+      "x": 6980,
+      "y": 2340,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_recommendation_refreshrecommendationcache",
+      "type": "file",
+      "file": "graphify/obsidian/refreshRecommendationCache().md",
+      "x": 6580,
+      "y": 2420,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g18",
+      "type": "group",
+      "label": "Meta & Configuration Data",
+      "x": 0,
+      "y": 2800,
+      "width": 880,
+      "height": 520,
+      "color": "1"
+    },
+    {
+      "id": "n_meta_getavailableamenitiesgrouped",
+      "type": "file",
+      "file": "graphify/obsidian/getAvailableAmenitiesGrouped().md",
+      "x": 20,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_getcities",
+      "type": "file",
+      "file": "graphify/obsidian/getCities().md",
+      "x": 220,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_getdistricts",
+      "type": "file",
+      "file": "graphify/obsidian/getDistricts().md",
+      "x": 420,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_gethomestayamenities",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayAmenities().md",
+      "x": 20,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_gethomestaycategories",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayCategories().md",
+      "x": 220,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_gethomestaytypes",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayTypes().md",
+      "x": 420,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_gethomestaytypesbycategory",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayTypesByCategory().md",
+      "x": 20,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_gethomestaytypesforfilter",
+      "type": "file",
+      "file": "graphify/obsidian/getHomestayTypesForFilter().md",
+      "x": 220,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta_getprovinces",
+      "type": "file",
+      "file": "graphify/obsidian/getProvinces().md",
+      "x": 420,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_meta",
+      "type": "file",
+      "file": "graphify/obsidian/meta.ts.md",
+      "x": 20,
+      "y": 3120,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g19",
+      "type": "group",
+      "label": "Refund Processing",
+      "x": 1400,
+      "y": 2800,
+      "width": 660,
+      "height": 420,
+      "color": "2"
+    },
+    {
+      "id": "n_refund_approverefund",
+      "type": "file",
+      "file": "graphify/obsidian/approveRefund().md",
+      "x": 1420,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund_completerefund",
+      "type": "file",
+      "file": "graphify/obsidian/completeRefund().md",
+      "x": 1620,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund_getrefunddetails",
+      "type": "file",
+      "file": "graphify/obsidian/getRefundDetails()_1.md",
+      "x": 1820,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund_getrefundpreview",
+      "type": "file",
+      "file": "graphify/obsidian/getRefundPreview().md",
+      "x": 1420,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund_raisedispute",
+      "type": "file",
+      "file": "graphify/obsidian/raiseDispute().md",
+      "x": 1620,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund",
+      "type": "file",
+      "file": "graphify/obsidian/refund.ts.md",
+      "x": 1820,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund_rejectrefund",
+      "type": "file",
+      "file": "graphify/obsidian/rejectRefund().md",
+      "x": 1420,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_refund_requestrefund",
+      "type": "file",
+      "file": "graphify/obsidian/requestRefund().md",
+      "x": 1620,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g20",
+      "type": "group",
+      "label": "Community 20",
+      "x": 2800,
+      "y": 2800,
+      "width": 660,
+      "height": 420,
+      "color": "3"
+    },
+    {
+      "id": "n_orderpermission_canaccessorder",
+      "type": "file",
+      "file": "graphify/obsidian/canAccessOrder().md",
+      "x": 2820,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission_canperformactiononstatus",
+      "type": "file",
+      "file": "graphify/obsidian/canPerformActionOnStatus().md",
+      "x": 3020,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission_checkorderpermission",
+      "type": "file",
+      "file": "graphify/obsidian/checkOrderPermission().md",
+      "x": 3220,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission_getavailableactions",
+      "type": "file",
+      "file": "graphify/obsidian/getAvailableActions().md",
+      "x": 2820,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission_isadmin",
+      "type": "file",
+      "file": "graphify/obsidian/isAdmin()_1.md",
+      "x": 3020,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission_isorderhost",
+      "type": "file",
+      "file": "graphify/obsidian/isOrderHost().md",
+      "x": 3220,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission_isorderowner",
+      "type": "file",
+      "file": "graphify/obsidian/isOrderOwner().md",
+      "x": 2820,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_orderpermission",
+      "type": "file",
+      "file": "graphify/obsidian/orderPermission.ts.md",
+      "x": 3020,
+      "y": 3040,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g21",
+      "type": "group",
+      "label": "Community 21",
+      "x": 4200,
+      "y": 2800,
+      "width": 660,
+      "height": 400,
+      "color": "4"
+    },
+    {
+      "id": "n_format",
+      "type": "file",
+      "file": "graphify/obsidian/format.ts.md",
+      "x": 4220,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_format_formatcurrency",
+      "type": "file",
+      "file": "graphify/obsidian/formatCurrency().md",
+      "x": 4420,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_format_formatdate",
+      "type": "file",
+      "file": "graphify/obsidian/formatDate()_1.md",
+      "x": 4620,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_format_formatfilesize",
+      "type": "file",
+      "file": "graphify/obsidian/formatFileSize().md",
+      "x": 4220,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_format_truncatetext",
+      "type": "file",
+      "file": "graphify/obsidian/truncateText().md",
+      "x": 4420,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g22",
+      "type": "group",
+      "label": "Community 22",
+      "x": 5380,
+      "y": 2800,
+      "width": 600,
+      "height": 400,
+      "color": "5"
+    },
+    {
+      "id": "n_dateutils",
+      "type": "file",
+      "file": "graphify/obsidian/dateUtils.ts.md",
+      "x": 5400,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_dateutils_formatdate",
+      "type": "file",
+      "file": "graphify/obsidian/formatDate().md",
+      "x": 5600,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_dateutils_formatdaterange",
+      "type": "file",
+      "file": "graphify/obsidian/formatDateRange().md",
+      "x": 5800,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_dateutils_getdaysbetween",
+      "type": "file",
+      "file": "graphify/obsidian/getDaysBetween().md",
+      "x": 5400,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g23",
+      "type": "group",
+      "label": "Community 23",
+      "x": 6560,
+      "y": 2800,
+      "width": 600,
+      "height": 400,
+      "color": "6"
+    },
+    {
+      "id": "n_homestay-platform",
+      "type": "file",
+      "file": "graphify/obsidian/Homestay Platform Frontend.md",
+      "x": 6580,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_homestay-logo",
+      "type": "file",
+      "file": "graphify/obsidian/Homestay Platform Logo.md",
+      "x": 6780,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_vite-logo",
+      "type": "file",
+      "file": "graphify/obsidian/Vite Framework Logo.md",
+      "x": 6980,
+      "y": 2880,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_vue-3-typescript-vite",
+      "type": "file",
+      "file": "graphify/obsidian/Vue 3 + TypeScript + Vite.md",
+      "x": 6580,
+      "y": 2960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g24",
+      "type": "group",
+      "label": "Community 24",
+      "x": 0,
+      "y": 3400,
+      "width": 600,
+      "height": 400,
+      "color": "1"
+    },
+    {
+      "id": "n_debounce_debounce",
+      "type": "file",
+      "file": "graphify/obsidian/debounce().md",
+      "x": 20,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_debounce",
+      "type": "file",
+      "file": "graphify/obsidian/debounce.ts.md",
+      "x": 220,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_debounce_throttle",
+      "type": "file",
+      "file": "graphify/obsidian/throttle().md",
+      "x": 420,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g25",
+      "type": "group",
+      "label": "Community 25",
+      "x": 1400,
+      "y": 3400,
+      "width": 600,
+      "height": 400,
+      "color": "2"
+    },
+    {
+      "id": "n_usesearchparams_usesearchparams",
+      "type": "file",
+      "file": "graphify/obsidian/useSearchParams().md",
+      "x": 1420,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usesearchparams",
+      "type": "file",
+      "file": "graphify/obsidian/useSearchParams.ts.md",
+      "x": 1620,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g26",
+      "type": "group",
+      "label": "Community 26",
+      "x": 2800,
+      "y": 3400,
+      "width": 600,
+      "height": 400,
+      "color": "3"
+    },
+    {
+      "id": "n_usesearchsuggestions_usesearchsuggestions",
+      "type": "file",
+      "file": "graphify/obsidian/useSearchSuggestions().md",
+      "x": 2820,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "n_usesearchsuggestions",
+      "type": "file",
+      "file": "graphify/obsidian/useSearchSuggestions.ts.md",
+      "x": 3020,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g27",
+      "type": "group",
+      "label": "Community 27",
+      "x": 4200,
+      "y": 3400,
+      "width": 600,
+      "height": 400,
+      "color": "4"
+    },
+    {
+      "id": "n_auto_imports_d",
+      "type": "file",
+      "file": "graphify/obsidian/auto-imports.d.ts.md",
+      "x": 4220,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g28",
+      "type": "group",
+      "label": "Community 28",
+      "x": 5380,
+      "y": 3400,
+      "width": 600,
+      "height": 400,
+      "color": "5"
+    },
+    {
+      "id": "n_components_d",
+      "type": "file",
+      "file": "graphify/obsidian/components.d.ts.md",
+      "x": 5400,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g29",
+      "type": "group",
+      "label": "Community 29",
+      "x": 6560,
+      "y": 3400,
+      "width": 600,
+      "height": 400,
+      "color": "6"
+    },
+    {
+      "id": "n_vite_config",
+      "type": "file",
+      "file": "graphify/obsidian/vite.config.ts.md",
+      "x": 6580,
+      "y": 3480,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g30",
+      "type": "group",
+      "label": "Community 30",
+      "x": 0,
+      "y": 3880,
+      "width": 600,
+      "height": 400,
+      "color": "1"
+    },
+    {
+      "id": "n_vite_env_d",
+      "type": "file",
+      "file": "graphify/obsidian/vite-env.d.ts.md",
+      "x": 20,
+      "y": 3960,
+      "width": 180,
+      "height": 60
+    },
+    {
+      "id": "g31",
+      "type": "group",
+      "label": "Community 31",
+      "x": 1400,
+      "y": 3880,
+      "width": 600,
+      "height": 400,
+      "color": "2"
+    },
+    {
+      "id": "n_element_plus_d",
+      "type": "file",
+      "file": "graphify/obsidian/element-plus.d.ts.md",
+      "x": 1420,
+      "y": 3960,
+      "width": 180,
+      "height": 60
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_main_user",
+      "fromNode": "n_main",
+      "toNode": "n_user",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_main_websocketservice",
+      "fromNode": "n_main",
+      "toNode": "n_websocketservice",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_main_main_initializeapp",
+      "fromNode": "n_main",
+      "toNode": "n_main_initializeapp",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_request",
+      "fromNode": "n_amenities",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_getamenitiesapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_getamenitiesapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_getamenitiesbycategoryapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_getamenitiesbycategoryapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_addallamenitiestohomestayapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_addallamenitiestohomestayapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_removeallamenitiesfromhomestayapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_removeallamenitiesfromhomestayapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_addamenitytohomestayapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_addamenitytohomestayapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_removeamenityfromhomestayapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_removeamenityfromhomestayapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_createamenityapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_createamenityapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_updateamenityapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_updateamenityapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_deleteamenityapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_deleteamenityapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_amenities_amenities_gethomestayamenitiesapi",
+      "fromNode": "n_amenities",
+      "toNode": "n_amenities_gethomestayamenitiesapi",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_request",
+      "fromNode": "n_earnings",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getearningssummary",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getearningssummary",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getearningsdetail",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getearningsdetail",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getearningstrend",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getearningstrend",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getmonthlyearnings",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getmonthlyearnings",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getpendingearnings",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getpendingearnings",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getwithdrawalbalance",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getwithdrawalbalance",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getbankaccounts",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getbankaccounts",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_addbankaccount",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_addbankaccount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_updatebankaccount",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_updatebankaccount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_deletebankaccount",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_deletebankaccount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_setdefaultbankaccount",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_setdefaultbankaccount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_requestwithdrawal",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_requestwithdrawal",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_getwithdrawalhistory",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_getwithdrawalhistory",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_cancelwithdrawal",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_cancelwithdrawal",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_exportearningsdata",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_exportearningsdata",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_earnings_earnings_settlehostearnings",
+      "fromNode": "n_earnings",
+      "toNode": "n_earnings_settlehostearnings",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_request",
+      "fromNode": "n_favorites",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_addfavorite",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_addfavorite",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_removefavorite",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_removefavorite",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_togglefavorite",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_togglefavorite",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_checkfavoritestatus",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_checkfavoritestatus",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_getuserfavorites",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_getuserfavorites",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_getuserfavoriteids",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_getuserfavoriteids",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_clearuserfavorites",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_clearuserfavorites",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_getuserfavoritecount",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_getuserfavoritecount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites_checkfavoritesstatus",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites_checkfavoritesstatus",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_auth",
+      "fromNode": "n_favorites",
+      "toNode": "n_auth",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_favorites_favorites",
+      "fromNode": "n_favorites",
+      "toNode": "n_favorites",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_audit",
+      "fromNode": "n_homestay",
+      "toNode": "n_audit",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_core",
+      "fromNode": "n_homestay",
+      "toNode": "n_core",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_group",
+      "fromNode": "n_homestay",
+      "toNode": "n_group",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_meta",
+      "fromNode": "n_homestay",
+      "toNode": "n_meta",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_usebooking",
+      "fromNode": "n_homestay",
+      "toNode": "n_usebooking",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_usemap",
+      "fromNode": "n_homestay",
+      "toNode": "n_usemap",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_usereviews",
+      "fromNode": "n_homestay",
+      "toNode": "n_usereviews",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_homestay_homestayutils",
+      "fromNode": "n_homestay",
+      "toNode": "n_homestayutils",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_host_request",
+      "fromNode": "n_host",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_host_errorhandler",
+      "fromNode": "n_host",
+      "toNode": "n_errorhandler",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostearnings",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostearnings",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostinfo",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostinfo",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethomestayhostinfo",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethomestayhostinfo",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_updatehostinfo",
+      "fromNode": "n_host",
+      "toNode": "n_host_updatehostinfo",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_becomehost",
+      "fromNode": "n_host",
+      "toNode": "n_host_becomehost",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethoststatistics",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethoststatistics",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_uploadhostavatar",
+      "fromNode": "n_host",
+      "toNode": "n_host_uploadhostavatar",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethosthomestays",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethosthomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostorders",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostorders",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostreviews",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostreviews",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_updatehostprofile",
+      "fromNode": "n_host",
+      "toNode": "n_host_updatehostprofile",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostprofile",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostprofile",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_uploadhostdocument",
+      "fromNode": "n_host",
+      "toNode": "n_host_uploadhostdocument",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostrecentorders",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostrecentorders",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethostmonthlyearnings",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethostmonthlyearnings",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_host_gethosthomestayoptions",
+      "fromNode": "n_host",
+      "toNode": "n_host_gethosthomestayoptions",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_host_index",
+      "fromNode": "n_host",
+      "toNode": "n_index",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_host_hostutils",
+      "fromNode": "n_host",
+      "toNode": "n_hostutils",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_request",
+      "fromNode": "n_hostorder",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_gethostorders",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_gethostorders",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_updateorderstatus",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_updateorderstatus",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_confirmorder",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_confirmorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_rejectorder",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_rejectorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_getpendingordercount",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_getpendingordercount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_getordersbyhomestay",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_getordersbyhomestay",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_gethostorderstats",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_gethostorderstats",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_cancelorder",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_cancelorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_hostinitiaterefund",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_hostinitiaterefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_getrefunddetails",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_getrefunddetails",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_hostapproverefund",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_hostapproverefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_hostrejectrefund",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_hostrejectrefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_hostraisedispute",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_hostraisedispute",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_preparecheckin",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_preparecheckin",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_getcheckincredential",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_getcheckincredential",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_performcheckin",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_performcheckin",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_cancelpreparecheckin",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_cancelpreparecheckin",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_getcheckinrecord",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_getcheckinrecord",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_performcheckout",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_performcheckout",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_getcheckoutrecord",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_getcheckoutrecord",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_processdeposit",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_processdeposit",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_confirmsettlement",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_confirmsettlement",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_hostorder_hostorder_updateextracharges",
+      "fromNode": "n_hostorder",
+      "toNode": "n_hostorder_updateextracharges",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_index_auth",
+      "fromNode": "n_index",
+      "toNode": "n_auth",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_index_user",
+      "fromNode": "n_index",
+      "toNode": "n_user",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_index_order",
+      "fromNode": "n_index",
+      "toNode": "n_order",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_order_request",
+      "fromNode": "n_order",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_order_errorhandler",
+      "fromNode": "n_order",
+      "toNode": "n_errorhandler",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order",
+      "fromNode": "n_order",
+      "toNode": "n_order",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_createorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_createorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getuserorders",
+      "fromNode": "n_order",
+      "toNode": "n_order_getuserorders",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getorderbyid",
+      "fromNode": "n_order",
+      "toNode": "n_order_getorderbyid",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_cancelorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_cancelorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_confirmorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_confirmorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_rejectorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_rejectorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getorders",
+      "fromNode": "n_order",
+      "toNode": "n_order_getorders",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_payorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_payorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_checkinorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_checkinorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_checkoutorder",
+      "fromNode": "n_order",
+      "toNode": "n_order_checkoutorder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_revieworder",
+      "fromNode": "n_order",
+      "toNode": "n_order_revieworder",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getpendingordercount",
+      "fromNode": "n_order",
+      "toNode": "n_order_getpendingordercount",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_createorderpreview",
+      "fromNode": "n_order",
+      "toNode": "n_order_createorderpreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getorderdetail",
+      "fromNode": "n_order",
+      "toNode": "n_order_getorderdetail",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_generatepaymentqrcode",
+      "fromNode": "n_order",
+      "toNode": "n_order_generatepaymentqrcode",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_checkpayment",
+      "fromNode": "n_order",
+      "toNode": "n_order_checkpayment",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getorderlist",
+      "fromNode": "n_order",
+      "toNode": "n_order_getorderlist",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getmyorders",
+      "fromNode": "n_order",
+      "toNode": "n_order_getmyorders",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_mockpaymentsuccess",
+      "fromNode": "n_order",
+      "toNode": "n_order_mockpaymentsuccess",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getcheckincredential",
+      "fromNode": "n_order",
+      "toNode": "n_order_getcheckincredential",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_selfcheckin",
+      "fromNode": "n_order",
+      "toNode": "n_order_selfcheckin",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_confirmarrival",
+      "fromNode": "n_order",
+      "toNode": "n_order_confirmarrival",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_calculateorderprice",
+      "fromNode": "n_order",
+      "toNode": "n_order_calculateorderprice",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_isvalidstatustransition",
+      "fromNode": "n_order",
+      "toNode": "n_order_isvalidstatustransition",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_isordercancelled",
+      "fromNode": "n_order",
+      "toNode": "n_order_isordercancelled",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getdisplayorderstatustext",
+      "fromNode": "n_order",
+      "toNode": "n_order_getdisplayorderstatustext",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_order_getdisplayorderstatustype",
+      "fromNode": "n_order",
+      "toNode": "n_order_getdisplayorderstatustype",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_order_homestayutils",
+      "fromNode": "n_order",
+      "toNode": "n_homestayutils",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_order_orderpermission",
+      "fromNode": "n_order",
+      "toNode": "n_orderpermission",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_order_ordertimeout",
+      "fromNode": "n_order",
+      "toNode": "n_ordertimeout",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_request",
+      "fromNode": "n_recommendation",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getpopularhomestays",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getpopularhomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getpopularhomestayspage",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getpopularhomestayspage",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getrecommendedhomestays",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getrecommendedhomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getrecommendedhomestayspage",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getrecommendedhomestayspage",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getpersonalizedrecommendations",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getpersonalizedrecommendations",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getlocationbasedrecommendations",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getlocationbasedrecommendations",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getsimilarhomestays",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getsimilarhomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_getrecommendationsbyrequest",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_getrecommendationsbyrequest",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_recommendation_recommendation_refreshrecommendationcache",
+      "fromNode": "n_recommendation",
+      "toNode": "n_recommendation_refreshrecommendationcache",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_request",
+      "fromNode": "n_refund",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_requestrefund",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_requestrefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_getrefunddetails",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_getrefunddetails",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_approverefund",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_approverefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_rejectrefund",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_rejectrefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_completerefund",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_completerefund",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_getrefundpreview",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_getrefundpreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_refund_refund_raisedispute",
+      "fromNode": "n_refund",
+      "toNode": "n_refund_raisedispute",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_request",
+      "fromNode": "n_review",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_getreviews",
+      "fromNode": "n_review",
+      "toNode": "n_review_getreviews",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_getreviewdetail",
+      "fromNode": "n_review",
+      "toNode": "n_review_getreviewdetail",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_createreview",
+      "fromNode": "n_review",
+      "toNode": "n_review_createreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_updatereview",
+      "fromNode": "n_review",
+      "toNode": "n_review_updatereview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_deletereview",
+      "fromNode": "n_review",
+      "toNode": "n_review_deletereview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_gethomestayreviews",
+      "fromNode": "n_review",
+      "toNode": "n_review_gethomestayreviews",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_gethomestayreviewstats",
+      "fromNode": "n_review",
+      "toNode": "n_review_gethomestayreviewstats",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_getuserreviews",
+      "fromNode": "n_review",
+      "toNode": "n_review_getuserreviews",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_submitreview",
+      "fromNode": "n_review",
+      "toNode": "n_review_submitreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_updatereviewimages",
+      "fromNode": "n_review",
+      "toNode": "n_review_updatereviewimages",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_respondtoreview",
+      "fromNode": "n_review",
+      "toNode": "n_review_respondtoreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_deletereviewresponse",
+      "fromNode": "n_review",
+      "toNode": "n_review_deletereviewresponse",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_gethostreviews",
+      "fromNode": "n_review",
+      "toNode": "n_review_gethostreviews",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_review_gethostreviewstats",
+      "fromNode": "n_review",
+      "toNode": "n_review_gethostreviewstats",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_review_usereviews",
+      "fromNode": "n_review",
+      "toNode": "n_usereviews",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_user_request",
+      "fromNode": "n_user",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_user_user_login",
+      "fromNode": "n_user",
+      "toNode": "n_user_login",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_user_user_register",
+      "fromNode": "n_user",
+      "toNode": "n_user_register",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_user_user_getuserinfo",
+      "fromNode": "n_user",
+      "toNode": "n_user_getuserinfo",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_user_user_updateuserinfo",
+      "fromNode": "n_user",
+      "toNode": "n_user_updateuserinfo",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_user_user_changepassword",
+      "fromNode": "n_user",
+      "toNode": "n_user_changepassword",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_user_auth",
+      "fromNode": "n_user",
+      "toNode": "n_auth",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_request",
+      "fromNode": "n_audit",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_core",
+      "fromNode": "n_audit",
+      "toNode": "n_core",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_submithomestayforreview",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_submithomestayforreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_withdrawhomestayreview",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_withdrawhomestayreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_requestreactivation",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_requestreactivation",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_gethomestayaudithistory",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_gethomestayaudithistory",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_savehomestaydraft",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_savehomestaydraft",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_checkhomestayreadyforreview",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_checkhomestayreadyforreview",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_audit_audit_getownerauditstats",
+      "fromNode": "n_audit",
+      "toNode": "n_audit_getownerauditstats",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_batch_request",
+      "fromNode": "n_batch",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_batch_batch_batchactivatehomestays",
+      "fromNode": "n_batch",
+      "toNode": "n_batch_batchactivatehomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_batch_batch_batchdeactivatehomestays",
+      "fromNode": "n_batch",
+      "toNode": "n_batch_batchdeactivatehomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_batch_batch_batchdeletehomestays",
+      "fromNode": "n_batch",
+      "toNode": "n_batch_batchdeletehomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_batch_batch_batchassigntogroup",
+      "fromNode": "n_batch",
+      "toNode": "n_batch_batchassigntogroup",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_batch_batch_batchremovefromgroup",
+      "fromNode": "n_batch",
+      "toNode": "n_batch_batchremovefromgroup",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_request",
+      "fromNode": "n_core",
+      "toNode": "n_request",
+      "label": "imports_from [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_gethomestays",
+      "fromNode": "n_core",
+      "toNode": "n_core_gethomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_gethomestaybyid",
+      "fromNode": "n_core",
+      "toNode": "n_core_gethomestaybyid",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_getownerhomestays",
+      "fromNode": "n_core",
+      "toNode": "n_core_getownerhomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_createhomestay",
+      "fromNode": "n_core",
+      "toNode": "n_core_createhomestay",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_updatehomestay",
+      "fromNode": "n_core",
+      "toNode": "n_core_updatehomestay",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_deletehomestay",
+      "fromNode": "n_core",
+      "toNode": "n_core_deletehomestay",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_activatehomestay",
+      "fromNode": "n_core",
+      "toNode": "n_core_activatehomestay",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_deactivatehomestay",
+      "fromNode": "n_core",
+      "toNode": "n_core_deactivatehomestay",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_getactivehomestays",
+      "fromNode": "n_core",
+      "toNode": "n_core_getactivehomestays",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_gethomestaysbyids",
+      "fromNode": "n_core",
+      "toNode": "n_core_gethomestaysbyids",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_checkhomestayownership",
+      "fromNode": "n_core",
+      "toNode": "n_core_checkhomestayownership",
+      "label": "contains [EXTRACTED]"
+    },
+    {
+      "id": "e_core_core_gethomestayunavailabledates",
+      "fromNode": "n_core",
+      "toNode": "n_core_gethomestayunavailabledates",
+      "label": "contains [EXTRACTED]"
+    }
+  ]
+}

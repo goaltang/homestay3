@@ -1,0 +1,25 @@
+---
+source_file: "homestay-backend\src\main\java\com\homestay3\homestaybackend\controller\NotificationController.java"
+type: "code"
+community: "Community 77"
+location: "L22"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Community_77
+---
+
+# NotificationController
+
+## Connections
+- [[.NotificationController()]] - `method` [EXTRACTED]
+- [[.deleteNotification()]] - `method` [EXTRACTED]
+- [[.getCurrentUserId()]] - `method` [EXTRACTED]
+- [[.getMyNotifications()]] - `method` [EXTRACTED]
+- [[.getMyUnreadNotificationCount()]] - `method` [EXTRACTED]
+- [[.markAllNotificationsAsRead()]] - `method` [EXTRACTED]
+- [[.markMultipleNotificationsAsRead()]] - `method` [EXTRACTED]
+- [[.markNotificationAsRead()]] - `method` [EXTRACTED]
+- [[NotificationController.java]] - `contains` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Community_77

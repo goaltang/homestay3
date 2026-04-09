@@ -1,0 +1,19 @@
+---
+source_file: "homestay-backend\src\main\java\com\homestay3\homestaybackend\entity\Homestay.java"
+type: "code"
+community: "Admin Controller Layer"
+location: "L16"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Admin_Controller_Layer
+---
+
+# Homestay
+
+## Connections
+- [[.onCreate()_2]] - `method` [EXTRACTED]
+- [[.onUpdate()_2]] - `method` [EXTRACTED]
+- [[Homestay.java]] - `contains` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Admin_Controller_Layer

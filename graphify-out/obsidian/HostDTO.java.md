@@ -1,0 +1,21 @@
+---
+source_file: "homestay-backend\src\main\java\com\homestay3\homestaybackend\dto\HostDTO.java"
+type: "code"
+community: "Host Management"
+location: "L1"
+tags:
+  - graphify/code
+  - graphify/EXTRACTED
+  - community/Host_Management
+---
+
+# HostDTO.java
+
+## Connections
+- [[HostController.java]] - `imports` [EXTRACTED]
+- [[HostDTO]] - `contains` [EXTRACTED]
+- [[HostService.java]] - `imports` [EXTRACTED]
+- [[HostServiceImpl.java]] - `imports` [EXTRACTED]
+- [[User.java]] - `imports` [EXTRACTED]
+
+#graphify/code #graphify/EXTRACTED #community/Host_Management
