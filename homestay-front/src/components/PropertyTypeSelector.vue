@@ -83,7 +83,7 @@ const fetchData = async () => {
 
         // 作为备用，也获取非分类的房源类型列表
         const legacyResponse = await getHomestayTypes()
-        fallbackOptions.value = legacyResponse?.data?.data || []
+        fallbackOptions.value = legacyResponse || []
     } catch (error) {
         console.error('获取房源类型数据失败：', error)
     }

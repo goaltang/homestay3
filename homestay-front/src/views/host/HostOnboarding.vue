@@ -72,7 +72,7 @@
 
                         <el-form-item label="身份证正面照片" prop="idCardFront">
                             <el-upload action="/api/files/upload" :headers="uploadHeaders"
-                                :on-success="(res) => handleIdCardFrontSuccess(res)" :before-upload="beforeIdCardUpload"
+                                :on-success="(res: any) => handleIdCardFrontSuccess(res)" :before-upload="beforeIdCardUpload"
                                 :file-list="idCardFrontFileList" list-type="picture-card" :limit="1">
                                 <el-icon>
                                     <Plus />
@@ -83,7 +83,7 @@
 
                         <el-form-item label="身份证背面照片" prop="idCardBack">
                             <el-upload action="/api/files/upload" :headers="uploadHeaders"
-                                :on-success="(res) => handleIdCardBackSuccess(res)" :before-upload="beforeIdCardUpload"
+                                :on-success="(res: any) => handleIdCardBackSuccess(res)" :before-upload="beforeIdCardUpload"
                                 :file-list="idCardBackFileList" list-type="picture-card" :limit="1">
                                 <el-icon>
                                     <Plus />

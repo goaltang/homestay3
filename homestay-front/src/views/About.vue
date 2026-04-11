@@ -101,7 +101,7 @@
             <p>房源人工审核，入住有保障</p>
           </div>
           <div class="feature-item">
-            <el-icon :size="48" class="feature-icon"><Shield /></el-icon>
+            <el-icon :size="48" class="feature-icon"><Lock /></el-icon>
             <h3>安全支付</h3>
             <p>支付宝担保交易，资金安全</p>
           </div>
@@ -181,7 +181,7 @@ import {
   Location,
   Wallet,
   CircleCheck,
-  Shield,
+  Lock,
   Headset,
   Bell,
   Message,

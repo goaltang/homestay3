@@ -186,7 +186,7 @@ import {
 import { getHomestayById } from '@/api/homestay'
 import { getHomestayImageUrl, handleImageError } from '@/utils/image'
 import { type HostOrder } from '@/types/host'
-import { type PaymentMethod, type PaymentStatus, type OrderStatus } from '@/types/index'
+import { type PaymentMethod, type OrderStatus } from '@/types/index'
 
 const route = useRoute()
 const router = useRouter()

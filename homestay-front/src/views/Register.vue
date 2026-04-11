@@ -144,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, computed } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import type { FormInstance } from 'element-plus';
@@ -172,6 +172,8 @@ const form = reactive({
 // 添加验证状态跟踪
 const usernameValidating = ref(false);
 const emailValidating = ref(false);
+
+const hasSpecialChar = computed(() => /[!@#$%^&*(),.?":{}|<>]/.test(form.password));
 
 // 计算表单是否有效
 const isFormValid = computed(() => {

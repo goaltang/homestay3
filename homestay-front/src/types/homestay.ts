@@ -35,6 +35,7 @@ export interface Homestay {
   groupId?: number;
   groupName?: string;
   groupCode?: string;
+  groupColor?: string;
 }
 
 // 扩展详情页专用的Homestay接口

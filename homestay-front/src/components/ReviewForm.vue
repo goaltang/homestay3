@@ -247,7 +247,6 @@ const submitForm = async () => {
         } else {
             console.log('error submit!');
             ElMessage.error('请检查表单必填项');
-            return false;
         }
     });
 };

@@ -102,7 +102,7 @@ export function getHostOrderStats() {
  * @param id 订单ID
  * @param reason 取消原因
  */
-export function cancelOrder(id: number, reason: string) {
+export function cancelOrder(id: number, reason = "") {
   return request({
     url: `/api/orders/${id}/status`,
     method: "put",

@@ -144,7 +144,6 @@ export const formatPropertyType = (type?: string): string => {
     "整套房子": "整套公寓",
     "复式住宅": "复式住宅",
     "Loft": "复式住宅",
-    "LOFT": "复式住宅",
     "独立房间": "独立房间",
     "单间": "独立房间",
     "别墅": "别墅",

@@ -5,6 +5,7 @@ export interface EarningsQueryParams {
   endDate?: string | null;
   homestayId?: number | null;
   type?: "daily" | "monthly";
+  format?: string;
   page?: number;
   size?: number;
 }
@@ -205,10 +206,12 @@ export const cancelWithdrawal = (id: number): Promise<void> => {
 export const exportEarningsData = (
   params: EarningsQueryParams
 ): Promise<Blob> => {
-  return request.get("/api/host/earnings/export", {
-    params,
-    responseType: "blob",
-  });
+  return request
+    .get("/api/host/earnings/export", {
+      params,
+      responseType: "blob",
+    })
+    .then((response) => response.data);
 };
 
 /**

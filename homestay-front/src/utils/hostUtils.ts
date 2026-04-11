@@ -191,7 +191,7 @@ export class HostUtils {
   /**
    * 格式化日期显示
    */
-  static formatJoinDate(dateStr: string | null | undefined): string {
+  static formatJoinDate(dateStr: string | Date | null | undefined): string {
     if (!dateStr) return "";
 
     try {
@@ -201,7 +201,7 @@ export class HostUtils {
         month: "long",
       });
     } catch {
-      return dateStr;
+      return dateStr.toString();
     }
   }
 

@@ -144,7 +144,7 @@ interface Summary {
 
 interface FilterForm {
     dateRange: Date[];
-    homestayId: string | number;
+    homestayId: number | '';
 }
 
 const loading = ref(false);
@@ -153,7 +153,7 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const homestayOptions = ref<HomestayOption[]>([]);
-const chartType = ref('monthly');
+const chartType = ref<'daily' | 'monthly'>('monthly');
 const chartRef = ref<HTMLElement | null>(null);
 let chart: EChartsType | null = null;
 
@@ -167,6 +167,8 @@ const filterForm = ref<FilterForm>({
     dateRange: [],
     homestayId: '',
 });
+
+const selectedHomestayId = () => filterForm.value.homestayId || null;
 
 // 日期快捷选项
 const dateShortcuts = [
@@ -204,11 +206,11 @@ const fetchSummary = async () => {
         const params = {
             startDate: filterForm.value.dateRange?.[0] ? new Date(filterForm.value.dateRange[0]).toISOString().split('T')[0] : null,
             endDate: filterForm.value.dateRange?.[1] ? new Date(filterForm.value.dateRange[1]).toISOString().split('T')[0] : null,
-            homestayId: filterForm.value.homestayId || null,
+            homestayId: selectedHomestayId(),
         };
 
         const response = await getEarningsSummary(params);
-        summary.value = response.data;
+        summary.value = response;
     } catch (error) {
         console.error('获取收益汇总失败', error);
         ElMessage.error('获取收益汇总失败');
@@ -225,12 +227,12 @@ const fetchEarnings = async () => {
             size: pageSize.value,
             startDate: filterForm.value.dateRange?.[0] ? new Date(filterForm.value.dateRange[0]).toISOString().split('T')[0] : null,
             endDate: filterForm.value.dateRange?.[1] ? new Date(filterForm.value.dateRange[1]).toISOString().split('T')[0] : null,
-            homestayId: filterForm.value.homestayId || null,
+            homestayId: selectedHomestayId(),
         };
 
         const response = await getEarningsDetail(params);
-        earnings.value = response.data.content;
-        total.value = response.data.totalElements;
+        earnings.value = response.content;
+        total.value = response.totalElements;
     } catch (error) {
         console.error('获取收益明细失败', error);
         ElMessage.error('获取收益明细失败');
@@ -251,11 +253,11 @@ const fetchTrend = async () => {
             type: chartType.value,
             startDate: filterForm.value.dateRange?.[0] ? new Date(filterForm.value.dateRange[0]).toISOString().split('T')[0] : null,
             endDate: filterForm.value.dateRange?.[1] ? new Date(filterForm.value.dateRange[1]).toISOString().split('T')[0] : null,
-            homestayId: filterForm.value.homestayId || null,
+            homestayId: selectedHomestayId(),
         };
 
         const response = await getEarningsTrend(params);
-        renderChart(response.data);
+        renderChart(response);
     } catch (error) {
         console.error('获取收益趋势失败', error);
         ElMessage.error('获取收益趋势失败');
@@ -372,7 +374,7 @@ const handleExport = async (command: string) => {
         const params = {
             startDate: filterForm.value.dateRange?.[0] ? new Date(filterForm.value.dateRange[0]).toISOString().split('T')[0] : null,
             endDate: filterForm.value.dateRange?.[1] ? new Date(filterForm.value.dateRange[1]).toISOString().split('T')[0] : null,
-            homestayId: filterForm.value.homestayId || null,
+            homestayId: selectedHomestayId(),
             format: command
         };
 

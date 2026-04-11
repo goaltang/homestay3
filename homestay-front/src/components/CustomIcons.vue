@@ -1,16 +1,13 @@
 <template>
-    <component :is="iconName" v-bind="$attrs" />
+    <component :is="resolvedIcon" v-bind="$attrs" />
 </template>
 
-<script setup>
-import { defineComponent, h } from 'vue'
+<script setup lang="ts">
+import { computed, defineComponent, h } from 'vue'
 
-const props = defineProps({
-    iconName: {
-        type: String,
-        required: true
-    }
-})
+const props = defineProps<{
+    iconName: string
+}>()
 
 // 自定义SVG图标组件
 const FamilyKitchen = defineComponent({
@@ -170,6 +167,12 @@ const iconComponents = {
     EntertainmentHub,
     PriceAdvantage
 }
+
+type IconComponentName = keyof typeof iconComponents
+
+const resolvedIcon = computed(() => {
+    return iconComponents[props.iconName as IconComponentName] || props.iconName
+})
 </script>
 
 <style scoped>

@@ -131,13 +131,31 @@ import { getHomestaysByOwner } from '@/api/homestay';
 import { ElMessage } from 'element-plus';
 
 const loading = ref(false);
-const reviews = ref([]);
+interface ReviewItem {
+    id: number;
+    userAvatar?: string;
+    userName: string;
+    createTime: string;
+    rating: number;
+    homestayTitle: string;
+    content: string;
+    images?: string[];
+    response?: string;
+    responseTime?: string;
+}
+
+interface HomestayOption {
+    label: string;
+    value: number;
+}
+
+const reviews = ref<ReviewItem[]>([]);
 const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
-const homestayOptions = ref([]);
+const homestayOptions = ref<HomestayOption[]>([]);
 const replyDialogVisible = ref(false);
-const currentReview = ref(null);
+const currentReview = ref<ReviewItem | null>(null);
 const isEdit = ref(false);
 
 const replyForm = ref({
@@ -147,7 +165,7 @@ const replyForm = ref({
 const filterForm = ref({
     responseStatus: '',
     rating: '',
-    homestayId: '',
+    homestayId: '' as number | '',
 });
 
 // 获取评价列表
@@ -164,8 +182,9 @@ const fetchReviews = async () => {
         };
 
         const response = await getReviews(params);
-        reviews.value = response.content;
-        total.value = response.totalElements;
+        const data = response.data;
+        reviews.value = data.content || [];
+        total.value = data.totalElements || 0;
     } catch (error) {
         console.error('获取评价列表失败', error);
         ElMessage.error('获取评价列表失败');
@@ -178,7 +197,7 @@ const fetchReviews = async () => {
 const fetchHomestays = async () => {
     try {
         const response = await getHomestaysByOwner();
-        homestayOptions.value = response.map(item => ({
+        homestayOptions.value = response.data.map((item: any) => ({
             label: item.title,
             value: item.id
         }));
@@ -188,13 +207,13 @@ const fetchHomestays = async () => {
 };
 
 // 页码变化
-const handleCurrentChange = (page) => {
+const handleCurrentChange = (page: number) => {
     currentPage.value = page;
     fetchReviews();
 };
 
 // 每页数量变化
-const handleSizeChange = (size) => {
+const handleSizeChange = (size: number) => {
     pageSize.value = size;
     fetchReviews();
 };
@@ -216,7 +235,7 @@ const resetFilter = () => {
 };
 
 // 回复评价
-const handleReply = (review) => {
+const handleReply = (review: ReviewItem) => {
     currentReview.value = review;
     replyForm.value.response = '';
     isEdit.value = false;
@@ -224,9 +243,9 @@ const handleReply = (review) => {
 };
 
 // 编辑回复
-const handleEditReply = (review) => {
+const handleEditReply = (review: ReviewItem) => {
     currentReview.value = review;
-    replyForm.value.response = review.response;
+    replyForm.value.response = review.response || '';
     isEdit.value = true;
     replyDialogVisible.value = true;
 };
@@ -239,6 +258,7 @@ const submitReply = async () => {
     }
 
     try {
+        if (!currentReview.value) return;
         await replyToReview(currentReview.value.id, replyForm.value.response);
         ElMessage.success(isEdit.value ? '回复已更新' : '回复已提交');
         replyDialogVisible.value = false;

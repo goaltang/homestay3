@@ -114,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
     Monitor,
@@ -145,17 +145,17 @@ const chatStore = useChatStore()
 const userName = computed(() => userStore.userInfo?.username || '房东')
 
 // 计算当前激活的菜单项
-const activeMenu = computed(() => {
+const activeMenu = computed<string>(() => {
     const { meta, path } = route
-    if (meta.activeMenu) {
+    if (typeof meta.activeMenu === 'string') {
         return meta.activeMenu
     }
     return path
 })
 
 // 获取当前页面标题
-const currentPageTitle = computed(() => {
-    return route.meta.title || '房东中心'
+const currentPageTitle = computed<string>(() => {
+    return typeof route.meta.title === 'string' ? route.meta.title : '房东中心'
 })
 
 // 获取API服务器基础URL

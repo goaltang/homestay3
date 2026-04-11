@@ -86,8 +86,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { getAmenitiesByCategoryApi, getAllAmenitiesByCategories } from '@/api/amenities'
-import { Check, Plus, Delete, Close } from '@element-plus/icons-vue'
+import { getAmenitiesByCategoryApi } from '@/api/amenities'
+import { Check, Plus, Close } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 // 定义设施类型接口
@@ -134,8 +134,6 @@ const emit = defineEmits(['update:modelValue', 'change'])
 const amenitiesByCategory = ref<AmenityCategory[]>([])
 const activeCategory = ref<string>('')
 const amenitiesMap = ref<Map<string, Amenity>>(new Map())
-const loading = ref(false)
-
 // 规范化处理modelValue，确保即使是JSON字符串也能正确解析
 const normalizedModelValue = computed(() => {
     console.log('原始modelValue类型:', typeof props.modelValue)
@@ -227,7 +225,7 @@ const toggleAmenity = (amenity: Amenity) => {
 }
 
 // 移除设施
-const removeAmenity = (amenity) => {
+const removeAmenity = (amenity: Amenity | string) => {
     let amenityValue = typeof amenity === 'object' && amenity !== null ? amenity.value : amenity
 
     const newValues = normalizedModelValue.value.filter(item => {
@@ -342,7 +340,7 @@ const fetchData = async () => {
             }
 
             // 创建设施映射表，用于快速查找
-            amenitiesByCategory.value.forEach(category => {
+            amenitiesByCategory.value.forEach((category: AmenityCategory) => {
                 category.amenities.forEach((amenity: Amenity) => {
                     amenitiesMap.value.set(amenity.value, amenity);
                 });

@@ -1,6 +1,4 @@
 import request from "../utils/request";
-import type { PaginationResponse } from "../types";
-
 /**
  * 获取所有可用的设施和服务列表
  */
@@ -21,6 +19,8 @@ export const getAmenitiesByCategoryApi = () => {
     method: "get",
   });
 };
+
+export const getAllAmenitiesByCategories = getAmenitiesByCategoryApi;
 
 /**
  * 一键添加所有设施到房源

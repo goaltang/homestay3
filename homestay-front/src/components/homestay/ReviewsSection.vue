@@ -98,6 +98,7 @@ interface Review {
     createTime: string
     response?: string
     responseTime?: string
+    images?: string[]
 }
 
 interface ReviewStat {

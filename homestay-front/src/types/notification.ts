@@ -12,8 +12,8 @@ export interface NotificationDto {
   createdAt: string; // ISO 格式的日期字符串
 
   // 可选的增强字段 (如果后端添加了)
-  // actorUsername?: string;
-  // entityTitle?: string;
+  actorUsername?: string;
+  entityTitle?: string;
 }
 
 // 定义后端实际返回的分页数据结构

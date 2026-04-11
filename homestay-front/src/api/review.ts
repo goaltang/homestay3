@@ -223,6 +223,8 @@ export function respondToReview(reviewId: number, response: string) {
   });
 }
 
+export const replyToReview = respondToReview;
+
 // --- 新增：删除房东回复 ---
 /**
  * 删除房东对评价的回复

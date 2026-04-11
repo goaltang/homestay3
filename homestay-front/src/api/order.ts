@@ -162,6 +162,7 @@ interface OrderDetailData {
   price: number;
   totalAmount: number;
   status: string;
+  paymentStatus?: string;
   remark?: string;
   createTime: string;
   updateTime: string;

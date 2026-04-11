@@ -866,6 +866,7 @@ import { getHostHomestayOptions } from '@/api/host'
 // 定义订单项接口
 interface HostOrderItem {
     id: number;
+    orderNumber?: string;
     status: string; // 考虑使用导入的 OrderStatus 类型
     paymentStatus: string | null; // 支付状态，可能为 null
     homestayTitle?: string;
@@ -880,12 +881,14 @@ interface HostOrderItem {
     guestCount?: number;
     createTime?: string;
     createdTime?: string; // 兼容不同字段名
+    checkedInAt?: string;
     remark?: string;
     remarks?: string; // 兼容不同字段名
     // 退款相关字段
     refundType?: string;
     refundReason?: string;
     refundAmount?: number;
+    depositAmount?: number;
     refundInitiatedBy?: number;
     refundInitiatedByName?: string;
     refundInitiatedAt?: string;

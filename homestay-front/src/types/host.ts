@@ -197,9 +197,15 @@ export interface HostOrder {
   guestCount: number;
   totalAmount: number;
   status: string;
-  paymentStatus: PaymentStatus;
+  paymentStatus?: PaymentStatus | string;
   paymentMethod?: PaymentMethod;
-  createdAt: string;
+  createdAt?: string;
+  createTime?: string;
+  updateTime?: string;
+  imageUrl?: string;
+  nights: number;
+  price: number;
+  remark?: string;
 }
 
 export interface HostReview {

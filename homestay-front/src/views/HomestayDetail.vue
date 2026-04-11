@@ -257,7 +257,7 @@ const contactHost = async () => {
         ElMessage.error("无法获取房东信息");
         return;
     }
-    await chatStore.openChatDialog(homestay.value.id, homestay.value.ownerId);
+    await chatStore.openChatDialog(homestay.value.id!, homestay.value.ownerId);
 }
 const showAllPhotos = () => ElMessage.info('查看全部照片功能待实现')
 

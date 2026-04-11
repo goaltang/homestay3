@@ -243,7 +243,7 @@ const searchHomestays = async () => {
     })
 
     // 竞态处理：谁先完成用谁的结果
-    const response = await Promise.race([requestPromise, timeoutPromise])
+    const response = await Promise.race([requestPromise, timeoutPromise]) as { data?: any }
 
     // 检查响应是否过期
     if (currentVersion !== searchRequestVersion) {

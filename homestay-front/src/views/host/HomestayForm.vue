@@ -423,7 +423,10 @@ import {
     updateHomestay as updateHomestayApi,
     createHomestay as createHomestayApi,
     saveHomestayDraft,
-    getHomestayGroups
+    getHomestayGroups,
+    getProvinces,
+    getCities,
+    getDistricts
 } from '@/api/homestay'
 import {
     getAmenitiesByCategoryApi,
@@ -1121,21 +1124,22 @@ const fetchHomestayDetail = async () => {
             homestayForm.featured = !!homestay.featured;
 
             // 尝试从描述中提取亮点和周边环境（实际应该由后端提供单独字段）
-            const descParts = homestayForm.description.split(/\n\n/);
+            const description = homestayForm.description || '';
+            const descParts = description.split(/\n\n/);
             if (descParts.length > 1) {
                 // 简单处理，假设描述格式包含"房源亮点："和"周边环境："
-                const highlightsMatch = homestayForm.description.match(/房源亮点：\n([\s\S]*?)(?=\n\n|$)/);
+                const highlightsMatch = description.match(/房源亮点：\n([\s\S]*?)(?=\n\n|$)/);
                 if (highlightsMatch && highlightsMatch[1]) {
                     homestayForm.highlights = highlightsMatch[1].trim();
                 }
 
-                const surroundingsMatch = homestayForm.description.match(/周边环境：\n([\s\S]*?)(?=\n\n|$)/);
+                const surroundingsMatch = description.match(/周边环境：\n([\s\S]*?)(?=\n\n|$)/);
                 if (surroundingsMatch && surroundingsMatch[1]) {
                     homestayForm.surroundings = surroundingsMatch[1].trim();
                 }
 
                 // 清理原始描述中的这些部分
-                homestayForm.description = homestayForm.description
+                homestayForm.description = description
                     .replace(/房源亮点：\n[\s\S]*?(?=\n\n|$)/, '')
                     .replace(/周边环境：\n[\s\S]*?(?=\n\n|$)/, '')
                     .trim();
@@ -1753,7 +1757,7 @@ const processAmenities = (amenitiesData: any[]): { value: string, label?: string
             console.warn('无法处理的设施项:', item);
             return null;
         })
-        .filter(Boolean); // 过滤空值
+        .filter((item): item is { value: string; label?: string } => item !== null); // 过滤空值
 
     console.log('处理后的设施数据:', result);
     return result;
@@ -1819,7 +1823,7 @@ const formCompletionPercentage = computed(() => {
     let totalFields = 0;
 
     // 必填字段
-    const requiredFields = [
+    const requiredFields: Array<keyof typeof homestayForm> = [
         'title', 'type', 'price', 'provinceCode', 'addressDetail', 'maxGuests', 'minNights', 'coverImage', 'description'
     ];
 
