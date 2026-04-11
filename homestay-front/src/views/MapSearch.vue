@@ -27,14 +27,14 @@
             <el-input-number
               v-model="minPrice"
               :min="0"
-              :max="maxPrice - 1"
+              :max="minPriceUpperBound"
               placeholder="最低价"
               size="default"
             />
             <span class="range-separator">-</span>
             <el-input-number
               v-model="maxPrice"
-              :min="minPrice + 1"
+              :min="maxPriceLowerBound"
               :max="99999"
               placeholder="最高价"
               size="default"
@@ -162,10 +162,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Loading, LocationInformation } from '@element-plus/icons-vue';
-import { regionOptions } from 'element-china-area-data';
+import { regionData as regionOptions } from 'element-china-area-data';
 import { useMapSearch, type MapHomestay } from '@/composables/useMapSearch';
 import MapHomestayCard from '@/components/homestay/MapHomestayCard.vue';
 
@@ -204,6 +204,8 @@ const checkInDate = ref<string | undefined>(undefined);
 const checkOutDate = ref<string | undefined>(undefined);
 const hasRestoredRouteState = ref(false);
 const skipNextRouteReplay = ref(false);
+const minPriceUpperBound = computed(() => (maxPrice.value ?? 100000) - 1);
+const maxPriceLowerBound = computed(() => (minPrice.value ?? 0) + 1);
 
 const getQueryString = (value: unknown): string | undefined => {
   return typeof value === 'string' && value.trim() ? value : undefined;
@@ -221,9 +223,10 @@ const buildFiltersFromForm = () => {
   const filters: Record<string, number | string> = {};
 
   if (selectedRegion.value.length > 0) {
-    if (selectedRegion.value[0]) filters.provinceCode = selectedRegion.value[0];
-    if (selectedRegion.value[1]) filters.cityCode = selectedRegion.value[1];
-    if (selectedRegion.value[2]) filters.districtCode = selectedRegion.value[2];
+    const [provinceCode, cityCode, districtCode] = getBackendRegionCodes(selectedRegion.value);
+    if (provinceCode) filters.provinceCode = provinceCode;
+    if (cityCode) filters.cityCode = cityCode;
+    if (districtCode) filters.districtCode = districtCode;
   }
 
   if (minPrice.value !== undefined) filters.minPrice = minPrice.value;
@@ -233,6 +236,31 @@ const buildFiltersFromForm = () => {
   if (checkOutDate.value) filters.checkOutDate = checkOutDate.value;
 
   return filters;
+};
+
+const getBackendRegionCode = (
+  code: string | undefined,
+  level: 'province' | 'city' | 'district'
+) => {
+  if (!code) return undefined;
+
+  if (level === 'province' && code.length === 2) {
+    return `${code}0000`;
+  }
+
+  if (level === 'city' && code.length === 4) {
+    return `${code}00`;
+  }
+
+  return code;
+};
+
+const getBackendRegionCodes = (region: string[]) => {
+  return [
+    getBackendRegionCode(region[0], 'province'),
+    getBackendRegionCode(region[1], 'city'),
+    getBackendRegionCode(region[2], 'district'),
+  ];
 };
 
 const getQuerySignature = (query: Record<string, string>) => {

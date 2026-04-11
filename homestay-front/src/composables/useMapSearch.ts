@@ -34,6 +34,17 @@ const DEFAULT_CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
   '4406': { lat: 22.5311, lng: 113.1248 }, // 珠海
 };
 
+const getCityCenter = (cityCode?: string) => {
+  if (!cityCode) return undefined;
+
+  return DEFAULT_CITY_CENTERS[cityCode]
+    ?? (
+      cityCode.length === 6 && cityCode.endsWith('00')
+        ? DEFAULT_CITY_CENTERS[cityCode.slice(0, 4)]
+        : undefined
+    );
+};
+
 export interface MapHomestay {
   id: number;
   title: string;
@@ -81,6 +92,11 @@ export interface MapViewState {
   zoom?: number;
 }
 
+type ViewportBounds = Required<Pick<
+  SearchFilters,
+  'northEastLat' | 'northEastLng' | 'southWestLat' | 'southWestLng'
+>>;
+
 export function useMapSearch() {
   // 状态
   const mapInstance = ref<any>(null);
@@ -104,6 +120,8 @@ export function useMapSearch() {
   // 防抖定时器
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let suppressedViewportEvents = 0;
+  let latestSearchRequestId = 0;
+  let pendingViewportSearch = false;
   // 节流控制
   let geoThrottleCount = 0;
   const GEO_THROTTLE_LIMIT = 500; // 高德免费API日限，每批次并发控制
@@ -166,6 +184,78 @@ export function useMapSearch() {
       centerLng: center.getLng?.(),
       zoom: Number(zoom),
     };
+  };
+
+  const extractHomestayList = (response: any): any[] => {
+    const payload = response?.data ?? response;
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+    if (Array.isArray(payload?.content)) {
+      return payload.content;
+    }
+    if (Array.isArray(payload?.data)) {
+      return payload.data;
+    }
+    if (Array.isArray(payload?.data?.content)) {
+      return payload.data.content;
+    }
+
+    return [];
+  };
+
+  const getSearchRequestViewportBounds = (searchRequest: SearchFilters): ViewportBounds | null => {
+    if (
+      searchRequest.northEastLat === undefined ||
+      searchRequest.northEastLng === undefined ||
+      searchRequest.southWestLat === undefined ||
+      searchRequest.southWestLng === undefined
+    ) {
+      return null;
+    }
+
+    return {
+      northEastLat: searchRequest.northEastLat,
+      northEastLng: searchRequest.northEastLng,
+      southWestLat: searchRequest.southWestLat,
+      southWestLng: searchRequest.southWestLng,
+    };
+  };
+
+  const hasSearchCriteriaBeyondViewport = (searchRequest: SearchFilters) => {
+    return Boolean(
+      searchRequest.keyword ||
+      searchRequest.provinceCode ||
+      searchRequest.cityCode ||
+      searchRequest.districtCode ||
+      searchRequest.minPrice !== undefined ||
+      searchRequest.maxPrice !== undefined ||
+      searchRequest.minGuests !== undefined ||
+      searchRequest.maxGuests !== undefined ||
+      searchRequest.checkInDate ||
+      searchRequest.checkOutDate
+    );
+  };
+
+  const removeViewportBounds = <T extends SearchFilters>(searchRequest: T) => {
+    const { northEastLat, northEastLng, southWestLat, southWestLng, ...rest } = searchRequest;
+    return rest;
+  };
+
+  const isWithinViewportBounds = (homestay: MapHomestay, bounds: ViewportBounds) => {
+    if (!hasUsableCoordinates(homestay)) {
+      return false;
+    }
+
+    const lat = homestay.lat ?? homestay.latitude!;
+    const lng = homestay.lng ?? homestay.longitude!;
+    const minLat = Math.min(bounds.northEastLat, bounds.southWestLat);
+    const maxLat = Math.max(bounds.northEastLat, bounds.southWestLat);
+    const minLng = Math.min(bounds.northEastLng, bounds.southWestLng);
+    const maxLng = Math.max(bounds.northEastLng, bounds.southWestLng);
+
+    return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
   };
 
   const setMapView = (nextMapView: MapViewState) => {
@@ -247,7 +337,7 @@ export function useMapSearch() {
    * 获取降级坐标（城市中心 + 随机偏移）
    */
   const getFallbackGeo = (cityCode: string): { lat: number; lng: number } => {
-    const center = DEFAULT_CITY_CENTERS[cityCode] || DEFAULT_CITY_CENTERS['1101'];
+    const center = getCityCenter(cityCode) || DEFAULT_CITY_CENTERS['1101'];
     // 添加随机偏移 0.01 ≈ 1km
     const offset = {
       lat: center.lat + (Math.random() - 0.5) * 0.02,
@@ -395,8 +485,12 @@ export function useMapSearch() {
    * 搜索可视区域的房源
    */
   const searchVisibleHomestays = async () => {
-    if (!mapInstance.value || isLoading.value) return;
+    if (!mapInstance.value) return;
     if (!viewportSearchEnabled.value) return;
+    if (isLoading.value) {
+      pendingViewportSearch = true;
+      return;
+    }
 
     const viewportBounds = getViewportBounds();
     if (!viewportBounds) return;
@@ -416,6 +510,7 @@ export function useMapSearch() {
    */
   const loadHomestays = async (options: { fitView?: boolean } = {}) => {
     const { fitView = true } = options;
+    const requestId = ++latestSearchRequestId;
     isLoading.value = true;
     searchError.value = null;
     try {
@@ -440,8 +535,24 @@ export function useMapSearch() {
       searchRequest.page = 0;
       searchRequest.size = 100;
 
-      const response = await searchHomestays(searchRequest);
-      const data = response.data || response || [];
+      const viewportBounds = getSearchRequestViewportBounds(searchRequest);
+      let response = await searchHomestays(searchRequest);
+      let data = extractHomestayList(response);
+      let usedFallbackWithoutViewport = false;
+
+      if (
+        data.length === 0 &&
+        viewportBounds &&
+        hasSearchCriteriaBeyondViewport(searchRequest)
+      ) {
+        response = await searchHomestays(removeViewportBounds(searchRequest));
+        data = extractHomestayList(response);
+        usedFallbackWithoutViewport = true;
+      }
+
+      if (requestId !== latestSearchRequestId) {
+        return;
+      }
       const toNumber = (value: unknown): number | undefined => {
         if (value === null || value === undefined || value === '') {
           return undefined;
@@ -452,7 +563,7 @@ export function useMapSearch() {
       };
 
       // 转换为 MapHomestay 格式
-      const list: MapHomestay[] = data.map((item: any) => ({
+      let list: MapHomestay[] = data.map((item: any) => ({
         id: item.id,
         title: item.title,
         price: toNumber(item.price) ?? 0,
@@ -471,6 +582,16 @@ export function useMapSearch() {
         lng: toNumber(item.longitude),
       }));
 
+      // 批量地理编码
+      await batchGeocode(list);
+      if (requestId !== latestSearchRequestId) {
+        return;
+      }
+
+      if (usedFallbackWithoutViewport && viewportBounds) {
+        list = list.filter(homestay => isWithinViewportBounds(homestay, viewportBounds));
+      }
+
       homestays.value = list;
       if (!list.some(item => item.id === selectedHomestayId.value)) {
         selectedHomestayId.value = null;
@@ -479,17 +600,25 @@ export function useMapSearch() {
         hoveredHomestayId.value = null;
       }
 
-      // 批量地理编码
-      await batchGeocode(list);
-
       // 更新地图标记
       updateMarkers({ fitView });
     } catch (e) {
+      if (requestId !== latestSearchRequestId) {
+        return;
+      }
       console.error('[MapSearch] 加载房源失败:', e);
       searchError.value = '房源加载失败，请稍后重试';
       homestays.value = [];
     } finally {
-      isLoading.value = false;
+      if (requestId === latestSearchRequestId) {
+        isLoading.value = false;
+        if (pendingViewportSearch && viewportSearchEnabled.value) {
+          pendingViewportSearch = false;
+          setTimeout(() => {
+            void searchVisibleHomestays();
+          }, 0);
+        }
+      }
     }
   };
 
@@ -712,7 +841,7 @@ export function useMapSearch() {
 
     // 设置地图中心
     if (newFilters.cityCode && mapInstance.value) {
-      const center = DEFAULT_CITY_CENTERS[newFilters.cityCode];
+      const center = getCityCenter(newFilters.cityCode);
       if (center) {
         suppressViewportSearch(2);
         mapInstance.value.setCenter([center.lng, center.lat]);
@@ -746,7 +875,7 @@ export function useMapSearch() {
     if (nextMapView) {
       setMapView(nextMapView);
     } else if (!skipCityCenter && newFilters.cityCode && mapInstance.value) {
-      const center = DEFAULT_CITY_CENTERS[newFilters.cityCode];
+      const center = getCityCenter(newFilters.cityCode);
       if (center) {
         suppressViewportSearch(2);
         mapInstance.value.setCenter([center.lng, center.lat]);
@@ -784,6 +913,7 @@ export function useMapSearch() {
     if (searchDebounceTimer) {
       clearTimeout(searchDebounceTimer);
     }
+    pendingViewportSearch = false;
     if (infoWindow.value) {
       infoWindow.value.close();
     }
