@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.service.impl;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestayRequest;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
+import com.homestay3.homestaybackend.dto.MapClusterDTO;
 import com.homestay3.homestaybackend.dto.SuggestedFeatureDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Homestay;
@@ -221,13 +222,13 @@ public class HomestayServiceImpl implements HomestayService {
 
             // 新增：根据编码精确筛选
             if (StringUtils.hasText(request.getProvinceCode())) {
-                predicates.add(criteriaBuilder.equal(root.get("provinceCode"), request.getProvinceCode()));
+                predicates.add(root.get("provinceCode").in(getProvinceCodeCandidates(request.getProvinceCode())));
             }
             if (StringUtils.hasText(request.getCityCode())) {
-                predicates.add(criteriaBuilder.equal(root.get("cityCode"), request.getCityCode()));
+                predicates.add(root.get("cityCode").in(getCityCodeCandidates(request.getCityCode())));
             }
             if (StringUtils.hasText(request.getDistrictCode())) {
-                predicates.add(criteriaBuilder.equal(root.get("districtCode"), request.getDistrictCode()));
+                predicates.add(criteriaBuilder.equal(root.get("districtCode"), request.getDistrictCode().trim()));
             }
 
             // 价格范围
@@ -355,9 +356,261 @@ public class HomestayServiceImpl implements HomestayService {
         final List<String> finalCriteriaFromSearch = criteriaFromSearch.isEmpty() ? null
                 : Collections.unmodifiableList(criteriaFromSearch);
 
-        return homestays.stream()
+        List<HomestayDTO> results = homestays.stream()
                 .map(homestay -> convertToDTO(homestay, finalCriteriaFromSearch)) // Pass criteria from search request
                 .collect(Collectors.toList());
+
+        return applySearchSorting(results, request);
+    }
+
+    @Override
+    public List<MapClusterDTO> getMapClusters(HomestaySearchRequest request) {
+        int zoom = request.getZoom() != null ? request.getZoom() : 12;
+        double gridSize = resolveClusterGridSize(zoom);
+
+        Map<String, MapClusterAccumulator> clusters = new LinkedHashMap<>();
+        searchHomestays(request).stream()
+                .filter(Objects::nonNull)
+                .filter(homestay -> homestay.getLatitude() != null && homestay.getLongitude() != null)
+                .forEach(homestay -> {
+                    double latitude = homestay.getLatitude();
+                    double longitude = homestay.getLongitude();
+                    long latitudeBucket = (long) Math.floor(latitude / gridSize);
+                    long longitudeBucket = (long) Math.floor(longitude / gridSize);
+                    String key = latitudeBucket + ":" + longitudeBucket;
+
+                    clusters.computeIfAbsent(key, ignored -> new MapClusterAccumulator())
+                            .add(latitude, longitude);
+                });
+
+        return clusters.values().stream()
+                .map(MapClusterAccumulator::toDTO)
+                .sorted(Comparator.comparing(MapClusterDTO::getCount).reversed())
+                .collect(Collectors.toList());
+    }
+
+    private double resolveClusterGridSize(int zoom) {
+        int normalizedZoom = Math.max(1, Math.min(20, zoom));
+        return Math.max(0.0005d, 180.0d / Math.pow(2.0d, normalizedZoom));
+    }
+
+    private List<HomestayDTO> applySearchSorting(List<HomestayDTO> results, HomestaySearchRequest request) {
+        if (results == null || results.isEmpty() || request == null || !StringUtils.hasText(request.getSortBy())) {
+            return results;
+        }
+
+        if (!isDistanceSort(request.getSortBy())) {
+            return results;
+        }
+
+        if (!hasDistanceSortOrigin(request)) {
+            log.warn("DISTANCE sort requested without latitude/longitude, skip distance sorting");
+            return results;
+        }
+
+        double latitude = request.getLatitude().doubleValue();
+        double longitude = request.getLongitude().doubleValue();
+        results.forEach(homestay -> attachDistanceKm(homestay, latitude, longitude));
+
+        boolean descending = isDescending(request.getSortDirection());
+        Comparator<HomestayDTO> comparator = (left, right) -> compareDistanceKm(left, right, descending);
+
+        return results.stream()
+                .sorted(comparator.thenComparing(
+                        HomestayDTO::getId,
+                        Comparator.nullsLast(Long::compareTo)))
+                .collect(Collectors.toList());
+    }
+
+    private boolean isDistanceSort(String sortBy) {
+        return "DISTANCE".equalsIgnoreCase(sortBy)
+                || "distance".equalsIgnoreCase(sortBy)
+                || "distanceKm".equalsIgnoreCase(sortBy);
+    }
+
+    private boolean hasDistanceSortOrigin(HomestaySearchRequest request) {
+        return request.getLatitude() != null && request.getLongitude() != null;
+    }
+
+    private boolean isDescending(String sortDirection) {
+        return "desc".equalsIgnoreCase(sortDirection)
+                || "descending".equalsIgnoreCase(sortDirection);
+    }
+
+    private Set<String> getProvinceCodeCandidates(String code) {
+        Set<String> candidates = new LinkedHashSet<>();
+        String normalized = code.trim();
+        candidates.add(normalized);
+
+        if (normalized.length() == 2) {
+            candidates.add(normalized + "0000");
+        } else if (normalized.length() == 6 && normalized.endsWith("0000")) {
+            candidates.add(normalized.substring(0, 2));
+        }
+
+        return candidates;
+    }
+
+    private Set<String> getCityCodeCandidates(String code) {
+        Set<String> candidates = new LinkedHashSet<>();
+        String normalized = code.trim();
+        candidates.add(normalized);
+
+        if (normalized.length() == 4) {
+            candidates.add(normalized + "00");
+        } else if (normalized.length() == 6 && normalized.endsWith("00")) {
+            candidates.add(normalized.substring(0, 4));
+        }
+
+        return candidates;
+    }
+
+    private int compareDistanceKm(HomestayDTO left, HomestayDTO right, boolean descending) {
+        Double leftDistance = left.getDistanceKm();
+        Double rightDistance = right.getDistanceKm();
+
+        if (leftDistance == null && rightDistance == null) {
+            return 0;
+        }
+        if (leftDistance == null) {
+            return 1;
+        }
+        if (rightDistance == null) {
+            return -1;
+        }
+
+        int result = Double.compare(leftDistance, rightDistance);
+        return descending ? -result : result;
+    }
+
+    @Override
+    public List<HomestayDTO> getNearbyHomestays(HomestaySearchRequest request) {
+        int limit = request.getLimit() != null ? request.getLimit() : 20;
+
+        return searchHomestaysWithinRadius(request, limit);
+    }
+
+    @Override
+    public List<HomestayDTO> searchHomestaysNearLandmark(HomestaySearchRequest request) {
+        return searchHomestaysWithinRadius(request, request.getLimit());
+    }
+
+    private List<HomestayDTO> searchHomestaysWithinRadius(HomestaySearchRequest request, Integer limit) {
+        double latitude = request.getLatitude().doubleValue();
+        double longitude = request.getLongitude().doubleValue();
+        double radiusKm = request.getRadiusKm().doubleValue();
+
+        applyNearbyBoundingBox(request, latitude, longitude, radiusKm);
+
+        Stream<HomestayDTO> results = searchHomestays(request).stream()
+                .filter(Objects::nonNull)
+                .filter(homestay -> homestay.getLatitude() != null && homestay.getLongitude() != null)
+                .filter(homestay -> calculateDistanceKm(
+                        latitude,
+                        longitude,
+                        homestay.getLatitude(),
+                        homestay.getLongitude()) <= radiusKm)
+                .map(homestay -> {
+                    double distanceKm = calculateDistanceKm(
+                            latitude,
+                            longitude,
+                            homestay.getLatitude(),
+                            homestay.getLongitude());
+                    homestay.setDistanceKm(roundDistance(distanceKm));
+                    return homestay;
+                })
+                .sorted(Comparator.comparing(HomestayDTO::getDistanceKm));
+
+        if (limit != null) {
+            results = results.limit(limit);
+        }
+
+        return results.collect(Collectors.toList());
+    }
+
+    private void applyNearbyBoundingBox(
+            HomestaySearchRequest request,
+            double latitude,
+            double longitude,
+            double radiusKm) {
+        if (Stream.of(
+                request.getNorthEastLat(),
+                request.getNorthEastLng(),
+                request.getSouthWestLat(),
+                request.getSouthWestLng()
+        ).allMatch(Objects::nonNull)) {
+            return;
+        }
+
+        double latitudeDelta = radiusKm / 111.32d;
+        double longitudeScale = Math.max(Math.cos(Math.toRadians(latitude)), 0.000001d);
+        double longitudeDelta = radiusKm / (111.32d * longitudeScale);
+        double minLongitude = longitude - longitudeDelta;
+        double maxLongitude = longitude + longitudeDelta;
+
+        if (minLongitude < -180d || maxLongitude > 180d) {
+            return;
+        }
+
+        request.setNorthEastLat(BigDecimal.valueOf(Math.min(90d, latitude + latitudeDelta)));
+        request.setSouthWestLat(BigDecimal.valueOf(Math.max(-90d, latitude - latitudeDelta)));
+        request.setNorthEastLng(BigDecimal.valueOf(maxLongitude));
+        request.setSouthWestLng(BigDecimal.valueOf(minLongitude));
+    }
+
+    private double calculateDistanceKm(double fromLatitude, double fromLongitude, double toLatitude, double toLongitude) {
+        double earthRadiusKm = 6371.0088d;
+        double latitudeDelta = Math.toRadians(toLatitude - fromLatitude);
+        double longitudeDelta = Math.toRadians(toLongitude - fromLongitude);
+        double fromLatitudeRadians = Math.toRadians(fromLatitude);
+        double toLatitudeRadians = Math.toRadians(toLatitude);
+
+        double a = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+                + Math.cos(fromLatitudeRadians) * Math.cos(toLatitudeRadians)
+                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+    }
+
+    private void attachDistanceKm(HomestayDTO homestay, double latitude, double longitude) {
+        if (homestay == null || homestay.getLatitude() == null || homestay.getLongitude() == null) {
+            return;
+        }
+
+        double distanceKm = calculateDistanceKm(
+                latitude,
+                longitude,
+                homestay.getLatitude(),
+                homestay.getLongitude());
+        homestay.setDistanceKm(roundDistance(distanceKm));
+    }
+
+    private double roundDistance(double value) {
+        return Math.round(value * 100d) / 100d;
+    }
+
+    private static class MapClusterAccumulator {
+        private double latitudeSum;
+        private double longitudeSum;
+        private int count;
+
+        void add(double latitude, double longitude) {
+            latitudeSum += latitude;
+            longitudeSum += longitude;
+            count++;
+        }
+
+        MapClusterDTO toDTO() {
+            return MapClusterDTO.builder()
+                    .latitude(roundCoordinate(latitudeSum / count))
+                    .longitude(roundCoordinate(longitudeSum / count))
+                    .count(count)
+                    .build();
+        }
+
+        private static double roundCoordinate(double value) {
+            return Math.round(value * 1_000_000d) / 1_000_000d;
+        }
     }
 
     @Override

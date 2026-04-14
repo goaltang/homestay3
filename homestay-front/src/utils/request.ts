@@ -34,6 +34,10 @@ const whiteList = [
   "/api/auth/register",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/homestays/map-search",
+  "/api/homestays/map-clusters",
+  "/api/homestays/nearby",
+  "/api/homestays/landmark-search",
   "/uploads/", // 静态资源路径
   "/api/uploads/", // API静态资源路径
   "/api/files/", // 文件资源路径
@@ -61,9 +65,17 @@ request.interceptors.request.use(
 
     // 特殊处理：某些路径只有GET请求才在白名单中，POST/PUT/DELETE需要认证
     const readOnlyPaths = ["/api/files/", "/api/homestays/"];
+    const publicPostPaths = [
+      "/api/homestays/search",
+      "/api/homestays/map-search",
+      "/api/homestays/map-clusters",
+      "/api/homestays/nearby",
+      "/api/homestays/landmark-search",
+    ];
     if (
       readOnlyPaths.some((path) => url.startsWith(path)) &&
-      method !== "GET"
+      method !== "GET" &&
+      !(method === "POST" && publicPostPaths.some((path) => url.startsWith(path)))
     ) {
       isPathWhitelisted = false;
       console.log(`写入操作需要认证: ${method} ${url}`);

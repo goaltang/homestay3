@@ -24,6 +24,7 @@ export interface Homestay {
   ownerName?: string;
   ownerAvatar?: string;
   ownerRating?: number;
+  distanceKm?: number;
   featured: boolean;
   autoConfirm?: boolean;
   checkInTime?: string;

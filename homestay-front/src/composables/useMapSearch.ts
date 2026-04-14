@@ -12,7 +12,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import AMapLoader from '@amap/amap-jsapi-loader';
 import { geocodeAddress } from '@/utils/mapService';
-import { searchHomestays } from '@/api/homestay/search';
+import { mapSearchHomestays, searchHomestays } from '@/api/homestay/search';
 
 // 高德地图配置
 const AMAP_CONFIG = {
@@ -536,7 +536,9 @@ export function useMapSearch() {
       searchRequest.size = 100;
 
       const viewportBounds = getSearchRequestViewportBounds(searchRequest);
-      let response = await searchHomestays(searchRequest);
+      let response = viewportBounds
+        ? await mapSearchHomestays(searchRequest)
+        : await searchHomestays(searchRequest);
       let data = extractHomestayList(response);
       let usedFallbackWithoutViewport = false;
 

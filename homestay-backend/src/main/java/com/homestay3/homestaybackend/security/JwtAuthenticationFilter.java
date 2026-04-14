@@ -173,6 +173,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 6. 允许公开的 POST /search 和价格计算
         if (method.equals("POST") &&
            (path.equals("/api/homestays/search") || path.equals("/api/v1/homestays/search") ||
+            path.equals("/api/homestays/map-search") || path.equals("/api/v1/homestays/map-search") ||
+            path.equals("/api/homestays/map-clusters") || path.equals("/api/v1/homestays/map-clusters") ||
+            path.equals("/api/homestays/nearby") || path.equals("/api/v1/homestays/nearby") ||
+            path.equals("/api/homestays/landmark-search") || path.equals("/api/v1/homestays/landmark-search") ||
             path.equals("/api/orders/calculate-price"))) {
              log.debug("匹配公开 POST API: {} {}", method, path);
              return true;

@@ -47,7 +47,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/homestays/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/homestays/search").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/homestays/search", "/api/homestays/map-search",
+                                "/api/homestays/map-clusters", "/api/homestays/nearby",
+                                "/api/homestays/landmark-search",
+                                "/api/v1/homestays/search", "/api/v1/homestays/map-search",
+                                "/api/v1/homestays/map-clusters", "/api/v1/homestays/nearby",
+                                "/api/v1/homestays/landmark-search").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
                         .requestMatchers("/api/files/upload", "/api/files/uploadMultiple").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/files/**").authenticated()

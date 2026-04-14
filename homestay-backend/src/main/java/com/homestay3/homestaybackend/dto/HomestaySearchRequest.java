@@ -28,6 +28,11 @@ public class HomestaySearchRequest {
     private BigDecimal northEastLng;
     private BigDecimal southWestLat;
     private BigDecimal southWestLng;
+    private Integer zoom;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
+    private BigDecimal radiusKm;
+    private Integer limit;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private List<String> requiredAmenities;

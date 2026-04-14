@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.service;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestayRequest;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
+import com.homestay3.homestaybackend.dto.MapClusterDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,6 +42,21 @@ public interface HomestayService {
      * 搜索房源
      */
     List<HomestayDTO> searchHomestays(HomestaySearchRequest request);
+
+    /**
+     * 获取地图聚合点
+     */
+    List<MapClusterDTO> getMapClusters(HomestaySearchRequest request);
+
+    /**
+     * 获取当前位置附近的房源推荐
+     */
+    List<HomestayDTO> getNearbyHomestays(HomestaySearchRequest request);
+
+    /**
+     * 根据地标坐标搜索半径范围内的房源
+     */
+    List<HomestayDTO> searchHomestaysNearLandmark(HomestaySearchRequest request);
     
     /**
      * 上传民宿图片

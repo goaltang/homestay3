@@ -7,6 +7,12 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
+export interface AdministrativeDivisionOption {
+  code: string;
+  name: string;
+  children?: AdministrativeDivisionOption[];
+}
+
 /**
  * 获取房源类型列表
  */
@@ -179,6 +185,23 @@ export function getDistricts(cityCode: string) {
       url: `${API_BASE_URL}/api/v1/locations/districts`,
       method: "get",
       params: { cityCode },
+    });
+  });
+}
+
+/**
+ * 获取省市区树
+ */
+export function getLocationTree() {
+  return request({
+    url: `${API_BASE_URL}/api/locations/tree`,
+    method: "get",
+  }).catch((error) => {
+    console.error(`获取省市区树失败(无版本路径)`, error);
+    console.log(`尝试使用v1 API获取省市区树`);
+    return request({
+      url: `${API_BASE_URL}/api/v1/locations/tree`,
+      method: "get",
     });
   });
 }

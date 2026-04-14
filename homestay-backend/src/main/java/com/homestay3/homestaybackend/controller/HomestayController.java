@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.controller;
 import com.homestay3.homestaybackend.dto.AmenityDTO;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
+import com.homestay3.homestaybackend.dto.MapClusterDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Amenity;
 // 注意：Amenity 已在 entity 包中
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.Date;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping({"/api/homestays", "/api/v1/homestays"})
@@ -123,6 +125,80 @@ public class HomestayController {
     public ResponseEntity<List<HomestayDTO>> searchHomestays(@RequestBody HomestaySearchRequest request) {
         logger.info("搜索民宿，请求参数: {}", request);
         List<HomestayDTO> searchResults = homestayService.searchHomestays(request);
+        return ResponseEntity.ok(searchResults);
+    }
+
+    @PostMapping("/map-search")
+    public ResponseEntity<?> mapSearchHomestays(@RequestBody HomestaySearchRequest request) {
+        logger.info("Map search homestays, request: {}", request);
+
+        if (request == null || !hasCompleteMapBounds(request)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Map bounds are required",
+                "requiredFields", List.of("northEastLat", "northEastLng", "southWestLat", "southWestLng")
+            ));
+        }
+
+        if (!hasValidMapBounds(request)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Map bounds are out of range"));
+        }
+
+        List<HomestayDTO> searchResults = homestayService.searchHomestays(request);
+        return ResponseEntity.ok(searchResults);
+    }
+
+    @PostMapping("/map-clusters")
+    public ResponseEntity<?> getMapClusters(@RequestBody HomestaySearchRequest request) {
+        logger.info("Map cluster search, request: {}", request);
+
+        if (request == null || !hasCompleteMapBounds(request)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Map bounds are required",
+                "requiredFields", List.of("northEastLat", "northEastLng", "southWestLat", "southWestLng")
+            ));
+        }
+
+        if (!hasValidMapBounds(request)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Map bounds are out of range"));
+        }
+
+        if (!hasValidMapZoom(request)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Map zoom must be between 1 and 20"));
+        }
+
+        List<MapClusterDTO> clusters = homestayService.getMapClusters(request);
+        return ResponseEntity.ok(clusters);
+    }
+
+    @PostMapping("/nearby")
+    public ResponseEntity<?> getNearbyHomestays(@RequestBody HomestaySearchRequest request) {
+        logger.info("Nearby homestay search, request: {}", request);
+
+        ResponseEntity<?> validationError = validateRadiusSearchRequest(
+                request,
+                "Current location and radius are required",
+                "Current location is out of range");
+        if (validationError != null) {
+            return validationError;
+        }
+
+        List<HomestayDTO> nearbyHomestays = homestayService.getNearbyHomestays(request);
+        return ResponseEntity.ok(nearbyHomestays);
+    }
+
+    @PostMapping("/landmark-search")
+    public ResponseEntity<?> landmarkSearchHomestays(@RequestBody HomestaySearchRequest request) {
+        logger.info("Landmark nearby homestay search, request: {}", request);
+
+        ResponseEntity<?> validationError = validateRadiusSearchRequest(
+                request,
+                "Landmark location and radius are required",
+                "Landmark location is out of range");
+        if (validationError != null) {
+            return validationError;
+        }
+
+        List<HomestayDTO> searchResults = homestayService.searchHomestaysNearLandmark(request);
         return ResponseEntity.ok(searchResults);
     }
 
@@ -670,6 +746,83 @@ public class HomestayController {
         option.put("value", value);
         option.put("label", label);
         return option;
+    }
+
+    private boolean hasCompleteMapBounds(HomestaySearchRequest request) {
+        return request.getNorthEastLat() != null
+            && request.getNorthEastLng() != null
+            && request.getSouthWestLat() != null
+            && request.getSouthWestLng() != null;
+    }
+
+    private boolean hasValidMapBounds(HomestaySearchRequest request) {
+        return isValidLatitude(request.getNorthEastLat())
+            && isValidLatitude(request.getSouthWestLat())
+            && isValidLongitude(request.getNorthEastLng())
+            && isValidLongitude(request.getSouthWestLng());
+    }
+
+    private boolean hasValidMapZoom(HomestaySearchRequest request) {
+        return request.getZoom() != null && request.getZoom() >= 1 && request.getZoom() <= 20;
+    }
+
+    private ResponseEntity<?> validateRadiusSearchRequest(
+            HomestaySearchRequest request,
+            String missingLocationError,
+            String invalidLocationError) {
+        if (request == null || !hasCompleteNearbyLocation(request)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", missingLocationError,
+                "requiredFields", List.of("latitude", "longitude", "radiusKm")
+            ));
+        }
+
+        if (!hasValidNearbyLocation(request)) {
+            return ResponseEntity.badRequest().body(Map.of("error", invalidLocationError));
+        }
+
+        if (!hasValidNearbyRadius(request)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "radiusKm must be greater than 0 and less than or equal to 200"));
+        }
+
+        if (!hasValidNearbyLimit(request)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "limit must be between 1 and 100"));
+        }
+
+        return null;
+    }
+
+    private boolean hasCompleteNearbyLocation(HomestaySearchRequest request) {
+        return request.getLatitude() != null
+            && request.getLongitude() != null
+            && request.getRadiusKm() != null;
+    }
+
+    private boolean hasValidNearbyLocation(HomestaySearchRequest request) {
+        return isValidLatitude(request.getLatitude()) && isValidLongitude(request.getLongitude());
+    }
+
+    private boolean hasValidNearbyRadius(HomestaySearchRequest request) {
+        BigDecimal radiusKm = request.getRadiusKm();
+        return radiusKm != null
+            && radiusKm.compareTo(BigDecimal.ZERO) > 0
+            && radiusKm.compareTo(BigDecimal.valueOf(200)) <= 0;
+    }
+
+    private boolean hasValidNearbyLimit(HomestaySearchRequest request) {
+        return request.getLimit() == null || (request.getLimit() >= 1 && request.getLimit() <= 100);
+    }
+
+    private boolean isValidLatitude(BigDecimal latitude) {
+        return isBetween(latitude, BigDecimal.valueOf(-90), BigDecimal.valueOf(90));
+    }
+
+    private boolean isValidLongitude(BigDecimal longitude) {
+        return isBetween(longitude, BigDecimal.valueOf(-180), BigDecimal.valueOf(180));
+    }
+
+    private boolean isBetween(BigDecimal value, BigDecimal min, BigDecimal max) {
+        return value != null && value.compareTo(min) >= 0 && value.compareTo(max) <= 0;
     }
 
     /**
