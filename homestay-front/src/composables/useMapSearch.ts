@@ -12,7 +12,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import AMapLoader from '@amap/amap-jsapi-loader';
 import { geocodeAddress } from '@/utils/mapService';
-import { mapSearchHomestays, searchHomestays } from '@/api/homestay/search';
+import { mapSearchHomestays, searchHomestays, getMapClusters, getNearbyHomestays, landmarkSearchHomestays } from '@/api/homestay/search';
 
 // 高德地图配置
 const AMAP_CONFIG = {
@@ -63,6 +63,8 @@ export interface MapHomestay {
   // 地理编码后的坐标
   lat?: number;
   lng?: number;
+  // 距离（km）
+  distanceKm?: number;
   // 标记对象
   marker?: any;
   // 唯一标识（用于缓存）
@@ -92,6 +94,12 @@ export interface MapViewState {
   zoom?: number;
 }
 
+export interface MapCluster {
+  latitude: number;
+  longitude: number;
+  count: number;
+}
+
 type ViewportBounds = Required<Pick<
   SearchFilters,
   'northEastLat' | 'northEastLng' | 'southWestLat' | 'southWestLng'
@@ -102,9 +110,11 @@ export function useMapSearch() {
   const mapInstance = ref<any>(null);
   const markers = ref<any[]>([]);
   const homestays = ref<MapHomestay[]>([]);
+  const clusters = ref<MapCluster[]>([]);
   const selectedHomestayId = ref<number | null>(null);
   const hoveredHomestayId = ref<number | null>(null);
   const viewportSearchEnabled = ref(true);
+  const useClusterMode = ref(false); // 是否使用聚合模式
   const isLoading = ref(false);
   const isMapReady = ref(false);
   const mapError = ref<string | null>(null);
@@ -113,6 +123,8 @@ export function useMapSearch() {
   const mapView = ref<MapViewState>({});
   const infoWindow = ref<any>(null);
   const currentCityCode = ref<string>('');
+  const searchMode = ref<'normal' | 'nearby' | 'landmark'>('normal'); // 搜索模式
+  const nearbyRadius = ref<number>(5); // 默认5km
 
   // 地理编码缓存（sessionStorage）
   const geoCache = new Map<string, { lat: number; lng: number }>();
@@ -477,7 +489,11 @@ export function useMapSearch() {
       clearTimeout(searchDebounceTimer);
     }
     searchDebounceTimer = setTimeout(() => {
-      searchVisibleHomestays();
+      if (useClusterMode.value) {
+        loadClusters();
+      } else {
+        searchVisibleHomestays();
+      }
     }, 500);
   };
 
@@ -909,6 +925,163 @@ export function useMapSearch() {
   };
 
   /**
+   * 加载地图聚合点
+   */
+  const loadClusters = async () => {
+    if (!mapInstance.value) return;
+
+    const viewportBounds = getViewportBounds();
+    if (!viewportBounds) return;
+
+    isLoading.value = true;
+    searchError.value = null;
+
+    try {
+      const zoom = mapInstance.value.getZoom() || 12;
+      const request = {
+        ...filters.value,
+        ...viewportBounds,
+        zoom,
+      };
+
+      const response = await getMapClusters(request);
+      const payload = response?.data ?? response;
+      clusters.value = Array.isArray(payload) ? payload : [];
+    } catch (e) {
+      console.error('[MapSearch] 加载聚合点失败:', e);
+      searchError.value = '加载聚合点失败';
+      clusters.value = [];
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  /**
+   * 搜索附近房源
+   */
+  const searchNearby = async (options?: { latitude?: number; longitude?: number; radius?: number }) => {
+    if (!mapInstance.value) return;
+
+    const center = mapInstance.value.getCenter();
+    if (!center) return;
+
+    const latitude = options?.latitude ?? center.getLat();
+    const longitude = options?.longitude ?? center.getLng();
+    const radius = options?.radius ?? nearbyRadius.value;
+
+    isLoading.value = true;
+    searchError.value = null;
+    searchMode.value = 'nearby';
+
+    try {
+      const request = {
+        ...filters.value,
+        latitude,
+        longitude,
+        radiusKm: radius,
+        limit: 50,
+        sortBy: 'DISTANCE',
+      };
+
+      const response = await getNearbyHomestays(request);
+      const list = extractHomestayList(response);
+
+      homestays.value = list.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        price: Number(item.price) || 0,
+        coverImage: item.coverImage,
+        rating: item.rating ? Number(item.rating) : undefined,
+        provinceCode: item.provinceCode,
+        cityCode: item.cityCode,
+        districtCode: item.districtCode,
+        addressDetail: item.addressDetail,
+        maxGuests: item.maxGuests ? Number(item.maxGuests) : undefined,
+        propertyType: item.propertyType || item.type,
+        autoConfirm: item.autoConfirm,
+        latitude: item.latitude ? Number(item.latitude) : undefined,
+        longitude: item.longitude ? Number(item.longitude) : undefined,
+        lat: item.latitude ? Number(item.latitude) : undefined,
+        lng: item.longitude ? Number(item.longitude) : undefined,
+        distanceKm: item.distanceKm ? Number(item.distanceKm) : undefined,
+      }));
+
+      updateMarkers({ fitView: true });
+    } catch (e) {
+      console.error('[MapSearch] 搜索附近房源失败:', e);
+      searchError.value = '搜索附近房源失败';
+      homestays.value = [];
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  /**
+   * 地标周边搜索
+   */
+  const searchByLandmark = async (latitude: number, longitude: number, radius?: number) => {
+    isLoading.value = true;
+    searchError.value = null;
+    searchMode.value = 'landmark';
+
+    try {
+      const request = {
+        ...filters.value,
+        latitude,
+        longitude,
+        radiusKm: radius ?? nearbyRadius.value,
+        limit: 50,
+        sortBy: 'DISTANCE',
+      };
+
+      const response = await landmarkSearchHomestays(request);
+      const list = extractHomestayList(response);
+
+      homestays.value = list.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        price: Number(item.price) || 0,
+        coverImage: item.coverImage,
+        rating: item.rating ? Number(item.rating) : undefined,
+        provinceCode: item.provinceCode,
+        cityCode: item.cityCode,
+        districtCode: item.districtCode,
+        addressDetail: item.addressDetail,
+        maxGuests: item.maxGuests ? Number(item.maxGuests) : undefined,
+        propertyType: item.propertyType || item.type,
+        autoConfirm: item.autoConfirm,
+        latitude: item.latitude ? Number(item.latitude) : undefined,
+        longitude: item.longitude ? Number(item.longitude) : undefined,
+        lat: item.latitude ? Number(item.latitude) : undefined,
+        lng: item.longitude ? Number(item.longitude) : undefined,
+        distanceKm: item.distanceKm ? Number(item.distanceKm) : undefined,
+      }));
+
+      updateMarkers({ fitView: true });
+    } catch (e) {
+      console.error('[MapSearch] 地标搜索失败:', e);
+      searchError.value = '地标搜索失败';
+      homestays.value = [];
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  /**
+   * 切换搜索模式
+   */
+  const setSearchMode = async (mode: 'normal' | 'nearby' | 'landmark') => {
+    searchMode.value = mode;
+    useClusterMode.value = false;
+
+    if (mode === 'nearby') {
+      await searchNearby();
+    } else if (mode === 'normal') {
+      await loadHomestays({ fitView: true });
+    }
+  };
+
+  /**
    * 销毁地图
    */
   const destroyMap = () => {
@@ -941,9 +1114,13 @@ export function useMapSearch() {
   return {
     // 状态
     homestays,
+    clusters,
     selectedHomestayId,
     hoveredHomestayId,
     viewportSearchEnabled,
+    useClusterMode,
+    searchMode,
+    nearbyRadius,
     isLoading,
     isMapReady,
     mapError,
@@ -954,6 +1131,10 @@ export function useMapSearch() {
     // 方法
     initMap,
     loadHomestays,
+    loadClusters,
+    searchNearby,
+    searchByLandmark,
+    setSearchMode,
     updateFilters,
     applySearchState,
     setViewportSearch,

@@ -23,6 +23,10 @@
       <div class="card-features" v-if="featuresText">
         {{ featuresText }}
       </div>
+      <div class="card-distance" v-if="homestay.distanceKm">
+        <el-icon :size="12"><Location /></el-icon>
+        距当前位置 {{ homestay.distanceKm.toFixed(1) }}km
+      </div>
       <div class="card-footer">
         <div class="card-rating" v-if="homestay.rating">
           <el-icon :size="14" color="#ffb800"><Star /></el-icon>
@@ -217,6 +221,16 @@ const handleViewDetail = () => {
 .card-features {
   font-size: 12px;
   color: #717171;
+  margin-top: 4px;
+}
+
+.card-distance {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #3b82f6;
+  font-weight: 500;
   margin-top: 4px;
 }
 

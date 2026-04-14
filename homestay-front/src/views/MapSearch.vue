@@ -4,7 +4,45 @@
     <div class="left-panel">
       <!-- 筛选区域 -->
       <div class="filter-section">
-        <h2 class="section-title">地图找房</h2>
+        <div class="header-row">
+          <h2 class="section-title">地图找房</h2>
+          <div class="mode-switches">
+            <el-tooltip content="搜索当前位置附近的房源" placement="bottom">
+              <el-button
+                :type="searchMode === 'nearby' ? 'primary' : ''"
+                size="small"
+                @click="handleSearchNearby"
+                :icon="Location"
+              >
+                附近
+              </el-button>
+            </el-tooltip>
+            <el-tooltip content="使用聚合点模式查看房源分布" placement="bottom">
+              <el-button
+                :type="useClusterMode ? 'primary' : ''"
+                size="small"
+                @click="handleToggleCluster"
+                :icon="Grid"
+              >
+                聚合
+              </el-button>
+            </el-tooltip>
+          </div>
+        </div>
+
+        <!-- 半径设置（仅在附近模式显示） -->
+        <div v-if="searchMode === 'nearby'" class="filter-item radius-selector">
+          <label>搜索半径</label>
+          <el-slider
+            v-model="nearbyRadius"
+            :min="1"
+            :max="20"
+            :step="1"
+            show-input
+            @change="handleSearchNearby"
+          />
+          <p class="hint-text">以地图中心为圆心，搜索周围 {{ nearbyRadius }}km 内的房源</p>
+        </div>
 
         <!-- 城市选择 -->
         <div class="filter-item">
@@ -164,7 +202,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Loading, LocationInformation } from '@element-plus/icons-vue';
+import { Loading, LocationInformation, Location, Grid } from '@element-plus/icons-vue';
 import { regionData as regionOptions } from 'element-china-area-data';
 import { useMapSearch, type MapHomestay } from '@/composables/useMapSearch';
 import MapHomestayCard from '@/components/homestay/MapHomestayCard.vue';
@@ -179,9 +217,13 @@ const listRef = ref<HTMLElement | null>(null);
 // 使用地图搜索组合式函数
 const {
   homestays,
+  clusters,
   selectedHomestayId,
   hoveredHomestayId,
   viewportSearchEnabled,
+  useClusterMode,
+  searchMode,
+  nearbyRadius,
   isLoading,
   isMapReady,
   mapError,
@@ -193,6 +235,11 @@ const {
   selectHomestay,
   hoverHomestay,
   destroyMap,
+  loadClusters,
+  loadHomestays,
+  searchNearby,
+  searchByLandmark,
+  setSearchMode,
 } = useMapSearch();
 
 // 筛选条件
@@ -512,6 +559,23 @@ const handleCardHover = (id: number | null) => {
   hoverHomestay(id);
 };
 
+// 搜索附近
+const handleSearchNearby = async () => {
+  await searchNearby();
+};
+
+// 切换聚合模式
+const handleToggleCluster = async () => {
+  useClusterMode.value = !useClusterMode.value;
+  searchMode.value = 'normal';
+  
+  if (useClusterMode.value) {
+    await loadClusters();
+  } else {
+    await loadHomestays({ fitView: true });
+  }
+};
+
 // 滚动到选中的卡片
 const scrollToSelectedCard = () => {
   if (!listRef.value || !selectedHomestayId.value) return;
@@ -607,11 +671,37 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
 .section-title {
-  margin: 0 0 16px 0;
+  margin: 0;
   font-size: 20px;
   font-weight: 600;
   color: #222;
+}
+
+.mode-switches {
+  display: flex;
+  gap: 8px;
+}
+
+.radius-selector {
+  padding: 12px 14px;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  background: #f0f9ff;
+}
+
+.radius-selector .hint-text {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #3b82f6;
 }
 
 .filter-item {
