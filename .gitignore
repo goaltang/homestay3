@@ -30,6 +30,9 @@ vite.config.ts.timestamp-*
 .springBeans
 .sts4-cache/
 **/uploads/
+homestay-backend/src/main/resources/application.properties
+homestay-backend/src/main/resources/application-*.properties
+!homestay-backend/src/main/resources/application.example.properties
 
 # --- 文档与绘图 ---
 **/docs/resources/diagrams/draw/HomestayListingManagementFlowchart.drawio
@@ -53,11 +56,25 @@ tools/code-stats/*.txt
 
 # --- AI 与编辑器配置 ---
 .claude/
+.qwen/
 .cursor/
 .vscode/
+CLAUDE.md
+QWEN.md
 
 # --- 绘图文件扩展 ---
 **/*.drawio
 
 # --- 其他冗余 ---
 homestay-backend/HELP.md
+homestay-backend/generate_test_data.py
+homestay-backend/update_test_data.py
+homestay-backend/seed_homestays.sql
+homestay-backend/地图找房功能测试报告.md
+test_nearby.json
+
+# --- 本地分析与知识库 ---
+.graphifyignore
+graphify-out/
+obsidian-vault/
+
