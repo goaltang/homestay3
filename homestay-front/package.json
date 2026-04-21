@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
@@ -26,10 +28,13 @@
   "devDependencies": {
     "@types/node": "^20.17.19",
     "@vitejs/plugin-vue": "^4.5.2",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^29.0.2",
     "typescript": "^5.3.3",
     "unplugin-auto-import": "^19.1.2",
     "unplugin-vue-components": "^28.4.1",
     "vite": "^5.0.7",
+    "vitest": "^4.1.4",
     "vue-tsc": "^1.8.25"
   }
 }

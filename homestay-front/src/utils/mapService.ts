@@ -3,14 +3,9 @@
 
 // 导入地区数据转换工具
 import { codeToText } from "element-china-area-data";
+import { AMAP_CONFIG } from "@/utils/amapConfig";
 
-// 高德地图API配置
-const AMAP_CONFIG = {
-  apiKey: import.meta.env.VITE_AMAP_API_KEY || "13725cc6ef2c302a407b3a2d12247ac5",
-  version: "2.0",
-  plugins: ["AMap.Geocoder", "AMap.PlaceSearch"],
-};
-
+// 共享高德地图API配置
 // 如果没有API Key，使用模拟模式
 const USE_MOCK_DATA = false; // 强制使用真实API，已有有效的API Key
 
@@ -29,6 +24,138 @@ interface NearbyPlace {
   distance: number;
   address: string;
 }
+
+export interface AmapPoiSuggestion {
+  id: string;
+  name: string;
+  address: string;
+  district?: string;
+  cityName?: string;
+  provinceName?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+interface AmapInputTipResponse {
+  status?: string;
+  tips?: Array<{
+    id?: string;
+    name?: string;
+    district?: string;
+    address?: string;
+    adcode?: string;
+    location?: string;
+  }>;
+}
+
+const parseLocation = (location?: string) => {
+  if (!location) {
+    return {};
+  }
+
+  const [lng, lat] = location.split(",").map((value) => Number(value));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return {};
+  }
+
+  return {
+    latitude: lat,
+    longitude: lng,
+  };
+};
+
+const buildPoiSuggestionAddress = (tip: {
+  district?: string;
+  address?: string;
+}) => {
+  const addressParts = [tip.district, tip.address].filter(
+    (value): value is string => Boolean(value && value.trim())
+  );
+
+  return addressParts.join(" ");
+};
+
+export const searchAmapPoiSuggestions = async (
+  keyword: string,
+  options?: {
+    city?: string;
+    cityLimit?: boolean;
+    limit?: number;
+  }
+): Promise<AmapPoiSuggestion[]> => {
+  const normalizedKeyword = keyword.trim();
+  if (!normalizedKeyword) {
+    return [];
+  }
+
+  if (USE_MOCK_DATA) {
+    const mockSuggestions: AmapPoiSuggestion[] = [
+      {
+        id: "mock-1",
+        name: "国贸中心",
+        address: "北京市朝阳区建国门外大街1号",
+        district: "朝阳区",
+        cityName: "北京市",
+        provinceName: "北京市",
+        latitude: 39.914492,
+        longitude: 116.459089,
+      },
+      {
+        id: "mock-2",
+        name: "前门大街",
+        address: "北京市东城区前门大街",
+        district: "东城区",
+        cityName: "北京市",
+        provinceName: "北京市",
+        latitude: 39.899359,
+        longitude: 116.404244,
+      },
+    ];
+
+    return mockSuggestions
+      .filter((item) => item.name.includes(normalizedKeyword))
+      .slice(0, options?.limit ?? 8);
+  }
+
+  try {
+    const params = new URLSearchParams({
+      key: AMAP_CONFIG.apiKey,
+      keywords: normalizedKeyword,
+      datatype: "poi",
+      output: "json",
+    });
+
+    if (options?.city) {
+      params.set("city", options.city);
+    }
+    if (options?.cityLimit) {
+      params.set("citylimit", "true");
+    }
+
+    const response = await fetch(
+      `https://restapi.amap.com/v3/assistant/inputtips?${params.toString()}`
+    );
+    const data = (await response.json()) as AmapInputTipResponse;
+
+    if (data.status !== "1" || !Array.isArray(data.tips)) {
+      return [];
+    }
+
+    return data.tips
+      .filter((tip) => tip.name && tip.name.trim())
+      .map((tip) => ({
+        id: tip.id || `${tip.name}-${tip.adcode || "unknown"}`,
+        name: tip.name!.trim(),
+        address: buildPoiSuggestionAddress(tip),
+        district: tip.district,
+        ...parseLocation(tip.location),
+      }))
+      .slice(0, options?.limit ?? 8);
+  } catch (error) {
+    console.error("POI 自动补全查询失败:", error);
+    return [];
+  }
+};
 
 /**
  * 根据省市区代码和详细地址获取经纬度
