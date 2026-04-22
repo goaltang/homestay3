@@ -17,6 +17,7 @@ import com.homestay3.homestaybackend.repository.HomestayTypeRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.HomestayService;
 import com.homestay3.homestaybackend.service.AmenityService;
+import com.homestay3.homestaybackend.service.GeocodingService;
 import com.homestay3.homestaybackend.service.HomestayFeatureAnalysisService;
 import com.homestay3.homestaybackend.service.HomestayAvailabilityService;
 import lombok.RequiredArgsConstructor;
@@ -73,6 +74,7 @@ public class HomestayServiceImpl implements HomestayService {
     private final OrderRepository orderRepository;
     private final HomestayAvailabilityService availabilityService;
     private final HomestayFeatureAnalysisService homestayFeatureAnalysisService;
+    private final GeocodingService geocodingService;
     private final ImageUrlUtil imageUrlUtil;
     private static final Logger log = LoggerFactory.getLogger(HomestayServiceImpl.class);
 
@@ -589,6 +591,43 @@ public class HomestayServiceImpl implements HomestayService {
         return Math.round(value * 100d) / 100d;
     }
 
+    private void populateCoordinatesIfMissing(Homestay homestay) {
+        if (homestay == null || hasCompleteCoordinates(homestay)) {
+            return;
+        }
+
+        geocodingService.geocode(
+                        homestay.getProvinceCode(),
+                        homestay.getCityCode(),
+                        homestay.getDistrictCode(),
+                        homestay.getAddressDetail())
+                .ifPresent(coordinates -> {
+                    homestay.setLatitude(coordinates.latitude());
+                    homestay.setLongitude(coordinates.longitude());
+                    log.info("已为房源自动补充经纬度: title={}, latitude={}, longitude={}",
+                            homestay.getTitle(), coordinates.latitude(), coordinates.longitude());
+                });
+    }
+
+    private boolean hasCompleteCoordinates(Homestay homestay) {
+        return homestay.getLatitude() != null && homestay.getLongitude() != null;
+    }
+
+    private boolean hasExplicitCoordinates(HomestayDTO homestayDTO) {
+        return homestayDTO.getLatitude() != null && homestayDTO.getLongitude() != null;
+    }
+
+    private boolean hasAddressChanged(Homestay homestay, HomestayDTO homestayDTO) {
+        return !Objects.equals(normalizeAddressPart(homestay.getProvinceCode()), normalizeAddressPart(homestayDTO.getProvinceCode()))
+                || !Objects.equals(normalizeAddressPart(homestay.getCityCode()), normalizeAddressPart(homestayDTO.getCityCode()))
+                || !Objects.equals(normalizeAddressPart(homestay.getDistrictCode()), normalizeAddressPart(homestayDTO.getDistrictCode()))
+                || !Objects.equals(normalizeAddressPart(homestay.getAddressDetail()), normalizeAddressPart(homestayDTO.getAddressDetail()));
+    }
+
+    private String normalizeAddressPart(String value) {
+        return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
     private static class MapClusterAccumulator {
         private double latitudeSum;
         private double longitudeSum;
@@ -795,6 +834,8 @@ public class HomestayServiceImpl implements HomestayService {
                 .longitude(homestayDTO.getLongitude() != null ? BigDecimal.valueOf(homestayDTO.getLongitude()) : null)
                 .build();
 
+        populateCoordinatesIfMissing(homestay);
+
         // 添加图片集合
         if (homestayDTO.getImages() != null && !homestayDTO.getImages().isEmpty()) {
             // 确保images集合已初始化
@@ -959,6 +1000,8 @@ public class HomestayServiceImpl implements HomestayService {
         log.info("权限验证通过，开始更新房源信息，ID: {}", id);
 
         try {
+            boolean addressChanged = hasAddressChanged(homestay, homestayDTO);
+
             // 更新基本信息
             homestay.setTitle(homestayDTO.getTitle());
             homestay.setType(homestayDTO.getType());
@@ -989,11 +1032,15 @@ public class HomestayServiceImpl implements HomestayService {
             // --- 地址字段修改结束 ---
 
             // 更新经纬度坐标
-            if (homestayDTO.getLatitude() != null) {
+            if (hasExplicitCoordinates(homestayDTO)) {
                 homestay.setLatitude(BigDecimal.valueOf(homestayDTO.getLatitude()));
-            }
-            if (homestayDTO.getLongitude() != null) {
                 homestay.setLongitude(BigDecimal.valueOf(homestayDTO.getLongitude()));
+            } else {
+                if (addressChanged) {
+                    homestay.setLatitude(null);
+                    homestay.setLongitude(null);
+                }
+                populateCoordinatesIfMissing(homestay);
             }
 
             homestay.setDescription(homestayDTO.getDescription());
