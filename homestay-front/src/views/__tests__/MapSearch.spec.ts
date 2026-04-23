@@ -173,19 +173,45 @@ const createMapSearchMock = (): MapSearchMock => {
     };
     return location;
   });
-  const searchNearby = vi.fn(async () => {
+  const searchNearby = vi.fn(async (options?: {
+    latitude?: number;
+    longitude?: number;
+    radius?: number;
+    source?: "map-center" | "user";
+    fitView?: boolean;
+    filters?: Record<string, unknown>;
+  }) => {
     searchMode.value = "nearby";
+    if (options?.radius !== undefined) {
+      nearbyRadius.value = options.radius;
+    }
+    const nearbyOrigin = options?.latitude !== undefined && options?.longitude !== undefined
+      ? {
+          latitude: options.latitude,
+          longitude: options.longitude,
+          source: options.source ?? "map-center",
+        }
+      : (currentSearchContext.value.nearbyOrigin ?? userLocation.value);
     currentSearchContext.value = {
       ...currentSearchContext.value,
       mode: "nearby",
       nearbyRadius: nearbyRadius.value,
+      nearbyOrigin: nearbyOrigin ?? null,
     };
   });
-  const searchByLandmark = vi.fn(async (landmark: SearchOrigin) => {
+  const searchByLandmark = vi.fn(async (
+    landmark: SearchOrigin,
+    options?: { radius?: number; filters?: Record<string, unknown>; fitView?: boolean }
+  ) => {
+    searchMode.value = "landmark";
+    if (options?.radius !== undefined) {
+      nearbyRadius.value = options.radius;
+    }
     activeLandmark.value = landmark;
     currentSearchContext.value = {
       ...currentSearchContext.value,
       mode: "landmark",
+      nearbyRadius: nearbyRadius.value,
       landmark,
     };
   });
@@ -344,6 +370,7 @@ describe("MapSearch", () => {
     const { wrapper, router } = await mountMapSearch();
 
     currentMapSearchMock.locateUser.mockClear();
+    currentMapSearchMock.searchNearby.mockClear();
 
     await clickButton(wrapper, "使用当前位置");
 
@@ -358,9 +385,21 @@ describe("MapSearch", () => {
       source: "user",
     });
 
+    expect(currentMapSearchMock.searchNearby).toHaveBeenCalledWith({
+      latitude: 31.2304,
+      longitude: 121.4737,
+      radius: 5,
+      source: "user",
+      filters: {},
+      fitView: true,
+    });
+
     expect(router.currentRoute.value.query).toMatchObject({
       mode: "nearby",
       radiusKm: "5",
+      nearbyLat: "31.230400",
+      nearbyLng: "121.473700",
+      nearbySource: "user",
       mapLat: "31.230400",
       mapLng: "121.473700",
       mapZoom: "14",
@@ -394,7 +433,7 @@ describe("MapSearch", () => {
       {
         radius: 5,
         filters: {},
-        fitView: false,
+        fitView: true,
       }
     );
 
@@ -449,6 +488,64 @@ describe("MapSearch", () => {
     expect((viewportSwitch.element as HTMLInputElement).checked).toBe(false);
   });
 
+  it("replays nearby query state after refresh", async () => {
+    await mountMapSearch({
+      mode: "nearby",
+      radiusKm: "7",
+      nearbyLat: "31.230400",
+      nearbyLng: "121.473700",
+      nearbySource: "user",
+      viewportOnly: "0",
+      mapLat: "31.240000",
+      mapLng: "121.480000",
+      mapZoom: "13",
+    });
+
+    expect(currentMapSearchMock.searchNearby).toHaveBeenCalledWith({
+      latitude: 31.2304,
+      longitude: 121.4737,
+      radius: 7,
+      source: "user",
+      filters: {},
+      fitView: false,
+    });
+  });
+
+  it("reruns nearby search immediately when radius changes", async () => {
+    const { wrapper, router } = await mountMapSearch({
+      mode: "nearby",
+      radiusKm: "5",
+      nearbyLat: "31.230400",
+      nearbyLng: "121.473700",
+      nearbySource: "user",
+      mapLat: "31.230400",
+      mapLng: "121.473700",
+      mapZoom: "14",
+    });
+
+    currentMapSearchMock.searchNearby.mockClear();
+
+    const radiusSlider = wrapper.find('input[type="range"]');
+    expect(radiusSlider.exists()).toBe(true);
+    await radiusSlider.setValue("9");
+    await radiusSlider.trigger("change");
+    await settle();
+
+    expect(currentMapSearchMock.searchNearby).toHaveBeenCalledWith({
+      radius: 9,
+      filters: {},
+      fitView: true,
+    });
+
+    expect(router.currentRoute.value.query).toMatchObject({
+      mode: "nearby",
+      radiusKm: "9",
+      nearbyLat: "31.230400",
+      nearbyLng: "121.473700",
+      nearbySource: "user",
+    });
+  });
+
   it("supports exiting special search mode", async () => {
     const { wrapper, router } = await mountMapSearch({
       guestCount: "2",
@@ -476,6 +573,9 @@ describe("MapSearch", () => {
     expect(currentMapSearchMock.searchMode.value).toBe("normal");
     expect(router.currentRoute.value.query).not.toHaveProperty("mode");
     expect(router.currentRoute.value.query).not.toHaveProperty("radiusKm");
+    expect(router.currentRoute.value.query).not.toHaveProperty("nearbyLat");
+    expect(router.currentRoute.value.query).not.toHaveProperty("nearbyLng");
+    expect(router.currentRoute.value.query).not.toHaveProperty("nearbySource");
     expect(router.currentRoute.value.query).toMatchObject({
       guestCount: "2",
       mapLat: "31.230400",

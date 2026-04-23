@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.EntityGraph;
 import jakarta.persistence.LockModeType;
 
 import java.math.BigDecimal;
@@ -37,6 +38,55 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
      */
     @Query("SELECT h FROM Homestay h LEFT JOIN FETCH h.amenities WHERE h.id = :id")
     Optional<Homestay> findByIdWithAmenities(@Param("id") Long id);
+    
+    /**
+     * 根据ID查找房源并加载房东和设施（解决N+1问题）
+     * @param id 房源ID
+     * @return 房源（带房东和设施）
+     */
+    @Query("SELECT DISTINCT h FROM Homestay h LEFT JOIN FETCH h.owner LEFT JOIN FETCH h.amenities WHERE h.id = :id")
+    Optional<Homestay> findByIdWithDetails(@Param("id") Long id);
+    
+    /**
+     * 根据状态查找房源并预加载房东和设施（解决N+1问题）
+     * @param status 状态
+     * @return 房源列表
+     */
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT h FROM Homestay h WHERE h.status = :status")
+    List<Homestay> findByStatusWithDetails(@Param("status") HomestayStatus status);
+    
+    /**
+     * 根据状态和推荐状态查找房源并预加载房东和设施
+     */
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT h FROM Homestay h WHERE h.status = :status AND h.featured = true")
+    List<Homestay> findByStatusAndFeaturedTrueWithDetails(@Param("status") HomestayStatus status);
+    
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT h FROM Homestay h WHERE h.status = :status AND h.featured = false")
+    List<Homestay> findByStatusAndFeaturedFalseWithDetails(@Param("status") HomestayStatus status);
+    
+    /**
+     * 根据类型和状态查找房源并预加载房东和设施
+     */
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT h FROM Homestay h WHERE h.type = :type AND h.status = :status")
+    List<Homestay> findByTypeAndStatusWithDetails(@Param("type") String type, @Param("status") HomestayStatus status);
+    
+    /**
+     * 根据房东用户名查找房源并预加载房东和设施
+     */
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    @Query("SELECT h FROM Homestay h WHERE h.owner.username = :username")
+    List<Homestay> findByOwnerUsernameWithDetails(@Param("username") String username);
+    
+    /**
+     * 覆盖findAll(Specification)以应用EntityGraph，解决动态查询的N+1问题
+     */
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    @Override
+    List<Homestay> findAll(Specification<Homestay> spec);
     
     /**
      * 根据状态查找房源
@@ -342,6 +392,11 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
 
     @Query("SELECT COUNT(h) FROM Homestay h WHERE h.group.id = :groupId")
     Long countByGroupId(@Param("groupId") Long groupId);
+
+    /**
+     * 查找缺少经纬度坐标的房源
+     */
+    List<Homestay> findByLatitudeIsNullOrLongitudeIsNull();
 
     @Query("SELECT h FROM Homestay h WHERE h.group.id = :groupId AND h.owner.id = :ownerId")
     Page<Homestay> findByGroupIdAndOwnerId(@Param("groupId") Long groupId, @Param("ownerId") Long ownerId, Pageable pageable);

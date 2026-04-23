@@ -244,6 +244,31 @@ public class AdminHomestayController {
     }
 
     /**
+     * 批量补全缺失的地理编码坐标
+     */
+    @PostMapping("/batch-populate-coordinates")
+    public ResponseEntity<?> batchPopulateCoordinates(@RequestBody(required = false) Map<String, Object> request) {
+        int batchSize = 100;
+        if (request != null && request.get("batchSize") instanceof Number) {
+            batchSize = ((Number) request.get("batchSize")).intValue();
+        }
+
+        logger.info("管理员批量补全房源坐标，batchSize={}", batchSize);
+        try {
+            int successCount = homestayService.batchPopulateCoordinates(batchSize);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "批量补全坐标完成",
+                "successCount", successCount
+            ));
+        } catch (Exception e) {
+            logger.error("批量补全坐标失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * 批量强制下架房源
      */
     @PostMapping("/batch/force-delist")

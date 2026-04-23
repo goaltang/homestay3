@@ -99,7 +99,14 @@ public interface HomestayService {
      * 更新民宿状态
      */
     HomestayDTO updateHomestayStatus(Long id, String status, String ownerUsername);
-    
+
+    /**
+     * 批量为缺失坐标的房源补全地理编码
+     * @param batchSize 每批处理数量上限，<=0 表示不限制
+     * @return 成功补全坐标的房源数量
+     */
+    int batchPopulateCoordinates(int batchSize);
+
     /**
      * 管理员获取民宿列表（分页和筛选）
      */

@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.entity;
 import com.homestay3.homestaybackend.model.HomestayStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -15,6 +16,13 @@ import java.util.Set;
 
 @Entity
 @Table(name = "homestays")
+@NamedEntityGraph(
+    name = "Homestay.withDetails",
+    attributeNodes = {
+        @NamedAttributeNode("owner"),
+        @NamedAttributeNode("amenities")
+    }
+)
 @Data
 @Builder
 @NoArgsConstructor
@@ -133,6 +141,7 @@ public class Homestay {
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
+    @BatchSize(size = 50)
     private Set<Amenity> amenities = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)

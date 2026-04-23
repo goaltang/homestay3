@@ -70,3 +70,19 @@ This helps your existing map-search flow in practical ways:
 - The interactive map in `homestay-front/src/composables/useMapSearch.ts` and the CLI now use the same JSAPI credential model.
 - The backend geocoder in `homestay-backend/src/main/java/com/homestay3/homestaybackend/service/GeocodingService.java` stays isolated on the Web Service key, which matches AMap's product split.
 - When a map-search bug appears, you can compare frontend behavior and `amap-gui` behavior against the same JSAPI key, which shortens debugging.
+
+## JSAPI loader singleton
+
+`homestay-front/src/utils/amapLoader.ts` provides a single `ensureAMapLoaded()` function that caches the `AMapLoader.load()` promise. Both `useMapSearch.ts` (map init) and `mapService.ts` (POI autocomplete) share this loader, so the JSAPI SDK is only loaded once regardless of call order.
+
+Loaded plugins: `AMap.Geocoder`, `AMap.Autocomplete`, `AMap.PlaceSearch`.
+
+## POI autocomplete (landmark search)
+
+The landmark search input previously called the REST `inputtips` endpoint (`restapi.amap.com/v3/assistant/inputtips`) directly from the browser, which:
+
+- Exposed `webServiceKey` in network requests.
+- Returned lower-quality tips without reliable coordinates.
+- Was subject to CORS and QPS limits.
+
+It now uses the native `AMap.Autocomplete` JSAPI plugin via `searchAmapPoiSuggestions()` in `mapService.ts`. The function signature and `AmapPoiSuggestion` interface are unchanged, so callers (`MapSearch.vue`) required no modifications.

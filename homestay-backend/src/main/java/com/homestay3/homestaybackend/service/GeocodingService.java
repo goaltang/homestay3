@@ -19,7 +19,9 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.data.redis.core.RedisTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +31,10 @@ public class GeocodingService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final AdministrativeDivisionService administrativeDivisionService;
-    private final Map<String, Optional<Coordinates>> cache = new ConcurrentHashMap<>();
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    private static final String GEOCODE_CACHE_PREFIX = "map:geocode:";
+    private static final long GEOCODE_CACHE_TTL_DAYS = 30;
 
     @Value("${app.map.geocoding.enabled:true}")
     private boolean enabled;
@@ -63,7 +68,37 @@ public class GeocodingService {
             return Optional.empty();
         }
 
-        return cache.computeIfAbsent(address, this::fetchCoordinates);
+        String cacheKey = GEOCODE_CACHE_PREFIX + address.hashCode();
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            try {
+                String json = cached.toString();
+                if ("__EMPTY__".equals(json)) {
+                    return Optional.empty();
+                }
+                JsonNode node = objectMapper.readTree(json);
+                return Optional.of(new Coordinates(
+                        new BigDecimal(node.get("lat").asText()),
+                        new BigDecimal(node.get("lng").asText())
+                ));
+            } catch (Exception e) {
+                log.warn("Geocode cache deserialize failed", e);
+            }
+        }
+
+        Optional<Coordinates> result = fetchCoordinates(address);
+        try {
+            if (result.isPresent()) {
+                Coordinates c = result.get();
+                String json = objectMapper.writeValueAsString(Map.of("lat", c.latitude(), "lng", c.longitude()));
+                redisTemplate.opsForValue().set(cacheKey, json, GEOCODE_CACHE_TTL_DAYS, TimeUnit.DAYS);
+            } else {
+                redisTemplate.opsForValue().set(cacheKey, "__EMPTY__", GEOCODE_CACHE_TTL_DAYS, TimeUnit.DAYS);
+            }
+        } catch (Exception e) {
+            log.warn("Geocode cache write failed", e);
+        }
+        return result;
     }
 
     private Optional<Coordinates> fetchCoordinates(String address) {

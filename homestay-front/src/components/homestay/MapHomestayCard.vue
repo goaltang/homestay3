@@ -8,7 +8,7 @@
     @mouseleave="handleMouseLeave"
   >
     <div class="card-image">
-      <img :src="imageUrl" :alt="homestay.title" />
+      <img :src="imageUrl" :alt="homestay.title" loading="lazy" />
       <div v-if="homestay.autoConfirm" class="auto-confirm-badge">
         <el-icon :size="12"><Lightning /></el-icon>
         即时预订

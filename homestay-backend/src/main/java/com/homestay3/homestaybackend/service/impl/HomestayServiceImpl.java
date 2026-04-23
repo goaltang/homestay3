@@ -84,7 +84,7 @@ public class HomestayServiceImpl implements HomestayService {
 
         try {
             // 只获取状态为ACTIVE的房源
-            List<Homestay> homestays = homestayRepository.findByStatus(HomestayStatus.ACTIVE);
+            List<Homestay> homestays = homestayRepository.findByStatusWithDetails(HomestayStatus.ACTIVE);
             log.info("成功查询到{}个ACTIVE状态的房源", homestays.size());
 
             if (homestays.isEmpty()) {
@@ -122,11 +122,11 @@ public class HomestayServiceImpl implements HomestayService {
         log.info("获取推荐房源");
 
         // 获取状态为ACTIVE且被标记为featured的房源，最多返回6个
-        List<Homestay> featuredHomestays = homestayRepository.findByStatusAndFeaturedTrue(HomestayStatus.ACTIVE);
+        List<Homestay> featuredHomestays = homestayRepository.findByStatusAndFeaturedTrueWithDetails(HomestayStatus.ACTIVE);
 
         List<Homestay> finalHomestayList = new ArrayList<>(); // Placeholder for actual logic
         if (featuredHomestays.size() < 6) {
-            List<Homestay> regularHomestays = homestayRepository.findByStatusAndFeaturedFalse(HomestayStatus.ACTIVE);
+            List<Homestay> regularHomestays = homestayRepository.findByStatusAndFeaturedFalseWithDetails(HomestayStatus.ACTIVE);
             int remaining = 6 - featuredHomestays.size();
             if (regularHomestays.size() > remaining) {
                 regularHomestays = regularHomestays.subList(0, remaining);
@@ -149,14 +149,8 @@ public class HomestayServiceImpl implements HomestayService {
     public HomestayDTO getHomestayById(Long id, List<String> referringSearchCriteria) { // Signature updated
         log.info("根据ID获取房源详情: id={}, referringSearchCriteria={}", id, referringSearchCriteria);
 
-        Homestay homestay = homestayRepository.findByIdWithAmenities(id)
+        Homestay homestay = homestayRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Homestay not found with id: " + id));
-
-        // Initialize amenities if needed (though findByIdWithAmenities should handle
-        // this)
-        if (homestay.getAmenities() != null) {
-            org.hibernate.Hibernate.initialize(homestay.getAmenities());
-        }
 
         return convertToDTO(homestay, referringSearchCriteria); // Pass criteria to convertToDTO
     }
@@ -165,7 +159,7 @@ public class HomestayServiceImpl implements HomestayService {
     public List<HomestayDTO> getHomestaysByPropertyType(String propertyType) {
         log.info("根据房源类型获取房源列表: type={}", propertyType);
 
-        List<Homestay> homestays = homestayRepository.findByTypeAndStatus(propertyType, HomestayStatus.ACTIVE);
+        List<Homestay> homestays = homestayRepository.findByTypeAndStatusWithDetails(propertyType, HomestayStatus.ACTIVE);
 
         return homestays.stream()
                 .map(homestay -> convertToDTO(homestay, null)) // Pass null for criteria
@@ -696,7 +690,7 @@ public class HomestayServiceImpl implements HomestayService {
             log.info("找到用户: ID={}, 用户名={}", owner.getId(), owner.getUsername());
 
             // 查找房源
-            List<Homestay> homestays = homestayRepository.findByOwner(owner);
+            List<Homestay> homestays = homestayRepository.findByOwnerUsernameWithDetails(username);
             log.info("从数据库获取到{}条房源记录", homestays != null ? homestays.size() : 0);
 
             if (homestays == null || homestays.isEmpty()) {
@@ -1696,6 +1690,37 @@ public class HomestayServiceImpl implements HomestayService {
 
         // 调用已有的createHomestay(HomestayDTO, String)方法
         return createHomestay(homestayDTO, username);
+    }
+
+    @Override
+    @Transactional
+    public int batchPopulateCoordinates(int batchSize) {
+        List<Homestay> missing = homestayRepository.findByLatitudeIsNullOrLongitudeIsNull();
+        if (missing.isEmpty()) {
+            log.info("批量补全坐标：所有房源均已有坐标，无需处理");
+            return 0;
+        }
+
+        int limit = (batchSize > 0) ? Math.min(missing.size(), batchSize) : missing.size();
+        int successCount = 0;
+        log.info("批量补全坐标：共找到 {} 条缺失坐标的房源，本次处理 {} 条", missing.size(), limit);
+
+        for (int i = 0; i < limit; i++) {
+            Homestay homestay = missing.get(i);
+            try {
+                populateCoordinatesIfMissing(homestay);
+                if (hasCompleteCoordinates(homestay)) {
+                    successCount++;
+                } else {
+                    log.warn("批量补全坐标失败，无法解析地址，房源ID={}", homestay.getId());
+                }
+            } catch (Exception e) {
+                log.warn("批量补全坐标异常，房源ID={}: {}", homestay.getId(), e.getMessage());
+            }
+        }
+
+        log.info("批量补全坐标完成：成功 {} / {} 条", successCount, limit);
+        return successCount;
     }
 
     // 判断当前用户是否为管理员
