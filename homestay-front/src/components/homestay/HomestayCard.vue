@@ -1,21 +1,23 @@
 <template>
     <el-card class="homestay-card" :body-style="{ padding: '0px' }">
-        <div class="homestay-image-container" @click="handleCardClick">
+        <div class="homestay-image-container" @click.stop="handleCardClick">
             <el-carousel v-if="images.length > 1" height="220px" indicator-position="none" arrow="hover">
                 <el-carousel-item v-for="(image, index) in images" :key="index">
-                    <img :src="image" :alt="homestay.title || homestay.name" class="homestay-image" />
+                    <img :src="image" :alt="imageAlt" class="homestay-image" loading="lazy" decoding="async"
+                        @error="handleHomestayImageError" />
                 </el-carousel-item>
             </el-carousel>
-            <img v-else :src="images[0]" :alt="homestay.title || homestay.name" class="homestay-image" />
+            <img v-else :src="images[0]" :alt="imageAlt" class="homestay-image" loading="lazy" decoding="async"
+                @error="handleHomestayImageError" />
 
             <div v-if="isUserLoggedIn" class="favorite-button" @click.stop="toggleFavorite">
                 <el-icon :size="iconSize" :color="isFavorite ? '#ff385c' : '#fff'">
-                    <component :is="isFavorite ? 'StarFilled' : 'Star'" />
+                    <component :is="favoriteIcon" />
                 </el-icon>
             </div>
         </div>
 
-        <div class="homestay-info" @click="handleCardClick">
+        <div class="homestay-info" @click.stop="handleCardClick">
             <div class="homestay-header">
                 <h3 class="homestay-title">{{ homestay.title || homestay.name }}</h3>
                 <div class="homestay-rating" v-if="rating">
@@ -60,17 +62,37 @@ import { useFavoritesStore } from '@/stores/favorites'
 import { useUserStore } from '@/stores/user'
 import { codeToText } from 'element-china-area-data'
 import { formatPropertyType } from '@/utils/homestayUtils'
+import { getHomestayImageUrl } from '@/utils/image'
+
+const HOMESTAY_IMAGE_FALLBACK =
+    'data:image/svg+xml;utf8,' +
+    encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f3ee"/>
+      <stop offset="1" stop-color="#e8ded2"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#bg)"/>
+  <path d="M180 255V155l120-78 120 78v100h-70v-72h-100v72z" fill="#c9a77d"/>
+  <path d="M150 164 300 66l150 98-24 37-126-82-126 82z" fill="#9b7651"/>
+  <rect x="257" y="190" width="86" height="65" rx="6" fill="#f9f5ef"/>
+  <text x="300" y="318" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#8a6f56">民宿图片待更新</text>
+</svg>`)
 
 interface Props {
     homestay: any
     iconSize?: number
     showCarousel?: boolean
+    navigateOnClick?: boolean
     homestayTypes?: any[]  // 添加房源类型数据
 }
 
 const props = withDefaults(defineProps<Props>(), {
     iconSize: 24,
     showCarousel: true,
+    navigateOnClick: true,
     homestayTypes: () => []
 })
 
@@ -85,40 +107,31 @@ const userStore = useUserStore()
 // 计算属性
 const isFavorite = computed(() => favoritesStore.isFavorite(props.homestay.id))
 const isUserLoggedIn = computed(() => userStore.isAuthenticated)
+const favoriteIcon = computed(() => isFavorite.value ? StarFilled : Star)
+const imageAlt = computed(() => props.homestay.title || props.homestay.name || '民宿图片')
 
 const images = computed(() => {
-    const defaultImage = 'https://picsum.photos/300/200'
+    const rawImages: string[] = []
 
-    // 图片URL处理函数
-    const processImageUrl = (imageUrl: string): string => {
-        if (!imageUrl) return defaultImage
-
-        // 如果是完整的HTTP/HTTPS URL，直接返回
-        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-            return imageUrl
-        }
-
-        // 如果是相对路径，构建完整的后端API URL
-        // 确保URL格式正确
-        const cleanUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`
-        return `http://localhost:8080${cleanUrl}`
-    }
-
-    // 优先使用封面图片（这是房源卡片应该显示的主要图片）
     if (props.homestay.coverImage) {
-        return [processImageUrl(props.homestay.coverImage)]
+        rawImages.push(props.homestay.coverImage)
     }
 
-    // 如果没有封面图片，才使用图片集的第一张图片
     if (props.homestay.images && Array.isArray(props.homestay.images) && props.homestay.images.length > 0) {
-        const firstImage = props.homestay.images[0]
-        if (typeof firstImage === 'string') {
-            return [processImageUrl(firstImage)]
-        }
-        return [processImageUrl(firstImage?.url || firstImage?.path) || defaultImage]
+        props.homestay.images.forEach((image: string | { url?: string; path?: string }) => {
+            const imageUrl = typeof image === 'string' ? image : image?.url || image?.path
+            if (imageUrl) rawImages.push(imageUrl)
+        })
     }
 
-    return [defaultImage]
+    const uniqueImages = Array.from(new Set(rawImages))
+    const visibleImages = props.showCarousel ? uniqueImages : uniqueImages.slice(0, 1)
+
+    if (visibleImages.length === 0) {
+        return [HOMESTAY_IMAGE_FALLBACK]
+    }
+
+    return visibleImages.map(image => getHomestayImageUrl(image))
 })
 
 const rating = computed(() => {
@@ -145,19 +158,12 @@ const location = computed(() => {
     return parts.length > 0 ? parts.join(' · ') : '位置待更新'
 })
 
-// 类型转码功能
-const getHomestayTypeText = (typeCode: string | undefined): string => {
-    if (!typeCode) return '未知类型'
-
-    // 从传入的房源类型列表中查找
-    const foundType = props.homestayTypes.find(t => t.code === typeCode)
-
-    if (foundType) {
-        return foundType.name || typeCode
-    }
-
-    // 如果找不到匹配项，返回原始代码
-    return typeCode
+const formatHomestayType = (typeCode: string | undefined): string => {
+    if (!typeCode) return ''
+    const foundType = props.homestayTypes.find(type =>
+        type.code === typeCode || type.value === typeCode || type.name === typeCode
+    )
+    return foundType?.name || foundType?.label || formatPropertyType(typeCode)
 }
 
 const features = computed(() => {
@@ -170,7 +176,7 @@ const features = computed(() => {
     // 使用类型转码功能
     if (props.homestay.propertyType || props.homestay.type) {
         const typeCode = props.homestay.propertyType || props.homestay.type
-        features.push(formatPropertyType(typeCode))
+        features.push(formatHomestayType(typeCode))
     }
 
     if (props.homestay.amenities && Array.isArray(props.homestay.amenities)) {
@@ -196,9 +202,19 @@ const toggleFavorite = async () => {
     }
 }
 
+const handleHomestayImageError = (event: Event) => {
+    const image = event.target as HTMLImageElement
+    if (image.src !== HOMESTAY_IMAGE_FALLBACK) {
+        image.src = HOMESTAY_IMAGE_FALLBACK
+    }
+}
+
 const handleCardClick = () => {
+    if (props.navigateOnClick) {
+        router.push(`/homestays/${props.homestay.id}`)
+        return
+    }
     emit('cardClick', props.homestay)
-    router.push(`/homestays/${props.homestay.id}`)
 }
 </script>
 

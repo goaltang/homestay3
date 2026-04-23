@@ -14,6 +14,18 @@
 
                 <div class="search-divider"></div>
 
+                <!-- 关键词搜索 -->
+                <div class="search-item keyword-item" @click="focusInput('keyword')">
+                    <div class="label">关键词</div>
+                    <div class="content">
+                        <input v-model="searchParams.keyword" class="keyword-input-native" type="text"
+                            placeholder="房源名、位置或特色" @focus="focusInput('keyword')"
+                            @keydown.enter.stop.prevent="handleSearch" />
+                    </div>
+                </div>
+
+                <div class="search-divider"></div>
+
                 <!-- 日期选择 -->
                 <div class="search-item dates" @click="focusInput('dates')">
                     <div class="date-item check-in">
@@ -29,7 +41,7 @@
                         <div class="content">
                             <el-date-picker ref="checkOutPicker" v-model="searchParams.checkOut" type="date"
                                 placeholder="添加日期" format="M月D日" value-format="YYYY-MM-DD" class="date-picker"
-                                :disabled-date="disabledCheckOutDate" @change="handleCheckOutChange" />
+                                :disabled-date="disabledCheckOutDate" />
                         </div>
                     </div>
                 </div>
@@ -70,7 +82,7 @@
                 <div class="search-actions-container">
                     <!-- 搜索按钮 -->
                     <div class="search-button-container">
-                        <el-tooltip content="请先选择目的地" placement="top" :disabled="canSearch">
+                        <el-tooltip content="请输入关键词或选择目的地" placement="top" :disabled="canSearch">
                             <el-button type="primary" class="search-button" @click="handleSearch" :loading="loading"
                                 :disabled="!canSearch">
                                 <el-icon>
@@ -90,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, nextTick, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { regionData } from 'element-china-area-data'
@@ -158,9 +170,7 @@ const guestDisplayText = computed(() => {
 })
 
 const canSearch = computed(() => {
-    // 主流平台策略：必须有目的地才能搜索
-    // 地区是必填项，日期和关键词是可选的
-    return searchParams.selectedRegion.length > 0
+    return searchParams.keyword.trim().length > 0 || searchParams.selectedRegion.length > 0
 })
 
 // 监听 initialParams 变化，同步到内部状态
@@ -169,7 +179,7 @@ watch(
     (newParams) => {
         if (!newParams) return
         if (newParams.selectedRegion !== undefined) {
-            searchParams.selectedRegion = newParams.selectedRegion
+            searchParams.selectedRegion = [...newParams.selectedRegion]
         }
         if (newParams.keyword !== undefined) {
             searchParams.keyword = newParams.keyword
@@ -181,8 +191,9 @@ watch(
             searchParams.checkOut = newParams.checkOut
         }
         if (newParams.guestCount !== undefined) {
-            searchParams.guestCount = newParams.guestCount
-            guestCounts.adults = newParams.guestCount
+            const guestCount = Math.max(1, newParams.guestCount)
+            searchParams.guestCount = guestCount
+            guestCounts.adults = guestCount
         }
     },
     { immediate: true, deep: true }
@@ -206,7 +217,7 @@ const handleLocationChange = () => {
     showSuggestions.value = false
 }
 
-const handleCheckInChange = (value: string) => {
+const handleCheckInChange = (value: string | null) => {
     if (value && searchParams.checkOut) {
         const checkIn = new Date(value)
         const checkOut = new Date(searchParams.checkOut)
@@ -216,10 +227,6 @@ const handleCheckInChange = (value: string) => {
             searchParams.checkOut = nextDay.toISOString().split('T')[0]
         }
     }
-}
-
-const handleCheckOutChange = (value: string | null) => {
-    // 退房日期变更逻辑
 }
 
 const adjustGuestCount = (type: 'adults' | 'children' | 'infants', delta: number) => {
@@ -238,7 +245,13 @@ const selectSuggestion = (suggestion: { label: string; value: string[] }) => {
 }
 
 const handleSearch = () => {
-    emit('search', { ...searchParams })
+    if (!canSearch.value) return
+
+    emit('search', {
+        ...searchParams,
+        keyword: searchParams.keyword.trim(),
+        selectedRegion: [...searchParams.selectedRegion]
+    })
 }
 
 const handleReset = () => {

@@ -1,17 +1,15 @@
 <template>
-    <HomestaySection title="推荐民宿" :homestays="homestays" :homestay-types="homestayTypes" :loading="loading"
-        empty-text="暂无推荐民宿" :max-display="6" view-all-route="/homestays" :view-all-query="{ featured: 'true' }"
+    <HomestaySection title="推荐民宿" :homestays="homestays" :loading="loading" empty-text="暂无推荐民宿"
+        :max-display="6" view-all-route="/homestays" :view-all-query="{ featured: 'true' }"
         @homestay-click="handleHomestayClick" @view-all="handleViewAll" />
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getRecommendedHomestays } from '../../api/recommendation'
-import { getHomestayTypes, type HomestayType } from '../../api/homestay'
 import HomestaySection from './HomestaySection.vue'
 
 const homestays = ref<any[]>([])
-const homestayTypes = ref<HomestayType[]>([])
 const loading = ref(false)
 
 const emit = defineEmits<{
@@ -23,25 +21,11 @@ const emit = defineEmits<{
 const loadRecommendedHomestays = async () => {
     loading.value = true
     try {
-        const [homestaysResponse, typesResponse] = await Promise.all([
-            getRecommendedHomestays(6), // 使用通用推荐算法
-            getHomestayTypes()
-        ])
-
+        const homestaysResponse = await getRecommendedHomestays(6)
         homestays.value = homestaysResponse.data || []
-        homestayTypes.value = typesResponse || []
-
-        console.log('通用推荐加载完成:', homestays.value.length, '条房源')
-        console.log('🏠 推荐民宿API返回数据:', JSON.stringify(homestays.value.map((h: any) => ({
-            id: h.id,
-            title: h.title,
-            pricePerNight: h.pricePerNight,
-            rating: h.rating
-        })), null, 2))
     } catch (error) {
         console.error('加载推荐民宿失败:', error)
         homestays.value = []
-        homestayTypes.value = []
     } finally {
         loading.value = false
     }

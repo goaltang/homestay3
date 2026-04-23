@@ -24,14 +24,13 @@
         <!-- 房源列表 -->
         <div v-else class="homestay-grid">
             <HomestayCard v-for="homestay in displayHomestays" :key="homestay.id" :homestay="homestay"
-                :homestay-types="homestayTypes" @card-click="handleHomestayClick" />
+                :homestay-types="homestayTypes" :navigate-on-click="false" @card-click="handleHomestayClick" />
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import HomestayCard from './HomestayCard.vue'
 
 interface Props {
@@ -61,30 +60,19 @@ const emit = defineEmits<{
     viewAll: [route: string, query: Record<string, any>]
 }>()
 
-const router = useRouter()
-
 // 显示的房源列表（限制数量）
 const displayHomestays = computed(() => {
-    if (!Array.isArray(props.homestays)) {
-        console.warn('homestays is not an array:', props.homestays)
-        return []
-    }
-    return props.homestays.slice(0, props.maxDisplay)
+    return Array.isArray(props.homestays) ? props.homestays.slice(0, props.maxDisplay) : []
 })
 
 // 处理房源点击
 const handleHomestayClick = (homestay: any) => {
     emit('homestayClick', homestay)
-    router.push(`/homestays/${homestay.id}`)
 }
 
 // 处理查看全部
 const handleViewAll = () => {
     emit('viewAll', props.viewAllRoute, props.viewAllQuery)
-    router.push({
-        path: props.viewAllRoute,
-        query: props.viewAllQuery
-    })
 }
 </script>
 

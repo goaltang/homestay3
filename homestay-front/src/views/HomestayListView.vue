@@ -43,11 +43,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { useFavoritesStore } from '@/stores/favorites';
 import { useUserStore } from '@/stores/user';
-import request from '@/utils/request';
-import { getActiveHomestays, getHomestayTypes, searchHomestays, getHomestayGroups, type HomestaySearchRequest } from '@/api/homestay';
+import { getActiveHomestays, getHomestayTypes, getHomestayGroups, searchHomestays, type HomestaySearchRequest } from '@/api/homestay';
 import { getPopularHomestaysPage, getRecommendedHomestaysPage, getPersonalizedRecommendations } from '@/api/recommendation';
 import HomestayCard from '@/components/homestay/HomestayCard.vue';
 import SearchBar from '@/components/SearchBar.vue';
@@ -86,27 +83,96 @@ interface Homestay {
 
 const router = useRouter();
 const route = useRoute();
-const favoritesStore = useFavoritesStore();
 const userStore = useUserStore();
+
+interface SearchBarParams {
+    keyword: string;
+    selectedRegion: string[];
+    checkIn: string | null;
+    checkOut: string | null;
+    guestCount: number;
+}
+
+type RouteQuery = Record<string, unknown>;
+
+const DEFAULT_PAGE_SIZE = 12;
+
+const getQueryValue = (value: unknown): string | undefined => {
+    if (Array.isArray(value)) return value[0] ? String(value[0]) : undefined;
+    return value !== undefined && value !== null ? String(value) : undefined;
+};
+
+const getPositiveNumber = (value: unknown, fallback: number) => {
+    const parsed = Number(getQueryValue(value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const cleanQuery = (query: RouteQuery): Record<string, string> => {
+    return Object.entries(query).reduce<Record<string, string>>((result, [key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+            result[key] = String(value);
+        }
+        return result;
+    }, {});
+};
+
+const withPagination = (query: Record<string, unknown>, page: number, size: number) => {
+    return cleanQuery({
+        ...query,
+        page: page > 1 ? page : undefined,
+        size: size !== DEFAULT_PAGE_SIZE ? size : undefined
+    });
+};
+
+const hasSearchTrigger = (params: SearchBarParams) => {
+    return params.keyword.trim().length > 0 || params.selectedRegion.length > 0;
+};
+
+const buildSearchQuery = (params: SearchBarParams, page = 1, size = DEFAULT_PAGE_SIZE) => {
+    return cleanQuery({
+        keyword: params.keyword.trim() || undefined,
+        region: params.selectedRegion.length ? params.selectedRegion.join(',') : undefined,
+        checkIn: params.checkIn || undefined,
+        checkOut: params.checkOut || undefined,
+        guestCount: params.guestCount > 1 ? params.guestCount : undefined,
+        search: hasSearchTrigger(params) ? 'true' : undefined,
+        page: page > 1 ? page : undefined,
+        size: size !== DEFAULT_PAGE_SIZE ? size : undefined
+    });
+};
+
+const parseSearchParamsFromRoute = (): SearchBarParams => ({
+    keyword: getQueryValue(route.query.keyword) || '',
+    selectedRegion: getQueryValue(route.query.region)?.split(',').filter(Boolean) || [],
+    checkIn: getQueryValue(route.query.checkIn) || null,
+    checkOut: getQueryValue(route.query.checkOut) || null,
+    guestCount: getPositiveNumber(route.query.guestCount, 1)
+});
 
 // 页面标题计算
 const pageTitle = computed(() => {
-    if (route.query.type === 'popular') return '热门民宿';
-    if (route.query.featured === 'true') return '推荐民宿';
-    if (route.query.personalized === 'true') return '猜你喜欢';
-    if (route.query.status === 'ACTIVE') return '最新上架';
-    if (route.query.keyword) return `"${route.query.keyword}" 的搜索结果`;
-    if (route.query.region) {
+    const type = getQueryValue(route.query.type);
+    const featured = getQueryValue(route.query.featured);
+    const personalized = getQueryValue(route.query.personalized);
+    const status = getQueryValue(route.query.status);
+    const keyword = getQueryValue(route.query.keyword);
+    const region = getQueryValue(route.query.region);
+
+    if (type === 'popular') return '热门民宿';
+    if (featured === 'true') return '推荐民宿';
+    if (personalized === 'true') return '猜你喜欢';
+    if (status === 'ACTIVE') return '最新上架';
+    if (keyword) return `"${keyword}" 的搜索结果`;
+    if (region) {
         // 将地区代码转换为地名
-        const regionString = route.query.region as string;
-        if (regionString.includes(',')) {
+        if (region.includes(',')) {
             // 多级地区：省,市,区
-            const regionCodes = regionString.split(',');
+            const regionCodes = region.split(',');
             const regionNames = regionCodes.map(code => codeToText[code] || code).filter(Boolean);
             return `${regionNames.join('')} 的民宿`;
         } else {
             // 单个地区代码
-            const regionName = codeToText[regionString] || regionString;
+            const regionName = codeToText[region] || region;
             return `${regionName} 的民宿`;
         }
     }
@@ -114,17 +180,11 @@ const pageTitle = computed(() => {
 });
 
 // 搜索相关数据 - 从 URL 同步
-const searchParams = ref({
-    keyword: route.query.keyword as string || '',
-    selectedRegion: route.query.region ? (route.query.region as string).split(',') : [] as string[],
-    checkIn: (route.query.checkIn as string) || null,
-    checkOut: (route.query.checkOut as string) || null,
-    guestCount: route.query.guestCount ? Number(route.query.guestCount) : 1
-});
+const searchParams = ref<SearchBarParams>(parseSearchParamsFromRoute());
 
 // 分页相关
-const currentPage = ref(1);
-const pageSize = ref(12);
+const currentPage = ref(getPositiveNumber(route.query.page, 1));
+const pageSize = ref(getPositiveNumber(route.query.size, DEFAULT_PAGE_SIZE));
 const total = ref(0);
 
 // 加载状态
@@ -132,9 +192,6 @@ const loading = ref(false);
 
 // 房源列表数据
 const homestays = ref<Homestay[]>([]);
-
-// 搜索结果缓存（用于前端分页）
-const allSearchResults = ref<Homestay[]>([]);
 
 // 房源类型数据
 const homestayTypes = ref<any[]>([]);
@@ -144,19 +201,84 @@ const groupOptions = ref<any[]>([]);
 
 // 检查是否有搜索条件
 const hasSearchConditions = () => {
-    return route.query.keyword ||
-        route.query.region ||
-        route.query.checkIn ||
-        route.query.checkOut ||
-        route.query.guestCount ||
-        route.query.minPrice ||
-        route.query.maxPrice ||
-        route.query.amenities ||
-        searchParams.value.keyword ||
-        searchParams.value.selectedRegion.length > 0 ||
-        searchParams.value.checkIn ||
-        searchParams.value.checkOut ||
-        searchParams.value.guestCount > 1;
+    return getQueryValue(route.query.search) === 'true' ||
+        Boolean(getQueryValue(route.query.keyword)) ||
+        Boolean(getQueryValue(route.query.region));
+};
+
+const buildSearchRequest = (): HomestaySearchRequest & { groupId?: number } => {
+    const params = searchParams.value;
+    const request: HomestaySearchRequest & { groupId?: number } = {
+        keyword: params.keyword.trim() || undefined,
+        minPrice: route.query.minPrice ? Number(getQueryValue(route.query.minPrice)) : undefined,
+        maxPrice: route.query.maxPrice ? Number(getQueryValue(route.query.maxPrice)) : undefined,
+        requiredAmenities: getQueryValue(route.query.amenities)?.split(',').filter(Boolean),
+        page: currentPage.value - 1,
+        size: pageSize.value,
+        sortBy: getQueryValue(route.query.sortBy) || 'id',
+        sortDirection: getQueryValue(route.query.sortDirection) || 'desc'
+    };
+
+    const queryType = getQueryValue(route.query.type);
+    if (getQueryValue(route.query.search) === 'true' && queryType && queryType !== 'popular') {
+        request.propertyType = queryType;
+    }
+
+    const groupId = getQueryValue(route.query.groupId);
+    if (groupId) {
+        request.groupId = Number(groupId);
+    }
+
+    if (params.selectedRegion.length >= 1) {
+        request.provinceCode = params.selectedRegion[0];
+    }
+    if (params.selectedRegion.length >= 2) {
+        request.cityCode = params.selectedRegion[1];
+    }
+    if (params.selectedRegion.length >= 3) {
+        request.districtCode = params.selectedRegion[2];
+    }
+    if (params.checkIn) {
+        request.checkInDate = params.checkIn;
+    }
+    if (params.checkOut) {
+        request.checkOutDate = params.checkOut;
+    }
+    if (params.guestCount > 1) {
+        request.minGuests = params.guestCount;
+    }
+
+    return request;
+};
+
+const getArrayPage = <T,>(items: T[]) => {
+    const startIndex = (currentPage.value - 1) * pageSize.value;
+    return items.slice(startIndex, startIndex + pageSize.value);
+};
+
+const applyResponseData = (data: any, options: { paginateArrayFallback?: boolean } = {}) => {
+    const paginateArrayFallback = options.paginateArrayFallback ?? false;
+
+    if (data && typeof data === 'object' && Array.isArray(data.content)) {
+        homestays.value = data.content;
+        total.value = Number(data.totalElements ?? data.total ?? data.content.length);
+        return;
+    }
+
+    if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        homestays.value = data.data;
+        total.value = Number(data.total ?? data.totalElements ?? data.data.length);
+        return;
+    }
+
+    if (Array.isArray(data)) {
+        homestays.value = paginateArrayFallback ? getArrayPage<Homestay>(data) : data;
+        total.value = data.length;
+        return;
+    }
+
+    homestays.value = [];
+    total.value = 0;
 };
 
 // 数据加载方法
@@ -170,74 +292,32 @@ const loadHomestays = async () => {
         let response;
 
         // 优先检查搜索标记或搜索条件
-        if (route.query.search === 'true' || hasSearchConditions()) {
+        if (hasSearchConditions()) {
             // 搜索模式：使用搜索API
-            // 根据搜索条件加载 - 参考首页的实现方式
-            const searchRequest: any = {
-                keyword: route.query.keyword || null,
-                propertyType: route.query.type || null,
-                minPrice: route.query.minPrice ? Number(route.query.minPrice) : null,
-                maxPrice: route.query.maxPrice ? Number(route.query.maxPrice) : null,
-                requiredAmenities: route.query.amenities ? (route.query.amenities as string).split(',') : null,
-                groupId: route.query.groupId ? Number(route.query.groupId) : null,
-                page: currentPage.value - 1,  // 后端分页从0开始
-                size: pageSize.value,
-                sortBy: 'id',
-                sortDirection: 'desc'
-            };
-
-            // 处理地区选择 - 参考首页的处理方式
-            if (route.query.region) {
-                const regionString = route.query.region as string;
-                const regionCodes = regionString.includes(',') ? regionString.split(',') : [regionString];
-
-                if (regionCodes.length >= 1) {
-                    searchRequest.provinceCode = regionCodes[0];
-                }
-                if (regionCodes.length >= 2) {
-                    searchRequest.cityCode = regionCodes[1];
-                }
-                if (regionCodes.length >= 3) {
-                    searchRequest.districtCode = regionCodes[2];
-                }
-            }
-
-            // 处理入住和退房日期
-            if (route.query.checkIn) {
-                searchRequest.checkInDate = route.query.checkIn as string;
-            }
-            if (route.query.checkOut) {
-                searchRequest.checkOutDate = route.query.checkOut as string;
-            }
-
-            // 处理客人数量
-            if (route.query.guestCount) {
-                searchRequest.minGuests = Number(route.query.guestCount);
-            }
-
-            console.log('发送搜索请求 (参考首页实现):', searchRequest);
-            response = await request.post('/api/homestays/search', searchRequest);
+            const searchRequest = buildSearchRequest();
+            console.log('发送搜索请求:', searchRequest);
+            response = await searchHomestays(searchRequest);
             console.log('搜索响应:', response);
-        } else if (route.query.type === 'popular') {
+        } else if (getQueryValue(route.query.type) === 'popular') {
             // 加载热门民宿（使用分页API）
             response = await getPopularHomestaysPage({
                 page: currentPage.value - 1,
                 size: pageSize.value
             });
-        } else if (route.query.featured === 'true') {
+        } else if (getQueryValue(route.query.featured) === 'true') {
             // 加载推荐民宿（使用分页API）
             response = await getRecommendedHomestaysPage({
                 page: currentPage.value - 1,
                 size: pageSize.value
             });
-        } else if (route.query.personalized === 'true') {
+        } else if (getQueryValue(route.query.personalized) === 'true') {
             // 加载个性化推荐民宿
             // 注意：个性化推荐目前没有分页API，使用简单版本
             response = await getPersonalizedRecommendations(
                 Number(userStore.userInfo?.id || 0),
                 50 // 获取更多结果用于前端分页
             );
-        } else if (route.query.status === 'ACTIVE') {
+        } else if (getQueryValue(route.query.status) === 'ACTIVE') {
             // 加载最新上架 - 使用正确的API函数
             response = await getActiveHomestays({
                 page: currentPage.value - 1,  // 后端分页从0开始
@@ -251,72 +331,11 @@ const loadHomestays = async () => {
             });
         }
 
-        // 处理不同API返回的数据结构
-        if (route.query.search === 'true' || hasSearchConditions()) {
-            // 搜索API返回数组，需要前端分页
-            const allResults = response.data || [];
-
-            // 只有在新搜索时才重新缓存，分页时使用缓存
-            if (currentPage.value === 1 || allSearchResults.value.length === 0) {
-                allSearchResults.value = allResults;
-            }
-
-            total.value = allSearchResults.value.length;
-
-            // 前端分页
-            const startIndex = (currentPage.value - 1) * pageSize.value;
-            const endIndex = startIndex + pageSize.value;
-            homestays.value = allSearchResults.value.slice(startIndex, endIndex);
-
-            console.log(`搜索结果处理: 总共${allSearchResults.value.length}条，当前页显示${homestays.value.length}条，页码${currentPage.value}`);
-        } else if (route.query.type === 'popular' || route.query.featured === 'true') {
-            // 推荐API现在返回分页对象
-            if (response.data && response.data.content) {
-                homestays.value = response.data.content;
-                total.value = response.data.totalElements || 0;
-                console.log(`推荐民宿分页处理: 第${currentPage.value}页，共${total.value}条，当前显示${homestays.value.length}条`);
-            } else {
-                homestays.value = response.data || [];
-                total.value = homestays.value.length;
-            }
-        } else if (route.query.personalized === 'true') {
-            // 个性化推荐返回数组，需要前端分页
-            const allResults = response.data || [];
-
-            // 缓存全部结果
-            if (currentPage.value === 1) {
-                allSearchResults.value = allResults;
-            }
-
-            total.value = allSearchResults.value.length;
-
-            // 前端分页
-            const startIndex = (currentPage.value - 1) * pageSize.value;
-            const endIndex = startIndex + pageSize.value;
-            homestays.value = allSearchResults.value.slice(startIndex, endIndex);
-
-            console.log(`个性化推荐分页处理: 总共${total.value}条，当前页显示${homestays.value.length}条，页码${currentPage.value}`);
-        } else if (route.query.status === 'ACTIVE') {
-            // 分页API返回分页对象 - 使用新的数据格式
-            if (response.data && response.data.data) {
-                homestays.value = response.data.data;
-                total.value = response.data.total || 0;
-                console.log(`ACTIVE状态分页处理: 第${currentPage.value}页，共${total.value}条，当前显示${homestays.value.length}条`);
-            } else {
-                homestays.value = response.data || [];
-                total.value = homestays.value.length;
-            }
-        } else {
-            // 默认情况：分页API - 使用新的数据格式
-            if (response.data && response.data.data) {
-                homestays.value = response.data.data;
-                total.value = response.data.total || 0;
-                console.log(`默认分页处理: 第${currentPage.value}页，共${total.value}条，当前显示${homestays.value.length}条`);
-            } else {
-                homestays.value = response.data || [];
-                total.value = homestays.value.length;
-            }
-        }
+        // 后端分页对象优先直接使用；仅数组老接口走前端分页兼容。
+        applyResponseData(response.data, {
+            paginateArrayFallback: hasSearchConditions() || getQueryValue(route.query.personalized) === 'true'
+        });
+        console.log(`列表数据处理: 第${currentPage.value}页，共${total.value}条，当前显示${homestays.value.length}条`);
 
     } catch (error) {
         console.error('加载民宿数据失败:', error);
@@ -438,44 +457,22 @@ const loadGroups = async () => {
 };
 
 // 搜索栏搜索处理
-const handleSearchBarSearch = (params: any) => {
+const handleSearchBarSearch = (params: SearchBarParams) => {
     console.log('执行搜索，参数:', params);
 
-    // 清除所有特殊标记，强制进入搜索模式
-    const newQuery: any = {
-        // 移除特殊标记
-        featured: undefined,
-        type: undefined,
-        status: undefined,
-        // 设置搜索参数
-        keyword: params.keyword || undefined,
-        region: params.selectedRegion?.length ? params.selectedRegion.join(',') : undefined,
-        checkIn: params.checkIn || undefined,
-        checkOut: params.checkOut || undefined,
-        guestCount: params.guestCount && params.guestCount > 1 ? params.guestCount : undefined,
-        // 添加搜索标记
-        search: 'true'
+    searchParams.value = {
+        ...params,
+        keyword: params.keyword.trim(),
+        selectedRegion: [...params.selectedRegion],
+        guestCount: params.guestCount || 1
     };
-
-    // 更新本地搜索参数
-    searchParams.value.keyword = params.keyword || '';
-    searchParams.value.selectedRegion = params.selectedRegion || [];
-    searchParams.value.checkIn = params.checkIn || null;
-    searchParams.value.checkOut = params.checkOut || null;
-    searchParams.value.guestCount = params.guestCount || 1;
-
-    // 重置分页
     currentPage.value = 1;
 
+    const newQuery = buildSearchQuery(searchParams.value, 1, pageSize.value);
     console.log('设置新的路由参数:', newQuery);
-
-    // 更新路由并立即加载数据
     router.replace({
         path: '/homestays',
         query: newQuery
-    }).then(() => {
-        console.log('路由更新完成，立即加载搜索数据');
-        loadHomestays();
     });
 };
 
@@ -492,80 +489,49 @@ const handleSearchBarReset = () => {
         guestCount: 1
     };
 
-    // 清空搜索缓存
-    allSearchResults.value = [];
-
-    // 重置分页
     currentPage.value = 1;
+    pageSize.value = DEFAULT_PAGE_SIZE;
 
-    // 清空路由查询参数并加载数据
     router.replace({ path: '/homestays' });
-
-    // 立即加载数据
-    loadHomestays();
 };
-
-// 这些方法已不再需要，因为搜索功能已集成到 SearchBar 组件中
 
 // 分页处理
 const handleSizeChange = (val: number) => {
     pageSize.value = val;
-    currentPage.value = 1; // 重置到第一页
-    loadHomestays();
+    currentPage.value = 1;
+    router.replace({
+        path: '/homestays',
+        query: withPagination(route.query, 1, val)
+    });
 };
 
 const handleCurrentChange = (val: number) => {
     currentPage.value = val;
     console.log('页码变化到:', val);
-
-    // 搜索模式下只需要重新分页，不重新请求；其他模式需要重新请求数据
-    if (route.query.search === 'true' || hasSearchConditions()) {
-        // 搜索模式：仅重新分页，使用缓存数据
-        const startIndex = (currentPage.value - 1) * pageSize.value;
-        const endIndex = startIndex + pageSize.value;
-        homestays.value = allSearchResults.value.slice(startIndex, endIndex);
-        console.log(`搜索分页: 第${currentPage.value}页，显示${homestays.value.length}条`);
-    } else {
-        // 其他模式（包括推荐和热门）：重新请求数据
-        loadHomestays();
-    }
+    router.replace({
+        path: '/homestays',
+        query: withPagination(route.query, val, pageSize.value)
+    });
 };
 
 // 初始化路由参数
 const initializeFromRoute = () => {
-    if (route.query.keyword) {
-        searchParams.value.keyword = route.query.keyword as string;
-    }
-    if (route.query.region) {
-        searchParams.value.selectedRegion = (route.query.region as string).split(',');
-    }
-    if (route.query.checkIn) {
-        searchParams.value.checkIn = route.query.checkIn as string;
-    }
-    if (route.query.checkOut) {
-        searchParams.value.checkOut = route.query.checkOut as string;
-    }
-    if (route.query.guestCount) {
-        searchParams.value.guestCount = Number(route.query.guestCount);
-    }
+    searchParams.value = parseSearchParamsFromRoute();
+    currentPage.value = getPositiveNumber(route.query.page, 1);
+    pageSize.value = getPositiveNumber(route.query.size, DEFAULT_PAGE_SIZE);
 };
 
 // 监听路由变化
-watch(() => route.query, (newQuery, oldQuery) => {
-    console.log('路由参数变化:', { newQuery, oldQuery });
-    // 只有当查询参数真正变化时才重新加载
-    if (JSON.stringify(newQuery) !== JSON.stringify(oldQuery)) {
-        initializeFromRoute();
-        loadHomestays();
-    }
-}, { deep: true });
+watch(() => route.fullPath, () => {
+    console.log('路由参数变化:', route.query);
+    initializeFromRoute();
+    loadHomestays();
+}, { immediate: true });
 
 // 初始化
 onMounted(() => {
-    initializeFromRoute();
     loadHomestayTypes();
     loadGroups();
-    loadHomestays();
     console.log('路由查询参数:', route.query);
 });
 </script>

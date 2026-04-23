@@ -45,6 +45,17 @@ const defaultSearchState: SearchState = {
 
 // 搜索超时时间（毫秒）
 const SEARCH_TIMEOUT = 15000
+const DEFAULT_PAGE_SIZE = 12
+
+const getQueryValue = (value: unknown): string | undefined => {
+  if (Array.isArray(value)) return value[0] ? String(value[0]) : undefined
+  return value !== undefined && value !== null ? String(value) : undefined
+}
+
+const getQueryNumber = (value: unknown, fallback: number): number => {
+  const parsed = Number(getQueryValue(value))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
 
 export const useSearchStore = defineStore('search', () => {
   const router = useRouter()
@@ -55,7 +66,7 @@ export const useSearchStore = defineStore('search', () => {
 
   // 分页状态
   const currentPage = ref(1)
-  const pageSize = ref(12)
+  const pageSize = ref(DEFAULT_PAGE_SIZE)
   const total = ref(0)
 
   // 搜索结果
@@ -76,7 +87,9 @@ export const useSearchStore = defineStore('search', () => {
       searchParams.propertyType !== null ||
       searchParams.minPrice !== null ||
       searchParams.maxPrice !== null ||
-      searchParams.amenities.length > 0
+      searchParams.amenities.length > 0 ||
+      searchParams.minRating !== null ||
+      searchParams.groupId !== null
     )
   })
 
@@ -148,68 +161,49 @@ export const useSearchStore = defineStore('search', () => {
   const syncFromUrl = () => {
     if (!route.query) return
 
-    if (route.query.keyword) {
-      searchParams.keyword = route.query.keyword as string
-    } else {
-      searchParams.keyword = ''
-    }
+    searchParams.keyword = getQueryValue(route.query.keyword) || ''
 
     if (route.query.region) {
-      searchParams.selectedRegion = (route.query.region as string).split(',')
+      searchParams.selectedRegion = (getQueryValue(route.query.region) || '')
+        .split(',')
+        .filter(Boolean)
     } else {
       searchParams.selectedRegion = []
     }
 
-    searchParams.checkIn = (route.query.checkIn as string) || null
-    searchParams.checkOut = (route.query.checkOut as string) || null
+    searchParams.checkIn = getQueryValue(route.query.checkIn) || null
+    searchParams.checkOut = getQueryValue(route.query.checkOut) || null
+    searchParams.guestCount = getQueryNumber(route.query.guestCount, 1)
 
-    if (route.query.guestCount) {
-      searchParams.guestCount = Number(route.query.guestCount)
-    } else {
-      searchParams.guestCount = 1
-    }
+    const queryType = getQueryValue(route.query.type)
+    searchParams.propertyType = getQueryValue(route.query.search) === 'true' && queryType && queryType !== 'popular'
+      ? queryType
+      : null
 
-    if (route.query.type) {
-      searchParams.propertyType = route.query.type as string
-    } else {
-      searchParams.propertyType = null
-    }
-
-    if (route.query.minPrice) {
-      searchParams.minPrice = Number(route.query.minPrice)
-    } else {
-      searchParams.minPrice = null
-    }
-
-    if (route.query.maxPrice) {
-      searchParams.maxPrice = Number(route.query.maxPrice)
-    } else {
-      searchParams.maxPrice = null
-    }
+    searchParams.minPrice = route.query.minPrice ? Number(getQueryValue(route.query.minPrice)) : null
+    searchParams.maxPrice = route.query.maxPrice ? Number(getQueryValue(route.query.maxPrice)) : null
 
     if (route.query.amenities) {
-      searchParams.amenities = (route.query.amenities as string).split(',')
+      searchParams.amenities = (getQueryValue(route.query.amenities) || '')
+        .split(',')
+        .filter(Boolean)
     } else {
       searchParams.amenities = []
     }
 
-    if (route.query.minRating) {
-      searchParams.minRating = Number(route.query.minRating)
-    } else {
-      searchParams.minRating = null
-    }
+    searchParams.minRating = route.query.minRating ? Number(getQueryValue(route.query.minRating)) : null
+    searchParams.groupId = route.query.groupId ? Number(getQueryValue(route.query.groupId)) : null
+    searchParams.sortBy = getQueryValue(route.query.sortBy) || defaultSearchState.sortBy
+    searchParams.sortDirection = getQueryValue(route.query.sortDirection) || defaultSearchState.sortDirection
 
-    if (route.query.page) {
-      currentPage.value = Number(route.query.page)
-    } else {
-      currentPage.value = 1
-    }
+    currentPage.value = getQueryNumber(route.query.page, 1)
+    pageSize.value = getQueryNumber(route.query.size, DEFAULT_PAGE_SIZE)
   }
 
   // 同步参数到 URL
   const syncToUrl = (options: { includePage?: boolean } = {}) => {
     const query: Record<string, string | undefined> = {
-      keyword: searchParams.keyword || undefined,
+      keyword: searchParams.keyword.trim() || undefined,
       region: searchParams.selectedRegion.length > 0
         ? searchParams.selectedRegion.join(',')
         : undefined,
@@ -224,11 +218,17 @@ export const useSearchStore = defineStore('search', () => {
       amenities: searchParams.amenities.length > 0
         ? searchParams.amenities.join(',')
         : undefined,
-      minRating: searchParams.minRating ? String(searchParams.minRating) : undefined
+      minRating: searchParams.minRating ? String(searchParams.minRating) : undefined,
+      groupId: searchParams.groupId ? String(searchParams.groupId) : undefined,
+      sortBy: searchParams.sortBy !== defaultSearchState.sortBy ? searchParams.sortBy : undefined,
+      sortDirection: searchParams.sortDirection !== defaultSearchState.sortDirection
+        ? searchParams.sortDirection
+        : undefined
     }
 
     if (options.includePage) {
-      query.page = String(currentPage.value)
+      query.page = currentPage.value > 1 ? String(currentPage.value) : undefined
+      query.size = pageSize.value !== DEFAULT_PAGE_SIZE ? String(pageSize.value) : undefined
     }
 
     // 如果是搜索模式，添加 search 标记
