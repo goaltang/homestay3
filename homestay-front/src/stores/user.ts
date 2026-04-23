@@ -1,9 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import api from "@/api";
-import { LoginRequest, RegisterRequest, AuthResponse } from "@/types/auth";
+import { RegisterRequest } from "@/types/auth";
 import { ElMessage } from "element-plus";
-import router from "@/router";
 
 export interface UserInfo {
   id: number;
@@ -33,15 +32,6 @@ interface PasswordChangeRequest {
   newPassword: string;
 }
 
-interface UserState {
-  token: string | null;
-  userInfo: UserInfo | null;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  isLandlord: boolean;
-  unreadNotificationCount: number;
-}
-
 export const useUserStore = defineStore("user", () => {
   const token = ref<string | null>(localStorage.getItem("token"));
   const userInfo = ref<UserInfo | null>(
@@ -49,12 +39,15 @@ export const useUserStore = defineStore("user", () => {
   );
 
   const isAuthenticated = computed(() => !!token.value);
-  const isAdmin = computed(() => userInfo.value?.role === "ROLE_ADMIN");
+  const normalizedRole = computed(() => userInfo.value?.role?.toUpperCase() || "");
+  const isAdmin = computed(() =>
+    normalizedRole.value === "ROLE_ADMIN" || normalizedRole.value === "ADMIN"
+  );
   const isLandlord = computed(() => {
-    if (!userInfo.value?.role) return false;
+    if (!normalizedRole.value) return false;
 
     // 支持多种可能的房东角色名称
-    const role = userInfo.value.role.toUpperCase();
+    const role = normalizedRole.value;
     const isLandlordResult =
       role === "ROLE_HOST" ||
       role === "ROLE_LANDLORD" || // 保留兼容旧数据
@@ -62,7 +55,7 @@ export const useUserStore = defineStore("user", () => {
       role === "HOST";
 
     console.log("isLandlord计算:", {
-      role: userInfo.value.role,
+      role: userInfo.value?.role,
       normalized: role,
       result: isLandlordResult,
     });
@@ -691,16 +684,6 @@ export const useUserStore = defineStore("user", () => {
     } catch (error: any) {
       console.error("上传头像失败:", error);
       throw error;
-    }
-  };
-
-  /**
-   * 保存用户信息到本地存储
-   */
-  const saveUserToLocalStorage = () => {
-    if (userInfo.value) {
-      localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
-      console.log("用户信息已保存到本地存储");
     }
   };
 

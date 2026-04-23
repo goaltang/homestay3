@@ -305,6 +305,7 @@ router.beforeEach(async (to, from, next) => {
   // 重新获取计算状态
   const isAuthenticated = !!storedToken;
   const userRole = userInfo?.role || userFromAuth?.role || "";
+  const requiredRoles = Array.isArray(to.meta.roles) ? to.meta.roles : null;
 
   console.log("路由导航:", { from: from.path, to: to.path, meta: to.meta });
   console.log("用户认证状态:", {
@@ -314,20 +315,6 @@ router.beforeEach(async (to, from, next) => {
     storedUserInfo: !!userInfo,
     storedAuthUser: !!userFromAuth,
   });
-
-  // 定义公开访问的页面（无需登录）
-  const publicPages = [
-    "/",
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/reset-password",
-    "/homestays",
-    "/homestay/:id",
-    "/homestays/:id",
-    "/map-search",
-  ];
-
 
   // 处理需要认证的页面
   if (to.meta.requiresAuth && !isAuthenticated) {
@@ -350,13 +337,26 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
+  if (requiredRoles && isAuthenticated && !userRole) {
+    console.warn("登录状态缺少角色信息，清除本地认证状态并要求重新登录");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userInfo");
+    next({
+      name: "login",
+      query: {
+        redirect: to.fullPath,
+        message: "登录状态异常，请重新登录",
+      },
+    });
+    return;
+  }
+
   // 处理角色权限检查
   if (
-    to.meta.roles &&
-    Array.isArray(to.meta.roles) &&
+    requiredRoles &&
     isAuthenticated &&
-    userRole && // 确保有角色信息
-    !to.meta.roles.some((role) => {
+    !requiredRoles.some((role) => {
       // 完全匹配
       if (userRole.toUpperCase() === role.toUpperCase()) {
         return true;
@@ -394,7 +394,7 @@ router.beforeEach(async (to, from, next) => {
   ) {
     console.warn("用户角色不符合要求:", {
       userRole: userRole,
-      requiredRoles: to.meta.roles,
+      requiredRoles,
     });
 
     // 提供更友好的错误提示
