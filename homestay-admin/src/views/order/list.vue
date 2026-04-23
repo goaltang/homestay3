@@ -484,7 +484,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { format } from 'date-fns'
 import { Search, Refresh, Download, Clock, Money, Warning, WarningFilled, House, ArrowDown } from '@element-plus/icons-vue'
@@ -494,8 +494,6 @@ import {
     exportOrders,
     batchUpdateOrderStatus,
     batchExportOrders,
-    deleteOrder,
-    batchDeleteOrders,
     confirmPayment,
     initiateRefund,
     approveRefund,
@@ -504,16 +502,12 @@ import {
     resolveDispute,
     getExceptionOrderStats,
     prepareCheckIn,
-    getCheckInCredential,
     performCheckIn,
     performCheckOut,
     cancelPrepareCheckIn,
-    selfCheckOut,
     processDeposit,
     getCheckOutRecord,
     confirmSettlement,
-    getCheckInRecord,
-    CheckInCredential,
     CheckInRecord,
     CheckOutRecord
 } from '@/api/order'
@@ -879,7 +873,7 @@ const handleCurrentChange = (val: number) => {
 }
 
 // 查看详情
-const handleDetail = (row: any) => {
+const handleDetail = (_row: any) => {
     // TODO: 跳转到订单详情页面
     ElMessage.info('订单详情功能开发中')
 }
@@ -918,7 +912,7 @@ const handleComplete = async (row: AdminOrder) => {
 // 强制取消订单（管理员异常处理）
 const handleCancel = async (row: AdminOrder) => {
     try {
-        const { value: cancelReason } = await ElMessageBox.prompt(
+        await ElMessageBox.prompt(
             `确认要强制取消订单 ${row.orderNumber} 吗？<br/><small>此操作通常用于处理违规、纠纷等异常情况</small>`,
             '强制取消订单',
             {
@@ -1048,7 +1042,7 @@ const handleBatchCancel = async () => {
     }
 
     try {
-        const { value: cancelReason } = await ElMessageBox.prompt(
+        await ElMessageBox.prompt(
             `确认要批量强制取消选中的 ${validOrders.length} 个订单吗？<br/><small>此操作通常用于处理违规、纠纷等异常情况</small>`,
             '批量强制取消',
             {

@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Fold, Expand, CaretBottom, Odometer, Document, Bell, House, List, User, ChatDotSquare, Setting } from '@element-plus/icons-vue'
+import { Fold, Expand, CaretBottom } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { menuData } from '@/config/menu'

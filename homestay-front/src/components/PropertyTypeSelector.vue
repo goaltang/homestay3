@@ -46,7 +46,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { getHomestayTypesByCategory, getHomestayTypes } from '@/api/homestay'
 
-const props = defineProps({
+defineProps({
     modelValue: {
         type: String,
         default: ''

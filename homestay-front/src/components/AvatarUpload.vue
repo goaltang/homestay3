@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { ElMessage, ElAvatar, ElUpload, ElButton, ElIcon } from 'element-plus';
 import type { UploadProps, UploadFile, UploadFiles } from 'element-plus';
 import { Upload } from '@element-plus/icons-vue';
@@ -138,7 +138,7 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = (file) => {
 };
 
 // 上传成功处理
-const handleAvatarSuccess: UploadProps['onSuccess'] = (response: any, uploadFile: UploadFile, uploadFiles: UploadFiles) => {
+const handleAvatarSuccess: UploadProps['onSuccess'] = (response: any, _uploadFile: UploadFile, _uploadFiles: UploadFiles) => {
     console.log('头像上传成功:', response);
 
     try {

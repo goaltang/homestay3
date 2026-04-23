@@ -153,9 +153,6 @@ const filterForm = reactive({
     read: null as boolean | null
 })
 
-// 计算属性
-const hasUnreadNotifications = computed(() => unreadCount.value > 0)
-
 // 方法
 const loadNotifications = async () => {
     try {

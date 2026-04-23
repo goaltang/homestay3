@@ -401,12 +401,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import {  } from 'vue-router'
 import { ElMessage, ElMessageBox, FormInstance, FormRules } from 'element-plus'
 import { Upload, House, Calendar, Document, ChatDotRound, Star, Delete, Plus, View, Service } from '@element-plus/icons-vue'
-import { getHostInfo, updateHostInfo, getHostProfile, updateHostProfile, uploadHostAvatar } from '@/api/host'
-import { useUserStore, UserInfo } from '@/stores/user'
-import { getAvatarUrl, addTimestampToUrl } from '@/utils/image'
+import { getHostProfile, updateHostProfile, uploadHostAvatar } from '@/api/host'
+import { useUserStore } from '@/stores/user'
+import { getAvatarUrl } from '@/utils/image'
 
 const userStore = useUserStore()
 const formRef = ref<FormInstance>()
@@ -558,9 +558,6 @@ const maskedIdCard = computed(() => {
     return idCard.substring(0, 6) + '*'.repeat(8) + idCard.substring(14);
 });
 
-// 上传路径
-const uploadAction = `${API_BASE_URL}/api/host/upload-document`;
-
 // 上传头像相关header
 const uploadHeaders = computed(() => {
     return {
@@ -622,7 +619,7 @@ const passwordRules = reactive<FormRules>({
     confirmPassword: [
         { required: true, message: '请确认新密码', trigger: 'blur' },
         {
-            validator: (rule, value, callback) => {
+            validator: (_rule, value, callback) => {
                 if (value !== passwordForm.newPassword) {
                     callback(new Error('两次输入的密码不一致'))
                 } else {
@@ -644,7 +641,7 @@ const formatAvatar = (url: string) => {
 };
 
 // 自定义处理图片错误函数，避免与import冲突
-const handleImageError = (e: Event, type: string = 'avatar') => {
+const handleImageError = (e: Event, _type: string = 'avatar') => {
     const img = e.target as HTMLImageElement;
     console.error(`图片加载错误: ${img.src}`);
     img.src = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';

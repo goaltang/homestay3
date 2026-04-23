@@ -74,7 +74,6 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
-import request from '@/utils/request';
 import { getDisputeRecords } from '@/api/dispute';
 
 interface DisputeRecord {

@@ -186,12 +186,6 @@ const formatTimeAgo = (dateString: string): string => {
     }
 };
 
-// 计算属性，用于决定徽章显示内容 (可以是数字或空字符串)
-// 如果后端只返回数字，前端 badge 会自动处理 max
-const unreadCountForDisplay = computed(() => {
-    return userStore.unreadNotificationCount > 0 ? userStore.unreadNotificationCount : '';
-});
-
 // 监听未读数量变化，仅在数量增加时触发动画
 watch(unreadCount, (newVal, oldVal) => {
     if (newVal > oldVal) {

@@ -12,7 +12,7 @@ const pinia = createPinia();
 
 // 注册权限指令
 app.directive("permiss", {
-  mounted(el, binding) {
+  mounted(el, _binding) {
     // 这里简单实现，默认所有菜单项都显示
     // 实际应用中应从用户权限列表中检查
     el.style.display = "block";

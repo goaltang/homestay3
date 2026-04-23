@@ -531,7 +531,7 @@ const cancelOrder = async () => {
         )
 
         // 显示取消中的加载状态
-        const loadingInstance = ElMessage({
+        ElMessage({
             type: 'info',
             message: '订单取消中...',
             duration: 0

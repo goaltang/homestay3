@@ -299,7 +299,7 @@ export function clearOrderTimers(orderId: number): void {
  * 清理所有定时器
  */
 export function clearAllTimers(): void {
-  activeTimers.forEach((timer, orderId) => {
+  activeTimers.forEach((_timer, orderId) => {
     clearOrderTimers(orderId);
   });
   activeTimers.clear();

@@ -1,13 +1,9 @@
 import axios from "axios";
 import type {
   AxiosInstance,
-  AxiosRequestConfig,
-  InternalAxiosRequestConfig,
-  AxiosError,
 } from "axios";
 import router from "../router";
 import { ElMessage } from "element-plus";
-import { useUserStore } from "../stores/user";
 
 // 扩展 AxiosRequestConfig 类型，添加 isWhitelisted 属性
 declare module "axios" {

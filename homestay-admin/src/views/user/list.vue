@@ -395,7 +395,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -750,7 +750,7 @@ const handleDelete = async (row: UserType) => {
 }
 
 // 查看操作日志
-const handleViewLogs = (row: UserType) => {
+const handleViewLogs = (_row: UserType) => {
     ElMessage.info('操作日志功能开发中...')
 }
 

@@ -26,8 +26,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import request from '@/utils/request'
 import { getHomestaysByIds } from '@/api/homestay'
 import { getUserFavorites } from '@/api/favorites'
 import { useFavoritesStore } from '@/stores/favorites'

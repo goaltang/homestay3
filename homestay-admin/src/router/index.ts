@@ -273,7 +273,7 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   try {
     const title = to.meta?.title as string | undefined;
     if (title) {

@@ -149,7 +149,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { ArrowDown } from '@element-plus/icons-vue'
 import {
@@ -160,8 +160,6 @@ import {
     getMonthlyEarnings,
     getPendingEarnings,
     settleHostEarnings,
-    type EarningsQueryParams,
-    type EarningsDetail
 } from '@/api/earnings'
 import * as echarts from 'echarts'
 import type { EChartsType } from 'echarts'
@@ -590,21 +588,6 @@ const fetchEarningsData = async () => {
 
         // 处理响应数据
         if (content.length > 0) {
-            // 安全的日期格式化函数
-            const formatDate = (dateStr: any): string => {
-                if (!dateStr) return '未知日期';
-                try {
-                    return new Date(dateStr).toLocaleDateString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit'
-                    });
-                } catch (error) {
-                    console.warn(`日期格式化失败: ${dateStr}`, error);
-                    return String(dateStr) || '未知日期';
-                }
-            };
-
             // 安全地获取数值
             const getNumber = (val: any, defaultVal: number = 0): number => {
                 return val !== undefined && val !== null ? Number(val) : defaultVal;

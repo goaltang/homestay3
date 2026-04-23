@@ -99,11 +99,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import * as echarts from 'echarts';
 import { getStatisticsData, exportStatistics } from '@/api/statistics';
 import { ElMessage } from 'element-plus';
-import { House, ShoppingCart, User, Money } from '@element-plus/icons-vue';
 
 // 日期快捷选项
 const dateShortcuts = [

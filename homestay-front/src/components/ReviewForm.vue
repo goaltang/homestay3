@@ -181,12 +181,12 @@ const handleClose = () => {
 };
 
 // 处理图片选择
-const handleImageChange = async (file: UploadFile, files: UploadFile[]) => {
+const handleImageChange = async (_file: UploadFile, files: UploadFile[]) => {
     imageFileList.value = files;
 };
 
 // 处理图片删除
-const handleImageRemove = (file: UploadFile, files: UploadFile[]) => {
+const handleImageRemove = (_file: UploadFile, files: UploadFile[]) => {
     imageFileList.value = files;
 };
 

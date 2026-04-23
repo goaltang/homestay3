@@ -197,7 +197,6 @@ import {
     updateCategoryApi,
     deleteCategoryApi
 } from '@/api/type'
-import { UPLOAD_URL } from '@/config/constants'
 
 // 数据
 const types = ref<any[]>([])
@@ -244,42 +243,9 @@ const categoryRules = {
     name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }]
 }
 
-// 上传头部
-const uploadHeaders = computed(() => {
-    return {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-})
-
 // 根据分类ID获取分类下的房源类型
 const getCategoryTypes = (categoryId: number) => {
     return types.value.filter(type => type.categoryId === categoryId)
-}
-
-// 上传图标前的验证
-const beforeIconUpload = (file: File) => {
-    const isImage = file.type.startsWith('image/')
-    const isLt2M = file.size / 1024 / 1024 < 2
-
-    if (!isImage) {
-        ElMessage.error('只能上传图片文件！')
-        return false
-    }
-    if (!isLt2M) {
-        ElMessage.error('图片大小不能超过 2MB!')
-        return false
-    }
-    return true
-}
-
-// 图标上传成功
-const handleIconSuccess = (response: any) => {
-    if (response.success) {
-        typeForm.icon = response.data.url
-        ElMessage.success('图标上传成功')
-    } else {
-        ElMessage.error(response.message || '图标上传失败')
-    }
 }
 
 // 格式化日期时间

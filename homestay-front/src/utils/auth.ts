@@ -1,8 +1,6 @@
 import axios from "axios";
 import request from "./request";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { useAuthStore } from "@/stores/auth";
-import { useUserStore } from "@/stores/user";
 import router from "@/router";
 
 /**

@@ -1075,14 +1075,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 import {
-    Clock, Edit, Check, TrendCharts, Refresh, List, User, DataAnalysis, Document,
-    Search, Picture, Location, Calendar, View, Close, House, Timer, Bell, Warning, InfoFilled, Loading, ArrowDown
+    Edit, Check, TrendCharts, Refresh, List, User, DataAnalysis, Document,
+    Search, Picture, Location, Calendar, View, Close, House, Warning, InfoFilled, Loading, ArrowDown
 } from '@element-plus/icons-vue'
 import {
     getPendingReviewHomestays,
     reviewHomestay,
     getHomestayAuditLogs,
-    getHomestayDetail,
     getHomestayDetailWithOwner,
     batchReviewHomestays,
     getActiveHomestayTypes,
@@ -1206,7 +1205,6 @@ const homestayTypes = ref<any[]>([])
 const homestayTypeMap = ref<Record<string, string>>({})
 
 // 计算属性
-const hasPendingItems = computed(() => pendingHomestays.value.length > 0)
 const hasSelectedItems = computed(() => selectedHomestays.value.length > 0)
 
 const filteredHomestays = computed(() => {
@@ -1417,38 +1415,6 @@ const submitReview = async () => {
     } finally {
         reviewSubmitting.value = false
     }
-}
-
-const quickApprove = async (homestay: Homestay) => {
-    try {
-        await ElMessageBox.confirm('确认快速批准该房源？', '确认操作', {
-            confirmButtonText: '确认批准',
-            cancelButtonText: '取消',
-            type: 'success'
-        })
-
-        const reviewData: ReviewRequest = {
-            actionType: 'APPROVE',
-            reviewReason: '符合平台标准，快速通过',
-            reviewNotes: '通过快速审核流程批准'
-        }
-
-        await reviewHomestay(homestay.id, reviewData)
-        ElMessage.success('房源已快速批准')
-        await refreshData()
-    } catch (error) {
-        if (error !== 'cancel') {
-            console.error('快速批准失败:', error)
-            ElMessage.error('快速批准失败')
-        }
-    }
-}
-
-const quickReject = (homestay: Homestay) => {
-    currentQuickRejectItem.value = homestay
-    quickRejectForm.reason = ''
-    quickRejectForm.notes = ''
-    quickRejectDialogVisible.value = true
 }
 
 const confirmQuickReject = async () => {
@@ -1734,21 +1700,12 @@ const handleQuickSelect = (command: string) => {
 
 // 导航方法
 
-const viewNotifications = () => {
-    router.push('/notifications')
-}
-
 const viewStatistics = () => {
     router.push('/audit/statistics')
 }
 
 const viewAuditHistory = () => {
     router.push('/audit/history')
-}
-
-// 违规房源处理
-const viewViolationList = () => {
-    router.push('/audit/violations')
 }
 
 // 违规管理相关数据
@@ -2098,7 +2055,6 @@ const checkViolation = (homestay: Homestay): boolean => {
     }
 
     // 4. 检查是否完全没有图片（严重问题）
-    const allImages = getHomestayAllImages(homestay)
     const hasCover = homestay.coverImage && homestay.coverImage.trim() !== ''
     const hasGallery = homestay.images && homestay.images.length > 0
 

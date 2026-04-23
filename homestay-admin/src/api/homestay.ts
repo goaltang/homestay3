@@ -25,12 +25,6 @@ interface HomestayTypeDTO {
   updatedAt?: string;
 }
 
-interface HomestayTypeApiResponse {
-  success: boolean;
-  data: HomestayTypeDTO[];
-  message?: string;
-}
-
 // 审核记录类型定义
 interface AuditLog {
   id: number;

@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import api from "@/api";
-import router from "@/router";
 
 interface User {
   id: number;

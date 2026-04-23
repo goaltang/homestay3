@@ -1,7 +1,6 @@
 import request from "@/utils/request"; // 导入封装好的 axios 实例
 import type {
   NotificationApiResponse,
-  NotificationDto,
 } from "@/types/notification";
 
 // 定义通用的分页参数类型 (如果项目中还没有)

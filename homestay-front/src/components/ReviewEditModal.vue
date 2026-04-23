@@ -118,7 +118,7 @@ const handleSubmit = async () => {
             rating: formData.rating,
             content: formData.content,
         };
-        const response = await updateReview(formData.id, payload);
+        await updateReview(formData.id, payload);
         ElMessage.success('评价修改成功');
         // 传递更新后的数据给父组件
         // 后端返回的可能是完整的 ReviewDTO，我们只需要更新 rating 和 content

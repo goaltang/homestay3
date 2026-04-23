@@ -28,7 +28,7 @@ export const initWebSocket = (userId: number | null) => {
     stompClient = Stomp.over(socket);
 
     // 调试模式下打印日志
-    stompClient.debug = (str: string) => {
+    stompClient.debug = (_str: string) => {
       // console.log(str);
     };
 
@@ -129,7 +129,7 @@ export const isWebSocketConnected = (): boolean => {
 };
 
 // 在组件卸载时自动断开连接的辅助函数
-export const useWebSocket = (userId: number | null) => {
+export const useWebSocket = (_userId: number | null) => {
   onUnmounted(() => {
     disconnectWebSocket();
   });

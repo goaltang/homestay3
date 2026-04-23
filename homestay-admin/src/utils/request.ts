@@ -1,7 +1,6 @@
 import axios from "axios";
 import { ElMessage, ElNotification } from "element-plus";
 import { useUserStore } from "@/stores/user";
-import type { AxiosRequestConfig, AxiosResponse } from "axios";
 
 // 创建一个带类型的request实例
 const request = axios.create({

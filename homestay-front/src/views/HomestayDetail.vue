@@ -141,7 +141,7 @@
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Star, StarFilled, Location, Share } from '@element-plus/icons-vue'
+import { Star, Location, Share } from '@element-plus/icons-vue'
 import { getHomestayById } from '@/api/homestay'
 import { getHomestayHostInfo } from '@/api/host'
 import { useAuthStore } from '@/stores/auth'

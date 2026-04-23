@@ -117,9 +117,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox, FormInstance, FormRules, UploadProps, UploadUserFile, UploadRequestOptions, UploadInstance } from 'element-plus';
+import { ElMessage, FormInstance, FormRules, UploadProps, UploadUserFile, UploadRequestOptions, UploadInstance } from 'element-plus';
 import { Plus } from '@element-plus/icons-vue';
-import { regionData, codeToText } from 'element-china-area-data';
+import { regionData } from 'element-china-area-data';
 import { getHomestayDetail, createHomestay, updateHomestay, getActiveHomestayTypes } from '@/api/homestay';
 import { getAllAvailableAmenities } from '@/api/amenity';
 import { uploadHomestayCoverImage, uploadHomestayMultipleImages, deleteHomestayImage } from '@/api/homestayImage';
@@ -386,7 +386,7 @@ const beforeImageUpload: UploadProps['beforeUpload'] = (rawFile) => {
     return true;
 };
 
-const handleCoverRemove: UploadProps['onRemove'] = async (uploadFile, uploadFiles) => {
+const handleCoverRemove: UploadProps['onRemove'] = async (uploadFile, _uploadFiles) => {
     if (isEditMode.value && homestayId.value) {
         const imageIdToDelete = (uploadFile.response as ImageUploadResponse)?.id;
         // Also handle case where image was loaded initially (response might be null but url exists)
@@ -483,7 +483,7 @@ const handleMultipleRemove: UploadProps['onRemove'] = async (uploadFile, uploadF
     }
 };
 
-const handleExceed: UploadProps['onExceed'] = (files, uploadFiles) => {
+const handleExceed: UploadProps['onExceed'] = (files, _uploadFiles) => {
     ElMessage.warning(
         `封面图只能上传一张, 您选择了 ${files.length} 张, 本次上传已取消。`
     )
@@ -603,16 +603,15 @@ const submitForm = async () => {
                 delete dataToSubmit.district;
                 delete dataToSubmit.address;
 
-                let resultHomestay;
                 if (isEditMode.value && homestayId.value) {
                     // --- 更新房源 ---
-                    resultHomestay = await updateHomestay(homestayId.value, dataToSubmit);
+                    await updateHomestay(homestayId.value, dataToSubmit);
                     ElMessage.success('房源更新成功');
                 } else {
                     // --- 创建房源 ---
                     // 确保 status 正确设置
                     dataToSubmit.status = 'PENDING'; // 或者根据需要设置
-                    resultHomestay = await createHomestay(dataToSubmit);
+                    await createHomestay(dataToSubmit);
                     ElMessage.success('房源创建成功');
                 }
                 // --- 图片上传处理 (根据需要调整) ---

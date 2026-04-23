@@ -69,9 +69,6 @@ const { options, formData, edit, update, add, animeOperator } = defineProps({
 	}
 });
 
-// 定义 rowData
-const rowData = ref({ ...formData });
-
 // const form = ref({ ...(edit ? formData : {}) });
 
 //使用 watch 监听 edit 的变化，来动态调整表单字段
@@ -135,7 +132,7 @@ const save = (formEl: FormInstance | undefined) => {
 
 
 
-const handleAvatarSuccess: UploadProps['onSuccess'] = (response, uploadFile) => {
+const handleAvatarSuccess: UploadProps['onSuccess'] = (_response, uploadFile) => {
 	form.value.thumb = URL.createObjectURL(uploadFile.raw!);
 };
 

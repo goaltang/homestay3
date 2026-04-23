@@ -34,7 +34,6 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance } from 'element-plus'
 import request from '@/utils/request'
-import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,7 +45,7 @@ const form = reactive({
     confirmPassword: '',
 })
 
-const validatePass2 = (rule: any, value: string, callback: any) => {
+const validatePass2 = (_rule: any, value: string, callback: any) => {
     if (value === '') {
         callback(new Error('请再次输入密码'))
     } else if (value !== form.newPassword) {

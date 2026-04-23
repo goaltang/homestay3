@@ -148,28 +148,12 @@ const onMapLoad = () => {
     console.log('地图图片加载成功')
 }
 
-// 调试静态地图URL
-const debugMapUrl = computed(() => {
-    console.log('LocationInfo Props Debug:', {
-        staticMapUrl: props.staticMapUrl,
-        hasLocation: props.hasLocation,
-        mapLoading: props.mapLoading,
-        staticMapUrlLength: props.staticMapUrl?.length || 0
-    })
-    return props.staticMapUrl
-})
-
-// 强制使用最新的地图URL（临时修复）
+// 地图URL：优先使用传入的静态地图URL，不再硬编码API Key
 const forceMapUrl = computed(() => {
-    // 如果有传入的地图URL，使用它
     if (props.staticMapUrl && props.staticMapUrl.length > 0) {
-        console.log('使用传入的地图URL:', props.staticMapUrl)
         return props.staticMapUrl
     }
-    // 否则使用从控制台日志中看到的最新生成的地图URL
-    const latestUrl = "https://restapi.amap.com/v3/staticmap?location=116.67068126334402,34.459937701784526&zoom=15&size=800*400&markers=mid,0xFF0000,A:116.67068126334402,34.459937701784526&key=13725cc6ef2c302a407b3a2d12247ac5"
-    console.log('使用硬编码的最新地图URL:', latestUrl)
-    return latestUrl
+    return ''
 })
 
 // 监视 staticMapUrl 变化

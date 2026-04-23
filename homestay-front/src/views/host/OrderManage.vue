@@ -841,9 +841,6 @@ import { Search, Refresh, Clock, CircleCheck, Warning, Setting, ArrowDown } from
 import request from '@/utils/request'
 import {
     getHostOrders,
-    updateOrderStatus,
-    confirmOrder,
-    rejectOrder,
     cancelOrder,
     getHostOrderStats,
     hostInitiateRefund,
@@ -854,12 +851,10 @@ import {
     getCheckInCredential,
     performCheckIn,
     cancelPrepareCheckIn,
-    getCheckInRecord,
     performCheckOut,
     getCheckOutRecord,
     processDeposit,
-    confirmSettlement,
-    updateExtraCharges
+    confirmSettlement
 } from '@/api/hostOrder'
 import { getHostHomestayOptions } from '@/api/host'
 

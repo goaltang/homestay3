@@ -411,9 +411,7 @@ import { ElMessage, ElMessageBox, FormInstance } from 'element-plus'
 import type { UploadUserFile } from 'element-plus'
 import { regionData, codeToText } from 'element-china-area-data' // 导入省市区数据 和 codeToText (小写c)
 import {
-    Plus, Delete, Edit, Search, Setting, Location,
-    Check, Star, HomeFilled, Van, SwitchButton,
-    Connection, Compass, Document, Picture,
+    Picture,
     Lightning, User, InfoFilled
 } from '@element-plus/icons-vue'
 import {
@@ -424,20 +422,15 @@ import {
     createHomestay as createHomestayApi,
     saveHomestayDraft,
     getHomestayGroups,
-    getProvinces,
-    getCities,
-    getDistricts
+    getProvinces
 } from '@/api/homestay'
 import {
-    getAmenitiesByCategoryApi,
-    addAmenityToHomestayApi,
-    addAllAmenitiesToHomestayApi,
-    removeAllAmenitiesFromHomestayApi
+    getAmenitiesByCategoryApi
 } from '@/api/amenities'
 import AmenitySelector from '@/components/AmenitySelector.vue'
 import type { Homestay } from '@/types/homestay'
 import PropertyTypeSelector from '@/components/PropertyTypeSelector.vue'
-import { detailedAuthCheck, getCurrentUser, isLoggedIn, checkAuthentication as checkAuthAPI, ensureUserLoggedIn } from "@/utils/auth"
+import { checkAuthentication as checkAuthAPI, ensureUserLoggedIn } from "@/utils/auth"
 
 const route = useRoute()
 const router = useRouter()
@@ -556,13 +549,6 @@ const cities = ref<any[]>([])
 const districts = ref<any[]>([])
 const homestayTypes = ref<any[]>([])
 const amenities = ref<any[]>([])
-
-// 上传headers
-const uploadHeaders = computed(() => {
-    return {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-})
 
 // 步骤导航方法
 const nextStep = async () => {
@@ -806,8 +792,7 @@ const handleSubmit = async () => {
                 const homestayId = Number(route.params.id);
                 console.log('编辑房源(不含设施)', homestayId, formToSubmit);
 
-                // 确保当前有有效token和用户名
-                const token = localStorage.getItem('token');
+                // 确保当前有有效用户名
                 let username = '';
                 try {
                     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
@@ -826,13 +811,6 @@ const handleSubmit = async () => {
                     loading.value = false;
                     return;
                 }
-
-                // 设置明确的请求头
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'X-Username': username
-                };
 
                 // 发送请求
                 response = await updateHomestayApi(homestayId, formToSubmit);
@@ -960,18 +938,6 @@ const handleSubmit = async () => {
     }
 }
 
-// 取消
-const handleCancel = () => {
-    ElMessageBox.confirm('确定要取消操作吗？未保存的数据将丢失，您可以选择"保存草稿"保留已填写的内容。', '提示', {
-        confirmButtonText: '确定离开',
-        cancelButtonText: '继续编辑',
-        distinguishCancelAndClose: true,
-        type: 'warning'
-    }).then(() => {
-        router.push('/host/homestay')
-    }).catch(() => { })
-}
-
 // 获取下拉选项
 const fetchOptions = async () => {
     try {
@@ -988,229 +954,11 @@ const fetchOptions = async () => {
     }
 }
 
-// 根据省份获取城市列表
-const fetchCities = async (provinceCode: string) => {
-    try {
-        const res = await getCities(provinceCode)
-        cities.value = res?.data?.data || []
-    } catch (error) {
-        console.error('获取城市列表失败', error)
-        ElMessage.error('获取城市列表失败，请稍后再试')
-    }
-}
 
-// 根据城市获取区县列表
-const fetchDistricts = async (cityCode: string) => {
-    try {
-        const res = await getDistricts(cityCode)
-        districts.value = res?.data?.data || []
-    } catch (error) {
-        console.error('获取区县列表失败', error)
-        ElMessage.error('获取区县列表失败，请稍后再试')
-    }
-}
-
-// 获取房源详情
-const fetchHomestayDetail = async () => {
-    if (!isEdit.value) {
-        // 如果不是编辑模式，尝试加载草稿
-        const draftData = localStorage.getItem('homestayDraft');
-        if (draftData) {
-            try {
-                const parsedDraft = JSON.parse(draftData);
-
-                // 检查草稿是否过期（超过7天）
-                const lastSavedTime = parsedDraft._lastSaved ? new Date(parsedDraft._lastSaved) : null;
-                const now = new Date();
-                const isExpired = lastSavedTime && ((now.getTime() - lastSavedTime.getTime()) > 7 * 24 * 60 * 60 * 1000);
-
-                // 格式化上次保存时间
-                const lastSavedText = lastSavedTime ?
-                    lastSavedTime.toLocaleString() :
-                    '未知时间';
-
-                const confirmMessage = isExpired ?
-                    `发现一个较旧的房源草稿（保存于${lastSavedText}），是否仍要加载？` :
-                    `发现您有未完成的房源草稿（保存于${lastSavedText}），是否加载？`;
-
-                // 提示用户是否加载草稿
-                ElMessageBox.confirm(confirmMessage, '提示', {
-                    confirmButtonText: '加载草稿',
-                    cancelButtonText: '不加载',
-                    type: isExpired ? 'warning' : 'info'
-                }).then(() => {
-                    // 应用草稿数据到表单
-                    Object.assign(homestayForm, parsedDraft);
-
-                    // 设置最后保存时间
-                    if (lastSavedTime) {
-                        lastSaved.value = lastSavedTime;
-                    }
-
-                    ElMessage.success('草稿加载成功');
-
-                    // 加载关联数据
-                    if (parsedDraft.provinceCode) {
-                        fetchCities(parsedDraft.provinceCode);
-                    }
-                    if (parsedDraft.cityCode) {
-                        fetchDistricts(parsedDraft.cityCode);
-                    }
-                }).catch(() => {
-                    // 用户选择不加载
-                    localStorage.removeItem('homestayDraft');
-                    ElMessage.info('已忽略旧草稿');
-                });
-            } catch (error) {
-                console.error('解析草稿数据失败:', error);
-                ElMessage.error('草稿数据已损坏，无法加载');
-                localStorage.removeItem('homestayDraft');
-            }
-        }
-        return;
-    }
-
-    try {
-        loading.value = true
-        console.log('正在获取房源详情，ID:', homestayId.value)
-        const res = await getHomestayById(homestayId.value)
-        console.log('获取到的房源详情数据:', res)
-
-        // 检查amenities数据
-        if (res?.data?.amenities) {
-            console.log('获取到的设施数据:', JSON.stringify(res.data.amenities));
-            console.log('设施数量:', res.data.amenities.length);
-
-            // 记录每个设施的详细信息
-            res.data.amenities.forEach((amenity: any, index: number) => {
-                console.log(`设施 ${index + 1}:`,
-                    `value=${amenity.value}`,
-                    `label=${amenity.label}`,
-                    `icon=${amenity.icon || '无图标'}`);
-            });
-        } else {
-            console.warn('API响应中没有设施数据');
-        }
-
-        // 改变解析方式，检查不同的数据路径
-        let homestay = null
-
-        // 尝试不同的数据路径
-        if (res?.data?.data) {
-            homestay = res.data.data
-            console.log('使用标准数据路径 res.data.data')
-        } else if (res?.data) {
-            homestay = res.data
-            console.log('使用简化数据路径 res.data')
-        }
-
-        // 检查homestay是否包含必要字段
-        if (homestay && homestay.id) {
-            console.log('找到有效的房源数据:', homestay)
-
-            // 直接批量赋值主要字段，添加更多的默认值处理
-            homestayForm.title = homestay.title || '';
-            homestayForm.type = homestay.type || '';
-            homestayForm.price = typeof homestay.price === 'string' ? homestay.price : String(homestay.price || 0);
-            homestayForm.status = homestay.status || 'DRAFT';
-            homestayForm.maxGuests = typeof homestay.maxGuests === 'number' ? homestay.maxGuests : 1;
-            homestayForm.minNights = typeof homestay.minNights === 'number' ? homestay.minNights : 1;
-            homestayForm.provinceCode = homestay.provinceCode || '';
-            homestayForm.cityCode = homestay.cityCode || '';
-            homestayForm.districtCode = homestay.districtCode || '';
-            homestayForm.addressDetail = homestay.addressDetail || '';
-            homestayForm.description = homestay.description || '';
-            homestayForm.coverImage = homestay.coverImage || '';
-            homestayForm.featured = !!homestay.featured;
-
-            // 尝试从描述中提取亮点和周边环境（实际应该由后端提供单独字段）
-            const description = homestayForm.description || '';
-            const descParts = description.split(/\n\n/);
-            if (descParts.length > 1) {
-                // 简单处理，假设描述格式包含"房源亮点："和"周边环境："
-                const highlightsMatch = description.match(/房源亮点：\n([\s\S]*?)(?=\n\n|$)/);
-                if (highlightsMatch && highlightsMatch[1]) {
-                    homestayForm.highlights = highlightsMatch[1].trim();
-                }
-
-                const surroundingsMatch = description.match(/周边环境：\n([\s\S]*?)(?=\n\n|$)/);
-                if (surroundingsMatch && surroundingsMatch[1]) {
-                    homestayForm.surroundings = surroundingsMatch[1].trim();
-                }
-
-                // 清理原始描述中的这些部分
-                homestayForm.description = description
-                    .replace(/房源亮点：\n[\s\S]*?(?=\n\n|$)/, '')
-                    .replace(/周边环境：\n[\s\S]*?(?=\n\n|$)/, '')
-                    .trim();
-            }
-
-            // 确保amenities是数组
-            if (homestay.amenities && Array.isArray(homestay.amenities)) {
-                console.log('设置amenities数据，原始数据:', JSON.stringify(homestay.amenities));
-                homestayForm.amenities = [...homestay.amenities];
-                console.log('设置后的amenities数据:', JSON.stringify(homestayForm.amenities));
-
-                // 打印每个设施的详细信息
-                homestayForm.amenities.forEach((amenity: any, index: number) => {
-                    console.log(`表单中的设施 ${index + 1}:`,
-                        typeof amenity === 'string' ? amenity :
-                            `value=${amenity.value || '无value'}, label=${amenity.label || '无label'}`);
-                });
-            } else {
-                homestayForm.amenities = [];
-                console.warn('房源没有amenities数组或格式不正确, 原始值:', homestay.amenities);
-            }
-
-            // 确保images是数组
-            if (homestay.images && Array.isArray(homestay.images)) {
-                // 过滤掉空值
-                const validImages = homestay.images.filter((url: any) => url != null && url !== '');
-                homestayForm.images = [...validImages];
-
-                // 更新文件列表显示
-                fileList.value = validImages.map((url: string) => {
-                    return {
-                        name: url.includes('/') ? url.substring(url.lastIndexOf('/') + 1) : `图片${Math.random().toString(36).substring(2, 8)}`,
-                        url
-                    }
-                });
-                console.log('处理后的图片列表:', fileList.value);
-            } else {
-                homestayForm.images = [];
-                fileList.value = [];
-                console.warn('房源没有images数组或格式不正确');
-            }
-
-            // 加载当前城市和区县的选项
-            if (homestay.provinceCode) {
-                console.log('加载城市列表，省份代码:', homestay.provinceCode);
-                await fetchCities(homestay.provinceCode);
-            }
-            if (homestay.cityCode) {
-                console.log('加载区县列表，城市代码:', homestay.cityCode);
-                await fetchDistricts(homestay.cityCode);
-            }
-
-            console.log('表单数据填充完成:', homestayForm);
-        } else {
-            console.error('房源数据格式不正确:', res);
-            throw new Error('房源数据格式不正确');
-        }
-    } catch (error: any) {
-        console.error('获取房源详情失败', error);
-        ElMessage.error(error.message || '获取房源详情失败');
-        router.push('/host/homestay');
-    } finally {
-        loading.value = false;
-    }
-}
 
 // 添加引用和状态
 const uploadingCover = ref(false)
 const uploadingGallery = ref(false)
-const coverUploadRef = ref<HTMLInputElement | null>(null)
-const galleryUploadRef = ref<HTMLInputElement | null>(null)
 
 // 自定义处理上传函数
 const handleCustomUpload = (type: 'cover' | 'gallery') => {
@@ -1611,24 +1359,6 @@ const initEditForm = async () => {
     }
 }
 
-// 初始化位置级联选择器
-const initLocationCascader = async () => {
-    try {
-        loading.value = true;
-        // 获取省份数据
-        const provinceRes = await getProvinces();
-        if (provinceRes?.data?.data) {
-            provinces.value = provinceRes.data.data;
-        }
-
-        // ... existing code ...
-    } catch (error) {
-        // ... existing code ...
-    } finally {
-        loading.value = false;
-    }
-};
-
 // 添加加载草稿函数
 const loadDraft = () => {
     console.log('尝试加载草稿数据');
@@ -1763,54 +1493,6 @@ const processAmenities = (amenitiesData: any[]): { value: string, label?: string
     return result;
 };
 
-// 处理省份变更
-const handleProvinceChange = async (value: string) => {
-    console.log('省份变更:', value);
-    homestayForm.cityCode = '';
-    homestayForm.districtCode = '';
-    cities.value = [];
-    districts.value = [];
-
-    if (!value) return;
-
-    try {
-        loadingLocationData.value = true;
-        const response = await getCities(value);
-        if (response?.data?.data) {
-            cities.value = response.data.data;
-            console.log(`加载城市成功, 数量: ${cities.value.length}`);
-        }
-    } catch (error) {
-        console.error('加载城市数据失败:', error);
-        ElMessage.error('加载城市数据失败');
-    } finally {
-        loadingLocationData.value = false;
-    }
-};
-
-// 处理城市变更
-const handleCityChange = async (value: string) => {
-    console.log('城市变更:', value);
-    homestayForm.districtCode = '';
-    districts.value = [];
-
-    if (!value) return;
-
-    try {
-        loadingLocationData.value = true;
-        const response = await getDistricts(value);
-        if (response?.data?.data) {
-            districts.value = response.data.data;
-            console.log(`加载区县成功, 数量: ${districts.value.length}`);
-        }
-    } catch (error) {
-        console.error('加载区县数据失败:', error);
-        ElMessage.error('加载区县数据失败');
-    } finally {
-        loadingLocationData.value = false;
-    }
-};
-
 // 移除封面图片
 const removeCoverImage = () => {
     homestayForm.coverImage = '';
@@ -1877,39 +1559,6 @@ const beforeUpload = (file: File) => {
     }
 
     return true;
-};
-
-// 添加保存草稿的函数引用
-const saveFormAsDraft = async () => {
-    try {
-        const processedData = preprocessFormData();
-        processedData.status = 'DRAFT';
-
-        let result;
-        if (isEdit.value && homestayId.value) {
-            // 更新现有房源
-            result = await updateHomestayApi(homestayId.value, processedData);
-        } else {
-            // 创建新房源
-            result = await createHomestayApi(processedData);
-        }
-
-        if (result && result.success) {
-            lastSaved.value = new Date();
-            console.log('表单已自动保存为草稿');
-
-            // 如果是新创建的房源且有id返回，更新当前状态
-            if (!isEdit.value && result.data && result.data.id) {
-                console.log('新房源已创建，ID:', result.data.id);
-
-                // 不直接修改computed值，而是使用路由导航
-                router.replace(`/host/homestay/edit/${result.data.id}`);
-            }
-        }
-    } catch (error) {
-        console.error('自动保存草稿出错:', error);
-        // 静默处理错误，不显示消息
-    }
 };
 
 // 添加这个函数到onMounted之前的位置

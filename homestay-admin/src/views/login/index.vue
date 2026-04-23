@@ -59,13 +59,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from "vue";
+import { ref, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import type { FormInstance, FormItemRule } from "element-plus";
+import type { FormInstance } from "element-plus";
 import { ElMessage } from "element-plus";
 import { login } from '@/api/auth';
-import type { LoginResult } from '@/api/auth';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -112,7 +111,7 @@ const resetRules = {
   confirmPassword: [
     { required: true, message: "请确认新密码", trigger: "blur" },
     {
-      validator: (rule: any, value: string, callback: (error?: Error) => void) => {
+      validator: (_rule: any, value: string, callback: (error?: Error) => void) => {
         if (value !== resetForm.newPassword) {
           callback(new Error("两次输入的密码不一致"));
         } else {

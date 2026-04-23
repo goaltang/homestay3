@@ -41,10 +41,10 @@
                 <el-table-column v-if="item.visible" :prop="item.prop" :label="item.label" :width="item.width"
                     :type="item.type" :align="item.align || 'center'">
 
-                    <template #default="{ row, column, $index }" v-if="item.type === 'index'">
+                    <template #default="{ _row, _column, $index }" v-if="item.type === 'index'">
                         {{ getIndex($index) }}
                     </template>
-                    <template #default="{ row, column, $index }" v-if="!item.type">
+                    <template #default="{ row, _column, $index }" v-if="!item.type">
                         <slot :name="item.prop" :rows="row" :index="$index">
                             <template v-if="item.prop == 'operator'">
                                 <el-button type="warning" size="small" :icon="View" @click="viewFunc(row)">

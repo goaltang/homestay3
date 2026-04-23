@@ -48,11 +48,6 @@ const {
     removeRecentSearch
 } = useSearchSuggestions()
 
-// 选择目的地
-const handleSelect = (suggestion: { label: string; value: string[] }) => {
-    emit('select', suggestion)
-}
-
 // 清除最近搜索
 const handleClearRecent = () => {
     clearRecentSearches()

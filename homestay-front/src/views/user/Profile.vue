@@ -117,55 +117,20 @@
 import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { ElMessage } from 'element-plus';
-import type { UploadRequestOptions } from 'element-plus';
-import { Loading } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
-import request from '@/utils/request';
-import { getAvatarUrl } from '@/utils/image';
-import axios from 'axios';
 import AvatarUpload from '@/components/AvatarUpload.vue';
 
 const userStore = useUserStore();
 const router = useRouter();
 const activeTab = ref('basic');
-const loading = ref(false);
 const mode = ref(import.meta.env.MODE || 'development');
 const isDev = ref(mode.value === 'development');
 
 // 表单数据
-const form = ref({
-    username: userStore.userInfo?.username || "",
-    email: userStore.userInfo?.email || "",
-    phone: userStore.userInfo?.phone || "",
-    realName: userStore.userInfo?.realName || "",
-    idCard: userStore.userInfo?.idCard || "",
-});
-
 // 认证状态相关
 const isVerified = computed(() => {
     // 如果有真实姓名和身份证号，则认为已认证
     return !!(userStore.userInfo?.realName && userStore.userInfo?.idCard);
-});
-
-const verificationStatusType = computed(() => {
-    if (userStore.userInfo?.realName && userStore.userInfo?.idCard) {
-        return 'success';
-    }
-    return 'info';
-});
-
-const verificationStatusText = computed(() => {
-    if (userStore.userInfo?.realName && userStore.userInfo?.idCard) {
-        return '已认证';
-    }
-    return '未认证';
-});
-
-const verificationStatusClass = computed(() => {
-    return {
-        'verified': !!(userStore.userInfo?.realName && userStore.userInfo?.idCard),
-        'unverified': !(userStore.userInfo?.realName && userStore.userInfo?.idCard)
-    };
 });
 
 // 信息脱敏处理
@@ -227,7 +192,7 @@ const passwordRules = {
     confirmPassword: [
         { required: true, message: '请确认新密码', trigger: 'blur' },
         {
-            validator: (rule: any, value: string, callback: Function) => {
+            validator: (_rule: any, value: string, callback: Function) => {
                 if (value !== passwordForm.value.newPassword) {
                     callback(new Error('两次输入的密码不一致'));
                 } else {

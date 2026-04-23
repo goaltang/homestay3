@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { reactive, computed } from 'vue'
 import { Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
@@ -106,7 +106,7 @@ interface Props {
     selectedGroupId?: number | null
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
     propertyTypes: () => [],
     groupedAmenities: () => [],
     amenitiesLoading: false,

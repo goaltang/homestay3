@@ -918,7 +918,7 @@ const confirmCancel = async () => {
         if (!orderData.value) return
 
         // 显示取消中的加载状态
-        const loadingInstance = ElMessage({
+        ElMessage({
             type: 'info',
             message: '订单取消中...',
             duration: 0
@@ -1217,7 +1217,7 @@ const confirmRequestRefund = async () => {
             return
         }
 
-        const loadingInstance = ElMessage({
+        ElMessage({
             type: 'info',
             message: '正在提交退款申请...',
             duration: 0
@@ -1271,7 +1271,7 @@ const confirmRaiseDispute = async () => {
             return
         }
 
-        const loadingInstance = ElMessage({
+        ElMessage({
             type: 'info',
             message: '正在提交争议申请...',
             duration: 0

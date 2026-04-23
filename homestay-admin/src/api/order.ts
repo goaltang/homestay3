@@ -1,10 +1,8 @@
 import request from "@/utils/request";
-import type { Order, OrderSearchParams } from "@/types";
+import type { OrderSearchParams } from "@/types";
 import {
   adaptPageParams,
-  adaptPageResponse,
   adaptOrderStatus,
-  adaptOrderItem,
 } from "@/utils/adapter";
 
 // --- 定义更具体的类型 ---
@@ -266,17 +264,7 @@ export function getExceptionOrderStats() {
   });
 }
 
-// 订单状态转换函数
-function convertOrderStatus(backendStatus: string): string {
-  switch (backendStatus) {
-    case "PENDING":
-      return "0"; // 待支付
-    case "PAID":
-      return "1"; // 已支付
-    case "CANCELLED":
-      return "2"; // 已取消
-    case "COMPLETED":
-      return "3"; // 已完成
+
     default:
       return "0"; // 默认为待支付
   }

@@ -54,18 +54,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import {  } from 'vue'
 import {
     House, Star, Key, Check, InfoFilled, Trophy, Camera, ChatRound,
-    OfficeBuilding, MagicStick, HomeFilled, KnifeFork, Van, Coffee, Ship, View, Bell, Food, Refrigerator, Present, Medal, Suitcase, Sunny, Place, Opportunity, Discount, Umbrella,
+    OfficeBuilding, MagicStick, HomeFilled, KnifeFork, Van, Coffee, Ship, Bell, Refrigerator, Present, Medal, Suitcase, Sunny, Opportunity, Umbrella,
     Monitor, CaretRight, ShoppingCart, Document, Service,
     Promotion, ChatDotRound, Timer, Connection, Tools, VideoPlay,
     LocationFilled, Phone, User, Microphone, VideoCamera, PriceTag,
     Setting, Operation, Basketball, Football, TakeawayBox,
     Guide, MessageBox, FirstAidKit, Flag, Orange,
     Headset, Tickets, MapLocation, DataLine, Bicycle,
-    Moon, Cherry, Sunrise, Warning, CircleCheck, TrendCharts,
-    HotWater, Goods, Sell, Loading, More, Switch
+    Moon, Cherry, Sunrise, Warning, CircleCheck,
+    HotWater
 } from '@element-plus/icons-vue'
 
 // Types
@@ -90,7 +90,7 @@ interface Props {
     keyFeatures?: string[]
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
     showFallback: true,
     propertyType: '特色住宿',
     maxGuests: 1,

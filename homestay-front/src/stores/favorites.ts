@@ -8,7 +8,6 @@ import {
   getUserFavoriteIds,
   clearUserFavorites as clearUserFavoritesApi,
   getUserFavoriteCount,
-  checkFavoriteStatus,
 } from "@/api/favorites";
 
 export const useFavoritesStore = defineStore("favorites", () => {
