@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.controller;
 
-import com.homestay3.homestaybackend.dto.HomestayDTO;
+import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
 import com.homestay3.homestaybackend.dto.PagedResponse;
 import com.homestay3.homestaybackend.dto.UserRecommendationRequest;
 import com.homestay3.homestaybackend.service.HomestayRecommendationService;
@@ -24,7 +24,6 @@ import java.util.List;
 public class HomestayRecommendationController {
 
     private final HomestayRecommendationService recommendationService;
-
     @Autowired
     public HomestayRecommendationController(HomestayRecommendationService recommendationService) {
         this.recommendationService = recommendationService;
@@ -42,13 +41,13 @@ public class HomestayRecommendationController {
             // 如果提供了分页参数，使用分页查询
             if (page != null && size != null) {
                 Pageable pageable = PageRequest.of(page, size);
-                PagedResponse<HomestayDTO> popularHomestaysPagedResponse = recommendationService.getPopularHomestaysPage(pageable);
+                PagedResponse<HomestaySummaryDTO> popularHomestaysPagedResponse = recommendationService.getPopularHomestaysPage(pageable);
                 // 转换为标准的Page对象返回给前端
-                Page<HomestayDTO> popularHomestaysPage = popularHomestaysPagedResponse.toPage(pageable);
+                Page<HomestaySummaryDTO> popularHomestaysPage = popularHomestaysPagedResponse.toPage(pageable);
                 return ResponseEntity.ok(popularHomestaysPage);
             } else {
                 // 否则使用原有的limit查询
-                List<HomestayDTO> popularHomestays = recommendationService.getPopularHomestays(limit);
+                List<HomestaySummaryDTO> popularHomestays = recommendationService.getPopularHomestays(limit);
                 return ResponseEntity.ok(popularHomestays);
             }
         } catch (Exception e) {
@@ -69,13 +68,13 @@ public class HomestayRecommendationController {
             // 如果提供了分页参数，使用分页查询
             if (page != null && size != null) {
                 Pageable pageable = PageRequest.of(page, size);
-                PagedResponse<HomestayDTO> recommendedHomestaysPagedResponse = recommendationService.getRecommendedHomestaysPage(pageable);
+                PagedResponse<HomestaySummaryDTO> recommendedHomestaysPagedResponse = recommendationService.getRecommendedHomestaysPage(pageable);
                 // 转换为标准的Page对象返回给前端
-                Page<HomestayDTO> recommendedHomestaysPage = recommendedHomestaysPagedResponse.toPage(pageable);
+                Page<HomestaySummaryDTO> recommendedHomestaysPage = recommendedHomestaysPagedResponse.toPage(pageable);
                 return ResponseEntity.ok(recommendedHomestaysPage);
             } else {
                 // 否则使用原有的limit查询
-                List<HomestayDTO> recommendedHomestays = recommendationService.getRecommendedHomestays(limit);
+                List<HomestaySummaryDTO> recommendedHomestays = recommendationService.getRecommendedHomestays(limit);
                 return ResponseEntity.ok(recommendedHomestays);
             }
         } catch (Exception e) {
@@ -88,11 +87,11 @@ public class HomestayRecommendationController {
      * 获取个性化推荐民宿
      */
     @GetMapping("/personalized/{userId}")
-    public ResponseEntity<List<HomestayDTO>> getPersonalizedRecommendations(
+    public ResponseEntity<List<HomestaySummaryDTO>> getPersonalizedRecommendations(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "6") int limit) {
         try {
-            List<HomestayDTO> personalizedHomestays = recommendationService.getPersonalizedRecommendations(userId, limit);
+            List<HomestaySummaryDTO> personalizedHomestays = recommendationService.getPersonalizedRecommendations(userId, limit);
             return ResponseEntity.ok(personalizedHomestays);
         } catch (Exception e) {
             log.error("获取个性化推荐民宿失败，用户ID: {}", userId, e);
@@ -104,12 +103,12 @@ public class HomestayRecommendationController {
      * 获取基于位置的推荐民宿
      */
     @GetMapping("/location")
-    public ResponseEntity<List<HomestayDTO>> getLocationBasedRecommendations(
+    public ResponseEntity<List<HomestaySummaryDTO>> getLocationBasedRecommendations(
             @RequestParam String provinceCode,
             @RequestParam String cityCode,
             @RequestParam(defaultValue = "6") int limit) {
         try {
-            List<HomestayDTO> locationHomestays = recommendationService.getLocationBasedRecommendations(
+            List<HomestaySummaryDTO> locationHomestays = recommendationService.getLocationBasedRecommendations(
                     provinceCode, cityCode, limit);
             return ResponseEntity.ok(locationHomestays);
         } catch (Exception e) {
@@ -122,11 +121,11 @@ public class HomestayRecommendationController {
      * 获取相似民宿推荐
      */
     @GetMapping("/similar/{homestayId}")
-    public ResponseEntity<List<HomestayDTO>> getSimilarHomestays(
+    public ResponseEntity<List<HomestaySummaryDTO>> getSimilarHomestays(
             @PathVariable Long homestayId,
             @RequestParam(defaultValue = "6") int limit) {
         try {
-            List<HomestayDTO> similarHomestays = recommendationService.getSimilarHomestays(homestayId, limit);
+            List<HomestaySummaryDTO> similarHomestays = recommendationService.getSimilarHomestays(homestayId, limit);
             return ResponseEntity.ok(similarHomestays);
         } catch (Exception e) {
             log.error("获取相似民宿推荐失败，民宿ID: {}", homestayId, e);
@@ -138,10 +137,10 @@ public class HomestayRecommendationController {
      * 根据用户请求获取推荐
      */
     @PostMapping("/custom")
-    public ResponseEntity<List<HomestayDTO>> getRecommendationsByRequest(
+    public ResponseEntity<List<HomestaySummaryDTO>> getRecommendationsByRequest(
             @RequestBody UserRecommendationRequest request) {
         try {
-            List<HomestayDTO> customRecommendations = recommendationService.getRecommendationsByRequest(request);
+            List<HomestaySummaryDTO> customRecommendations = recommendationService.getRecommendationsByRequest(request);
             return ResponseEntity.ok(customRecommendations);
         } catch (Exception e) {
             log.error("根据用户请求获取推荐失败: {}", request, e);
@@ -162,4 +161,5 @@ public class HomestayRecommendationController {
             return ResponseEntity.internalServerError().body("刷新缓存失败");
         }
     }
+
 } 

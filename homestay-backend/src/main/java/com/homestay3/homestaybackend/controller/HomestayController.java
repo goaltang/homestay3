@@ -5,8 +5,13 @@ import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestayDetailDTO;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
 import com.homestay3.homestaybackend.dto.HomestaySearchResultDTO;
+import com.homestay3.homestaybackend.dto.HomestayStatusResponse;
 import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
+import com.homestay3.homestaybackend.dto.HomestayWriteRequest;
+import com.homestay3.homestaybackend.dto.HomestayWriteResponse;
 import com.homestay3.homestaybackend.dto.MapClusterDTO;
+import com.homestay3.homestaybackend.controller.support.HomestayResponseAdapter;
+import com.homestay3.homestaybackend.controller.support.HomestayWriteRequestAdapter;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Amenity;
 // 注意：Amenity 已在 entity 包中
@@ -15,7 +20,6 @@ import com.homestay3.homestaybackend.service.HomestayCommandService;
 import com.homestay3.homestaybackend.service.HomestayQueryService;
 import com.homestay3.homestaybackend.service.HomestayRecommendationService;
 import com.homestay3.homestaybackend.service.HomestaySearchService;
-import com.homestay3.homestaybackend.service.HomestayService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,10 +49,11 @@ public class HomestayController {
 
     private static final Logger logger = LoggerFactory.getLogger(HomestayController.class);
 
-    private final HomestayService homestayService;
     private final HomestayQueryService homestayQueryService;
     private final HomestaySearchService homestaySearchService;
     private final HomestayCommandService homestayCommandService;
+    private final HomestayResponseAdapter homestayResponseAdapter;
+    private final HomestayWriteRequestAdapter homestayWriteRequestAdapter;
     private final HomestayRecommendationService homestayRecommendationService;
     
     @Autowired
@@ -87,10 +92,10 @@ public class HomestayController {
      * 获取推荐房源
      */
     @GetMapping("/featured")
-    public ResponseEntity<List<HomestayDTO>> getFeaturedHomestays() {
+    public ResponseEntity<List<HomestaySummaryDTO>> getFeaturedHomestays() {
         logger.info("获取推荐民宿");
         // 使用新的推荐服务替代已废弃的方法
-        List<HomestayDTO> featuredHomestays = homestayRecommendationService.getRecommendedHomestays(6);
+        List<HomestaySummaryDTO> featuredHomestays = homestayRecommendationService.getRecommendedHomestays(6);
         return ResponseEntity.ok(featuredHomestays);
     }
 
@@ -175,7 +180,7 @@ public class HomestayController {
             return ResponseEntity.badRequest().body(Map.of("error", "Map zoom must be between 1 and 20"));
         }
 
-        List<MapClusterDTO> clusters = homestayService.getMapClusters(request);
+        List<MapClusterDTO> clusters = homestaySearchService.getMapClusters(request);
         return ResponseEntity.ok(clusters);
     }
 
@@ -217,76 +222,15 @@ public class HomestayController {
      */
     @PostMapping
     @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
-    public ResponseEntity<HomestayDTO> createHomestay(@RequestBody HomestayDTO homestayDTO) {
-        logger.info("创建新民宿: {}", homestayDTO.getTitle());
-        
-        // 提前检查amenities是否为空，避免空指针异常
-        if (homestayDTO.getAmenities() == null) {
-            logger.info("创建房源时amenities为null，设置为空列表");
-            homestayDTO.setAmenities(new ArrayList<>());
-        } else if (!homestayDTO.getAmenities().isEmpty()) {
-            logger.info("创建房源时包含{}个设施", homestayDTO.getAmenities().size());
-            // 检查amenities是否为字符串数组，如果是则转为AmenityDTO
-            boolean needConversion = false;
-            for (Object item : homestayDTO.getAmenities()) {
-                if (item instanceof String) {
-                    needConversion = true;
-                    break;
-                }
-            }
-            
-            if (needConversion) {
-                logger.info("检测到amenities需要转换格式");
-                List<AmenityDTO> convertedAmenities = new ArrayList<>();
-                for (Object item : homestayDTO.getAmenities()) {
-                    if (item instanceof String) {
-                        String value = (String) item;
-                        AmenityDTO dto = new AmenityDTO();
-                        dto.setValue(value);
-                        dto.setLabel(value);
-                        convertedAmenities.add(dto);
-                    } else if (item instanceof Map) {
-                        // 处理前端发送的对象格式
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> map = (Map<String, Object>) item;
-                        AmenityDTO dto = new AmenityDTO();
-                        dto.setValue((String) map.get("value"));
-                        dto.setLabel((String) map.get("label"));
-                        if (map.containsKey("icon")) {
-                            dto.setIcon((String) map.get("icon"));
-                        }
-                        convertedAmenities.add(dto);
-                    } else if (item instanceof AmenityDTO) {
-                        convertedAmenities.add((AmenityDTO) item);
-                    }
-                }
-                homestayDTO.setAmenities(convertedAmenities);
-                logger.info("转换后的amenities数量: {}", convertedAmenities.size());
-            }
-        }
-        
-        // 记录设施数据
-        if (homestayDTO.getAmenities() != null && !homestayDTO.getAmenities().isEmpty()) {
-            logger.info("包含设施数量: {}", homestayDTO.getAmenities().size());
-            for (AmenityDTO amenity : homestayDTO.getAmenities()) {
-                logger.info("设施: value={}, label={}", amenity.getValue(), amenity.getLabel());
-            }
-        } else {
-            logger.warn("创建房源时未提供设施数据");
-        }
-
+    public ResponseEntity<HomestayWriteResponse> createHomestay(@RequestBody HomestayWriteRequest request) {
+        logger.info("创建新民宿: {}", request.getTitle());
+        HomestayDTO homestayDTO = homestayWriteRequestAdapter.toDTO(request);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        HomestayDTO createdHomestay = homestayService.createHomestay(homestayDTO, username);
+        HomestayDTO createdHomestay = homestayCommandService.createHomestay(homestayDTO, username);
         logger.info("民宿创建成功: id={}", createdHomestay.getId());
 
-        // 检查返回数据中的设施数量
-        if (createdHomestay.getAmenities() != null) {
-            logger.info("创建后设施数量: {}", createdHomestay.getAmenities().size());
-        } else {
-            logger.warn("创建后设施数据为null");
-        }
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdHomestay);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(homestayResponseAdapter.toWriteResponse(createdHomestay));
     }
 
     /**
@@ -294,11 +238,12 @@ public class HomestayController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_ADMIN')")
-    public ResponseEntity<HomestayDTO> updateHomestay(
+    public ResponseEntity<?> updateHomestay(
             @PathVariable Long id, 
-            @RequestBody HomestayDTO homestayDTO,
+            @RequestBody HomestayWriteRequest request,
             @RequestHeader(value = "X-Username", required = false) String headerUsername) {
         try {
+            HomestayDTO homestayDTO = homestayWriteRequestAdapter.toDTO(request);
             // 获取当前用户信息
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             String username = authentication.getName();
@@ -321,9 +266,9 @@ public class HomestayController {
             }
 
             // 执行更新操作
-            HomestayDTO updatedHomestay = homestayService.updateHomestay(id, homestayDTO);
+            HomestayDTO updatedHomestay = homestayCommandService.updateHomestay(id, homestayDTO);
             logger.info("房源更新成功，ID: {}", id);
-            return ResponseEntity.ok(updatedHomestay);
+            return ResponseEntity.ok(homestayResponseAdapter.toWriteResponse(updatedHomestay));
         } catch (Exception e) {
             logger.error("更新房源时发生错误，ID: {}, 错误类型: {}, 错误消息: {}",
                 id, e.getClass().getName(), e.getMessage(), e);
@@ -352,11 +297,7 @@ public class HomestayController {
             }
 
             // 创建错误对象并返回
-            HomestayDTO errorDTO = new HomestayDTO();
-            errorDTO.setId(id);
-            errorDTO.setStatus("ERROR");
-            
-            return ResponseEntity.status(status).body(errorDTO);
+            return ResponseEntity.status(status).body(errorResponse);
         }
     }
 
@@ -374,7 +315,7 @@ public class HomestayController {
             logger.info("当前用户: {}, 尝试删除房源ID: {}", username, id);
             
             // 执行删除操作
-            homestayService.deleteHomestay(id);
+            homestayCommandService.deleteHomestay(id);
             logger.info("房源删除成功, ID: {}", id);
             
             // 返回成功信息
@@ -422,7 +363,7 @@ public class HomestayController {
      */
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyAuthority('ROLE_HOST', 'ROLE_ADMIN')")
-    public ResponseEntity<HomestayDTO> updateHomestayStatus(
+    public ResponseEntity<HomestayStatusResponse> updateHomestayStatus(
             @PathVariable Long id,
             @RequestBody Map<String, String> statusMap,
             Authentication authentication) {
@@ -433,8 +374,8 @@ public class HomestayController {
 
         String username = authentication.getName();
         logger.info("更新民宿状态，ID: {}，新状态: {}，用户: {}", id, status, username);
-        HomestayDTO updatedHomestay = homestayService.updateHomestayStatus(id, status, username);
-        return ResponseEntity.ok(updatedHomestay);
+        HomestayDTO updatedHomestay = homestayCommandService.updateHomestayStatus(id, status, username);
+        return ResponseEntity.ok(homestayResponseAdapter.toStatusResponse(updatedHomestay));
     }
 
     /**
@@ -446,8 +387,8 @@ public class HomestayController {
         try {
             logger.info("检查房源审核就绪状态，ID: {}", id);
             
-            boolean ready = homestayService.checkHomestayReadyForReview(id);
-            String details = homestayService.getHomestayReviewReadinessDetails(id);
+            boolean ready = homestayQueryService.checkHomestayReadyForReview(id);
+            String details = homestayQueryService.getHomestayReviewReadinessDetails(id);
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -685,11 +626,13 @@ public class HomestayController {
      */
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
-    public ResponseEntity<HomestayDTO> activateHomestay(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<HomestayStatusResponse> activateHomestay(
+            @PathVariable Long id,
+            Authentication authentication) {
         String username = authentication.getName();
         logger.info("激活民宿，ID: {}, 用户: {}", id, username);
-        HomestayDTO updatedHomestay = homestayService.updateHomestayStatus(id, "ACTIVE", username);
-        return ResponseEntity.ok(updatedHomestay);
+        HomestayDTO updatedHomestay = homestayCommandService.updateHomestayStatus(id, "ACTIVE", username);
+        return ResponseEntity.ok(homestayResponseAdapter.toStatusResponse(updatedHomestay));
     }
 
     /**
@@ -697,11 +640,13 @@ public class HomestayController {
      */
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasAnyAuthority('ROLE_HOST')")
-    public ResponseEntity<HomestayDTO> deactivateHomestay(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<HomestayStatusResponse> deactivateHomestay(
+            @PathVariable Long id,
+            Authentication authentication) {
         String username = authentication.getName();
         logger.info("停用民宿，ID: {}, 用户: {}", id, username);
-        HomestayDTO updatedHomestay = homestayService.updateHomestayStatus(id, "INACTIVE", username);
-        return ResponseEntity.ok(updatedHomestay);
+        HomestayDTO updatedHomestay = homestayCommandService.updateHomestayStatus(id, "INACTIVE", username);
+        return ResponseEntity.ok(homestayResponseAdapter.toStatusResponse(updatedHomestay));
     }
 
     /**
@@ -854,14 +799,14 @@ public class HomestayController {
         logger.info("批量激活房源，用户: {}, 房源数量: {}, IDs: {}", username, ids.size(), ids);
 
         try {
-            List<HomestayDTO> updatedHomestays = ids.stream()
-                .map(id -> homestayService.updateHomestayStatus(id, "ACTIVE", username))
-                .collect(Collectors.toList());
+            long updatedCount = ids.stream()
+                .map(id -> homestayCommandService.updateHomestayStatus(id, "ACTIVE", username))
+                .count();
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "批量激活成功",
-                "updatedCount", updatedHomestays.size()
+                "updatedCount", updatedCount
             ));
         } catch (Exception e) {
             logger.error("批量激活房源失败", e);
@@ -889,14 +834,14 @@ public class HomestayController {
         logger.info("批量下架房源，用户: {}, 房源数量: {}, IDs: {}", username, ids.size(), ids);
 
         try {
-            List<HomestayDTO> updatedHomestays = ids.stream()
-                .map(id -> homestayService.updateHomestayStatus(id, "INACTIVE", username))
-                .collect(Collectors.toList());
+            long updatedCount = ids.stream()
+                .map(id -> homestayCommandService.updateHomestayStatus(id, "INACTIVE", username))
+                .count();
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "批量下架成功",
-                "updatedCount", updatedHomestays.size()
+                "updatedCount", updatedCount
             ));
         } catch (Exception e) {
             logger.error("批量下架房源失败", e);
@@ -940,7 +885,7 @@ public class HomestayController {
             }
 
             // 执行批量删除
-            validIds.forEach(homestayService::deleteHomestay);
+            validIds.forEach(homestayCommandService::deleteHomestay);
 
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -974,7 +919,7 @@ public class HomestayController {
     public ResponseEntity<Map<String, Object>> getUnavailableDates(@PathVariable Long id) {
         logger.info("获取房源ID: {} 的不可用日期", id);
         try {
-            List<LocalDate> unavailableDates = homestayService.getUnavailableDates(id);
+            List<LocalDate> unavailableDates = homestayQueryService.getUnavailableDates(id);
             
             // 转换为字符串格式，确保前端能正确解析
             List<String> dateStrings = unavailableDates.stream()

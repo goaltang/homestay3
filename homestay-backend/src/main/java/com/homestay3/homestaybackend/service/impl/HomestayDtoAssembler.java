@@ -102,6 +102,28 @@ public class HomestayDtoAssembler {
                 homestaysPage.getTotalElements());
     }
 
+    public HomestaySummaryDTO toSummaryDTO(Homestay homestay, List<String> referringSearchCriteria) {
+        return toSummaryDTO(toDTO(homestay, referringSearchCriteria));
+    }
+
+    public List<HomestaySummaryDTO> toSummaryDTOsFromDTOs(Collection<HomestayDTO> homestays) {
+        if (homestays == null || homestays.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return homestays.stream()
+                .map(this::toSummaryDTO)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    public Page<HomestaySummaryDTO> toSummaryDTOPageFromDTOPage(Page<HomestayDTO> homestaysPage) {
+        return new PageImpl<>(
+                toSummaryDTOsFromDTOs(homestaysPage.getContent()),
+                homestaysPage.getPageable(),
+                homestaysPage.getTotalElements());
+    }
+
     public HomestayDetailDTO toDetailDTO(Homestay homestay, List<String> referringSearchCriteria) {
         return toDetailDTO(toDTO(homestay, referringSearchCriteria));
     }
@@ -221,7 +243,7 @@ public class HomestayDtoAssembler {
                 .build();
     }
 
-    private HomestaySummaryDTO toSummaryDTO(HomestayDTO dto) {
+    public HomestaySummaryDTO toSummaryDTO(HomestayDTO dto) {
         if (dto == null) {
             return null;
         }

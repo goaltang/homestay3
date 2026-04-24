@@ -1,6 +1,6 @@
 package com.homestay3.homestaybackend.service.impl;
 
-import com.homestay3.homestaybackend.dto.HomestayDTO;
+import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
 import com.homestay3.homestaybackend.dto.PagedResponse;
 import com.homestay3.homestaybackend.dto.UserRecommendationRequest;
 import com.homestay3.homestaybackend.entity.Amenity;
@@ -14,13 +14,10 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserFavoriteRepository;
 import com.homestay3.homestaybackend.service.HomestayRecommendationService;
-import com.homestay3.homestaybackend.service.HomestayService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +34,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
     private final OrderRepository orderRepository;
     private final ReviewRepository reviewRepository;
     private final UserFavoriteRepository userFavoriteRepository;
-    private final HomestayService homestayService;
+    private final HomestayDtoAssembler homestayDtoAssembler;
 
     // 算法权重配置
     private static final double WEIGHT_BOOKING_COUNT = 0.4; // 预订量权重
@@ -55,17 +52,17 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
             OrderRepository orderRepository,
             ReviewRepository reviewRepository,
             UserFavoriteRepository userFavoriteRepository,
-            HomestayService homestayService) {
+            HomestayDtoAssembler homestayDtoAssembler) {
         this.homestayRepository = homestayRepository;
         this.orderRepository = orderRepository;
         this.reviewRepository = reviewRepository;
         this.userFavoriteRepository = userFavoriteRepository;
-        this.homestayService = homestayService;
+        this.homestayDtoAssembler = homestayDtoAssembler;
     }
 
     @Override
     @Cacheable(value = "popularHomestays", key = "#limit")
-    public List<HomestayDTO> getPopularHomestays(int limit) {
+    public List<HomestaySummaryDTO> getPopularHomestays(int limit) {
         log.info("计算热门民宿推荐，数量限制: {}", limit);
 
         List<Homestay> allHomestays = homestayRepository.findByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
@@ -87,14 +84,14 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         List<PopularityScore> diversified = diversifyHotResults(scores, limit);
 
         return diversified.stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Cacheable(value = "popularHomestaysPage", key = "#pageable.pageNumber + '_' + #pageable.pageSize")
-    public PagedResponse<HomestayDTO> getPopularHomestaysPage(Pageable pageable) {
+    public PagedResponse<HomestaySummaryDTO> getPopularHomestaysPage(Pageable pageable) {
         log.info("计算热门民宿（分页），页码: {}, 页大小: {}", pageable.getPageNumber(), pageable.getPageSize());
 
         List<Homestay> activeHomestays = homestayRepository.findByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
@@ -110,8 +107,8 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         int startIndex = pageable.getPageNumber() * pageable.getPageSize();
         int endIndex = Math.min(startIndex + pageable.getPageSize(), totalElements);
 
-        List<HomestayDTO> pageContent = allScores.subList(startIndex, endIndex).stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+        List<HomestaySummaryDTO> pageContent = allScores.subList(startIndex, endIndex).stream()
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .collect(Collectors.toList());
 
         return new PagedResponse<>(pageContent, pageable.getPageNumber(), pageable.getPageSize(), totalElements);
@@ -119,7 +116,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     @Override
     @Cacheable(value = "recommendedHomestays", key = "#limit")
-    public List<HomestayDTO> getRecommendedHomestays(int limit) {
+    public List<HomestaySummaryDTO> getRecommendedHomestays(int limit) {
         log.info("计算推荐民宿，数量限制: {}", limit);
 
         List<Homestay> allHomestays = homestayRepository.findByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
@@ -218,8 +215,8 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
         log.info("推荐民宿最终结果: {} 条", diversified.size());
 
-        List<HomestayDTO> result = diversified.stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+        List<HomestaySummaryDTO> result = diversified.stream()
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
@@ -235,7 +232,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     @Override
     @Cacheable(value = "recommendedHomestaysPage", key = "#pageable.pageNumber + '_' + #pageable.pageSize")
-    public PagedResponse<HomestayDTO> getRecommendedHomestaysPage(Pageable pageable) {
+    public PagedResponse<HomestaySummaryDTO> getRecommendedHomestaysPage(Pageable pageable) {
         log.info("计算推荐民宿（分页），页码: {}, 页大小: {}", pageable.getPageNumber(), pageable.getPageSize());
 
         List<Homestay> activeHomestays = homestayRepository.findByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
@@ -251,8 +248,8 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         int startIndex = pageable.getPageNumber() * pageable.getPageSize();
         int endIndex = Math.min(startIndex + pageable.getPageSize(), totalElements);
 
-        List<HomestayDTO> pageContent = allScores.subList(startIndex, endIndex).stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+        List<HomestaySummaryDTO> pageContent = allScores.subList(startIndex, endIndex).stream()
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .collect(Collectors.toList());
 
         return new PagedResponse<>(pageContent, pageable.getPageNumber(), pageable.getPageSize(), totalElements);
@@ -260,7 +257,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     @Override
     @Cacheable(value = "userRecommendations", key = "#userId + '_' + #limit")
-    public List<HomestayDTO> getPersonalizedRecommendations(Long userId, int limit) {
+    public List<HomestaySummaryDTO> getPersonalizedRecommendations(Long userId, int limit) {
         log.info("计算个性化推荐，用户ID: {}, 数量限制: {}", userId, limit);
 
         UserPreference preference = analyzeUserPreference(userId);
@@ -333,13 +330,13 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         log.info("最终个性化推荐结果: {} 条", diversified.size());
 
         return diversified.stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<HomestayDTO> getLocationBasedRecommendations(String provinceCode, String cityCode, int limit) {
+    public List<HomestaySummaryDTO> getLocationBasedRecommendations(String provinceCode, String cityCode, int limit) {
         log.info("计算基于位置的推荐，省份: {}, 城市: {}, 限制数量: {}", provinceCode, cityCode, limit);
 
         List<Homestay> locationHomestays = homestayRepository.findByProvinceCodeAndCityCodeAndStatus(
@@ -352,12 +349,12 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
                 .collect(Collectors.toList());
 
         return scores.stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<HomestayDTO> getSimilarHomestays(Long homestayId, int limit) {
+    public List<HomestaySummaryDTO> getSimilarHomestays(Long homestayId, int limit) {
         log.info("计算相似民宿推荐，基准民宿ID: {}, 限制数量: {}", homestayId, limit);
 
         Optional<Homestay> baseHomestayOpt = homestayRepository.findById(homestayId);
@@ -376,12 +373,12 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
                 .collect(Collectors.toList());
 
         return scores.stream()
-                .map(score -> convertToDTO(score.getHomestay()))
+                .map(score -> convertToSummaryDTO(score.getHomestay()))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<HomestayDTO> getRecommendationsByRequest(UserRecommendationRequest request) {
+    public List<HomestaySummaryDTO> getRecommendationsByRequest(UserRecommendationRequest request) {
         log.info("根据用户请求计算推荐: {}", request);
 
         switch (request.getRecommendationType()) {
@@ -849,16 +846,18 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         return calculateEnhancedPriceMatch(homestay, preference);
     }
 
-    private HomestayDTO convertToDTO(Homestay homestay) {
+    private HomestaySummaryDTO convertToSummaryDTO(Homestay homestay) {
         try {
-            return homestayService.getHomestayById(homestay.getId(), Collections.emptyList());
+            HomestaySummaryDTO dto = homestayDtoAssembler.toSummaryDTO(homestay, Collections.emptyList());
+            if (dto != null) {
+                return dto;
+            }
         } catch (Exception e) {
             log.error("转换民宿DTO失败，民宿ID: {}", homestay.getId(), e);
             // 创建简化的DTO作为降级方案
-            HomestayDTO dto = new HomestayDTO();
+            HomestaySummaryDTO dto = new HomestaySummaryDTO();
             dto.setId(homestay.getId());
             dto.setTitle(homestay.getTitle());
-            dto.setDescription(homestay.getDescription());
             dto.setPrice(homestay.getPrice().toString());
             dto.setMaxGuests(homestay.getMaxGuests());
             dto.setStatus(homestay.getStatus().name());
@@ -868,12 +867,22 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
             dto.setImages(homestay.getImages() != null ? homestay.getImages() : Collections.emptyList());
             // dto.setAmenities(homestay.getAmenities() != null ? homestay.getAmenities() :
             // Collections.emptyList()); // 这需要转换为AmenityDTO，先跳过
-            dto.setProvinceCode(homestay.getProvinceCode());
-            dto.setCityCode(homestay.getCityCode());
-            dto.setDistrictCode(homestay.getDistrictCode());
             dto.setAddressDetail(homestay.getAddressDetail());
             return dto;
         }
+
+        HomestaySummaryDTO fallback = new HomestaySummaryDTO();
+        fallback.setId(homestay.getId());
+        fallback.setTitle(homestay.getTitle());
+        fallback.setPrice(homestay.getPrice() != null ? homestay.getPrice().toString() : null);
+        fallback.setMaxGuests(homestay.getMaxGuests());
+        fallback.setStatus(homestay.getStatus() != null ? homestay.getStatus().name() : null);
+        fallback.setType(homestay.getType());
+        fallback.setFeatured(homestay.getFeatured());
+        fallback.setCoverImage(homestay.getCoverImage());
+        fallback.setImages(homestay.getImages() != null ? new ArrayList<>(homestay.getImages()) : new ArrayList<>());
+        fallback.setAddressDetail(homestay.getAddressDetail());
+        return fallback;
     }
 
     /**

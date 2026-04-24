@@ -1,9 +1,8 @@
 package com.homestay3.homestaybackend.service;
 
-import com.homestay3.homestaybackend.dto.HomestayDTO;
+import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
 import com.homestay3.homestaybackend.dto.PagedResponse;
 import com.homestay3.homestaybackend.dto.UserRecommendationRequest;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
@@ -20,7 +19,7 @@ public interface HomestayRecommendationService {
      * @param limit 返回数量限制
      * @return 热门民宿列表
      */
-    List<HomestayDTO> getPopularHomestays(int limit);
+    List<HomestaySummaryDTO> getPopularHomestays(int limit);
     
     /**
      * 获取热门民宿（分页版本）
@@ -29,7 +28,7 @@ public interface HomestayRecommendationService {
      * @param pageable 分页参数
      * @return 热门民宿分页结果
      */
-    PagedResponse<HomestayDTO> getPopularHomestaysPage(Pageable pageable);
+    PagedResponse<HomestaySummaryDTO> getPopularHomestaysPage(Pageable pageable);
     
     /**
      * 获取推荐民宿
@@ -38,7 +37,7 @@ public interface HomestayRecommendationService {
      * @param limit 返回数量限制
      * @return 推荐民宿列表
      */
-    List<HomestayDTO> getRecommendedHomestays(int limit);
+    List<HomestaySummaryDTO> getRecommendedHomestays(int limit);
     
     /**
      * 获取推荐民宿（分页版本）
@@ -47,7 +46,7 @@ public interface HomestayRecommendationService {
      * @param pageable 分页参数
      * @return 推荐民宿分页结果
      */
-    PagedResponse<HomestayDTO> getRecommendedHomestaysPage(Pageable pageable);
+    PagedResponse<HomestaySummaryDTO> getRecommendedHomestaysPage(Pageable pageable);
     
     /**
      * 获取个性化推荐民宿
@@ -57,7 +56,7 @@ public interface HomestayRecommendationService {
      * @param limit 返回数量限制
      * @return 个性化推荐民宿列表
      */
-    List<HomestayDTO> getPersonalizedRecommendations(Long userId, int limit);
+    List<HomestaySummaryDTO> getPersonalizedRecommendations(Long userId, int limit);
     
     /**
      * 获取基于位置的推荐民宿
@@ -67,7 +66,7 @@ public interface HomestayRecommendationService {
      * @param limit 返回数量限制
      * @return 基于位置的推荐民宿列表
      */
-    List<HomestayDTO> getLocationBasedRecommendations(String provinceCode, String cityCode, int limit);
+    List<HomestaySummaryDTO> getLocationBasedRecommendations(String provinceCode, String cityCode, int limit);
     
     /**
      * 获取相似民宿推荐
@@ -76,7 +75,7 @@ public interface HomestayRecommendationService {
      * @param limit 返回数量限制
      * @return 相似民宿列表
      */
-    List<HomestayDTO> getSimilarHomestays(Long homestayId, int limit);
+    List<HomestaySummaryDTO> getSimilarHomestays(Long homestayId, int limit);
     
     /**
      * 基于用户请求获取推荐
@@ -84,7 +83,7 @@ public interface HomestayRecommendationService {
      * @param request 用户推荐请求
      * @return 推荐民宿列表
      */
-    List<HomestayDTO> getRecommendationsByRequest(UserRecommendationRequest request);
+    List<HomestaySummaryDTO> getRecommendationsByRequest(UserRecommendationRequest request);
     
     /**
      * 刷新推荐缓存

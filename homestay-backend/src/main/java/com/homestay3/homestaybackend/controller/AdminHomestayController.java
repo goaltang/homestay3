@@ -2,8 +2,12 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.HomestayAdminDetailDTO;
 import com.homestay3.homestaybackend.dto.HomestayAdminSummaryDTO;
-import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.dto.HomestayDetailDTO;
+import com.homestay3.homestaybackend.dto.HomestayStatusResponse;
+import com.homestay3.homestaybackend.dto.HomestayWriteRequest;
+import com.homestay3.homestaybackend.dto.HomestayWriteResponse;
+import com.homestay3.homestaybackend.controller.support.HomestayResponseAdapter;
+import com.homestay3.homestaybackend.controller.support.HomestayWriteRequestAdapter;
 import com.homestay3.homestaybackend.service.HomestayAdminService;
 import com.homestay3.homestaybackend.service.HomestayCommandService;
 import com.homestay3.homestaybackend.service.HomestayQueryService;
@@ -33,6 +37,8 @@ public class AdminHomestayController {
     private final HomestayAdminService homestayAdminService;
     private final HomestayCommandService homestayCommandService;
     private final HomestayQueryService homestayQueryService;
+    private final HomestayResponseAdapter homestayResponseAdapter;
+    private final HomestayWriteRequestAdapter homestayWriteRequestAdapter;
 
     /**
      * 获取房源列表，支持分页和筛选
@@ -119,19 +125,23 @@ public class AdminHomestayController {
      * 创建房源
      */
     @PostMapping
-    public ResponseEntity<?> createHomestay(@RequestBody HomestayDTO homestayDTO) {
-        logger.info("管理员创建房源: {}", homestayDTO.getTitle());
-        HomestayDTO createdHomestay = homestayAdminService.createHomestay(homestayDTO);
-        return ResponseEntity.ok(createdHomestay);
+    public ResponseEntity<HomestayWriteResponse> createHomestay(@RequestBody HomestayWriteRequest request) {
+        logger.info("管理员创建房源: {}", request.getTitle());
+        HomestayWriteResponse createdHomestay = homestayResponseAdapter.toWriteResponse(
+                homestayAdminService.createHomestay(homestayWriteRequestAdapter.toDTO(request)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdHomestay);
     }
 
     /**
      * 更新房源
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateHomestay(@PathVariable Long id, @RequestBody HomestayDTO homestayDTO) {
+    public ResponseEntity<HomestayWriteResponse> updateHomestay(
+            @PathVariable Long id,
+            @RequestBody HomestayWriteRequest request) {
         logger.info("管理员更新房源，ID: {}", id);
-        HomestayDTO updatedHomestay = homestayCommandService.updateHomestay(id, homestayDTO);
+        HomestayWriteResponse updatedHomestay = homestayResponseAdapter.toWriteResponse(
+                homestayCommandService.updateHomestay(id, homestayWriteRequestAdapter.toDTO(request)));
         return ResponseEntity.ok(updatedHomestay);
     }
 
@@ -149,14 +159,15 @@ public class AdminHomestayController {
      * 更新房源状态
      */
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateHomestayStatus(
+    public ResponseEntity<HomestayStatusResponse> updateHomestayStatus(
             @PathVariable Long id,
             @RequestBody Map<String, Object> statusData
     ) {
         String status = (String) statusData.get("status");
         logger.info("管理员更新房源状态，ID: {}, 状态: {}", id, status);
         homestayAdminService.updateHomestayStatus(id, status);
-        return ResponseEntity.ok().build();
+        HomestayDetailDTO homestay = homestayQueryService.getHomestayDetailById(id, null);
+        return ResponseEntity.ok(homestayResponseAdapter.toStatusResponse(homestay));
     }
 
     /**
