@@ -108,7 +108,7 @@
             <el-divider />
 
             <!-- 房东详细信息组件 -->
-            <HostInfo :host-info="hostDetailInfo" :show-brief="false" :show-detail="true" @contact-host="contactHost" />
+            <HostInfo ref="hostDetailRef" :host-info="hostDetailInfo" :show-brief="false" :show-detail="true" @contact-host="contactHost" />
 
             <el-divider />
 
@@ -177,6 +177,9 @@ const chatStore = useChatStore()
 const loading = ref(true)
 const homestay = ref<HomestayDetail | null>(null)
 const hostDetailInfo = ref<HostDTO | null>(null)
+
+// 房东详情区域 ref，用于平滑滚动定位
+const hostDetailRef = ref<InstanceType<typeof HostInfo> | null>(null)
 
 // 组合式函数
 const reviewsComposable = useReviews()
@@ -262,7 +265,7 @@ const contactHost = async () => {
 const showAllPhotos = () => ElMessage.info('查看全部照片功能待实现')
 
 const scrollToHostSection = () => {
-    const hostSection = document.querySelector('.host-section')
+    const hostSection = hostDetailRef.value?.$el as HTMLElement | undefined
     if (hostSection) {
         hostSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
         hostSection.classList.add('highlight-section')

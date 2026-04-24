@@ -1,6 +1,5 @@
 package com.homestay3.homestaybackend.service.impl;
 
-import com.homestay3.homestaybackend.dto.HomestayDTO;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.HomestayAuditLog;
 import com.homestay3.homestaybackend.entity.User;
@@ -9,9 +8,7 @@ import com.homestay3.homestaybackend.model.HomestayStatus;
 import com.homestay3.homestaybackend.repository.HomestayAuditLogRepository;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
-import com.homestay3.homestaybackend.service.AmenityService;
-import com.homestay3.homestaybackend.service.HomestayFeatureAnalysisService;
-import com.homestay3.homestaybackend.util.ImageUrlUtil;
+import com.homestay3.homestaybackend.service.HomestayCommandService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,17 +26,21 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-/**
- * HomestayService 单元测试
- * 测试房源核心业务逻辑
- */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class HomestayServiceImplTest {
+class HomestayAdminServiceImplTest {
 
     @Mock
     private HomestayRepository homestayRepository;
@@ -51,16 +52,19 @@ class HomestayServiceImplTest {
     private HomestayAuditLogRepository homestayAuditLogRepository;
 
     @Mock
-    private AmenityService amenityService;
+    private HomestayDtoAssembler homestayDtoAssembler;
 
     @Mock
-    private HomestayFeatureAnalysisService homestayFeatureAnalysisService;
+    private HomestayMutationSupport homestayMutationSupport;
 
     @Mock
-    private ImageUrlUtil imageUrlUtil;
+    private HomestaySpecificationSupport homestaySpecificationSupport;
+
+    @Mock
+    private HomestayCommandService homestayCommandService;
 
     @InjectMocks
-    private HomestayServiceImpl homestayService;
+    private HomestayAdminServiceImpl homestayAdminService;
 
     private User adminUser;
     private User hostUser;
@@ -68,19 +72,16 @@ class HomestayServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // 设置管理员用户
         adminUser = new User();
         adminUser.setId(1L);
         adminUser.setUsername("admin");
         adminUser.setRole("ROLE_ADMIN");
 
-        // 设置房东用户
         hostUser = new User();
         hostUser.setId(2L);
         hostUser.setUsername("host");
         hostUser.setRole("ROLE_HOST");
 
-        // 设置已上架的房源
         activeHomestay = new Homestay();
         activeHomestay.setId(1L);
         activeHomestay.setTitle("测试民宿");
@@ -102,26 +103,16 @@ class HomestayServiceImplTest {
         when(userRepository.findByUsername(adminUser.getUsername())).thenReturn(Optional.of(adminUser));
     }
 
-    // ============================================================
-    // 强制下架功能测试
-    // ============================================================
-
     @Test
-    void forceDelistHomestay_Success() {
-        // 准备
+    void forceDelistHomestaySuccess() {
         mockSecurityContext();
-        String reason = "发布虚假信息";
-        String notes = "多次被用户举报";
-        String violationType = "FALSE_INFO";
-
         when(homestayRepository.findById(1L)).thenReturn(Optional.of(activeHomestay));
-        when(homestayRepository.save(any(Homestay.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(homestayRepository.save(any(Homestay.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 执行
-        homestayService.forceDelistHomestay(1L, reason, notes, violationType);
+        homestayAdminService.forceDelistHomestay(1L, "发布虚假信息", "多次被用户举报", "FALSE_INFO");
 
-        // 验证
         ArgumentCaptor<Homestay> homestayCaptor = ArgumentCaptor.forClass(Homestay.class);
         verify(homestayRepository).save(homestayCaptor.capture());
 
@@ -131,21 +122,19 @@ class HomestayServiceImplTest {
     }
 
     @Test
-    void forceDelistHomestay_Success_RecordsAuditLog() {
-        // 准备
+    void forceDelistHomestaySuccessRecordsAuditLog() {
         mockSecurityContext();
         String reason = "存在安全隐患";
         String notes = "经核实确实存在问题";
         String violationType = "SAFETY_ISSUE";
 
         when(homestayRepository.findById(1L)).thenReturn(Optional.of(activeHomestay));
-        when(homestayRepository.save(any(Homestay.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(homestayRepository.save(any(Homestay.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 执行
-        homestayService.forceDelistHomestay(1L, reason, notes, violationType);
+        homestayAdminService.forceDelistHomestay(1L, reason, notes, violationType);
 
-        // 验证审核日志
         ArgumentCaptor<HomestayAuditLog> auditLogCaptor = ArgumentCaptor.forClass(HomestayAuditLog.class);
         verify(homestayAuditLogRepository).save(auditLogCaptor.capture());
 
@@ -156,25 +145,21 @@ class HomestayServiceImplTest {
         assertEquals(HomestayStatus.INACTIVE, savedLog.getNewStatus());
         assertEquals(HomestayAuditLog.AuditActionType.DEACTIVATE, savedLog.getActionType());
         assertEquals(reason, savedLog.getReviewReason());
-        // 当 notes 不为 null 时，reviewNotes 使用 notes 的值
         assertEquals(notes, savedLog.getReviewNotes());
     }
 
     @Test
-    void forceDelistHomestay_HomestayNotFound() {
-        // 准备
+    void forceDelistHomestayHomestayNotFound() {
         when(homestayRepository.findById(999L)).thenReturn(Optional.empty());
 
-        // 执行和验证
-        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
-            homestayService.forceDelistHomestay(999L, "违规", null, "OTHER");
-        });
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                homestayAdminService.forceDelistHomestay(999L, "违规", null, "OTHER"));
+
         assertTrue(exception.getMessage().contains("房源不存在"));
     }
 
     @Test
-    void forceDelistHomestay_AdminNotFound_SkipsAuditLog() {
-        // 准备 - 管理员用户不存在
+    void forceDelistHomestayAdminNotFoundSkipsAuditLog() {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getName()).thenReturn("nonexistent");
 
@@ -183,13 +168,12 @@ class HomestayServiceImplTest {
         SecurityContextHolder.setContext(securityContext);
 
         when(homestayRepository.findById(1L)).thenReturn(Optional.of(activeHomestay));
-        when(homestayRepository.save(any(Homestay.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(homestayRepository.save(any(Homestay.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
 
-        // 执行 - 应该不抛出异常，只是跳过审核日志
-        assertDoesNotThrow(() -> homestayService.forceDelistHomestay(1L, "违规", null, "OTHER"));
+        assertDoesNotThrow(() ->
+                homestayAdminService.forceDelistHomestay(1L, "违规", null, "OTHER"));
 
-        // 验证房源状态已更新但没有审核日志
         ArgumentCaptor<Homestay> homestayCaptor = ArgumentCaptor.forClass(Homestay.class);
         verify(homestayRepository).save(homestayCaptor.capture());
         assertEquals(HomestayStatus.INACTIVE, homestayCaptor.getValue().getStatus());
@@ -197,40 +181,34 @@ class HomestayServiceImplTest {
     }
 
     @Test
-    void forceDelistHomestay_AlreadyInactive() {
-        // 准备 - 房源已经是下架状态
+    void forceDelistHomestayAlreadyInactive() {
         mockSecurityContext();
         activeHomestay.setStatus(HomestayStatus.INACTIVE);
 
         when(homestayRepository.findById(1L)).thenReturn(Optional.of(activeHomestay));
-        when(homestayRepository.save(any(Homestay.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(homestayRepository.save(any(Homestay.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 执行
-        homestayService.forceDelistHomestay(1L, "再次下架", null, "OTHER");
+        homestayAdminService.forceDelistHomestay(1L, "再次下架", null, "OTHER");
 
-        // 验证仍然保存（状态不变）
         ArgumentCaptor<Homestay> homestayCaptor = ArgumentCaptor.forClass(Homestay.class);
         verify(homestayRepository).save(homestayCaptor.capture());
         assertEquals(HomestayStatus.INACTIVE, homestayCaptor.getValue().getStatus());
-
-        // 验证审核日志仍然被记录
         verify(homestayAuditLogRepository, times(1)).save(any());
     }
 
     @Test
-    void forceDelistHomestay_WithNullNotes() {
-        // 准备 - notes 为空
+    void forceDelistHomestayWithNullNotes() {
         mockSecurityContext();
 
         when(homestayRepository.findById(1L)).thenReturn(Optional.of(activeHomestay));
-        when(homestayRepository.save(any(Homestay.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(homestayRepository.save(any(Homestay.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(homestayAuditLogRepository.save(any(HomestayAuditLog.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 执行
-        homestayService.forceDelistHomestay(1L, "违规内容", null, "PROHIBITED_CONTENT");
+        homestayAdminService.forceDelistHomestay(1L, "违规内容", null, "PROHIBITED_CONTENT");
 
-        // 验证
         ArgumentCaptor<HomestayAuditLog> auditLogCaptor = ArgumentCaptor.forClass(HomestayAuditLog.class);
         verify(homestayAuditLogRepository).save(auditLogCaptor.capture());
 

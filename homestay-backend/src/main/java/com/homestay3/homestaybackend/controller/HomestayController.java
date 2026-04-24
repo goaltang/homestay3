@@ -2,13 +2,19 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.AmenityDTO;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
+import com.homestay3.homestaybackend.dto.HomestayDetailDTO;
 import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
+import com.homestay3.homestaybackend.dto.HomestaySearchResultDTO;
+import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
 import com.homestay3.homestaybackend.dto.MapClusterDTO;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Amenity;
 // 注意：Amenity 已在 entity 包中
 import com.homestay3.homestaybackend.service.AmenityService;
+import com.homestay3.homestaybackend.service.HomestayCommandService;
+import com.homestay3.homestaybackend.service.HomestayQueryService;
 import com.homestay3.homestaybackend.service.HomestayRecommendationService;
+import com.homestay3.homestaybackend.service.HomestaySearchService;
 import com.homestay3.homestaybackend.service.HomestayService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -40,6 +46,9 @@ public class HomestayController {
     private static final Logger logger = LoggerFactory.getLogger(HomestayController.class);
 
     private final HomestayService homestayService;
+    private final HomestayQueryService homestayQueryService;
+    private final HomestaySearchService homestaySearchService;
+    private final HomestayCommandService homestayCommandService;
     private final HomestayRecommendationService homestayRecommendationService;
     
     @Autowired
@@ -53,7 +62,7 @@ public class HomestayController {
         logger.info("获取所有民宿");
         
         try {
-            List<HomestayDTO> homestays = homestayService.getAllHomestays();
+            List<HomestaySummaryDTO> homestays = homestayQueryService.getAllHomestaySummaries();
             logger.info("成功获取{}个房源", homestays.size());
             return ResponseEntity.ok(homestays);
         } catch (Exception e) {
@@ -89,7 +98,7 @@ public class HomestayController {
      * 根据ID获取房源详情
      */
     @GetMapping("/{id}")
-    public ResponseEntity<HomestayDTO> getHomestayById(
+    public ResponseEntity<HomestayDetailDTO> getHomestayById(
             @PathVariable Long id, 
             @RequestParam(name = "referring_criteria", required = false) String referringCriteriaString) {
         logger.info("获取民宿详情，ID: {}, 来源搜索条件: {}", id, referringCriteriaString);
@@ -104,7 +113,7 @@ public class HomestayController {
             }
         }
         
-        HomestayDTO homestay = homestayService.getHomestayById(id, referringCriteria);
+        HomestayDetailDTO homestay = homestayQueryService.getHomestayDetailById(id, referringCriteria);
         return ResponseEntity.ok(homestay);
     }
 
@@ -112,9 +121,9 @@ public class HomestayController {
      * 根据房源类型获取房源列表
      */
     @GetMapping("/type/{propertyType}")
-    public ResponseEntity<List<HomestayDTO>> getHomestaysByPropertyType(@PathVariable String propertyType) {
+    public ResponseEntity<List<HomestaySummaryDTO>> getHomestaysByPropertyType(@PathVariable String propertyType) {
         logger.info("按物业类型获取民宿，类型: {}", propertyType);
-        List<HomestayDTO> homestays = homestayService.getHomestaysByPropertyType(propertyType);
+        List<HomestaySummaryDTO> homestays = homestayQueryService.getHomestaySummariesByPropertyType(propertyType);
         return ResponseEntity.ok(homestays);
     }
 
@@ -122,9 +131,9 @@ public class HomestayController {
      * 搜索房源
      */
     @PostMapping("/search")
-    public ResponseEntity<List<HomestayDTO>> searchHomestays(@RequestBody HomestaySearchRequest request) {
+    public ResponseEntity<List<HomestaySearchResultDTO>> searchHomestays(@RequestBody HomestaySearchRequest request) {
         logger.info("搜索民宿，请求参数: {}", request);
-        List<HomestayDTO> searchResults = homestayService.searchHomestays(request);
+        List<HomestaySearchResultDTO> searchResults = homestaySearchService.searchHomestayResults(request);
         return ResponseEntity.ok(searchResults);
     }
 
@@ -143,7 +152,7 @@ public class HomestayController {
             return ResponseEntity.badRequest().body(Map.of("error", "Map bounds are out of range"));
         }
 
-        List<HomestayDTO> searchResults = homestayService.searchHomestays(request);
+        List<HomestaySearchResultDTO> searchResults = homestaySearchService.searchHomestayResults(request);
         return ResponseEntity.ok(searchResults);
     }
 
@@ -182,7 +191,7 @@ public class HomestayController {
             return validationError;
         }
 
-        List<HomestayDTO> nearbyHomestays = homestayService.getNearbyHomestays(request);
+        List<HomestaySearchResultDTO> nearbyHomestays = homestaySearchService.getNearbyHomestayResults(request);
         return ResponseEntity.ok(nearbyHomestays);
     }
 
@@ -198,7 +207,8 @@ public class HomestayController {
             return validationError;
         }
 
-        List<HomestayDTO> searchResults = homestayService.searchHomestaysNearLandmark(request);
+        List<HomestaySearchResultDTO> searchResults =
+                homestaySearchService.searchHomestayResultsNearLandmark(request);
         return ResponseEntity.ok(searchResults);
     }
 
@@ -493,9 +503,9 @@ public class HomestayController {
             logger.info("获取房东的房源列表，用户名: {}, 状态: {}, 类型: {}, 页码: {}, 大小: {}",
                     username, status, type, page, size);
 
-            List<HomestayDTO> homestays;
+            List<HomestaySummaryDTO> homestays;
             try {
-                homestays = homestayService.getHomestaysByOwner(username);
+                homestays = homestayQueryService.getHomestaySummariesByOwner(username);
                 logger.info("从数据库获取到{}条房源记录", homestays != null ? homestays.size() : 0);
             } catch (Exception e) {
                 logger.error("调用service获取房源列表时发生异常: {}", e.getMessage(), e);
@@ -532,7 +542,7 @@ public class HomestayController {
             int fromIndex = page * size;
             int toIndex = Math.min(fromIndex + size, total);
 
-            List<HomestayDTO> pagedResults = fromIndex < total
+            List<HomestaySummaryDTO> pagedResults = fromIndex < total
                 ? homestays.subList(fromIndex, toIndex)
                 : List.of();
 
@@ -624,7 +634,7 @@ public class HomestayController {
         
         try {
             // 检查房源是否存在
-            homestayService.getHomestayById(id, null);
+            homestayQueryService.getHomestayDetailById(id, null);
             
             // 调用设施服务获取该房源的设施
             List<Amenity> amenities = amenityService.getHomestayAmenities(id);
@@ -707,7 +717,7 @@ public class HomestayController {
 
         try {
             // 获取所有状态为ACTIVE的房源
-            List<HomestayDTO> homestays = homestayService.getAllHomestays();
+            List<HomestaySummaryDTO> homestays = homestayQueryService.getAllHomestaySummaries();
 
             // 根据featured过滤
             if (featured != null) {
@@ -721,7 +731,7 @@ public class HomestayController {
             int fromIndex = page * size;
             int toIndex = Math.min(fromIndex + size, total);
 
-            List<HomestayDTO> pagedResults = fromIndex < total
+            List<HomestaySummaryDTO> pagedResults = fromIndex < total
                 ? homestays.subList(fromIndex, toIndex)
                 : List.of();
 
@@ -915,9 +925,9 @@ public class HomestayController {
 
         try {
             // 先验证这些房源是否都属于当前用户
-            List<HomestayDTO> userHomestays = homestayService.getHomestaysByOwner(username);
+            List<HomestaySummaryDTO> userHomestays = homestayQueryService.getHomestaySummariesByOwner(username);
             List<Long> userHomestayIds = userHomestays.stream()
-                .map(HomestayDTO::getId)
+                .map(HomestaySummaryDTO::getId)
                 .collect(Collectors.toList());
 
             // 过滤出属于用户的房源ID

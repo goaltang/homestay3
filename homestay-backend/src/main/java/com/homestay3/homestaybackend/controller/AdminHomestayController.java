@@ -1,7 +1,12 @@
 package com.homestay3.homestaybackend.controller;
 
+import com.homestay3.homestaybackend.dto.HomestayAdminDetailDTO;
+import com.homestay3.homestaybackend.dto.HomestayAdminSummaryDTO;
 import com.homestay3.homestaybackend.dto.HomestayDTO;
-import com.homestay3.homestaybackend.service.HomestayService;
+import com.homestay3.homestaybackend.dto.HomestayDetailDTO;
+import com.homestay3.homestaybackend.service.HomestayAdminService;
+import com.homestay3.homestaybackend.service.HomestayCommandService;
+import com.homestay3.homestaybackend.service.HomestayQueryService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +30,9 @@ import java.util.Map;
 public class AdminHomestayController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminHomestayController.class);
-    private final HomestayService homestayService;
+    private final HomestayAdminService homestayAdminService;
+    private final HomestayCommandService homestayCommandService;
+    private final HomestayQueryService homestayQueryService;
 
     /**
      * 获取房源列表，支持分页和筛选
@@ -44,7 +51,8 @@ public class AdminHomestayController {
         int pageZeroBased = Math.max(0, page - 1);
         
         Pageable pageable = PageRequest.of(pageZeroBased, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<HomestayDTO> homestays = homestayService.getAdminHomestays(pageable, title, status, type);
+        Page<HomestayAdminSummaryDTO> homestays =
+                homestayAdminService.getAdminHomestaySummaries(pageable, title, status, type);
         
         Map<String, Object> response = new HashMap<>();
         response.put("content", homestays.getContent());
@@ -67,7 +75,8 @@ public class AdminHomestayController {
         logger.info("管理员获取待审核房源列表，页码: {}, 每页数量: {}", page, size);
         
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
-        Page<HomestayDTO> homestays = homestayService.getAdminHomestays(pageable, null, "PENDING", null);
+        Page<HomestayAdminSummaryDTO> homestays =
+                homestayAdminService.getAdminHomestaySummaries(pageable, null, "PENDING", null);
         
         Map<String, Object> response = new HashMap<>();
         response.put("content", homestays.getContent());
@@ -85,7 +94,7 @@ public class AdminHomestayController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getHomestayDetail(@PathVariable Long id) {
         logger.info("管理员获取房源详情，ID: {}", id);
-        HomestayDTO homestay = homestayService.getHomestayById(id, null);
+        HomestayDetailDTO homestay = homestayQueryService.getHomestayDetailById(id, null);
         return ResponseEntity.ok(homestay);
     }
 
@@ -97,7 +106,7 @@ public class AdminHomestayController {
         logger.info("管理员获取带完整房东信息的房源详情，ID: {}", id);
         
         try {
-            HomestayDTO homestay = homestayService.getHomestayWithOwnerDetails(id);
+            HomestayAdminDetailDTO homestay = homestayAdminService.getHomestayAdminDetailWithOwner(id);
             return ResponseEntity.ok(homestay);
         } catch (Exception e) {
             logger.error("获取带房东信息的房源详情失败，ID: {}, 错误: {}", id, e.getMessage());
@@ -112,7 +121,7 @@ public class AdminHomestayController {
     @PostMapping
     public ResponseEntity<?> createHomestay(@RequestBody HomestayDTO homestayDTO) {
         logger.info("管理员创建房源: {}", homestayDTO.getTitle());
-        HomestayDTO createdHomestay = homestayService.createHomestay(homestayDTO);
+        HomestayDTO createdHomestay = homestayAdminService.createHomestay(homestayDTO);
         return ResponseEntity.ok(createdHomestay);
     }
 
@@ -122,7 +131,7 @@ public class AdminHomestayController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateHomestay(@PathVariable Long id, @RequestBody HomestayDTO homestayDTO) {
         logger.info("管理员更新房源，ID: {}", id);
-        HomestayDTO updatedHomestay = homestayService.updateHomestay(id, homestayDTO);
+        HomestayDTO updatedHomestay = homestayCommandService.updateHomestay(id, homestayDTO);
         return ResponseEntity.ok(updatedHomestay);
     }
 
@@ -132,7 +141,7 @@ public class AdminHomestayController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteHomestay(@PathVariable Long id) {
         logger.info("管理员删除房源，ID: {}", id);
-        homestayService.deleteHomestay(id);
+        homestayCommandService.deleteHomestay(id);
         return ResponseEntity.ok().build();
     }
 
@@ -146,7 +155,7 @@ public class AdminHomestayController {
     ) {
         String status = (String) statusData.get("status");
         logger.info("管理员更新房源状态，ID: {}, 状态: {}", id, status);
-        homestayService.updateHomestayStatus(id, status);
+        homestayAdminService.updateHomestayStatus(id, status);
         return ResponseEntity.ok().build();
     }
 
@@ -164,7 +173,7 @@ public class AdminHomestayController {
         logger.info("管理员批量删除房源，数量: {}, IDs: {}", ids.size(), ids);
         
         try {
-            ids.forEach(homestayService::deleteHomestay);
+            ids.forEach(homestayCommandService::deleteHomestay);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -198,7 +207,7 @@ public class AdminHomestayController {
         logger.info("管理员批量更新房源状态，状态: {}, 数量: {}, IDs: {}", status, ids.size(), ids);
         
         try {
-            ids.forEach(id -> homestayService.updateHomestayStatus(id, status));
+            ids.forEach(id -> homestayAdminService.updateHomestayStatus(id, status));
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -231,7 +240,7 @@ public class AdminHomestayController {
         }
         
         try {
-            homestayService.forceDelistHomestay(id, reason, notes, violationType);
+            homestayAdminService.forceDelistHomestay(id, reason, notes, violationType);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "强制下架成功"
@@ -255,7 +264,7 @@ public class AdminHomestayController {
 
         logger.info("管理员批量补全房源坐标，batchSize={}", batchSize);
         try {
-            int successCount = homestayService.batchPopulateCoordinates(batchSize);
+            int successCount = homestayAdminService.batchPopulateCoordinates(batchSize);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "批量补全坐标完成",
@@ -293,7 +302,7 @@ public class AdminHomestayController {
             int successCount = 0;
             for (Long id : ids) {
                 try {
-                    homestayService.forceDelistHomestay(id, reason, notes, violationType);
+                    homestayAdminService.forceDelistHomestay(id, reason, notes, violationType);
                     successCount++;
                 } catch (Exception e) {
                     logger.error("强制下架房源失败，ID: {}", id, e);

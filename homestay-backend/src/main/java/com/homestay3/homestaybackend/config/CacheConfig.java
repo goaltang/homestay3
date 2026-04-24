@@ -77,7 +77,8 @@ public class CacheConfig {
             return new ConcurrentMapCacheManager(
                     "recommendedHomestays", "recommendedHomestaysPage",
                     "popularHomestays", "popularHomestaysPage",
-                    "homestayDetails", "searchResults", "userRecommendations");
+                    "homestayDetails", "searchResults", "userRecommendations",
+                    "homestayList");
         }
     }
 
@@ -96,6 +97,9 @@ public class CacheConfig {
 
         // 民宿详情缓存 - 10分钟
         cacheConfigurations.put("homestayDetails", createCacheConfiguration(Duration.ofMinutes(10)));
+
+        // 房源列表缓存 - 10分钟
+        cacheConfigurations.put("homestayList", createCacheConfiguration(Duration.ofMinutes(10)));
 
         // 搜索结果缓存 - 5分钟
         cacheConfigurations.put("searchResults", createCacheConfiguration(Duration.ofMinutes(5)));

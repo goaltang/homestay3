@@ -5,7 +5,7 @@
             <div class="main-image-wrapper" @click="$emit('show-all-photos')">
                 <div class="image-container">
                     <img :src="mainImageUrl" :alt="homestayTitle" class="main-img" @error="handleImageError"
-                        @load="handleImageLoad" loading="lazy" />
+                        @load="handleImageLoad" />
                     <div class="image-loading" v-if="imageLoading">
                         <el-skeleton animated />
                     </div>

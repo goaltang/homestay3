@@ -82,13 +82,6 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
     List<Homestay> findByOwnerUsernameWithDetails(@Param("username") String username);
     
     /**
-     * 覆盖findAll(Specification)以应用EntityGraph，解决动态查询的N+1问题
-     */
-    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
-    @Override
-    List<Homestay> findAll(Specification<Homestay> spec);
-    
-    /**
      * 根据状态查找房源
      * @param status 状态
      * @return 房源列表
@@ -179,6 +172,7 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
            "(:guestCount IS NULL OR h.maxGuests >= :guestCount) AND " +
            "(:type IS NULL OR h.type = :type) AND " +
            "h.status = 'ACTIVE'")
+    @EntityGraph(value = "Homestay.withDetails", type = EntityGraph.EntityGraphType.LOAD)
     List<Homestay> searchHomestays(
             @Param("location") String location,
             @Param("minPrice") BigDecimal minPrice,

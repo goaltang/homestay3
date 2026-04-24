@@ -20,7 +20,8 @@ import java.util.Set;
     name = "Homestay.withDetails",
     attributeNodes = {
         @NamedAttributeNode("owner"),
-        @NamedAttributeNode("amenities")
+        @NamedAttributeNode("amenities"),
+        @NamedAttributeNode("images")
     }
 )
 @Data
@@ -92,6 +93,7 @@ public class Homestay {
     @ElementCollection
     @CollectionTable(name = "homestay_images", joinColumns = @JoinColumn(name = "homestay_id"))
     @Column(name = "image_url")
+    @BatchSize(size = 50)
     @Builder.Default
     private List<String> images = new ArrayList<>();
 

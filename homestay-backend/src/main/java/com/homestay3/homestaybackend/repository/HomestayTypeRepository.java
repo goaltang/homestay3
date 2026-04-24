@@ -4,6 +4,7 @@ import com.homestay3.homestaybackend.entity.HomestayType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,4 +22,6 @@ public interface HomestayTypeRepository extends JpaRepository<HomestayType, Long
     List<HomestayType> findByCategoryIdAndActiveTrueOrderBySortOrderAsc(Long categoryId);
 
     Optional<HomestayType> findByNameIgnoreCase(String name);
+
+    List<HomestayType> findByCodeIn(Collection<String> codes);
 } 

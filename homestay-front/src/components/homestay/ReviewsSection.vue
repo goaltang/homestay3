@@ -149,10 +149,12 @@ const formattedRating = computed(() => {
 })
 
 // Methods
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 const getReviewerAvatar = (review: Review): string => {
     if (review.userAvatar) {
         if (review.userAvatar.startsWith('/')) {
-            return `http://localhost:8080${review.userAvatar}`
+            return `${API_BASE_URL}${review.userAvatar}`
         }
         return review.userAvatar
     }
@@ -162,7 +164,7 @@ const getReviewerAvatar = (review: Review): string => {
 const getImageUrl = (url: string): string => {
     if (!url) return ''
     if (url.startsWith('/')) {
-        return `http://localhost:8080${url}`
+        return `${API_BASE_URL}${url}`
     }
     return url
 }
