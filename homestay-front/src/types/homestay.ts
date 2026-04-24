@@ -1,3 +1,20 @@
+// 设施项（与后端 AmenityDTO 对齐）
+export interface AmenityItem {
+  value?: string;
+  label?: string;
+  description?: string;
+  icon?: string;
+  categoryCode?: string;
+  categoryName?: string;
+  categoryIcon?: string;
+  active?: boolean;
+  usageCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
 export interface Homestay {
   id?: number;
   title: string;
@@ -15,7 +32,7 @@ export interface Homestay {
   provinceCode?: string;
   cityCode?: string;
   districtCode?: string;
-  amenities: any[];
+  amenities: AmenityItem[];
   description: string;
   coverImage: string;
   images: string[];

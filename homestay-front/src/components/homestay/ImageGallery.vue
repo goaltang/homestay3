@@ -2,7 +2,7 @@
     <div class="image-gallery-new" v-if="allImages.length > 0">
         <!-- 5+ images -->
         <div class="gallery-layout-5plus" v-if="allImages.length >= 5">
-            <div class="main-image-wrapper" @click="$emit('show-all-photos')">
+            <div class="main-image-wrapper" @click="emit('show-all-photos', 0)">
                 <div class="image-container">
                     <img :src="mainImageUrl" :alt="homestayTitle" class="main-img" @error="handleImageError"
                         @load="handleImageLoad" />
@@ -14,7 +14,7 @@
             </div>
             <div class="grid-image-wrapper">
                 <div v-for="(image, index) in gridImages.slice(0, 4)" :key="index" class="grid-img-item"
-                    @click="$emit('show-all-photos')">
+                    @click="emit('show-all-photos', index + 1)">
                     <div class="image-container">
                         <img :src="image" :alt="`${homestayTitle} - 图片 ${index + 2}`" class="grid-img"
                             @error="handleImageError" @load="handleImageLoad" loading="lazy" />
@@ -25,8 +25,8 @@
         </div>
 
         <!-- 4 images -->
-        <div v-else-if="allImages.length === 4" class="gallery-layout-4" @click="$emit('show-all-photos')">
-            <div v-for="(image, index) in allImages" :key="index" class="grid-img-item-4">
+        <div v-else-if="allImages.length === 4" class="gallery-layout-4">
+            <div v-for="(image, index) in allImages" :key="index" class="grid-img-item-4" @click="emit('show-all-photos', index)">
                 <div class="image-container">
                     <img :src="image" :alt="`${homestayTitle} - 图片 ${index + 1}`" class="grid-img-4"
                         @error="handleImageError" @load="handleImageLoad" loading="lazy" />
@@ -36,8 +36,8 @@
         </div>
 
         <!-- 3 images -->
-        <div v-else-if="allImages.length === 3" class="gallery-layout-3" @click="$emit('show-all-photos')">
-            <div v-for="(image, index) in allImages" :key="index" class="grid-img-item-3">
+        <div v-else-if="allImages.length === 3" class="gallery-layout-3">
+            <div v-for="(image, index) in allImages" :key="index" class="grid-img-item-3" @click="emit('show-all-photos', index)">
                 <div class="image-container">
                     <img :src="image" :alt="`${homestayTitle} - 图片 ${index + 1}`" class="grid-img-3"
                         @error="handleImageError" @load="handleImageLoad" loading="lazy" />
@@ -47,8 +47,8 @@
         </div>
 
         <!-- 2 images -->
-        <div v-else-if="allImages.length === 2" class="gallery-layout-2" @click="$emit('show-all-photos')">
-            <div v-for="(image, index) in allImages" :key="index" class="grid-img-item-2">
+        <div v-else-if="allImages.length === 2" class="gallery-layout-2">
+            <div v-for="(image, index) in allImages" :key="index" class="grid-img-item-2" @click="emit('show-all-photos', index)">
                 <div class="image-container">
                     <img :src="image" :alt="`${homestayTitle} - 图片 ${index + 1}`" class="grid-img-2"
                         @error="handleImageError" @load="handleImageLoad" loading="lazy" />
@@ -58,7 +58,7 @@
         </div>
 
         <!-- 1 image -->
-        <div v-else-if="allImages.length === 1" class="gallery-layout-1" @click="$emit('show-all-photos')">
+        <div v-else-if="allImages.length === 1" class="gallery-layout-1" @click="emit('show-all-photos', 0)">
             <div class="main-image-wrapper-single">
                 <div class="image-container">
                     <img :src="mainImageUrl" :alt="homestayTitle" class="main-img-single" @error="handleImageError"
@@ -69,7 +69,7 @@
         </div>
 
         <!-- '查看全部照片' 按钮 -->
-        <el-button class="view-all-photos" @click="$emit('show-all-photos')" v-if="allImages.length > 1">
+        <el-button class="view-all-photos" @click="emit('show-all-photos', 0)" v-if="allImages.length > 1">
             <el-icon>
                 <Camera />
             </el-icon>
@@ -101,8 +101,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 // Emits
-defineEmits<{
-    'show-all-photos': []
+const emit = defineEmits<{
+    'show-all-photos': [index: number]
     'go-home': []
 }>()
 

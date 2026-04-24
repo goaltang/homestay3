@@ -30,15 +30,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Check, CaretRight } from '@element-plus/icons-vue'
-
-// Types
-interface AmenityItem {
-    label?: string
-    name?: string
-    title?: string
-    value?: string
-    categoryName?: string
-}
+import type { AmenityItem } from '@/types/homestay'
 
 // Props
 interface Props {

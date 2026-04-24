@@ -5,7 +5,7 @@
                 <el-icon>
                     <Star />
                 </el-icon>
-                {{ formattedRating }} · {{ reviewCount }}条评价
+                {{ displayRating }} · {{ reviewCount }}条评价
             </h2>
         </div>
 
@@ -125,27 +125,12 @@ defineEmits<{
 }>()
 
 // Computed properties
-const formattedRating = computed(() => {
-    if (props.reviewStats.length > 0) {
-        const avgRating = props.reviewStats.reduce((sum, stat) => sum + stat.score, 0) / props.reviewStats.length
-        return avgRating.toFixed(1)
-    }
-
-    if (props.reviews.length > 0) {
-        const ratingsWithScores = props.reviews.filter(review => review.rating && review.rating > 0)
-        if (ratingsWithScores.length > 0) {
-            const avgRating = ratingsWithScores.reduce((sum, review) => sum + review.rating, 0) / ratingsWithScores.length
-            return avgRating.toFixed(1)
-        }
-        return '4.5' // 默认好评评分
-    }
-
-    if (props.rating) {
-        const rating = Number(props.rating)
-        return isNaN(rating) ? '暂无评分' : rating.toFixed(1)
-    }
-
-    return '暂无评分'
+// 评分由父组件通过 props.rating 统一传入（来自 useReviews 的 formattedRating），
+// 避免与 useReviews 中的计算逻辑重复。
+const displayRating = computed(() => {
+    const r = props.rating
+    if (!r || r === 0 || r === '暂无评分') return '暂无评分'
+    return typeof r === 'number' ? r.toFixed(1) : r
 })
 
 // Methods

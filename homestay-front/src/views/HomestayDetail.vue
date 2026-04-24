@@ -93,7 +93,7 @@
                     :is-calculating="bookingComposable.isCalculatingPrice.value"
                     :min-nights="homestay.minNights || 1"
                     :max-nights="homestay.maxNights || 0"
-                    @booking-confirmed="() => bookingComposable.bookHomestay()" @date-changed="handleDateRangeChange"
+                    @booking-confirmed="() => bookingComposable.bookHomestay()" @date-changed="onDateChanged"
                     @guests-changed="(value) => bookingComposable.bookingDates.guests = value" />
             </div>
 
@@ -133,6 +133,10 @@
         </div>
     </div>
 
+    <!-- 照片全屏画廊 -->
+    <PhotoGalleryModal v-model:visible="galleryVisible" :images="processedImages" :title="homestay?.title"
+        :initial-index="galleryInitialIndex" />
+
     <!-- 聊天对话框 -->
     <ChatDialog />
 </template>
@@ -166,6 +170,7 @@ const ReviewsSection = defineAsyncComponent(() => import('@/components/homestay/
 const LocationInfo = defineAsyncComponent(() => import('@/components/homestay/LocationInfo.vue'))
 const PoliciesAndRules = defineAsyncComponent(() => import('@/components/homestay/PoliciesAndRules.vue'))
 const ChatDialog = defineAsyncComponent(() => import('@/components/chat/ChatDialog.vue'))
+const PhotoGalleryModal = defineAsyncComponent(() => import('@/components/homestay/PhotoGalleryModal.vue'))
 
 // 基础状态
 const route = useRoute()
@@ -181,6 +186,10 @@ const hostDetailInfo = ref<HostDTO | null>(null)
 // 房东详情区域 ref，用于平滑滚动定位
 const hostDetailRef = ref<InstanceType<typeof HostInfo> | null>(null)
 
+// 照片画廊状态
+const galleryVisible = ref(false)
+const galleryInitialIndex = ref(0)
+
 // 组合式函数
 const reviewsComposable = useReviews()
 const mapComposable = useMap()
@@ -194,16 +203,9 @@ const isFavorite = computed(() => homestay.value ? favoritesStore.isFavorite(hom
 // 预订相关
 const bookingComposable = useBooking(homestay, pricePerNight)
 
-// 修复预订组件的日期处理，使用封闭的状态修改方法
-const handleDateRangeChange = (checkIn: Date | null, checkOut: Date | null) => {
-    console.log('handleDateRangeChange called:', { checkIn, checkOut })
-    if (checkIn && checkOut) {
-        bookingComposable.updateBookingDates([checkIn, checkOut])
-        console.log('Updated booking dates:', bookingComposable.bookingDates)
-    } else {
-        bookingComposable.updateBookingDates(null)
-        console.log('Cleared booking dates')
-    }
+// 将 BookingCard 的两个日期参数转换为 composable 需要的数组格式
+const onDateChanged = (checkIn: Date | null, checkOut: Date | null) => {
+    bookingComposable.updateBookingDates(checkIn && checkOut ? [checkIn, checkOut] : null)
 }
 
 // 关键特色
@@ -215,17 +217,17 @@ const keyFeatures = computed(() => {
     try {
         // 提取特色服务 (加强防御性)
         const specialServices = amenityList
-            .filter((a: any) => a && a.categoryName === '特色服务' && a.label)
+            .filter((a) => a && a.categoryName === '特色服务' && a.label)
             .slice(0, 2)
-            .map((a: any) => a.label)
+            .map((a) => a.label)
         features.push(...specialServices)
 
         // 补充便利设施
         if (features.length < 2) {
             const convenience = amenityList
-                .filter((a: any) => a && a.categoryName === '便利设施' && a.label)
+                .filter((a) => a && a.categoryName === '便利设施' && a.label)
                 .slice(0, 2 - features.length)
-                .map((a: any) => a.label)
+                .map((a) => a.label)
             features.push(...convenience)
         }
     } catch (e) {
@@ -262,7 +264,10 @@ const contactHost = async () => {
     }
     await chatStore.openChatDialog(homestay.value.id!, homestay.value.ownerId);
 }
-const showAllPhotos = () => ElMessage.info('查看全部照片功能待实现')
+const showAllPhotos = (index: number = 0) => {
+    galleryInitialIndex.value = index
+    galleryVisible.value = true
+}
 
 const scrollToHostSection = () => {
     const hostSection = hostDetailRef.value?.$el as HTMLElement | undefined
