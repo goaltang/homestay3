@@ -93,8 +93,11 @@
                     :is-calculating="bookingComposable.isCalculatingPrice.value"
                     :min-nights="homestay.minNights || 1"
                     :max-nights="homestay.maxNights || 0"
+                    :available-coupons="bookingComposable.priceDetails.value?.availableCoupons"
+                    :selected-coupon-ids="bookingComposable.selectedCouponIds.value"
                     @booking-confirmed="() => bookingComposable.bookHomestay()" @date-changed="onDateChanged"
-                    @guests-changed="(value) => bookingComposable.bookingDates.guests = value" />
+                    @guests-changed="(value) => bookingComposable.bookingDates.guests = value"
+                    @coupon-changed="handleCouponChanged" />
             </div>
 
             <!-- 位置信息组件 -->
@@ -206,6 +209,12 @@ const bookingComposable = useBooking(homestay, pricePerNight)
 // 将 BookingCard 的两个日期参数转换为 composable 需要的数组格式
 const onDateChanged = (checkIn: Date | null, checkOut: Date | null) => {
     bookingComposable.updateBookingDates(checkIn && checkOut ? [checkIn, checkOut] : null)
+}
+
+// 处理优惠券选择变化
+const handleCouponChanged = (couponIds: number[]) => {
+    bookingComposable.selectedCouponIds.value = couponIds
+    bookingComposable.recalculatePrice()
 }
 
 // 关键特色

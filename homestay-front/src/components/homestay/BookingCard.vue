@@ -93,6 +93,14 @@
                     <div class="price-item">¥{{ pricePerNight }} x {{ calculatedFees.nights }}晚</div>
                     <div class="price-value">¥{{ calculatedFees.basePrice }}</div>
                 </div>
+                <div class="price-row discount" v-if="calculatedFees.activityDiscountAmount > 0">
+                    <div class="price-item">活动优惠</div>
+                    <div class="price-value">-¥{{ calculatedFees.activityDiscountAmount }}</div>
+                </div>
+                <div class="price-row discount" v-if="calculatedFees.couponDiscountAmount > 0">
+                    <div class="price-item">优惠券</div>
+                    <div class="price-value">-¥{{ calculatedFees.couponDiscountAmount }}</div>
+                </div>
                 <div class="price-row" v-if="calculatedFees.cleaningFee > 0">
                     <div class="price-item">清洁费</div>
                     <div class="price-value">¥{{ calculatedFees.cleaningFee }}</div>
@@ -107,6 +115,15 @@
                     <div class="price-value">¥{{ calculatedFees.totalPrice }}</div>
                 </div>
             </template>
+        </div>
+
+        <!-- 优惠券选择 -->
+        <div class="coupon-section" v-if="availableCoupons && availableCoupons.length > 0 && calculatedFees">
+            <div class="coupon-label">可用优惠券</div>
+            <el-select v-model="localSelectedCoupons" placeholder="选择优惠券" size="small" class="coupon-select" @change="handleCouponChange">
+                <el-option label="不使用优惠券" :value="null" />
+                <el-option v-for="coupon in availableCoupons" :key="coupon.id" :label="`${coupon.name} (${formatCouponValue(coupon)})`" :value="coupon.id" />
+            </el-select>
         </div>
 
         <div class="booking-note">
@@ -138,6 +155,8 @@ interface Props {
     isCalculating?: boolean
     minNights?: number  // 房东设置的最低入住晚数
     maxNights?: number  // 房东设置的最大入住晚数
+    availableCoupons?: any[]
+    selectedCouponIds?: number[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -146,7 +165,9 @@ const props = withDefaults(defineProps<Props>(), {
     guests: 1,
     isCalculating: false,
     minNights: 1,
-    maxNights: 0  // 0 表示不限制
+    maxNights: 0,  // 0 表示不限制
+    availableCoupons: () => [],
+    selectedCouponIds: () => []
 })
 
 // Emits
@@ -154,11 +175,31 @@ const emit = defineEmits<{
     'booking-confirmed': []
     'date-changed': [checkIn: Date | null, checkOut: Date | null]
     'guests-changed': [guests: number]
+    'coupon-changed': [couponIds: number[]]
 }>()
 
 // Local reactive data
 const localDateRange = ref<[Date, Date] | null>(null)
 const localGuests = ref(props.guests)
+const localSelectedCoupons = ref<number | null>(props.selectedCouponIds?.[0] || null)
+
+watch(() => props.selectedCouponIds, (newVal) => {
+    localSelectedCoupons.value = newVal?.[0] || null
+})
+
+const handleCouponChange = (val: number | null) => {
+    emit('coupon-changed', val ? [val] : [])
+}
+
+const formatCouponValue = (coupon: any) => {
+    if (coupon.couponType === 'CASH' || coupon.couponType === 'FULL_REDUCTION') {
+        return `减${coupon.faceValue}元`
+    }
+    if (coupon.couponType === 'DISCOUNT') {
+        return `${(coupon.discountRate * 10).toFixed(1)}折`
+    }
+    return ''
+}
 
 // 不可用日期
 const unavailableDates = ref<string[]>([])
@@ -1013,6 +1054,22 @@ watch(localGuests, (newGuests) => {
 /* tooltip 小三角 */
 .booking-date-popper .el-date-table td.disabled:hover::after {
     opacity: 1;
+}
+
+.coupon-section {
+    margin: 12px 0;
+    padding: 0 4px;
+}
+
+.coupon-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #606266;
+    margin-bottom: 6px;
+}
+
+.coupon-select {
+    width: 100%;
 }
 
 </style>

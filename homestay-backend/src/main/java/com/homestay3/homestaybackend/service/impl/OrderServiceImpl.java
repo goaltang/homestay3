@@ -32,6 +32,7 @@ import com.homestay3.homestaybackend.service.BookingConflictService;
 import com.homestay3.homestaybackend.service.PaymentService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.service.OrderLifecycleService;
+import com.homestay3.homestaybackend.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +71,7 @@ public class OrderServiceImpl implements OrderService {
     private final BookingConflictService bookingConflictService;
     private final PaymentProcessingService paymentProcessingService;
     private final OrderLifecycleService orderLifecycleService;
+    private final PricingService pricingService;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     public OrderServiceImpl(OrderRepository orderRepository,
@@ -82,6 +84,7 @@ public class OrderServiceImpl implements OrderService {
                             BookingConflictService bookingConflictService,
                             PaymentProcessingService paymentProcessingService,
                             OrderLifecycleService orderLifecycleService,
+                            PricingService pricingService,
                             ObjectProvider<SystemConfigService> systemConfigServiceProvider) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
@@ -93,6 +96,7 @@ public class OrderServiceImpl implements OrderService {
         this.bookingConflictService = bookingConflictService;
         this.paymentProcessingService = paymentProcessingService;
         this.orderLifecycleService = orderLifecycleService;
+        this.pricingService = pricingService;
         this.systemConfigServiceProvider = systemConfigServiceProvider;
     }
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
@@ -1057,106 +1061,35 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public PriceCalculationResponse calculatePrice(PriceCalculationRequest request) {
-        // 1. 参数验证
-        if (request.getHomestayId() == null) {
-            throw new IllegalArgumentException("房源ID不能为空");
-        }
-        if (request.getCheckInDate() == null || request.getCheckOutDate() == null) {
-            throw new IllegalArgumentException("入住日期和退房日期不能为空");
-        }
-        if (request.getCheckInDate().isAfter(request.getCheckOutDate()) ||
-            request.getCheckInDate().isEqual(request.getCheckOutDate())) {
-            throw new IllegalArgumentException("退房日期必须晚于入住日期");
-        }
+        // 委托给统一计价服务，保持接口兼容
+        com.homestay3.homestaybackend.dto.PricingQuoteRequest quoteRequest =
+                com.homestay3.homestaybackend.dto.PricingQuoteRequest.builder()
+                        .homestayId(request.getHomestayId())
+                        .checkInDate(request.getCheckInDate())
+                        .checkOutDate(request.getCheckOutDate())
+                        .guestCount(request.getGuestCount())
+                        .build();
 
-        // 2. 获取房源信息
-        Homestay homestay = homestayRepository.findById(request.getHomestayId())
-                .orElseThrow(() -> new ResourceNotFoundException("房源不存在"));
+        com.homestay3.homestaybackend.dto.PricingQuoteResponse quote =
+                pricingService.quote(quoteRequest, getCurrentUser() != null ? getCurrentUser().getId() : null);
 
-        // 3. 验证人数
-        if (request.getGuestCount() != null && request.getGuestCount() > homestay.getMaxGuests()) {
-            throw new IllegalArgumentException("入住人数不能超过房源最大容纳人数：" + homestay.getMaxGuests());
-        }
-
-        // 4. 计算住宿晚数
-        long nights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
-        if (nights < homestay.getMinNights()) {
-            throw new IllegalArgumentException("住宿天数不能少于" + homestay.getMinNights() + "晚");
-        }
-
-        // 5. 获取系统配置的费用配置
-        // 清洁费：固定金额 = 单晚价格 × 配置比例（一次性，不论住多少晚）
-        BigDecimal cleaningFeeAmount = getPricingConfig("pricing.cleaning_fee", "0.1");
-        // 服务费：按订单总价的百分比收取
-        BigDecimal serviceFeeRate = getPricingConfig("pricing.service_fee", "0.15");
-        BigDecimal weekendRate = getPricingConfig("pricing.weekend_rate", "1.2");
-        BigDecimal holidayRate = getPricingConfig("pricing.holiday_rate", "1.5");
-
-        // 6. 获取房源折扣
-        BigDecimal discountRate = getHomestayDiscount(request.getHomestayId());
-
-        // 7. 计算每日价格
-        BigDecimal basePricePerNight = homestay.getPrice();
-        List<PriceCalculationResponse.DailyPrice> dailyPrices = new ArrayList<>();
-        BigDecimal totalBasePrice = BigDecimal.ZERO;
-
-        LocalDate currentDate = request.getCheckInDate();
-        for (int i = 0; i < nights; i++) {
-            LocalDate date = currentDate.plusDays(i);
-            BigDecimal dailyPrice = calculateDailyPrice(date, basePricePerNight, weekendRate, holidayRate);
-
-            String holidayName = getHolidayName(date);
-
-            dailyPrices.add(PriceCalculationResponse.DailyPrice.builder()
-                    .date(date)
-                    .price(dailyPrice)
-                    .isWeekend(date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY)
-                    .isHoliday(holidayName != null)
-                    .holidayName(holidayName)
-                    .build());
-
-            totalBasePrice = totalBasePrice.add(dailyPrice);
-        }
-
-        // 8. 计算折扣
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        BigDecimal finalBasePrice = totalBasePrice;
-        if (discountRate != null && discountRate.compareTo(BigDecimal.ONE) < 0) {
-            discountAmount = totalBasePrice.multiply(BigDecimal.ONE.subtract(discountRate));
-            finalBasePrice = totalBasePrice.subtract(discountAmount);
-        }
-
-        // 9. 计算清洁费和服务费
-        // 清洁费：固定金额 = 单晚价格 × 配置比例（不论住多少晚都一样）
-        BigDecimal cleaningFee = homestay.getPrice().multiply(cleaningFeeAmount).setScale(2, RoundingMode.HALF_UP);
-        // 服务费：按折后订单总价的百分比收取
-        BigDecimal serviceFee = finalBasePrice.multiply(serviceFeeRate).setScale(2, RoundingMode.HALF_UP);
-
-        // 10. 计算总价
-        BigDecimal totalPrice = finalBasePrice.add(cleaningFee).add(serviceFee);
-
-        // 11. 构建响应
         return PriceCalculationResponse.builder()
-                .homestayId(homestay.getId())
-                .homestayTitle(homestay.getTitle())
+                .homestayId(request.getHomestayId())
+                .homestayTitle(quote.getPriceDetails() != null ? null : null)
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
                 .guestCount(request.getGuestCount())
-                .nights((int) nights)
-                .dailyPrices(dailyPrices)
-                .basePrice(totalBasePrice)
-                .discountAmount(discountAmount)
-                .finalBasePrice(finalBasePrice)
-                .cleaningFee(cleaningFee)
-                .serviceFee(serviceFee)
-                .totalPrice(totalPrice)
-                .priceDetails(PriceCalculationResponse.PriceDetails.builder()
-                        .cleaningFeeAmount(cleaningFeeAmount)
-                        .serviceFeeRate(serviceFeeRate)
-                        .weekendRate(weekendRate)
-                        .holidayRate(holidayRate)
-                        .discountRate(discountRate)
-                        .build())
+                .nights(quote.getNights())
+                .dailyPrices(quote.getDailyPrices())
+                .basePrice(quote.getRoomOriginalAmount())
+                .discountAmount(quote.getActivityDiscountAmount().add(quote.getCouponDiscountAmount()))
+                .finalBasePrice(quote.getRoomOriginalAmount()
+                        .subtract(quote.getActivityDiscountAmount())
+                        .subtract(quote.getCouponDiscountAmount()))
+                .cleaningFee(quote.getCleaningFee())
+                .serviceFee(quote.getServiceFee())
+                .totalPrice(quote.getPayableAmount())
+                .priceDetails(quote.getPriceDetails())
                 .build();
     }
 

@@ -184,6 +184,25 @@ const router = createRouter({
             icon: "chat",
           },
         },
+        {
+          path: "promotions",
+          name: "HostPromotions",
+          component: () => import("../views/host/HostPromotionManage.vue"),
+          meta: {
+            title: "营销活动",
+            icon: "ticket",
+          },
+        },
+        {
+          path: "promotions/stats",
+          name: "HostPromotionStats",
+          component: () => import("../views/host/HostPromotionStats.vue"),
+          meta: {
+            title: "营销数据",
+            icon: "trend-charts",
+            activeMenu: "/host/promotions",
+          },
+        },
       ],
     },
     {

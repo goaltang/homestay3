@@ -8,6 +8,8 @@ import com.homestay3.homestaybackend.model.VerificationStatus;
 import com.homestay3.homestaybackend.model.UserRole;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.repository.AdminRepository;
+import com.homestay3.homestaybackend.repository.CouponTemplateRepository;
+import com.homestay3.homestaybackend.service.CouponService;
 import com.homestay3.homestaybackend.security.JwtTokenProvider;
 import com.homestay3.homestaybackend.service.AuthService;
 import com.homestay3.homestaybackend.service.CustomUserDetailsService;
@@ -48,6 +50,8 @@ public class AuthServiceImpl implements AuthService {
     private final NotificationService notificationService;
     private final AdminRepository adminRepository;
     private final UserMapper userMapper;
+    private final CouponTemplateRepository couponTemplateRepository;
+    private final CouponService couponService;
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -125,6 +129,30 @@ public class AuthServiceImpl implements AuthService {
             } catch (Exception e) {
                 log.error("为新用户 {} 发送欢迎通知失败: {}", savedUser.getUsername(), e.getMessage(), e);
                 // 发送通知失败不应中断注册流程
+            }
+
+            // 自动发放新人专属优惠券
+            try {
+                LocalDateTime now = LocalDateTime.now();
+                var newUserTemplates = couponTemplateRepository
+                        .findByIsNewUserCouponTrueAndStatusAndValidStartAtLessThanEqualAndValidEndAtGreaterThanEqual(
+                                "ACTIVE", now, now);
+                if (!newUserTemplates.isEmpty()) {
+                    for (var template : newUserTemplates) {
+                        try {
+                            couponService.claimCoupon(savedUser.getId(), template.getId());
+                            log.info("已向新用户 {} 自动发放新人券 templateId={}", savedUser.getUsername(), template.getId());
+                        } catch (Exception ce) {
+                            log.warn("向新用户 {} 发放新人券 templateId={} 失败: {}",
+                                    savedUser.getUsername(), template.getId(), ce.getMessage());
+                        }
+                    }
+                } else {
+                    log.info("当前无激活的新人券模板，跳过自动发放");
+                }
+            } catch (Exception e) {
+                log.error("新人券自动发放流程异常: {}", e.getMessage(), e);
+                // 新人券发放失败不应中断注册流程
             }
 
             // 生成token - 修改这部分，避免使用userDetailsService

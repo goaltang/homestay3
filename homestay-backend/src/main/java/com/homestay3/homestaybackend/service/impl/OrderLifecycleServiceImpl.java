@@ -1,13 +1,16 @@
 package com.homestay3.homestaybackend.service.impl;
 
+import com.homestay3.homestaybackend.dto.AppliedPromotionDTO;
 import com.homestay3.homestaybackend.dto.OrderDTO;
 import com.homestay3.homestaybackend.dto.ReviewDTO;
 import com.homestay3.homestaybackend.exception.AccessDeniedException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.Order;
+import com.homestay3.homestaybackend.entity.PromotionUsage;
 import com.homestay3.homestaybackend.entity.Review;
 import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.entity.UserCoupon;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.model.HomestayStatus;
@@ -16,14 +19,19 @@ import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
+import com.homestay3.homestaybackend.repository.PromotionUsageRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.BookingConflictService;
+import com.homestay3.homestaybackend.service.CouponService;
 import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderLifecycleService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
+import com.homestay3.homestaybackend.service.PricingService;
+import com.homestay3.homestaybackend.service.PromotionMatchService;
 import com.homestay3.homestaybackend.service.SystemConfigService;
+import com.homestay3.homestaybackend.dto.PricingResult;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +75,10 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
     private final BookingConflictService bookingConflictService;
+    private final PricingService pricingService;
+    private final CouponService couponService;
+    private final PromotionMatchService promotionMatchService;
+    private final PromotionUsageRepository promotionUsageRepository;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     // Note: Payment processing is handled by PaymentProcessingService, not here
@@ -113,14 +125,19 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             throw new IllegalArgumentException("入住人数不能超过房源最大入住人数" + homestay.getMaxGuests() + "人");
         }
 
-        // 5. 计算总价
-        BigDecimal baseAmount = homestay.getPrice().multiply(BigDecimal.valueOf(nights));
-        // 清洁费：固定金额 = 单晚价格 × 配置比例（一次性，不论住多少晚）
-        BigDecimal cleaningFee = homestay.getPrice().multiply(getPricingConfig("pricing.cleaning_fee", "0.1"));
-        // 服务费：按订单总价的百分比收取
-        BigDecimal serviceFee = baseAmount.multiply(getPricingConfig("pricing.service_fee", "0.15"));
-        BigDecimal totalAmount = baseAmount.add(cleaningFee).add(serviceFee);
-        log.info("计算订单总价: {} (基础房费: {}, 清洁费: {}, 服务费: {})", totalAmount, baseAmount, cleaningFee, serviceFee);
+        // 5. 统一计价（所有价格计算通过 PricingService）
+        PricingResult pricingResult = pricingService.calculate(
+                homestay.getId(),
+                orderDTO.getCheckInDate(),
+                orderDTO.getCheckOutDate(),
+                orderDTO.getGuestCount(),
+                orderDTO.getCouponIds(),
+                currentUser.getId()
+        );
+        BigDecimal totalAmount = pricingResult.getPayableAmount();
+        log.info("统一计价结果: payableAmount={}, roomOriginalAmount={}, activityDiscount={}, couponDiscount={}",
+                totalAmount, pricingResult.getRoomOriginalAmount(),
+                pricingResult.getActivityDiscountAmount(), pricingResult.getCouponDiscountAmount());
 
         // 6. 根据房源自动确认设置决定初始订单状态
         String initialStatus;
@@ -152,6 +169,71 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             // 8. 使用安全的创建方法（带锁保护）
             Order savedOrder = bookingConflictService.safeCreateOrder(order);
             log.info("订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
+
+            // 8.1 保存价格快照（用于后续退款/对账追溯）
+            try {
+                pricingService.savePriceSnapshot(savedOrder.getId(), pricingResult, orderDTO.getQuoteToken());
+            } catch (Exception e) {
+                log.error("保存价格快照失败，不影响订单创建: {}", e.getMessage());
+            }
+
+            // 8.2 锁定优惠券（失败抛异常，事务回滚，避免订单落库但券未锁定）
+            if (orderDTO.getCouponIds() != null && !orderDTO.getCouponIds().isEmpty()) {
+                couponService.lockCoupons(orderDTO.getCouponIds(), savedOrder.getId(), currentUser.getId());
+            }
+
+            // 8.3 扣减活动预算并记录优惠使用流水
+            if (pricingResult.getAppliedPromotions() != null) {
+                for (AppliedPromotionDTO promo : pricingResult.getAppliedPromotions()) {
+                    if (promo.getCampaignId() != null && promo.getDiscountAmount() != null
+                            && promo.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        // 扣减预算（失败抛异常回滚，防止预算没扣但订单已优惠）
+                        boolean deducted = promotionMatchService.deductCampaignBudget(promo.getCampaignId(), promo.getDiscountAmount());
+                        if (!deducted) {
+                            throw new IllegalStateException("活动预算不足，无法应用优惠，campaignId=" + promo.getCampaignId());
+                        }
+                        // 记录流水
+                        PromotionUsage usage = PromotionUsage.builder()
+                                .orderId(savedOrder.getId())
+                                .userId(currentUser.getId())
+                                .campaignId(promo.getCampaignId())
+                                .discountAmount(promo.getDiscountAmount())
+                                .bearer(promo.getBearer() != null ? promo.getBearer() : "PLATFORM")
+                                .status("LOCKED")
+                                .build();
+                        promotionUsageRepository.save(usage);
+                    }
+                }
+            }
+
+            // 记录优惠券流水
+            if (orderDTO.getCouponIds() != null && !orderDTO.getCouponIds().isEmpty()) {
+                for (Long couponId : orderDTO.getCouponIds()) {
+                    UserCoupon userCoupon = couponService.getAvailableCoupons(currentUser.getId()).stream()
+                            .filter(c -> c.getId().equals(couponId))
+                            .findFirst()
+                            .orElse(null);
+                    if (userCoupon != null) {
+                        String couponBearer = userCoupon.getTemplate() != null
+                                ? userCoupon.getTemplate().getSubsidyBearer()
+                                : "PLATFORM";
+                        BigDecimal couponDiscount = pricingResult.getCouponDiscountAmount() != null
+                                ? pricingResult.getCouponDiscountAmount()
+                                : BigDecimal.ZERO;
+                        if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                            PromotionUsage usage = PromotionUsage.builder()
+                                    .orderId(savedOrder.getId())
+                                    .userId(currentUser.getId())
+                                    .couponId(couponId)
+                                    .discountAmount(couponDiscount)
+                                    .bearer(couponBearer)
+                                    .status("LOCKED")
+                                    .build();
+                            promotionUsageRepository.save(usage);
+                        }
+                    }
+                }
+            }
 
             // 9. 根据订单状态发送不同的通知
             try {
@@ -603,6 +685,12 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         // 根据目标状态执行特定逻辑
         if (targetStatus == OrderStatus.PAID) {
             order.setPaymentStatus(PaymentStatus.PAID);
+            // 支付成功，核销优惠券
+            try {
+                couponService.useCoupons(order.getId());
+            } catch (Exception e) {
+                log.error("核销优惠券失败，订单: {}", order.getId(), e);
+            }
         } else if (targetStatus == OrderStatus.CONFIRMED) {
             if (!isOrderOwner(order, currentUser)) {
                 throw new AccessDeniedException("只有房东才能确认订单");
@@ -1058,6 +1146,30 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
         Order cancelledOrder = orderRepository.save(order);
 
+        // 释放锁定的优惠券
+        try {
+            couponService.releaseCoupons(order.getId());
+        } catch (Exception e) {
+            log.error("释放优惠券失败，订单: {}", order.getId(), e);
+        }
+
+        // 回退活动预算并更新优惠使用流水状态
+        try {
+            List<PromotionUsage> usages = promotionUsageRepository.findByOrderId(order.getId());
+            for (PromotionUsage usage : usages) {
+                String newStatus = order.getPaymentStatus() == PaymentStatus.PAID ? "REFUNDED" : "RELEASED";
+                usage.setStatus(newStatus);
+                promotionUsageRepository.save(usage);
+
+                // 回退活动预算
+                if (usage.getCampaignId() != null && usage.getDiscountAmount() != null) {
+                    promotionMatchService.refundCampaignBudget(usage.getCampaignId(), usage.getDiscountAmount());
+                }
+            }
+        } catch (Exception e) {
+            log.error("回退活动预算或更新优惠流水失败，订单: {}", order.getId(), e);
+        }
+
         // 发送订单取消/退款通知
         try {
             User guest = cancelledOrder.getGuest();
@@ -1124,11 +1236,23 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     }
 
     /**
-     * 计算退款金额
+     * 计算退款金额（优先使用价格快照中的 payableAmount）
      */
     private BigDecimal calculateRefundAmount(Order order) {
         if (order.getCheckInDate() == null || order.getTotalAmount() == null) {
             return BigDecimal.ZERO;
+        }
+
+        // 优先读取价格快照中的实付金额
+        BigDecimal baseAmount = order.getTotalAmount();
+        try {
+            PricingResult snapshot = pricingService.getPriceSnapshot(order.getId());
+            if (snapshot != null && snapshot.getPayableAmount() != null) {
+                baseAmount = snapshot.getPayableAmount();
+                log.info("退款计算使用价格快照金额: orderId={}, payableAmount={}", order.getId(), baseAmount);
+            }
+        } catch (Exception e) {
+            log.warn("读取价格快照失败，回退到订单总金额: {}", e.getMessage());
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -1144,35 +1268,35 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
         if (policyType == 1) {
             if (hoursBetween >= 24) {
-                refundAmt = order.getTotalAmount();
+                refundAmt = baseAmount;
             } else {
                 int nights = order.getNights() != null ? order.getNights() : 1;
                 if (nights <= 1) {
                     refundAmt = BigDecimal.ZERO;
                 } else {
-                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
-                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    BigDecimal perNight = baseAmount.divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = baseAmount.subtract(perNight);
                     if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
                 }
             }
         } else if (policyType == 3) {
             if (hoursBetween >= 72) {
-                refundAmt = order.getTotalAmount();
+                refundAmt = baseAmount;
             } else {
-                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+                refundAmt = baseAmount.multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
             }
         } else {
             if (hoursBetween >= 48) {
-                refundAmt = order.getTotalAmount();
+                refundAmt = baseAmount;
             } else if (hoursBetween >= 24) {
-                refundAmt = order.getTotalAmount().multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
+                refundAmt = baseAmount.multiply(new BigDecimal("0.5")).setScale(2, java.math.RoundingMode.HALF_UP);
             } else {
                 int nights = order.getNights() != null ? order.getNights() : 1;
                 if (nights <= 1) {
                     refundAmt = BigDecimal.ZERO;
                 } else {
-                    BigDecimal perNight = order.getTotalAmount().divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
-                    refundAmt = order.getTotalAmount().subtract(perNight);
+                    BigDecimal perNight = baseAmount.divide(new BigDecimal(nights), 2, java.math.RoundingMode.HALF_UP);
+                    refundAmt = baseAmount.subtract(perNight);
                     if (refundAmt.compareTo(BigDecimal.ZERO) < 0) refundAmt = BigDecimal.ZERO;
                 }
             }

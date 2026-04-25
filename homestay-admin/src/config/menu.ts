@@ -98,6 +98,32 @@ export const menuData: Menus[] = [
     icon: "ChatDotSquare",
   },
   {
+    id: "marketing",
+    title: "营销管理",
+    index: "/marketing",
+    icon: "Present",
+    children: [
+      {
+        id: "marketing-campaigns",
+        pid: "marketing",
+        title: "活动管理",
+        index: "/marketing/campaigns",
+      },
+      {
+        id: "marketing-coupons",
+        pid: "marketing",
+        title: "优惠券模板",
+        index: "/marketing/coupons",
+      },
+      {
+        id: "marketing-dashboard",
+        pid: "marketing",
+        title: "营销报表",
+        index: "/marketing/dashboard",
+      },
+    ],
+  },
+  {
     id: "system",
     title: "系统管理",
     index: "/system",

@@ -88,31 +88,50 @@ export function useBooking(
 
   const isCalculatingPrice = ref(false);
   const priceDetails = ref<PriceCalculationResult | null>(null);
+  const quoteToken = ref<string | null>(null);
+  const selectedCouponIds = ref<number[]>([]);
   let calcTimer: number | null = null;
+
+  const recalculatePrice = async () => {
+    if (!bookingDates.checkIn || !bookingDates.checkOut || !homestay.value?.id) {
+      priceDetails.value = null;
+      quoteToken.value = null;
+      return;
+    }
+    if (bookingDates.checkOut.getTime() <= bookingDates.checkIn.getTime()) {
+      isCalculatingPrice.value = false;
+      priceDetails.value = null;
+      quoteToken.value = null;
+      return;
+    }
+    isCalculatingPrice.value = true;
+    try {
+      const result = await fetchCalculatePrice(
+        homestay.value!.id!,
+        pricePerNight.value,
+        bookingDates.checkIn!,
+        bookingDates.checkOut!,
+        bookingDates.guests,
+        selectedCouponIds.value
+      );
+      priceDetails.value = result;
+      quoteToken.value = result.quoteToken || null;
+    } catch(e) {
+      console.error("算价失败", e);
+      priceDetails.value = null;
+      quoteToken.value = null;
+    } finally {
+      isCalculatingPrice.value = false;
+    }
+  };
 
   watch([() => bookingDates.checkIn, () => bookingDates.checkOut, () => bookingDates.guests], () => {
     if (bookingDates.checkIn && bookingDates.checkOut && homestay.value?.id) {
        if (calcTimer) clearTimeout(calcTimer);
-       isCalculatingPrice.value = true;
-       // 这里如果日期无效，直接返回
-       if (bookingDates.checkOut.getTime() <= bookingDates.checkIn.getTime()) {
-          isCalculatingPrice.value = false;
-          priceDetails.value = null;
-          return;
-       }
-       calcTimer = window.setTimeout(async () => {
-          try {
-             const result = await fetchCalculatePrice(homestay.value!.id!, pricePerNight.value, bookingDates.checkIn!, bookingDates.checkOut!, bookingDates.guests);
-             priceDetails.value = result;
-          } catch(e) {
-             console.error("算价失败", e);
-             priceDetails.value = null;
-          } finally {
-             isCalculatingPrice.value = false;
-          }
-       }, 500);
+       calcTimer = window.setTimeout(() => recalculatePrice(), 500);
     } else {
        priceDetails.value = null;
+       quoteToken.value = null;
     }
   }, { immediate: true });
 
@@ -175,7 +194,9 @@ export function useBooking(
       checkInDate: formatDateString(bookingDates.checkIn),
       checkOutDate: formatDateString(bookingDates.checkOut),
       guestCount: bookingDates.guests,
-      totalPrice: priceDetails.value?.totalPrice || 0,
+      totalPrice: priceDetails.value?.payableAmount || priceDetails.value?.totalPrice || 0,
+      quoteToken: quoteToken.value,
+      couponIds: selectedCouponIds.value,
       // 完整的订单数据
       homestayData: {
         id: homestay.value.id!,
@@ -190,6 +211,10 @@ export function useBooking(
       nights: priceDetails.value?.nights || totalNights.value,
       cleaningFee: priceDetails.value?.cleaningFee || 0,
       serviceFee: priceDetails.value?.serviceFee || 0,
+      roomOriginalAmount: priceDetails.value?.roomOriginalAmount || 0,
+      activityDiscountAmount: priceDetails.value?.activityDiscountAmount || 0,
+      couponDiscountAmount: priceDetails.value?.couponDiscountAmount || 0,
+      appliedPromotions: priceDetails.value?.appliedPromotions || [],
     };
 
     console.log("准备跳转到订单确认页，传递数据:", bookingDetails);
@@ -233,6 +258,9 @@ export function useBooking(
     totalNights,
     priceDetails,
     isCalculatingPrice,
+    quoteToken,
+    selectedCouponIds,
+    recalculatePrice,
     disablePastDates,
     handleDateRangeChange,
     bookHomestay,

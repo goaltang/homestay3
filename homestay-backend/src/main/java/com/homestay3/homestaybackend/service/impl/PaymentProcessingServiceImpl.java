@@ -16,7 +16,9 @@ import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.PaymentRecordRepository;
+import com.homestay3.homestaybackend.repository.PromotionUsageRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
+import com.homestay3.homestaybackend.service.CouponService;
 import com.homestay3.homestaybackend.service.EarningService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
@@ -52,6 +54,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private final OrderNotificationService orderNotificationService;
     private final WebSocketNotificationService webSocketNotificationService;
     private final PaymentService paymentService;
+    private final CouponService couponService;
+    private final PromotionUsageRepository promotionUsageRepository;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     @Override
@@ -104,6 +108,16 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
 
             Order paidOrder = orderRepository.save(order);
             log.info("订单 {} 状态已成功更新为 PAID 并保存。", paidOrder.getOrderNumber());
+
+            // --- 核销优惠券与活动流水 ---
+            try {
+                couponService.useCoupons(paidOrder.getId());
+                promotionUsageRepository.updateStatusByOrderId(paidOrder.getId(), "USED");
+                log.info("订单 {} 优惠券与活动流水已核销。", paidOrder.getOrderNumber());
+            } catch (Exception writeOffEx) {
+                log.error("订单 {} 核销优惠券或活动流水失败: {}", paidOrder.getOrderNumber(), writeOffEx.getMessage(), writeOffEx);
+            }
+            // --- 核销结束 ---
 
             // --- 发送支付成功通知给房东和房客 ---
             try {
@@ -279,6 +293,14 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         }
 
         Order updatedOrder = orderRepository.save(order);
+
+        // 释放优惠券
+        try {
+            couponService.releaseCoupons(order.getId());
+        } catch (Exception e) {
+            log.error("退款释放优惠券失败，订单: {}", order.getId(), e);
+        }
+
         log.info("管理员直接执行退款完成，订单号: {}", order.getOrderNumber());
 
         // 发送退款完成通知

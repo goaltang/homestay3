@@ -23,6 +23,8 @@ public class TestDataFactory {
     private static long userIdCounter = 1L;
     private static long orderIdCounter = 1L;
     private static long homestayIdCounter = 1L;
+    private static long couponTemplateIdCounter = 1L;
+    private static long userCouponIdCounter = 1L;
     private static int orderNumberCounter = 1;
 
     /**
@@ -126,6 +128,53 @@ public class TestDataFactory {
                 .guestPhone("13800138000")
                 .guestCount(2)
                 .build();
+    }
+
+    /**
+     * 创建优惠券模板
+     */
+    public static com.homestay3.homestaybackend.entity.CouponTemplate createCouponTemplate(
+            String type, Integer totalStock, Integer perUserLimit) {
+        com.homestay3.homestaybackend.entity.CouponTemplate template =
+                com.homestay3.homestaybackend.entity.CouponTemplate.builder()
+                        .id(couponTemplateIdCounter++)
+                        .name("测试优惠券" + couponTemplateIdCounter)
+                        .couponType(type != null ? type : "CASH")
+                        .faceValue(new BigDecimal("50"))
+                        .discountRate(new BigDecimal("0.80"))
+                        .thresholdAmount(new BigDecimal("100"))
+                        .maxDiscount(new BigDecimal("100"))
+                        .totalStock(totalStock != null ? totalStock : 100)
+                        .issuedCount(0)
+                        .perUserLimit(perUserLimit != null ? perUserLimit : 1)
+                        .validType("AFTER_CLAIM_DAYS")
+                        .validDays(7)
+                        .validStartAt(LocalDateTime.now().minusDays(1))
+                        .validEndAt(LocalDateTime.now().plusDays(30))
+                        .scopeType("ALL")
+                        .subsidyBearer("PLATFORM")
+                        .status("ACTIVE")
+                        .build();
+        return template;
+    }
+
+    /**
+     * 创建用户优惠券
+     */
+    public static com.homestay3.homestaybackend.entity.UserCoupon createUserCoupon(
+            Long userId,
+            com.homestay3.homestaybackend.entity.CouponTemplate template,
+            String status) {
+        com.homestay3.homestaybackend.entity.UserCoupon userCoupon =
+                com.homestay3.homestaybackend.entity.UserCoupon.builder()
+                        .id(userCouponIdCounter++)
+                        .userId(userId != null ? userId : 1L)
+                        .template(template)
+                        .couponCode("CP" + userCouponIdCounter)
+                        .status(status != null ? status : "AVAILABLE")
+                        .expireAt(LocalDateTime.now().plusDays(7))
+                        .build();
+        return userCoupon;
     }
 
     /**

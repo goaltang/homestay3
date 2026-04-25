@@ -35,6 +35,20 @@
                         <span>收益管理</span>
                     </el-menu-item>
 
+                    <el-menu-item index="/host/promotions">
+                        <el-icon>
+                            <Ticket />
+                        </el-icon>
+                        <span>营销活动</span>
+                    </el-menu-item>
+
+                    <el-menu-item index="/host/promotions/stats">
+                        <el-icon>
+                            <TrendCharts />
+                        </el-icon>
+                        <span>营销数据</span>
+                    </el-menu-item>
+
                     <el-menu-item index="/host/reviews">
                         <el-icon>
                             <StarFilled />

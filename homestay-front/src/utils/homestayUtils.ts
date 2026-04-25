@@ -1,4 +1,3 @@
-import { calculateOrderPrice } from "@/api/order";
 import { codeToText } from "element-china-area-data";
 import type { HomestayDetail } from "@/types/homestay";
 
@@ -173,6 +172,14 @@ export interface PriceCalculationResult {
   serviceFee: number;
   totalPrice: number;
   nights: number;
+  quoteToken?: string;
+  roomOriginalAmount?: number;
+  activityDiscountAmount?: number;
+  couponDiscountAmount?: number;
+  payableAmount?: number;
+  dailyPrices?: any[];
+  availableCoupons?: any[];
+  appliedPromotions?: any[];
 }
 
 export const fetchCalculatePrice = async (
@@ -180,27 +187,37 @@ export const fetchCalculatePrice = async (
   pricePerNight: number, // 保留为了兼容签名，实际后端会读取数据库的
   checkIn: Date,
   checkOut: Date,
-  guests: number
+  guests: number,
+  couponIds?: number[]
 ): Promise<PriceCalculationResult> => {
   try {
-    const res = await calculateOrderPrice({
+    // 优先使用统一报价接口
+    const { getPricingQuote } = await import("@/api/promotion");
+    const res = await getPricingQuote({
       homestayId,
       checkInDate: formatDateString(checkIn),
       checkOutDate: formatDateString(checkOut),
-      guestCount: guests
+      guestCount: guests,
+      couponIds,
     });
-    // 假设后端返回的数据结构如：{ data: { basePrice, cleaningFee, serviceFee, totalPrice, nights } }
-    // 如果返回直接是结果对象则根据axios拦截器配置可能是 res.data 或是直接的 res
     const result = res.data || res;
     return {
-      basePrice: result.basePrice || 0,
+      basePrice: result.roomOriginalAmount || result.basePrice || 0,
       cleaningFee: result.cleaningFee || 0,
       serviceFee: result.serviceFee || 0,
-      totalPrice: result.totalPrice || 0,
-      nights: result.nights || calculateNights(checkIn, checkOut)
+      totalPrice: result.payableAmount || result.totalPrice || 0,
+      nights: result.nights || calculateNights(checkIn, checkOut),
+      quoteToken: result.quoteToken,
+      roomOriginalAmount: result.roomOriginalAmount,
+      activityDiscountAmount: result.activityDiscountAmount,
+      couponDiscountAmount: result.couponDiscountAmount,
+      payableAmount: result.payableAmount,
+      dailyPrices: result.dailyPrices,
+      availableCoupons: result.availableCoupons,
+      appliedPromotions: result.appliedPromotions,
     };
   } catch (err) {
-    console.error("计算价格失败，降级为本地估算", err);
+    console.error("统一报价失败，降级为本地估算", err);
     // 降级为本地计算，保证应用可用性
     const nights = calculateNights(checkIn, checkOut);
     const basePrice = pricePerNight * nights;

@@ -190,6 +190,33 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/audit/statistics.vue"),
       },
       {
+        path: "/marketing/campaigns",
+        name: "marketingCampaigns",
+        meta: {
+          title: "活动管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/CampaignList.vue"),
+      },
+      {
+        path: "/marketing/coupons",
+        name: "marketingCoupons",
+        meta: {
+          title: "优惠券模板",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/CouponTemplateList.vue"),
+      },
+      {
+        path: "/marketing/dashboard",
+        name: "marketingDashboard",
+        meta: {
+          title: "营销报表",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/MarketingDashboard.vue"),
+      },
+      {
         path: "/system/config",
         name: "systemConfig",
         meta: {

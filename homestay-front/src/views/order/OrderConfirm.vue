@@ -161,6 +161,14 @@
                         <span>{{ orderData.price }}元 x {{ orderData.nights }}晚</span>
                         <span>{{ orderData.baseAmount }}元</span>
                     </div>
+                    <div class="price-row discount" v-if="orderData.activityDiscountAmount">
+                        <span>活动优惠</span>
+                        <span>-{{ orderData.activityDiscountAmount }}元</span>
+                    </div>
+                    <div class="price-row discount" v-if="orderData.couponDiscountAmount">
+                        <span>优惠券</span>
+                        <span>-{{ orderData.couponDiscountAmount }}元</span>
+                    </div>
                     <div class="price-row" v-if="orderData.cleaningFee">
                         <span>清洁费</span>
                         <span>{{ orderData.cleaningFee }}元</span>
@@ -173,6 +181,14 @@
                         <span>总价</span>
                         <span>{{ orderData.totalAmount }}元</span>
                     </div>
+                </div>
+
+                <!-- 优惠券选择 -->
+                <div class="coupon-selector" v-if="availableCoupons.length > 0" v-loading="isRecalculating">
+                    <el-select v-model="selectedCouponIdProxy" placeholder="选择优惠券" size="small" @change="handleCouponChange">
+                        <el-option label="不使用优惠券" :value="null" />
+                        <el-option v-for="coupon in availableCoupons" :key="coupon.id" :label="`${coupon.name} (${formatCouponLabel(coupon)})`" :value="coupon.id" />
+                    </el-select>
                 </div>
                 <!-- 添加价格保障说明 -->
                 <div class="price-guarantee">
@@ -277,6 +293,12 @@ interface OrderData {
     hostId: number
     hostName: string
     autoConfirm?: boolean
+    quoteToken?: string
+    couponIds?: number[]
+    roomOriginalAmount?: number
+    activityDiscountAmount?: number
+    couponDiscountAmount?: number
+    appliedPromotions?: any[]
 }
 
 // 定义旅客信息类型
@@ -301,6 +323,26 @@ const userStore = useUserStore()
 const loading = ref(true)
 const submitting = ref(false)
 const orderData = ref<OrderData | null>(null)
+const selectedCouponIds = ref<number[]>([])
+const availableCoupons = ref<any[]>([])
+const isRecalculating = ref(false)
+
+const selectedCouponIdProxy = computed({
+    get: () => selectedCouponIds.value[0] || null,
+    set: (val: number | null) => {
+        selectedCouponIds.value = val ? [val] : []
+    }
+})
+
+const formatCouponLabel = (coupon: any) => {
+    if (coupon.couponType === 'CASH' || coupon.couponType === 'FULL_REDUCTION') {
+        return `减${coupon.faceValue}元`
+    }
+    if (coupon.couponType === 'DISCOUNT') {
+        return `${(coupon.discountRate * 10).toFixed(1)}折`
+    }
+    return ''
+}
 
 // 初始化旅客信息
 const guestInfo = reactive<GuestInfo>({
@@ -415,6 +457,39 @@ const agreeToTerms = () => {
     agreementDialogVisible.value = false
 }
 
+// 重新报价
+const recalculatePrice = async () => {
+    if (!orderData.value) return
+    isRecalculating.value = true
+    try {
+        const { getPricingQuote } = await import('@/api/promotion')
+        const res: any = await getPricingQuote({
+            homestayId: orderData.value.homestayId,
+            checkInDate: orderData.value.checkInDate,
+            checkOutDate: orderData.value.checkOutDate,
+            guestCount: orderData.value.guestCount,
+            couponIds: selectedCouponIds.value,
+        })
+        const result = res.data || res
+        // 更新订单金额
+        orderData.value.totalAmount = result.payableAmount || result.totalPrice || orderData.value.totalAmount
+        orderData.value.roomOriginalAmount = result.roomOriginalAmount
+        orderData.value.activityDiscountAmount = result.activityDiscountAmount
+        orderData.value.couponDiscountAmount = result.couponDiscountAmount
+        orderData.value.quoteToken = result.quoteToken
+        availableCoupons.value = result.availableCoupons || []
+    } catch (e) {
+        console.error('重新报价失败:', e)
+    } finally {
+        isRecalculating.value = false
+    }
+}
+
+const handleCouponChange = async (val: number | null) => {
+    selectedCouponIds.value = val ? [val] : []
+    await recalculatePrice()
+}
+
 // 提交订单
 const submitOrder = async () => {
     if (!orderData.value) {
@@ -468,7 +543,9 @@ const submitOrder = async () => {
             totalAmount: orderData.value.totalAmount,
             guestName: guestInfo.name,
             guestPhone: guestInfo.phone,
-            remark: guestInfo.message
+            remark: guestInfo.message,
+            quoteToken: orderData.value.quoteToken,
+            couponIds: selectedCouponIds.value
         }
 
         const response = await createOrder(orderRequestData)
@@ -701,9 +778,9 @@ const initOrderData = () => {
             const bookingDetails = JSON.parse(storedData);
             console.log('从session storage加载订单数据:', bookingDetails);
 
-            // 构建订单数据对象
+            // 构建订单数据对象（优先使用后端报价结果）
             const baseAmount = bookingDetails.homestayData.price * bookingDetails.nights;
-            const totalAmount = baseAmount + bookingDetails.cleaningFee + bookingDetails.serviceFee;
+            const totalAmount = bookingDetails.totalPrice || baseAmount + (bookingDetails.cleaningFee || 0) + (bookingDetails.serviceFee || 0);
 
             return {
                 homestayId: bookingDetails.homestayId,
@@ -724,7 +801,13 @@ const initOrderData = () => {
                 totalAmount: totalAmount,
                 hostId: bookingDetails.homestayData.ownerId || 0,
                 hostName: bookingDetails.homestayData.ownerName || '',
-                autoConfirm: bookingDetails.homestayData.autoConfirm || false
+                autoConfirm: bookingDetails.homestayData.autoConfirm || false,
+                quoteToken: bookingDetails.quoteToken,
+                couponIds: bookingDetails.couponIds,
+                roomOriginalAmount: bookingDetails.roomOriginalAmount,
+                activityDiscountAmount: bookingDetails.activityDiscountAmount,
+                couponDiscountAmount: bookingDetails.couponDiscountAmount,
+                appliedPromotions: bookingDetails.appliedPromotions
             } as OrderData;
         } catch (error) {
             console.error('解析session storage数据失败:', error);
@@ -838,10 +921,17 @@ onMounted(async () => {
         const initialData = initOrderData()
         if (initialData) {
             orderData.value = initialData
+            selectedCouponIds.value = initialData.couponIds || []
+            availableCoupons.value = initialData.appliedPromotions || []
             console.log('订单数据已初始化:', orderData.value)
 
             // 获取用户信息和房东信息
             await Promise.all([populateUserInfo(), fetchHostInfo()]);
+
+            // 如果有quoteToken但没有重新报价过，尝试获取最新报价
+            if (orderData.value?.quoteToken) {
+                await recalculatePrice()
+            }
         }
     } catch (error) {
         console.error('初始化订单数据失败:', error)
@@ -1235,6 +1325,11 @@ h2 {
 
 .guest-info-content {
     margin-top: 15px;
+}
+
+.coupon-selector {
+    margin-top: 12px;
+    padding: 0 8px;
 }
 
 /* 响应式调整 */

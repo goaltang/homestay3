@@ -73,4 +73,9 @@ public class OrderDTO {
     private String doorPassword;
     private String autoCheckinTime;
     private BigDecimal depositAmount;
+
+    // 营销促销相关字段
+    private String quoteToken;
+    private java.util.List<Long> couponIds;
+    private PricingQuoteResponse priceSnapshot;
 } 

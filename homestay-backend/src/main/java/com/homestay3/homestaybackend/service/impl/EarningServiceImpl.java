@@ -10,6 +10,7 @@ import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.repository.EarningRepository;
+import com.homestay3.homestaybackend.repository.OrderPriceSnapshotRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
@@ -46,6 +47,7 @@ public class EarningServiceImpl implements EarningService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final HomestayRepository homestayRepository;
+    private final OrderPriceSnapshotRepository priceSnapshotRepository;
     
     @Value("${app.earnings.host-share-rate:0.8}")
     private BigDecimal hostShareRate;
@@ -271,9 +273,18 @@ public class EarningServiceImpl implements EarningService {
         }
 
         log.debug("计算收益金额，房东分成比例: {}", hostShareRate);
-        BigDecimal earningAmount = order.getTotalAmount().multiply(hostShareRate)
-                .setScale(2, RoundingMode.HALF_UP);
-        log.info("计算得出订单 {} 的收益金额为: {}", order.getOrderNumber(), earningAmount);
+        // 优先使用价格快照中的房东应收金额
+        BigDecimal earningAmount;
+        var priceSnapshot = priceSnapshotRepository.findByOrderId(order.getId());
+        if (priceSnapshot.isPresent()) {
+            earningAmount = priceSnapshot.get().getHostReceivableAmount();
+            log.info("使用价格快照计算订单 {} 的收益金额: {}", order.getOrderNumber(), earningAmount);
+        } else {
+            // 回退：老订单没有快照时使用原逻辑
+            earningAmount = order.getTotalAmount().multiply(hostShareRate)
+                    .setScale(2, RoundingMode.HALF_UP);
+            log.info("使用回退逻辑计算订单 {} 的收益金额: {}", order.getOrderNumber(), earningAmount);
+        }
 
         // Check if amount is zero or negative, though saving should still work
         if (earningAmount.compareTo(BigDecimal.ZERO) <= 0) {

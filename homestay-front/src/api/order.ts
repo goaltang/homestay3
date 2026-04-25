@@ -15,6 +15,8 @@ export function createOrder(data: {
   guestName: string;
   guestPhone: string;
   remark?: string;
+  quoteToken?: string;
+  couponIds?: number[];
 }) {
   console.log("创建订单，参数:", data);
   return request({
