@@ -154,4 +154,14 @@ public class HomestayAvailabilityService {
             }
         }
     }
+
+    public boolean hasOccupiedDates(Long homestayId, LocalDate startDate, LocalDate endDate) {
+        return availabilityRepository.hasOccupiedDates(homestayId, startDate, endDate, LocalDateTime.now());
+    }
+
+    @Transactional
+    public int setManualAvailability(Long homestayId, LocalDate startDate, LocalDate endDate,
+                                     AvailabilityStatus status, String reason, String note, Long createdBy) {
+        return availabilityRepository.setManualAvailability(homestayId, startDate, endDate, status, reason, note, createdBy);
+    }
 }

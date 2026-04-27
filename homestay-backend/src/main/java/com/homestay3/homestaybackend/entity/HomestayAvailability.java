@@ -48,6 +48,18 @@ public class HomestayAvailability {
     @Column(name = "lock_expires_at")
     private LocalDateTime lockExpiresAt;
 
+    @Column(name = "source", length = 50)
+    private String source;
+
+    @Column(name = "reason", length = 200)
+    private String reason;
+
+    @Column(name = "note", length = 500)
+    private String note;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;

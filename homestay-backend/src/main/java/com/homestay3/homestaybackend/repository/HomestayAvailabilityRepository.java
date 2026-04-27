@@ -75,4 +75,34 @@ public interface HomestayAvailabilityRepository extends JpaRepository<HomestayAv
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
             @Param("now") LocalDateTime now);
+
+    @Query("SELECT ha FROM HomestayAvailability ha WHERE ha.homestayId IN :homestayIds " +
+           "AND ha.date >= :startDate AND ha.date < :endDate")
+    List<HomestayAvailability> findByHomestayIdsAndDateRange(
+            @Param("homestayIds") List<Long> homestayIds,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
+
+    @Modifying
+    @Query("UPDATE HomestayAvailability ha SET ha.status = :status, ha.source = 'HOST', " +
+           "ha.reason = :reason, ha.note = :note, ha.createdBy = :createdBy " +
+           "WHERE ha.homestayId = :homestayId AND ha.date >= :startDate AND ha.date < :endDate " +
+           "AND ha.status != 'BOOKED'")
+    int setManualAvailability(
+            @Param("homestayId") Long homestayId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("status") HomestayAvailability.AvailabilityStatus status,
+            @Param("reason") String reason,
+            @Param("note") String note,
+            @Param("createdBy") Long createdBy);
+
+    @Query("SELECT COUNT(ha) > 0 FROM HomestayAvailability ha WHERE ha.homestayId = :homestayId " +
+           "AND ha.date >= :startDate AND ha.date < :endDate AND ha.status = 'BOOKED' " +
+           "AND ha.locked = true AND ha.lockExpiresAt > :now")
+    boolean hasOccupiedDates(
+            @Param("homestayId") Long homestayId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("now") LocalDateTime now);
 }
