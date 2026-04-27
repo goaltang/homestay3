@@ -79,6 +79,10 @@ public class AdminPromotionController {
     @PostMapping("/campaigns")
     public ResponseEntity<?> createCampaign(@RequestBody PromotionCampaign campaign) {
         try {
+            // 设置规则的级联回引用
+            if (campaign.getRules() != null) {
+                campaign.getRules().forEach(rule -> rule.setCampaign(campaign));
+            }
             PromotionCampaign saved = campaignRepository.save(campaign);
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
@@ -88,12 +92,33 @@ public class AdminPromotionController {
 
     @PutMapping("/campaigns/{id}")
     public ResponseEntity<?> updateCampaign(@PathVariable Long id, @RequestBody PromotionCampaign campaign) {
-        Optional<PromotionCampaign> existing = campaignRepository.findById(id);
-        if (existing.isEmpty()) {
+        Optional<PromotionCampaign> existingOpt = campaignRepository.findById(id);
+        if (existingOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        campaign.setId(id);
-        PromotionCampaign updated = campaignRepository.save(campaign);
+        PromotionCampaign existing = existingOpt.get();
+        // 清除旧规则，前端传入新规则
+        existing.getRules().clear();
+        campaignRepository.flush();
+
+        existing.setName(campaign.getName());
+        existing.setCampaignType(campaign.getCampaignType());
+        existing.setStartAt(campaign.getStartAt());
+        existing.setEndAt(campaign.getEndAt());
+        existing.setPriority(campaign.getPriority());
+        existing.setStackable(campaign.getStackable());
+        existing.setBudgetTotal(campaign.getBudgetTotal());
+        existing.setSubsidyBearer(campaign.getSubsidyBearer());
+        existing.setBudgetAlertThreshold(campaign.getBudgetAlertThreshold());
+
+        if (campaign.getRules() != null) {
+            for (var rule : campaign.getRules()) {
+                rule.setCampaign(existing);
+                existing.getRules().add(rule);
+            }
+        }
+
+        PromotionCampaign updated = campaignRepository.save(existing);
         return ResponseEntity.ok(updated);
     }
 

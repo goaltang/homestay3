@@ -35,6 +35,8 @@ export interface HostCampaignForm {
   endAt: string;
   priority: number;
   budgetTotal: number | null;
+  budgetAlertThreshold?: number | null;
+  stackable?: boolean;
   rules: HostCampaignRuleForm[];
 }
 
@@ -46,6 +48,7 @@ export interface HostCampaignRuleForm {
   thresholdAmount: number | null;
   minNights: number | null;
   maxNights: number | null;
+  firstOrderOnly?: boolean;
 }
 
 export interface HostPromotionStats {

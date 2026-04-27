@@ -9,6 +9,8 @@ import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderPriceSnapshotRepository;
 import com.homestay3.homestaybackend.service.CouponService;
+import com.homestay3.homestaybackend.exception.PriceChangedException;
+import com.homestay3.homestaybackend.service.PricingEngineService;
 import com.homestay3.homestaybackend.service.PricingService;
 import com.homestay3.homestaybackend.service.PromotionMatchService;
 import com.homestay3.homestaybackend.service.SystemConfigService;
@@ -20,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -38,6 +39,8 @@ public class PricingServiceImpl implements PricingService {
     private final CouponService couponService;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
     private final ObjectMapper objectMapper;
+    private final PricingEngineService pricingEngineService;
+    private final org.redisson.api.RedissonClient redissonClient;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,6 +52,31 @@ public class PricingServiceImpl implements PricingService {
 
         String quoteToken = generateQuoteToken();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(10);
+
+        // 缓存报价到 Redis（10 分钟过期）
+        try {
+            String couponIdsJson = objectMapper.writeValueAsString(
+                    request.getCouponIds() != null ? request.getCouponIds() : java.util.Collections.emptyList());
+            String requestHash = buildRequestHash(request);
+
+            PricingQuoteCache cache = PricingQuoteCache.builder()
+                    .quoteToken(quoteToken)
+                    .requestHash(requestHash)
+                    .homestayId(request.getHomestayId())
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .guestCount(request.getGuestCount())
+                    .couponIdsJson(couponIdsJson)
+                    .payableAmount(result.getPayableAmount())
+                    .expiresAt(expiresAt)
+                    .build();
+
+            org.redisson.api.RBucket<PricingQuoteCache> bucket =
+                    redissonClient.getBucket("pricing:quote:" + quoteToken);
+            bucket.set(cache, 10, java.util.concurrent.TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("报价缓存写入 Redis 失败: {}", e.getMessage());
+        }
 
         // 查询用户可用优惠券（用于前端展示切换）
         List<AvailableCouponDTO> availableCoupons = userId != null
@@ -111,39 +139,35 @@ public class PricingServiceImpl implements PricingService {
         BigDecimal weekendRate = getPricingConfig("pricing.weekend_rate", "1.2");
         BigDecimal holidayRate = getPricingConfig("pricing.holiday_rate", "1.5");
 
-        // 4. 计算每日价格
-        BigDecimal basePricePerNight = homestay.getPrice();
-        List<PriceCalculationResponse.DailyPrice> dailyPrices = new ArrayList<>();
-        BigDecimal totalBasePrice = BigDecimal.ZERO;
+        // 4. 使用定价引擎计算每日价格（步骤 1~2：日期级调价）
+        List<PriceCalculationResponse.DailyPrice> dailyPrices =
+                pricingEngineService.calculateDailyPrices(homestay, checkInDate, checkOutDate);
 
-        LocalDate currentDate = checkInDate;
-        for (int i = 0; i < nights; i++) {
-            LocalDate date = currentDate.plusDays(i);
-            BigDecimal dailyPrice = calculateDailyPrice(date, basePricePerNight, weekendRate, holidayRate);
-            String holidayName = getHolidayName(date);
+        // 计算日期级调价后的房费总和
+        BigDecimal totalBasePrice = dailyPrices.stream()
+                .map(PriceCalculationResponse.DailyPrice::getFinalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            dailyPrices.add(PriceCalculationResponse.DailyPrice.builder()
-                    .date(date)
-                    .price(dailyPrice)
-                    .isWeekend(date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY)
-                    .isHoliday(holidayName != null)
-                    .holidayName(holidayName)
-                    .build());
+        // 5. 入住级折扣（步骤 3：早鸟、连住）
+        int advanceDays = (int) ChronoUnit.DAYS.between(LocalDate.now(), checkInDate);
+        PricingEngineService.StayDiscountResult stayDiscount =
+                pricingEngineService.calculateStayDiscounts(homestay, checkInDate, checkOutDate, nights, advanceDays);
 
-            totalBasePrice = totalBasePrice.add(dailyPrice);
-        }
+        BigDecimal stayDiscountMultiplier = stayDiscount.multiplier();
+        BigDecimal afterStayDiscount = totalBasePrice.multiply(stayDiscountMultiplier)
+                .setScale(2, RoundingMode.HALF_UP);
 
-        // 5. 房源折扣（系统配置级别的折扣）
+        // 6. 房源折扣（系统配置级别的折扣）
         BigDecimal homestayDiscountRate = getHomestayDiscount(homestayId);
         BigDecimal homestayDiscountAmount = BigDecimal.ZERO;
         if (homestayDiscountRate != null && homestayDiscountRate.compareTo(BigDecimal.ONE) < 0) {
-            homestayDiscountAmount = totalBasePrice.multiply(BigDecimal.ONE.subtract(homestayDiscountRate));
+            homestayDiscountAmount = afterStayDiscount.multiply(BigDecimal.ONE.subtract(homestayDiscountRate));
         }
 
         BigDecimal roomOriginalAmount = totalBasePrice;
-        BigDecimal afterHomestayDiscount = totalBasePrice.subtract(homestayDiscountAmount);
+        BigDecimal afterHomestayDiscount = afterStayDiscount.subtract(homestayDiscountAmount);
 
-        // 6. 匹配活动优惠
+        // 7. 匹配活动优惠
         PricingResult.PricingResultBuilder resultBuilder = PricingResult.builder()
                 .homestayId(homestayId)
                 .nights(nights)
@@ -160,7 +184,7 @@ public class PricingServiceImpl implements PricingService {
                 .subtract(tempResult.getActivityDiscountAmount() != null ? tempResult.getActivityDiscountAmount() : BigDecimal.ZERO)
                 .subtract(tempResult.getFullReductionAmount() != null ? tempResult.getFullReductionAmount() : BigDecimal.ZERO);
 
-        // 7. 优惠券优惠（按承担方拆分）
+        // 8. 优惠券优惠（按承担方拆分）
         CouponDiscountResult couponResult = CouponDiscountResult.builder()
                 .discountAmount(BigDecimal.ZERO)
                 .subsidyBearer("PLATFORM")
@@ -180,16 +204,18 @@ public class PricingServiceImpl implements PricingService {
             couponHostDiscount = couponDiscount;
         }
 
-        // 8. 计算清洁费和服务费
+        // 9. 计算清洁费和服务费
+        BigDecimal basePricePerNight = homestay.getPrice();
         BigDecimal cleaningFee = basePricePerNight.multiply(cleaningFeeRate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal discountedRoomAmount = afterActivityDiscount.subtract(couponDiscount).max(BigDecimal.ZERO);
         BigDecimal serviceFee = discountedRoomAmount.multiply(serviceFeeRate).setScale(2, RoundingMode.HALF_UP);
 
-        // 9. 计算最终金额
+        // 10. 计算最终金额
         BigDecimal payableAmount = discountedRoomAmount.add(cleaningFee).add(serviceFee);
 
-        // 房东应收 = 原始房费 - 活动房东承担 - 优惠券房东承担
-        BigDecimal totalHostDiscount = tempResult.getHostDiscountAmount() != null ? tempResult.getHostDiscountAmount() : BigDecimal.ZERO;
+        // 房东应收 = 原始房费 - 房源折扣 - 活动房东承担 - 优惠券房东承担
+        BigDecimal totalHostDiscount = homestayDiscountAmount;
+        totalHostDiscount = totalHostDiscount.add(tempResult.getHostDiscountAmount() != null ? tempResult.getHostDiscountAmount() : BigDecimal.ZERO);
         totalHostDiscount = totalHostDiscount.add(couponHostDiscount);
         BigDecimal hostReceivable = roomOriginalAmount.subtract(totalHostDiscount);
 
@@ -283,38 +309,72 @@ public class PricingServiceImpl implements PricingService {
                 + "_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    private BigDecimal calculateDailyPrice(LocalDate date, BigDecimal basePrice,
-                                            BigDecimal weekendRate, BigDecimal holidayRate) {
-        BigDecimal rate = BigDecimal.ONE;
-        String holidayName = getHolidayName(date);
-        if (holidayName != null) {
-            rate = holidayRate;
-        } else if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            rate = weekendRate;
+    @Override
+    @Transactional(readOnly = true)
+    public boolean validateQuoteToken(String quoteToken, com.homestay3.homestaybackend.dto.OrderDTO orderDTO, Long userId) {
+        if (quoteToken == null || quoteToken.isBlank()) {
+            return false;
         }
-        return basePrice.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+
+        org.redisson.api.RBucket<PricingQuoteCache> bucket =
+                redissonClient.getBucket("pricing:quote:" + quoteToken);
+        PricingQuoteCache cache = bucket.get();
+
+        if (cache == null) {
+            log.info("QuoteToken 不存在或已过期: {}", quoteToken);
+            return false;
+        }
+
+        // 参数一致性校验
+        if (!Objects.equals(cache.getHomestayId(), orderDTO.getHomestayId())
+                || !Objects.equals(cache.getCheckInDate(), orderDTO.getCheckInDate())
+                || !Objects.equals(cache.getCheckOutDate(), orderDTO.getCheckOutDate())
+                || !Objects.equals(cache.getGuestCount(), orderDTO.getGuestCount())) {
+            log.info("QuoteToken 参数不一致: token={}", quoteToken);
+            return false;
+        }
+
+        // 重算价格，比对金额
+        PricingResult latestResult = calculate(
+                orderDTO.getHomestayId(),
+                orderDTO.getCheckInDate(),
+                orderDTO.getCheckOutDate(),
+                orderDTO.getGuestCount(),
+                orderDTO.getCouponIds(),
+                userId
+        );
+
+        if (latestResult.getPayableAmount().compareTo(cache.getPayableAmount()) != 0) {
+            log.info("价格发生变化: token={}, cached={}, latest={}",
+                    quoteToken, cache.getPayableAmount(), latestResult.getPayableAmount());
+            // 生成最新报价用于返回给前端
+            PricingQuoteResponse latestQuote = quote(
+                    PricingQuoteRequest.builder()
+                            .homestayId(orderDTO.getHomestayId())
+                            .checkInDate(orderDTO.getCheckInDate())
+                            .checkOutDate(orderDTO.getCheckOutDate())
+                            .guestCount(orderDTO.getGuestCount())
+                            .couponIds(orderDTO.getCouponIds())
+                            .build(),
+                    userId
+            );
+            throw new PriceChangedException("价格已发生变化，请确认最新报价", latestQuote);
+        }
+
+        return true;
     }
 
-    private String getHolidayName(LocalDate date) {
-        Map<LocalDate, String> holidays = new HashMap<>();
-        holidays.put(LocalDate.of(2026, 1, 1), "元旦");
-        for (int i = 17; i <= 23; i++) {
-            holidays.put(LocalDate.of(2026, 2, i), "春节");
-        }
-        for (int i = 4; i <= 6; i++) {
-            holidays.put(LocalDate.of(2026, 4, i), "清明节");
-        }
-        for (int i = 1; i <= 3; i++) {
-            holidays.put(LocalDate.of(2026, 5, i), "劳动节");
-        }
-        holidays.put(LocalDate.of(2026, 5, 31), "端午节");
-        holidays.put(LocalDate.of(2026, 6, 1), "端午节");
-        holidays.put(LocalDate.of(2026, 6, 2), "端午节");
-        for (int i = 1; i <= 7; i++) {
-            holidays.put(LocalDate.of(2026, 10, i), "国庆节");
-        }
-        return holidays.get(date);
+    private String buildRequestHash(PricingQuoteRequest request) {
+        // 简单哈希：拼接关键参数
+        String raw = request.getHomestayId() + "|"
+                + request.getCheckInDate() + "|"
+                + request.getCheckOutDate() + "|"
+                + request.getGuestCount() + "|"
+                + (request.getCouponIds() != null ? request.getCouponIds().toString() : "");
+        return java.util.Base64.getEncoder().encodeToString(raw.getBytes());
     }
+
+
 
     private BigDecimal getPricingConfig(String key, String defaultValue) {
         String value = systemConfigServiceProvider.getObject().getConfigValue(key, defaultValue);

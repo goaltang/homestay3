@@ -104,35 +104,60 @@
         <el-form-item label="预算上限">
           <el-input-number v-model="form.budgetTotal" :min="0" :precision="2" placeholder="不填表示无限制" />
         </el-form-item>
+        <el-form-item label="预警阈值">
+          <el-input-number v-model="form.budgetAlertThreshold" :min="0" :max="1" :precision="2" :step="0.05" placeholder="如 0.8" />
+          <span class="form-tip">预算使用率达到该值时预警</span>
+        </el-form-item>
         <el-form-item label="优先级">
           <el-input-number v-model="form.priority" :min="0" :max="100" />
+        </el-form-item>
+        <el-form-item label="允许叠加">
+          <el-switch v-model="form.stackable" />
+          <span class="form-tip">开启后可与平台活动叠加生效</span>
         </el-form-item>
 
         <el-divider>规则设置</el-divider>
 
-        <el-form-item label="规则类型" prop="ruleType">
-          <el-select v-model="ruleForm.ruleType" placeholder="选择规则类型">
-            <el-option label="固定金额减免" value="AMOUNT_OFF" />
-            <el-option label="百分比折扣" value="PERCENT_OFF" />
-            <el-option label="满减" value="FULL_REDUCTION" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="优惠金额" v-if="ruleForm.ruleType === 'AMOUNT_OFF' || ruleForm.ruleType === 'FULL_REDUCTION'">
-          <el-input-number v-model="ruleForm.discountAmount" :min="0" :precision="2" />
-        </el-form-item>
-        <el-form-item label="折扣率" v-if="ruleForm.ruleType === 'PERCENT_OFF'">
-          <el-input-number v-model="ruleForm.discountRate" :min="0.01" :max="0.99" :precision="2" />
-          <span class="form-tip">如 0.85 表示 8.5 折</span>
-        </el-form-item>
-        <el-form-item label="最大优惠">
-          <el-input-number v-model="ruleForm.maxDiscount" :min="0" :precision="2" placeholder="可选" />
-        </el-form-item>
-        <el-form-item label="门槛金额">
-          <el-input-number v-model="ruleForm.thresholdAmount" :min="0" :precision="2" placeholder="可选" />
-        </el-form-item>
-        <el-form-item label="最少入住">
-          <el-input-number v-model="ruleForm.minNights" :min="1" placeholder="可选" />
-        </el-form-item>
+        <div v-for="(rule, index) in form.rules" :key="index" class="rule-card">
+          <div class="rule-header">
+            <span>规则 {{ index + 1 }}</span>
+            <el-button v-if="form.rules.length > 1" type="danger" size="small" text @click="removeRule(index)">删除</el-button>
+          </div>
+          <el-form-item label="规则类型">
+            <el-select v-model="rule.ruleType" placeholder="选择规则类型">
+              <el-option label="固定金额减免" value="AMOUNT_OFF" />
+              <el-option label="百分比折扣" value="PERCENT_OFF" />
+              <el-option label="满减" value="FULL_REDUCTION" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="优惠金额" v-if="rule.ruleType === 'AMOUNT_OFF' || rule.ruleType === 'FULL_REDUCTION'">
+            <el-input-number v-model="rule.discountAmount" :min="0" :precision="2" />
+          </el-form-item>
+          <el-form-item label="折扣率" v-if="rule.ruleType === 'PERCENT_OFF'">
+            <el-input-number v-model="rule.discountRate" :min="0.01" :max="0.99" :precision="2" />
+            <span class="form-tip">如 0.85 表示 8.5 折</span>
+          </el-form-item>
+          <el-form-item label="最大优惠">
+            <el-input-number v-model="rule.maxDiscount" :min="0" :precision="2" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="门槛金额">
+            <el-input-number v-model="rule.thresholdAmount" :min="0" :precision="2" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="最少入住">
+            <el-input-number v-model="rule.minNights" :min="1" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="最多入住">
+            <el-input-number v-model="rule.maxNights" :min="1" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="仅首单">
+            <el-switch v-model="rule.firstOrderOnly" />
+          </el-form-item>
+        </div>
+
+        <el-button type="primary" text @click="addRule" style="margin-top: 8px">
+          <el-icon><Plus /></el-icon>
+          添加规则
+        </el-button>
       </el-form>
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
@@ -145,13 +170,36 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { Plus } from "@element-plus/icons-vue";
 import {
   getHostCampaigns,
   createHostCampaign,
   pauseHostCampaign,
   endHostCampaign,
+  type HostCampaign,
 } from "@/api/hostPromotion";
-import type { HostCampaign, HostCampaignForm } from "@/api/hostPromotion";
+
+interface RuleFormItem {
+  ruleType: string;
+  discountAmount: number | null;
+  discountRate: number | null;
+  maxDiscount: number | null;
+  thresholdAmount: number | null;
+  minNights: number | null;
+  maxNights: number | null;
+  firstOrderOnly: boolean;
+}
+
+interface HostCampaignFormLocal {
+  name: string;
+  campaignType: string;
+  timeRange: string[];
+  priority: number;
+  budgetTotal: number | null;
+  budgetAlertThreshold: number | null;
+  stackable: boolean;
+  rules: RuleFormItem[];
+}
 
 const loading = ref(false);
 const campaignList = ref<HostCampaign[]>([]);
@@ -163,24 +211,39 @@ const showCreateDialog = ref(false);
 const submitting = ref(false);
 const formRef = ref();
 
-const form = reactive({
+function createEmptyRule(): RuleFormItem {
+  return {
+    ruleType: "PERCENT_OFF",
+    discountAmount: null,
+    discountRate: 0.9,
+    maxDiscount: null,
+    thresholdAmount: null,
+    minNights: null,
+    maxNights: null,
+    firstOrderOnly: false,
+  };
+}
+
+const form = reactive<HostCampaignFormLocal>({
   name: "",
   campaignType: "HOMESTAY_DISCOUNT",
-  timeRange: [] as string[],
+  timeRange: [],
   priority: 0,
-  budgetTotal: null as number | null,
-  rules: [] as HostCampaignForm["rules"],
-}) as HostCampaignForm & { timeRange: string[] };
-
-const ruleForm = reactive({
-  ruleType: "PERCENT_OFF",
-  discountAmount: null as number | null,
-  discountRate: 0.9,
-  maxDiscount: null as number | null,
-  thresholdAmount: null as number | null,
-  minNights: null as number | null,
-  maxNights: null as number | null,
+  budgetTotal: null,
+  budgetAlertThreshold: null,
+  stackable: false,
+  rules: [createEmptyRule()],
 });
+
+function addRule() {
+  form.rules.push(createEmptyRule());
+}
+
+function removeRule(index: number) {
+  if (form.rules.length > 1) {
+    form.rules.splice(index, 1);
+  }
+}
 
 const rules = {
   name: [{ required: true, message: "请输入活动名称", trigger: "blur" }],
@@ -260,24 +323,27 @@ async function handleCreate() {
 
   submitting.value = true;
   try {
-    const payload: HostCampaignForm = {
+    const rules = form.rules.map(r => ({
+      ruleType: r.ruleType,
+      discountAmount: r.ruleType !== 'PERCENT_OFF' ? r.discountAmount : null,
+      discountRate: r.ruleType === 'PERCENT_OFF' ? r.discountRate : null,
+      maxDiscount: r.maxDiscount,
+      thresholdAmount: r.thresholdAmount,
+      minNights: r.minNights,
+      maxNights: r.maxNights,
+      firstOrderOnly: r.firstOrderOnly,
+    }));
+
+    const payload: any = {
       name: form.name,
       campaignType: form.campaignType,
       startAt: form.timeRange[0],
       endAt: form.timeRange[1],
       priority: form.priority,
       budgetTotal: form.budgetTotal,
-      rules: [
-        {
-          ruleType: ruleForm.ruleType,
-          discountAmount: ruleForm.discountAmount,
-          discountRate: ruleForm.discountRate,
-          maxDiscount: ruleForm.maxDiscount,
-          thresholdAmount: ruleForm.thresholdAmount,
-          minNights: ruleForm.minNights,
-          maxNights: ruleForm.maxNights,
-        },
-      ],
+      budgetAlertThreshold: form.budgetAlertThreshold,
+      stackable: form.stackable,
+      rules,
     };
     await createHostCampaign(payload);
     ElMessage.success("活动创建成功");
@@ -338,5 +404,20 @@ onMounted(loadCampaigns);
   margin-left: 8px;
   color: #999;
   font-size: 12px;
+}
+.rule-card {
+  background: #fafafa;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: #303133;
 }
 </style>

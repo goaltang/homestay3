@@ -59,7 +59,7 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
                     continue;
                 }
 
-                BigDecimal discount = calculateDiscount(rule, originalAmount);
+                BigDecimal discount = calculateDiscount(rule, originalAmount, nights);
                 if (discount.compareTo(BigDecimal.ZERO) <= 0) {
                     continue;
                 }
@@ -199,7 +199,7 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
         return false;
     }
 
-    private BigDecimal calculateDiscount(PromotionRule rule, BigDecimal originalAmount) {
+    private BigDecimal calculateDiscount(PromotionRule rule, BigDecimal originalAmount, int nights) {
         BigDecimal discount = BigDecimal.ZERO;
         switch (rule.getRuleType()) {
             case "AMOUNT_OFF":
@@ -220,8 +220,7 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
                 break;
             case "PER_NIGHT_OFF":
                 if (rule.getDiscountAmount() != null) {
-                    // 需要知道晚数，但这里 originalAmount 是总价，暂简化处理
-                    discount = rule.getDiscountAmount();
+                    discount = rule.getDiscountAmount().multiply(BigDecimal.valueOf(nights));
                 }
                 break;
         }

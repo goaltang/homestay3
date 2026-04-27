@@ -101,31 +101,139 @@
     </el-card>
 
     <!-- 创建/编辑活动对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑活动' : '创建活动'" width="600px">
-      <el-form :model="form" label-width="100px">
-        <el-form-item label="活动名称">
-          <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="活动类型">
-          <el-select v-model="form.campaignType">
-            <el-option label="限时折扣" value="FLASH_SALE" />
-            <el-option label="满减活动" value="FULL_REDUCTION" />
-            <el-option label="房源折扣" value="HOMESTAY_DISCOUNT" />
-          </el-select>
-        </el-form-item>
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑活动' : '创建活动'" width="750px" :close-on-click-modal="false">
+      <el-form :model="form" label-width="110px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="活动名称">
+              <el-input v-model="form.name" placeholder="请输入活动名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="活动类型">
+              <el-select v-model="form.campaignType">
+                <el-option label="限时折扣" value="FLASH_SALE" />
+                <el-option label="满减活动" value="FULL_REDUCTION" />
+                <el-option label="房源折扣" value="HOMESTAY_DISCOUNT" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="承担方">
+              <el-select v-model="form.subsidyBearer">
+                <el-option label="平台" value="PLATFORM" />
+                <el-option label="房东" value="HOST" />
+                <el-option label="混合" value="MIXED" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="优先级">
+              <el-input-number v-model="form.priority" :min="0" :max="100" />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item label="时间范围">
-          <el-date-picker v-model="dateRange" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" />
+          <el-date-picker v-model="dateRange" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="预算">
-          <el-input-number v-model="form.budgetTotal" :min="0" :precision="2" placeholder="0表示无限制" />
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="预算上限">
+              <el-input-number v-model="form.budgetTotal" :min="0" :precision="2" placeholder="0表示无限制" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="预警阈值">
+              <el-input-number v-model="form.budgetAlertThreshold" :min="0" :max="1" :precision="2" :step="0.05" style="width: 100%" />
+              <span class="form-tip">如 0.8 表示预算使用达80%时预警</span>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="允许叠加">
+          <el-switch v-model="form.stackable" />
+          <span class="form-tip" style="margin-left: 8px">开启后该活动可与其他活动同时生效</span>
         </el-form-item>
-        <el-form-item label="承担方">
-          <el-select v-model="form.subsidyBearer">
-            <el-option label="平台" value="PLATFORM" />
-            <el-option label="房东" value="HOST" />
-            <el-option label="混合" value="MIXED" />
-          </el-select>
-        </el-form-item>
+
+        <el-divider>优惠规则</el-divider>
+
+        <div v-for="(rule, index) in form.rules" :key="index" class="rule-card">
+          <div class="rule-header">
+            <span>规则 {{ index + 1 }}</span>
+            <el-button type="danger" size="small" text @click="removeRule(index)" v-if="form.rules.length > 1">删除</el-button>
+          </div>
+          <el-row :gutter="16">
+            <el-col :span="12">
+              <el-form-item label="规则类型" label-width="80px">
+                <el-select v-model="rule.ruleType">
+                  <el-option label="固定金额减免" value="AMOUNT_OFF" />
+                  <el-option label="百分比折扣" value="PERCENT_OFF" />
+                  <el-option label="满减" value="FULL_REDUCTION" />
+                  <el-option label="每晩立减" value="PER_NIGHT_OFF" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="适用范围" label-width="80px">
+                <el-select v-model="rule.scopeType">
+                  <el-option label="全部" value="ALL" />
+                  <el-option label="指定城市" value="CITY" />
+                  <el-option label="指定房源" value="HOMESTAY" />
+                  <el-option label="指定房东" value="HOST" />
+                  <el-option label="指定分组" value="GROUP" />
+                  <el-option label="指定类型" value="TYPE" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="优惠金额" label-width="80px" v-if="rule.ruleType === 'AMOUNT_OFF' || rule.ruleType === 'FULL_REDUCTION' || rule.ruleType === 'PER_NIGHT_OFF'">
+                <el-input-number v-model="rule.discountAmount" :min="0" :precision="2" style="width: 100%" />
+              </el-form-item>
+              <el-form-item label="折扣率" label-width="80px" v-if="rule.ruleType === 'PERCENT_OFF'">
+                <el-input-number v-model="rule.discountRate" :min="0.01" :max="0.99" :precision="2" :step="0.05" style="width: 100%" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="门槛金额" label-width="80px">
+                <el-input-number v-model="rule.thresholdAmount" :min="0" :precision="2" style="width: 100%" placeholder="可选" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="最大优惠" label-width="80px">
+                <el-input-number v-model="rule.maxDiscount" :min="0" :precision="2" style="width: 100%" placeholder="可选" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="最少入住" label-width="80px">
+                <el-input-number v-model="rule.minNights" :min="1" style="width: 100%" placeholder="可选" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="最多入住" label-width="80px">
+                <el-input-number v-model="rule.maxNights" :min="1" style="width: 100%" placeholder="可选" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="仅首单" label-width="80px">
+                <el-switch v-model="rule.firstOrderOnly" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="范围值" label-width="80px" v-if="rule.scopeType !== 'ALL'">
+            <el-input v-model="rule.scopeValueInput" :placeholder="getScopePlaceholder(rule.scopeType)" />
+            <span class="form-tip">{{ getScopeTip(rule.scopeType) }}</span>
+          </el-form-item>
+        </div>
+
+        <el-button type="primary" text @click="addRule" style="margin-top: 8px">
+          <el-icon><Plus /></el-icon>
+          添加规则
+        </el-button>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -138,10 +246,37 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Plus } from '@element-plus/icons-vue';
 import {
   getCampaigns, createCampaign, updateCampaign,
   publishCampaign, pauseCampaign, deleteCampaign
 } from '@/api/marketing';
+
+// 规则类型
+interface RuleForm {
+  ruleType: string;
+  discountAmount: number | null;
+  discountRate: number | null;
+  thresholdAmount: number | null;
+  maxDiscount: number | null;
+  minNights: number | null;
+  maxNights: number | null;
+  scopeType: string;
+  scopeValueInput: string;
+  firstOrderOnly: boolean;
+}
+
+// 表单类型
+interface CampaignForm {
+  name: string;
+  campaignType: string;
+  budgetTotal: number | null;
+  subsidyBearer: string;
+  priority: number;
+  stackable: boolean;
+  budgetAlertThreshold: number | null;
+  rules: RuleForm[];
+}
 
 const loading = ref(false);
 const campaignList = ref<any[]>([]);
@@ -160,15 +295,90 @@ const dialogVisible = ref(false);
 const isEdit = ref(false);
 const editId = ref<number | null>(null);
 const dateRange = ref<[Date, Date] | null>(null);
-const form = reactive({
+
+function createEmptyRule(): RuleForm {
+  return {
+    ruleType: 'PERCENT_OFF',
+    discountAmount: null,
+    discountRate: 0.9,
+    thresholdAmount: null,
+    maxDiscount: null,
+    minNights: null,
+    maxNights: null,
+    scopeType: 'ALL',
+    scopeValueInput: '',
+    firstOrderOnly: false,
+  };
+}
+
+const form = reactive<CampaignForm>({
   name: '',
   campaignType: 'FULL_REDUCTION',
-  budgetTotal: 0,
+  budgetTotal: null,
   subsidyBearer: 'PLATFORM',
-  status: 'DRAFT',
-  startAt: '',
-  endAt: '',
+  priority: 0,
+  stackable: false,
+  budgetAlertThreshold: null,
+  rules: [createEmptyRule()],
 });
+
+function addRule() {
+  form.rules.push(createEmptyRule());
+}
+
+function removeRule(index: number) {
+  if (form.rules.length > 1) {
+    form.rules.splice(index, 1);
+  }
+}
+
+function getScopePlaceholder(scopeType: string) {
+  const map: Record<string, string> = {
+    CITY: '城市编码，如 440100',
+    HOMESTAY: '房源ID，多个用逗号分隔，如 1,2,3',
+    HOST: '房东ID，如 10',
+    GROUP: '分组ID，如 5',
+    TYPE: '房源类型，如 entire,private',
+  };
+  return map[scopeType] || '';
+}
+
+function getScopeTip(scopeType: string) {
+  const map: Record<string, string> = {
+    CITY: '输入城市编码',
+    HOMESTAY: '输入房源ID（逗号分隔）',
+    HOST: '输入房东用户ID',
+    GROUP: '输入房源分组ID',
+    TYPE: '输入房源类型标识',
+  };
+  return map[scopeType] || '';
+}
+
+function buildScopeValueJson(scopeType: string, input: string): string {
+  if (scopeType === 'ALL' || !input.trim()) {
+    return '["*"]';
+  }
+  const values = input.split(',').map(s => s.trim()).filter(Boolean);
+  // CITY/TYPE 使用字符串数组，其他使用数字数组
+  if (scopeType === 'CITY' || scopeType === 'TYPE') {
+    return JSON.stringify(values);
+  }
+  const nums = values.map(Number).filter(n => !isNaN(n));
+  return JSON.stringify(nums);
+}
+
+function parseScopeValueInput(scopeType: string, scopeValueJson: string): string {
+  if (!scopeValueJson || scopeType === 'ALL') return '';
+  try {
+    const arr = JSON.parse(scopeValueJson);
+    if (Array.isArray(arr)) {
+      return arr.join(', ');
+    }
+  } catch (e) {
+    // ignore
+  }
+  return '';
+}
 
 const resetSearch = () => {
   searchForm.name = '';
@@ -203,11 +413,12 @@ const handleCreate = () => {
   editId.value = null;
   form.name = '';
   form.campaignType = 'FULL_REDUCTION';
-  form.budgetTotal = 0;
+  form.budgetTotal = null;
   form.subsidyBearer = 'PLATFORM';
-  form.status = 'DRAFT';
-  form.startAt = '';
-  form.endAt = '';
+  form.priority = 0;
+  form.stackable = false;
+  form.budgetAlertThreshold = null;
+  form.rules = [createEmptyRule()];
   dateRange.value = null;
   dialogVisible.value = true;
 };
@@ -217,28 +428,77 @@ const handleEdit = (row: any) => {
   editId.value = row.id;
   form.name = row.name;
   form.campaignType = row.campaignType;
-  form.budgetTotal = row.budgetTotal || 0;
+  form.budgetTotal = row.budgetTotal || null;
   form.subsidyBearer = row.subsidyBearer || 'PLATFORM';
-  form.status = row.status || 'DRAFT';
+  form.priority = row.priority || 0;
+  form.stackable = row.stackable || false;
+  form.budgetAlertThreshold = row.budgetAlertThreshold || null;
+
+  // 从已有规则还原
+  if (row.rules && row.rules.length > 0) {
+    form.rules = row.rules.map((r: any) => ({
+      ruleType: r.ruleType || 'PERCENT_OFF',
+      discountAmount: r.discountAmount || null,
+      discountRate: r.discountRate || null,
+      thresholdAmount: r.thresholdAmount || null,
+      maxDiscount: r.maxDiscount || null,
+      minNights: r.minNights || null,
+      maxNights: r.maxNights || null,
+      scopeType: r.scopeType || 'ALL',
+      scopeValueInput: parseScopeValueInput(r.scopeType || 'ALL', r.scopeValueJson || ''),
+      firstOrderOnly: r.firstOrderOnly || false,
+    }));
+  } else {
+    form.rules = [createEmptyRule()];
+  }
+
   if (row.startAt && row.endAt) {
     dateRange.value = [new Date(row.startAt), new Date(row.endAt)];
-    form.startAt = row.startAt;
-    form.endAt = row.endAt;
   } else {
     dateRange.value = null;
-    form.startAt = '';
-    form.endAt = '';
   }
   dialogVisible.value = true;
 };
 
 const submitForm = async () => {
   try {
-    const payload = { ...form };
-    if (dateRange.value && dateRange.value.length === 2) {
-      payload.startAt = dateRange.value[0].toISOString();
-      payload.endAt = dateRange.value[1].toISOString();
+    if (!form.name.trim()) {
+      ElMessage.warning('请输入活动名称');
+      return;
     }
+    if (!dateRange.value || dateRange.value.length !== 2) {
+      ElMessage.warning('请选择时间范围');
+      return;
+    }
+
+    // 构建规则数据（去除临时字段 scopeValueInput）
+    const rules = form.rules.map(r => ({
+      ruleType: r.ruleType,
+      discountAmount: r.discountAmount,
+      discountRate: r.ruleType === 'PERCENT_OFF' ? r.discountRate : null,
+      maxDiscount: r.maxDiscount,
+      thresholdAmount: r.thresholdAmount,
+      minNights: r.minNights,
+      maxNights: r.maxNights,
+      scopeType: r.scopeType,
+      scopeValueJson: buildScopeValueJson(r.scopeType, r.scopeValueInput),
+      firstOrderOnly: r.firstOrderOnly,
+    }));
+
+    const payload: any = {
+      name: form.name,
+      campaignType: form.campaignType,
+      startAt: dateRange.value[0].toISOString(),
+      endAt: dateRange.value[1].toISOString(),
+      priority: form.priority,
+      stackable: form.stackable,
+      budgetTotal: form.budgetTotal,
+      subsidyBearer: form.subsidyBearer,
+      budgetAlertThreshold: form.budgetAlertThreshold,
+      status: isEdit.value ? undefined : 'DRAFT',
+      rules,
+    };
+
     if (isEdit.value && editId.value) {
       await updateCampaign(editId.value, payload);
       ElMessage.success('更新成功');
@@ -248,8 +508,8 @@ const submitForm = async () => {
     }
     dialogVisible.value = false;
     fetchData();
-  } catch (e) {
-    ElMessage.error(isEdit.value ? '更新失败' : '创建失败');
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || (isEdit.value ? '更新失败' : '创建失败'));
   }
 };
 
@@ -362,5 +622,25 @@ onMounted(fetchData);
 .budget-text {
   font-size: 12px;
   color: #666;
+}
+.form-tip {
+  margin-left: 8px;
+  color: #999;
+  font-size: 12px;
+}
+.rule-card {
+  background: #fafafa;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 500;
+  color: #303133;
 }
 </style>

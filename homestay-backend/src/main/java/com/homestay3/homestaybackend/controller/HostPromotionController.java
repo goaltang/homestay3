@@ -100,27 +100,49 @@ public class HostPromotionController {
     @PutMapping("/campaigns/{id}")
     public ResponseEntity<?> updateHostCampaign(@PathVariable Long id, @RequestBody PromotionCampaign campaign) {
         CustomUserDetails currentUser = getCurrentUser();
-        Optional<PromotionCampaign> existing = campaignRepository.findById(id);
-        if (existing.isEmpty()) {
+        Optional<PromotionCampaign> existingOpt = campaignRepository.findById(id);
+        if (existingOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        PromotionCampaign old = existing.get();
-        if (!currentUser.getUserId().equals(old.getHostId())) {
+        PromotionCampaign existing = existingOpt.get();
+        if (!currentUser.getUserId().equals(existing.getHostId())) {
             return ResponseEntity.status(403).body(Map.of("error", "只能修改自己创建的活动"));
         }
-        if ("ACTIVE".equals(old.getStatus())) {
+        if ("ACTIVE".equals(existing.getStatus())) {
             return ResponseEntity.badRequest().body(Map.of("error", "已发布的活动不能修改，请先暂停"));
         }
 
-        campaign.setId(id);
-        campaign.setHostId(currentUser.getUserId());
-        campaign.setSubsidyBearer("HOST");
-        // 保留不可修改字段
-        campaign.setCreatedAt(old.getCreatedAt());
-        campaign.setBudgetUsed(old.getBudgetUsed());
+        // 清除旧规则
+        existing.getRules().clear();
+        campaignRepository.flush();
+
+        existing.setName(campaign.getName());
+        existing.setCampaignType(campaign.getCampaignType());
+        existing.setStartAt(campaign.getStartAt());
+        existing.setEndAt(campaign.getEndAt());
+        existing.setPriority(campaign.getPriority());
+        existing.setStackable(campaign.getStackable());
+        existing.setBudgetTotal(campaign.getBudgetTotal());
+
+        // 更新规则
+        if (campaign.getRules() != null && !campaign.getRules().isEmpty()) {
+            List<Homestay> hostHomestays = homestayRepository.findByOwnerId(currentUser.getUserId());
+            List<Long> homestayIds = hostHomestays.stream().map(Homestay::getId).toList();
+            for (PromotionRule rule : campaign.getRules()) {
+                rule.setScopeType("HOMESTAY");
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    rule.setScopeValueJson(mapper.writeValueAsString(homestayIds));
+                } catch (Exception e) {
+                    rule.setScopeValueJson("[]");
+                }
+                rule.setCampaign(existing);
+                existing.getRules().add(rule);
+            }
+        }
 
         try {
-            PromotionCampaign updated = campaignRepository.save(campaign);
+            PromotionCampaign updated = campaignRepository.save(existing);
             return ResponseEntity.ok(updated);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

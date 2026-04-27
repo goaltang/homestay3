@@ -46,5 +46,9 @@ public enum NotificationType {
     REFUND_REQUESTED,     // 退款申请已提交 (给用户)
     REFUND_APPROVED,      // 退款审核通过 (给用户)
     REFUND_REJECTED,      // 退款被拒绝 (给用户)
-    REFUND_COMPLETED      // 退款已完成 (给用户)
+    REFUND_COMPLETED,     // 退款已完成 (给用户)
+
+    // 优惠券相关
+    COUPON_EXPIRING,      // 优惠券即将过期提醒
+    COUPON_ISSUED         // 优惠券发放通知
 } 

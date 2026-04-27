@@ -41,4 +41,10 @@ public interface UserCouponRepository extends JpaRepository<UserCoupon, Long> {
                    @Param("userId") Long userId,
                    @Param("orderId") Long orderId,
                    @Param("now") LocalDateTime now);
+
+    /**
+     * 查询即将过期的可用优惠券（在指定时间窗口内过期）
+     */
+    @Query("SELECT uc FROM UserCoupon uc JOIN FETCH uc.template WHERE uc.status = 'AVAILABLE' AND uc.expireAt > :now AND uc.expireAt <= :deadline")
+    List<UserCoupon> findCouponsExpiringBetween(@Param("now") LocalDateTime now, @Param("deadline") LocalDateTime deadline);
 }

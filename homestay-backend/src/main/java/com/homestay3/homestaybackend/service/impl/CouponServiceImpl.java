@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homestay3.homestaybackend.dto.AvailableCouponDTO;
 import com.homestay3.homestaybackend.dto.CouponDiscountResult;
 import com.homestay3.homestaybackend.entity.CouponTemplate;
+import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.UserCoupon;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.repository.CouponTemplateRepository;
+import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.UserCouponRepository;
 import com.homestay3.homestaybackend.service.CouponService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class CouponServiceImpl implements CouponService {
 
     private final CouponTemplateRepository templateRepository;
     private final UserCouponRepository userCouponRepository;
+    private final HomestayRepository homestayRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -119,8 +122,37 @@ public class CouponServiceImpl implements CouponService {
                     .subsidyBearer("PLATFORM")
                     .build();
         }
-        // MVP 阶段只支持一张券
-        return calculateCouponDiscountInternal(userCouponIds.get(0), homestayId, originalAmount, userId);
+
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        boolean hasPlatform = false;
+        boolean hasHost = false;
+
+        BigDecimal remainingAmount = originalAmount;
+        for (Long couponId : userCouponIds) {
+            CouponDiscountResult result = calculateCouponDiscountInternal(couponId, homestayId, remainingAmount, userId);
+            BigDecimal discount = result.getDiscountAmount();
+            if (discount.compareTo(BigDecimal.ZERO) > 0) {
+                totalDiscount = totalDiscount.add(discount);
+                remainingAmount = remainingAmount.subtract(discount);
+                String bearer = result.getSubsidyBearer();
+                if ("PLATFORM".equals(bearer) || "MIXED".equals(bearer)) hasPlatform = true;
+                if ("HOST".equals(bearer) || "MIXED".equals(bearer)) hasHost = true;
+            }
+        }
+
+        String finalBearer;
+        if (hasPlatform && hasHost) {
+            finalBearer = "MIXED";
+        } else if (hasHost) {
+            finalBearer = "HOST";
+        } else {
+            finalBearer = "PLATFORM";
+        }
+
+        return CouponDiscountResult.builder()
+                .discountAmount(totalDiscount)
+                .subsidyBearer(finalBearer)
+                .build();
     }
 
     private CouponDiscountResult calculateCouponDiscountInternal(Long userCouponId, Long homestayId, BigDecimal originalAmount, Long userId) {
@@ -247,17 +279,50 @@ public class CouponServiceImpl implements CouponService {
         if ("ALL".equals(template.getScopeType())) {
             return true;
         }
+        if (template.getScopeValueJson() == null || template.getScopeValueJson().isBlank()) {
+            return true; // 未设置范围值时默认适用
+        }
+        Homestay homestay = homestayRepository.findById(homestayId).orElse(null);
+        if (homestay == null) {
+            return false;
+        }
         try {
             JsonNode scopeValues = objectMapper.readTree(template.getScopeValueJson());
-            // 简化处理：HOMESTAY 范围
-            if ("HOMESTAY".equals(template.getScopeType())) {
-                for (JsonNode node : scopeValues) {
-                    if (node.asLong() == homestayId) return true;
+            return switch (template.getScopeType()) {
+                case "HOMESTAY" -> {
+                    for (JsonNode node : scopeValues) {
+                        if (node.asLong() == homestayId) yield true;
+                    }
+                    yield false;
                 }
-                return false;
-            }
-            // 其他范围类型MVP暂按全部适用处理
-            return true;
+                case "HOST" -> {
+                    Long hostId = homestay.getOwner() != null ? homestay.getOwner().getId() : null;
+                    for (JsonNode node : scopeValues) {
+                        if (hostId != null && node.asLong() == hostId) yield true;
+                    }
+                    yield false;
+                }
+                case "CITY" -> {
+                    for (JsonNode node : scopeValues) {
+                        if (node.asText().equals(homestay.getCityCode())) yield true;
+                    }
+                    yield false;
+                }
+                case "TYPE" -> {
+                    for (JsonNode node : scopeValues) {
+                        if (node.asText().equals(homestay.getType())) yield true;
+                    }
+                    yield false;
+                }
+                case "GROUP" -> {
+                    Long groupId = homestay.getGroup() != null ? homestay.getGroup().getId() : null;
+                    for (JsonNode node : scopeValues) {
+                        if (groupId != null && node.asLong() == groupId) yield true;
+                    }
+                    yield false;
+                }
+                default -> true;
+            };
         } catch (Exception e) {
             log.warn("解析优惠券scopeValueJson失败: {}", e.getMessage());
             return true;

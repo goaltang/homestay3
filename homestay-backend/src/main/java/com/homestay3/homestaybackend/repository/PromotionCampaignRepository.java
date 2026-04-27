@@ -40,4 +40,16 @@ public interface PromotionCampaignRepository extends JpaRepository<PromotionCamp
     @Modifying
     @Query("UPDATE PromotionCampaign c SET c.budgetUsed = c.budgetUsed - :amount WHERE c.id = :id AND c.budgetUsed >= :amount")
     int refundBudget(@Param("id") Long id, @Param("amount") BigDecimal amount);
+
+    /**
+     * 查询待自动启用的活动：状态为DRAFT，且已到达开始时间
+     */
+    @Query("SELECT pc FROM PromotionCampaign pc LEFT JOIN FETCH pc.rules WHERE pc.status = 'DRAFT' AND pc.startAt <= :now AND pc.endAt >= :now")
+    List<PromotionCampaign> findDraftCampaignsReadyToActivate(@Param("now") LocalDateTime now);
+
+    /**
+     * 查询待自动结束的活动：状态为ACTIVE，且结束时间已过
+     */
+    @Query("SELECT pc FROM PromotionCampaign pc WHERE pc.status = 'ACTIVE' AND pc.endAt < :now")
+    List<PromotionCampaign> findActiveCampaignsPastEndTime(@Param("now") LocalDateTime now);
 }

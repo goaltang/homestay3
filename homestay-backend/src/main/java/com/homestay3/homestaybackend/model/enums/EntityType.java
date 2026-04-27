@@ -10,5 +10,6 @@ public enum EntityType {
     REVIEW,          // 评价
     USER,            // 用户 (例如，关注的用户发布了新房源)
     SYSTEM,          // 系统实体 (用于系统公告等)
-    ORDER            // 订单
+    ORDER,           // 订单
+    COUPON           // 优惠券
 } 
