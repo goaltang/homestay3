@@ -135,12 +135,6 @@ export function useBooking(
     }
   }, { immediate: true });
 
-  const disablePastDates = (date: Date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date.getTime() < today.getTime();
-  };
-
   const handleDateRangeChange = (dates: [Date, Date] | null) => {
     if (dates && dates.length === 2 && dates[0] && dates[1]) {
       if (dates[1].getTime() <= dates[0].getTime()) {
@@ -261,7 +255,6 @@ export function useBooking(
     quoteToken,
     selectedCouponIds,
     recalculatePrice,
-    disablePastDates,
     handleDateRangeChange,
     bookHomestay,
     resetBooking,

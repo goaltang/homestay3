@@ -19,7 +19,8 @@
                 </div>
                 <el-date-picker v-model="localDateRange" type="daterange" range-separator="至" start-placeholder="选择日期"
                     end-placeholder="选择日期" format="YYYY/MM/DD" :disabled-date="disablePastDates"
-                    @change="handleDateRangeChange" @calendar-change="handleCalendarChange" :size="'large'"
+                    @change="handleDateRangeChange" @calendar-change="handleCalendarChange"
+                    @visible-change="handleVisibleChange" :size="'large'"
                     class="date-range-picker" :loading="loadingDates" popper-class="booking-date-popper" />
             </div>
 
@@ -136,10 +137,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { InfoFilled, Lightning, Clock, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getHomestayUnavailableDates } from '@/api/homestay'
+import { differenceInCalendarDays } from 'date-fns'
 
 // Props
 interface Props {
@@ -212,7 +214,6 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 // 新增：最长可选退房日计算相关状态
 const maxCheckOutDate = ref<Date | null>(null)
 const confirmedCheckIn = ref<Date | null>(null)  // 已确认的入住日（用户选定后不再变更）
-const isAutoFixing = ref(false)  // 标记是否正在自动修正
 const autoFixMessage = ref('')  // 自动修正提示文字
 const pendingCheckIn = ref<Date | null>(null)  // 用户选了第一个日期后暂存（用于高亮计算）
 
@@ -232,12 +233,7 @@ const numericRating = computed(() => {
 
 const totalNights = computed(() => {
     if (localDateRange.value && localDateRange.value[0] && localDateRange.value[1]) {
-        const checkInTime = localDateRange.value[0].getTime()
-        const checkOutTime = localDateRange.value[1].getTime()
-        if (checkOutTime > checkInTime) {
-            const diffTime = checkOutTime - checkInTime
-            return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        }
+        return differenceInCalendarDays(localDateRange.value[1], localDateRange.value[0])
     }
     return 0
 })
@@ -245,8 +241,7 @@ const totalNights = computed(() => {
 // 基于可用日期计算的最长可住晚数（受限于已预订日期）
 const availableMaxNights = computed(() => {
     if (confirmedCheckIn.value && maxCheckOutDate.value) {
-        const diffTime = maxCheckOutDate.value.getTime() - confirmedCheckIn.value.getTime()
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        return differenceInCalendarDays(maxCheckOutDate.value, confirmedCheckIn.value)
     }
     return 0
 })
@@ -264,8 +259,6 @@ const fetchUnavailableDates = async () => {
         // 适配新的后端响应格式
         const responseData = response.data || {}
         let dates = responseData.data || []
-
-        console.log('后端API完整响应:', response.data)
 
         // 确保日期格式为字符串数组 (YYYY-MM-DD)
         if (Array.isArray(dates)) {
@@ -292,9 +285,6 @@ const fetchUnavailableDates = async () => {
         } else {
             unavailableDates.value = []
         }
-
-        console.log('处理后的不可用日期:', unavailableDates.value)
-        console.log('不可用日期数量:', unavailableDates.value.length)
 
         // 显示错误信息（如果有）
         if (responseData.error) {
@@ -343,6 +333,11 @@ const silentRefreshUnavailableDates = async () => {
 
         // 更新不可用日期列表
         unavailableDates.value = latestUnavailable
+
+        // 重新计算最长可选退房日（如果已确认入住日）
+        if (confirmedCheckIn.value) {
+            maxCheckOutDate.value = computeMaxCheckOutDate(confirmedCheckIn.value)
+        }
 
         // 如果有新的不可用日期，检测对已选范围的影响
         if (newlyUnavailable.length > 0) {
@@ -494,13 +489,12 @@ const detectConflictInRange = (checkIn: Date, checkOut: Date): { hasConflict: bo
 
 // 增强的日期禁用逻辑
 const disablePastDates = (date: Date) => {
-    // 禁用过去日期
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const dateTime = date.getTime()
-    if (dateTime < today.getTime()) return true
-
     const dateStr = formatDateToString(date)
+
+    // 禁用过去日期（使用字符串比较避免时区边缘问题）
+    const todayStr = formatDateToString(new Date())
+    if (dateStr < todayStr) return true
+
     const isUnavailable = unavailableDates.value.includes(dateStr)
 
     // 当用户开始选择入住日，或者处于部分选中的状态
@@ -510,25 +504,21 @@ const disablePastDates = (date: Date) => {
                           confirmedCheckIn.value
 
     if (activeCheckIn) {
-        const checkInTime = activeCheckIn.getTime()
-        if (dateTime > checkInTime) {
+        const checkInStr = formatDateToString(activeCheckIn)
+        if (dateStr > checkInStr) {
             const maxDate = computeMaxCheckOutDate(activeCheckIn)
             if (maxDate) {
+                const maxDateStr = formatDateToString(maxDate)
                 // 如果当前日期在最大可退房日期（即首个冲突日）之后，一律禁用
-                if (dateTime > maxDate.getTime()) {
+                if (dateStr > maxDateStr) {
                     return true
                 }
                 // 允许把第一个冲突日作为退房日（返回 false，即使它在 unavailableDates 中）
-                if (dateTime === maxDate.getTime()) {
+                if (dateStr === maxDateStr) {
                     return false
                 }
             }
         }
-    }
-
-    // 调试信息（仅在有不可用日期时输出，避免过度日志）
-    if (unavailableDates.value.length > 0 && isUnavailable) {
-        console.log('日期 ' + dateStr + '(禁用状态: ' + isUnavailable + ')')
     }
 
     return isUnavailable
@@ -541,6 +531,16 @@ const disablePastDates = (date: Date) => {
 const handleCalendarChange = (dates: Date[]) => {
     if (dates && dates.length >= 1 && dates[0]) {
         pendingCheckIn.value = dates[0]
+    }
+}
+
+/**
+ * 日历面板显示/隐藏时触发
+ * 面板关闭时清除 pendingCheckIn，防止残留状态影响下次选择
+ */
+const handleVisibleChange = (visible: boolean) => {
+    if (!visible) {
+        pendingCheckIn.value = null
     }
 }
 
@@ -570,8 +570,8 @@ const handleDateRangeChange = (dates: [Date, Date] | null) => {
             return
         }
 
-        // 计算入住晚数
-        const nights = Math.ceil((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24))
+        // 计算入住晚数（使用时区安全的日历天数差）
+        const nights = differenceInCalendarDays(newCheckOut, newCheckIn)
 
         // 校验最低晚数要求
         if (nights < props.minNights) {
@@ -593,18 +593,27 @@ const handleDateRangeChange = (dates: [Date, Date] | null) => {
             return
         }
 
-        // 入住日确认后：计算并显示最长可选区间
-        if (!confirmedCheckIn.value || confirmedCheckIn.value.getTime() !== newCheckIn.getTime()) {
-            confirmedCheckIn.value = newCheckIn
-            maxCheckOutDate.value = computeMaxCheckOutDate(newCheckIn)
+        // 校验入住日本身是否已被预订（防止通过 props/URL 等方式绕过禁用态）
+        const checkInStr = formatDateToString(newCheckIn)
+        if (unavailableDates.value.includes(checkInStr)) {
+            ElMessage.warning('您选择的入住日期已被预订，请重新选择')
+            localDateRange.value = null
+            confirmedCheckIn.value = null
+            maxCheckOutDate.value = null
+            emit('date-changed', null, null)
+            return
         }
+
+        // 入住日确认后：计算并显示最长可选区间
+        // 每次重新计算，避免 unavailableDates 轮询更新后仍使用旧值
+        confirmedCheckIn.value = newCheckIn
+        maxCheckOutDate.value = computeMaxCheckOutDate(newCheckIn)
 
         // 检测是否跨越冲突日期
         const { hasConflict, conflictDate } = detectConflictInRange(newCheckIn, newCheckOut)
 
         if (hasConflict && conflictDate && maxCheckOutDate.value) {
             // 自动修正：退房日设为冲突日期前一天
-            isAutoFixing.value = true
             const autoCheckOut = maxCheckOutDate.value
 
             // 内联提示（非弹窗）
@@ -613,10 +622,6 @@ const handleDateRangeChange = (dates: [Date, Date] | null) => {
             autoFixMessage.value = `已为你调整至最晚可离店日期 ${month}月${day}日，此后日期已被预订`
 
             localDateRange.value = [newCheckIn, autoCheckOut]
-
-            nextTick(() => {
-                isAutoFixing.value = false
-            })
 
             emit('date-changed', newCheckIn, autoCheckOut)
         } else {
@@ -656,13 +661,19 @@ const handleBooking = async () => {
         const checkInStr = formatDateToString(localDateRange.value[0])
         const checkOutStr = formatDateToString(localDateRange.value[1])
 
-        // 检查入住日期区间内是否有不可用日期（入住日本身被订走不行，退房日当天可以）
-        const hasConflict = latestUnavailable.some(d => d > checkInStr && d < checkOutStr)
+        // 检查入住日期区间内是否有不可用日期（入住日本身被订走也不行，退房日当天可以）
+        const hasConflict = latestUnavailable.some(
+            d => d >= checkInStr && d < checkOutStr
+        )
 
         if (hasConflict) {
             ElMessage.error('您选择的日期已被其他用户预订，请重新选择')
             // 刷新不可用日期列表
             unavailableDates.value = latestUnavailable
+            // 重新计算最长可选退房日
+            if (confirmedCheckIn.value) {
+                maxCheckOutDate.value = computeMaxCheckOutDate(confirmedCheckIn.value)
+            }
             // 清除已选日期
             localDateRange.value = null
             confirmedCheckIn.value = null

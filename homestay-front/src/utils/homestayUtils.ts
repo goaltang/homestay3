@@ -1,5 +1,6 @@
 import { codeToText } from "element-china-area-data";
 import type { HomestayDetail } from "@/types/homestay";
+import { differenceInCalendarDays } from "date-fns";
 
 // 日期格式化工具
 export const formatDateString = (date: Date | string | null): string => {
@@ -84,15 +85,9 @@ export const calculateNights = (
   checkIn: Date | null,
   checkOut: Date | null
 ): number => {
-  if (checkIn && checkOut) {
-    const checkInTime = checkIn.getTime();
-    const checkOutTime = checkOut.getTime();
-    if (checkOutTime > checkInTime) {
-      const diffTime = checkOutTime - checkInTime;
-      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }
-  }
-  return 0;
+  if (!checkIn || !checkOut) return 0;
+  const days = differenceInCalendarDays(checkOut, checkIn);
+  return days > 0 ? days : 0;
 };
 
 
