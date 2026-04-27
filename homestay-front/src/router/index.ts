@@ -120,6 +120,15 @@ const router = createRouter({
           },
         },
         {
+          path: "calendar",
+          name: "HostCalendar",
+          component: () => import("../views/host/CalendarManage.vue"),
+          meta: {
+            title: "日历管理",
+            icon: "calendar",
+          },
+        },
+        {
           path: "orders",
           name: "HostOrders",
           component: () => import("../views/host/OrderManage.vue"),

@@ -21,6 +21,13 @@
                         <span>房源管理</span>
                     </el-menu-item>
 
+                    <el-menu-item index="/host/calendar">
+                        <el-icon>
+                            <Calendar />
+                        </el-icon>
+                        <span>日历管理</span>
+                    </el-menu-item>
+
                     <el-menu-item index="/host/orders">
                         <el-icon>
                             <List />
@@ -133,6 +140,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
     Monitor,
     House,
+    Calendar,
     List,
     Money,
     StarFilled,
