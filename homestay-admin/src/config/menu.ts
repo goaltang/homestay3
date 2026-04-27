@@ -124,6 +124,26 @@ export const menuData: Menus[] = [
     ],
   },
   {
+    id: "pricing",
+    title: "定价引擎",
+    index: "/pricing",
+    icon: "Money",
+    children: [
+      {
+        id: "pricing-rules",
+        pid: "pricing",
+        title: "价格规则",
+        index: "/pricing/rules",
+      },
+      {
+        id: "pricing-holidays",
+        pid: "pricing",
+        title: "节假日管理",
+        index: "/pricing/holidays",
+      },
+    ],
+  },
+  {
     id: "system",
     title: "系统管理",
     index: "/system",

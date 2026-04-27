@@ -160,6 +160,26 @@ export const formatPropertyType = (type?: string): string => {
   return type || "特色住宿";
 };
 
+export interface AppliedPricingRule {
+  ruleId?: number;
+  ruleName: string;
+  ruleType: string;
+  adjustmentType: string;
+  adjustmentValue: number;
+  deltaAmount: number;
+}
+
+export interface DailyPriceItem {
+  date: string;
+  basePrice: number;
+  price: number;
+  finalPrice: number;
+  isWeekend: boolean;
+  isHoliday: boolean;
+  holidayName?: string;
+  appliedRules?: AppliedPricingRule[];
+}
+
 // 模拟异步的后端算价接口，代替前端硬编码计算费率
 export interface PriceCalculationResult {
   basePrice: number;
@@ -172,9 +192,10 @@ export interface PriceCalculationResult {
   activityDiscountAmount?: number;
   couponDiscountAmount?: number;
   payableAmount?: number;
-  dailyPrices?: any[];
+  dailyPrices?: DailyPriceItem[];
   availableCoupons?: any[];
   appliedPromotions?: any[];
+  appliedPricingRules?: AppliedPricingRule[];
 }
 
 export const fetchCalculatePrice = async (

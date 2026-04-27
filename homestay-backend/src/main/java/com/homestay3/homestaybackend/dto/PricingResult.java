@@ -33,4 +33,5 @@ public class PricingResult {
     private BigDecimal hostReceivableAmount;
     private List<AppliedPromotionDTO> appliedPromotions;
     private PriceCalculationResponse.PriceDetails priceDetails;
+    private List<AppliedPricingRuleDTO> appliedPricingRules;
 }

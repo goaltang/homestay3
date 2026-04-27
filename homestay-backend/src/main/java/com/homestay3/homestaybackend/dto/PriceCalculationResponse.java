@@ -1,5 +1,6 @@
 package com.homestay3.homestaybackend.dto;
 
+import com.homestay3.homestaybackend.dto.AppliedPricingRuleDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -92,10 +93,13 @@ public class PriceCalculationResponse {
     @AllArgsConstructor
     public static class DailyPrice {
         private LocalDate date;
+        private BigDecimal basePrice;
         private BigDecimal price;
+        private BigDecimal finalPrice;
         private boolean isWeekend;
         private boolean isHoliday;
         private String holidayName;
+        private java.util.List<AppliedPricingRuleDTO> appliedRules;
     }
 
     @Data

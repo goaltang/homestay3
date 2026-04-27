@@ -94,6 +94,15 @@
                     <div class="price-item">¥{{ pricePerNight }} x {{ calculatedFees.nights }}晚</div>
                     <div class="price-value">¥{{ calculatedFees.basePrice }}</div>
                 </div>
+
+                <!-- 日期级调价明细 -->
+                <template v-if="pricingRuleBreakdown.length > 0">
+                    <div class="price-row discount" v-for="(item, idx) in pricingRuleBreakdown" :key="'rule-'+idx">
+                        <div class="price-item">{{ item.label }}</div>
+                        <div class="price-value">{{ item.amount >= 0 ? '+' : '' }}¥{{ Math.abs(item.amount).toFixed(2) }}</div>
+                    </div>
+                </template>
+
                 <div class="price-row discount" v-if="calculatedFees.activityDiscountAmount > 0">
                     <div class="price-item">活动优惠</div>
                     <div class="price-value">-¥{{ calculatedFees.activityDiscountAmount }}</div>
@@ -114,6 +123,27 @@
                 <div class="price-row total">
                     <div class="price-item">总价</div>
                     <div class="price-value">¥{{ calculatedFees.totalPrice }}</div>
+                </div>
+
+                <!-- 每日价格展开 -->
+                <div v-if="calculatedFees.dailyPrices && calculatedFees.dailyPrices.length > 0" class="daily-prices-section">
+                    <div class="daily-prices-toggle" @click="showDailyPrices = !showDailyPrices">
+                        <span>{{ showDailyPrices ? '收起' : '展开每日价格' }}</span>
+                        <el-icon><ArrowDown v-if="!showDailyPrices" /><ArrowUp v-else /></el-icon>
+                    </div>
+                    <div v-if="showDailyPrices" class="daily-prices-list">
+                        <div class="daily-price-item" v-for="(dp, idx) in calculatedFees.dailyPrices" :key="idx">
+                            <div class="dp-date">{{ dp.date }}</div>
+                            <div class="dp-tags">
+                                <el-tag v-if="dp.isHoliday" size="small" type="danger">{{ dp.holidayName }}</el-tag>
+                                <el-tag v-else-if="dp.isWeekend" size="small" type="warning">周末</el-tag>
+                            </div>
+                            <div class="dp-price">
+                                <span v-if="dp.basePrice !== dp.finalPrice" class="dp-base">¥{{ dp.basePrice }}</span>
+                                <span>¥{{ dp.finalPrice }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </template>
         </div>
@@ -138,7 +168,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { InfoFilled, Lightning, Clock, WarningFilled } from '@element-plus/icons-vue'
+import { InfoFilled, Lightning, Clock, WarningFilled, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getHomestayUnavailableDates } from '@/api/homestay'
 import { differenceInCalendarDays } from 'date-fns'
@@ -184,6 +214,7 @@ const emit = defineEmits<{
 const localDateRange = ref<[Date, Date] | null>(null)
 const localGuests = ref(props.guests)
 const localSelectedCoupons = ref<number | null>(props.selectedCouponIds?.[0] || null)
+const showDailyPrices = ref(false)
 
 watch(() => props.selectedCouponIds, (newVal) => {
     localSelectedCoupons.value = newVal?.[0] || null
@@ -229,6 +260,45 @@ watch(() => props.guests, (newGuests) => {
 // Computed properties
 const numericRating = computed(() => {
     return isNaN(props.rating) ? 0 : props.rating
+})
+
+// 聚合定价规则明细（日期级规则 + 入住级折扣）
+const pricingRuleBreakdown = computed(() => {
+    const ruleMap: Record<string, { label: string; amount: number }> = {}
+    const labelMap: Record<string, string> = {
+        WEEKEND: '周末加价',
+        HOLIDAY: '节假日加价',
+        DATE_RANGE: '日期调价',
+        EARLY_BIRD: '早鸟优惠',
+        LONG_STAY: '连住优惠'
+    }
+
+    // 1. 聚合 dailyPrices 中的日期级规则
+    if (props.calculatedFees?.dailyPrices) {
+        for (const dp of props.calculatedFees.dailyPrices) {
+            if (!dp.appliedRules) continue
+            for (const rule of dp.appliedRules) {
+                const key = rule.ruleType + '|' + rule.ruleName
+                if (!ruleMap[key]) {
+                    ruleMap[key] = { label: labelMap[rule.ruleType] || rule.ruleName, amount: 0 }
+                }
+                ruleMap[key].amount += rule.deltaAmount
+            }
+        }
+    }
+
+    // 2. 聚合入住级折扣（appliedPricingRules）
+    if (props.calculatedFees?.appliedPricingRules) {
+        for (const rule of props.calculatedFees.appliedPricingRules) {
+            const key = rule.ruleType + '|' + rule.ruleName
+            if (!ruleMap[key]) {
+                ruleMap[key] = { label: labelMap[rule.ruleType] || rule.ruleName, amount: 0 }
+            }
+            ruleMap[key].amount += rule.deltaAmount
+        }
+    }
+
+    return Object.values(ruleMap).filter(item => Math.abs(item.amount) > 0.001)
 })
 
 const totalNights = computed(() => {
@@ -939,6 +1009,72 @@ watch(localGuests, (newGuests) => {
     height: 1px;
     background-color: #e0e0e0;
     margin: 12px 0;
+}
+
+.daily-prices-section {
+    margin-top: 12px;
+    border-top: 1px dashed #e0e0e0;
+    padding-top: 8px;
+}
+
+.daily-prices-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #409eff;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.daily-prices-toggle:hover {
+    color: #66b1ff;
+}
+
+.daily-prices-list {
+    margin-top: 8px;
+    background: #f7f8fa;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.daily-price-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #eee;
+}
+
+.daily-price-item:last-child {
+    border-bottom: none;
+}
+
+.dp-date {
+    color: #606266;
+    min-width: 90px;
+}
+
+.dp-tags {
+    flex: 1;
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+}
+
+.dp-price {
+    color: #303133;
+    text-align: right;
+    min-width: 80px;
+}
+
+.dp-base {
+    text-decoration: line-through;
+    color: #909399;
+    margin-right: 6px;
+    font-size: 12px;
 }
 
 .booking-note {

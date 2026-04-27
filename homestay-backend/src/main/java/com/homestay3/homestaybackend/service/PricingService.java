@@ -53,4 +53,13 @@ public interface PricingService {
      * 生成报价令牌
      */
     String generateQuoteToken();
+
+    /**
+     * 校验报价令牌
+     * @param quoteToken 报价令牌
+     * @param orderDTO 订单数据（用于比对参数和金额）
+     * @param userId 当前用户ID
+     * @return 如果 token 有效且金额一致返回 true；否则抛出 PriceChangedException
+     */
+    boolean validateQuoteToken(String quoteToken, com.homestay3.homestaybackend.dto.OrderDTO orderDTO, Long userId);
 }

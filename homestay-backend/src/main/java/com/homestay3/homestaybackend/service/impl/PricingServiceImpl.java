@@ -232,6 +232,7 @@ public class PricingServiceImpl implements PricingService {
                 .serviceFee(serviceFee)
                 .payableAmount(payableAmount)
                 .hostReceivableAmount(hostReceivable)
+                .appliedPricingRules(stayDiscount.appliedRules())
                 .priceDetails(PriceCalculationResponse.PriceDetails.builder()
                         .cleaningFeeAmount(cleaningFeeRate)
                         .serviceFeeRate(serviceFeeRate)
@@ -309,7 +310,6 @@ public class PricingServiceImpl implements PricingService {
                 + "_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    @Override
     @Transactional(readOnly = true)
     public boolean validateQuoteToken(String quoteToken, com.homestay3.homestaybackend.dto.OrderDTO orderDTO, Long userId) {
         if (quoteToken == null || quoteToken.isBlank()) {

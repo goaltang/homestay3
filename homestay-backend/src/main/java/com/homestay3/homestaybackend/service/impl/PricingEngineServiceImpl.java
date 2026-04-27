@@ -22,7 +22,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -46,16 +46,23 @@ public class PricingEngineServiceImpl implements PricingEngineService {
         // 预加载所有启用的规则，避免循环中多次查询
         List<PricingRule> allRules = pricingRuleRepository.findByEnabledTrueOrderByPriorityAsc();
 
+        // 批量查询日期范围内的节假日，避免 N+1
+        List<HolidayCalendar> holidaysInRange = holidayCalendarRepository
+                .findByDateBetweenAndRegionCodeAndIsHolidayTrue(checkInDate, checkOutDate.minusDays(1), "CN");
+        Map<LocalDate, HolidayCalendar> holidayMap = new java.util.HashMap<>();
+        for (HolidayCalendar h : holidaysInRange) {
+            holidayMap.put(h.getDate(), h);
+        }
+
         LocalDate currentDate = checkInDate;
         for (int i = 0; i < nights; i++) {
             LocalDate date = currentDate.plusDays(i);
 
-            // 查询节假日
-            Optional<HolidayCalendar> holidayOpt = holidayCalendarRepository
-                    .findByDateAndRegionCode(date, "CN");
-            boolean isHoliday = holidayOpt.map(HolidayCalendar::getIsHoliday).orElse(false);
-            boolean isMakeupWorkday = holidayOpt.map(HolidayCalendar::getIsMakeupWorkday).orElse(false);
-            String holidayName = holidayOpt.map(HolidayCalendar::getName).orElse(null);
+            // 从批量查询结果中获取节假日信息
+            HolidayCalendar holiday = holidayMap.get(date);
+            boolean isHoliday = holiday != null && Boolean.TRUE.equals(holiday.getIsHoliday());
+            boolean isMakeupWorkday = holiday != null && Boolean.TRUE.equals(holiday.getIsMakeupWorkday());
+            String holidayName = holiday != null ? holiday.getName() : null;
             boolean isWeekend = (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY);
 
             // 如果是调休补班日，按工作日处理

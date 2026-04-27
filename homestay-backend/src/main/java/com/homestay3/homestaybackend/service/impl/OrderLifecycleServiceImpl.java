@@ -125,7 +125,15 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             throw new IllegalArgumentException("入住人数不能超过房源最大入住人数" + homestay.getMaxGuests() + "人");
         }
 
-        // 5. 统一计价（所有价格计算通过 PricingService）
+        // 5. 校验 quoteToken（若提供则校验，不一致抛 PriceChangedException）
+        if (orderDTO.getQuoteToken() != null && !orderDTO.getQuoteToken().isBlank()) {
+            boolean tokenValid = pricingService.validateQuoteToken(orderDTO.getQuoteToken(), orderDTO, currentUser.getId());
+            if (!tokenValid) {
+                log.warn("QuoteToken 校验未通过，将重算价格: {}", orderDTO.getQuoteToken());
+            }
+        }
+
+        // 5.1 统一计价（所有价格计算通过 PricingService）
         PricingResult pricingResult = pricingService.calculate(
                 homestay.getId(),
                 orderDTO.getCheckInDate(),

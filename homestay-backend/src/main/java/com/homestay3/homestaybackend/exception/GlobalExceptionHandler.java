@@ -27,6 +27,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(PriceChangedException.class)
+    public ResponseEntity<ApiResponse<?>> handlePriceChangedException(PriceChangedException ex) {
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("error", "PRICE_CHANGED");
+        data.put("message", ex.getMessage());
+        data.put("latestQuote", ex.getLatestQuote());
+        ApiResponse<?> response = ApiResponse.error(409, ex.getMessage(), data);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<?>> handleBadCredentialsException(BadCredentialsException ex) {
         ApiResponse<?> response = ApiResponse.error(401, "用户名或密码错误");

@@ -307,7 +307,7 @@ router.beforeEach((to, _from, next) => {
       document.title = title;
     }
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("homestay_admin_token") || localStorage.getItem("token");
     if (to.meta?.requiresAuth && !token) {
       next("/login");
     } else {

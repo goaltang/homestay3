@@ -413,7 +413,7 @@ const saveUserInfo = async () => {
             userStore.userInfo.realName = guestInfo.name
         }
         // 同步到 localStorage
-        localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+        localStorage.setItem('homestay_user', JSON.stringify(userStore.userInfo))
     }
 
     // 如果用户已登录，同步到后端
@@ -581,6 +581,33 @@ const submitOrder = async () => {
             error?.response?.data?.message ||
             error?.message ||
             String(error)
+
+        // 价格变动检测（优先于日期冲突，因为也是 409）
+        const isPriceChanged = error?.response?.data?.data?.error === 'PRICE_CHANGED'
+
+        if (isPriceChanged) {
+            const latestQuote = error?.response?.data?.data?.latestQuote || error?.response?.data?.latestQuote
+            const newAmount = latestQuote?.payableAmount || latestQuote?.totalPrice
+            ElMessageBox.confirm(
+                `价格已发生变化，最新总价为 ¥${newAmount}，是否按最新价格继续下单？`,
+                '价格变动提醒',
+                {
+                    confirmButtonText: '确认最新价格并继续',
+                    cancelButtonText: '返回修改',
+                    type: 'warning',
+                    center: true
+                }
+            ).then(() => {
+                if (orderData.value && latestQuote) {
+                    orderData.value.quoteToken = latestQuote.quoteToken
+                    orderData.value.totalAmount = newAmount
+                }
+                submitOrder()
+            }).catch(() => {
+                ElMessage.info('已取消，请重新选择日期或优惠券')
+            })
+            return
+        }
 
         // 改进的冲突检测：优先通过 HTTP 状态码判断，其次通过错误消息
         const isConflictError =
