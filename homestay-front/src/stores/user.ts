@@ -32,10 +32,26 @@ interface PasswordChangeRequest {
   newPassword: string;
 }
 
+const TOKEN_KEY = "homestay_token";
+const USER_KEY = "homestay_user";
+
+function migrateOldKeys() {
+  const oldToken = localStorage.getItem("token");
+  const oldUserInfo = localStorage.getItem("userInfo");
+  if (oldToken && !localStorage.getItem(TOKEN_KEY)) {
+    localStorage.setItem(TOKEN_KEY, oldToken);
+  }
+  if (oldUserInfo && !localStorage.getItem(USER_KEY)) {
+    localStorage.setItem(USER_KEY, oldUserInfo);
+  }
+}
+
+migrateOldKeys();
+
 export const useUserStore = defineStore("user", () => {
-  const token = ref<string | null>(localStorage.getItem("token"));
+  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
   const userInfo = ref<UserInfo | null>(
-    JSON.parse(localStorage.getItem("userInfo") || "null")
+    JSON.parse(localStorage.getItem(USER_KEY) || "null")
   );
 
   const isAuthenticated = computed(() => !!token.value);
@@ -68,9 +84,9 @@ export const useUserStore = defineStore("user", () => {
   const setToken = (newToken: string | null) => {
     token.value = newToken;
     if (newToken) {
-      localStorage.setItem("token", newToken);
+      localStorage.setItem(TOKEN_KEY, newToken);
     } else {
-      localStorage.removeItem("token");
+      localStorage.removeItem(TOKEN_KEY);
     }
   };
 
@@ -78,7 +94,7 @@ export const useUserStore = defineStore("user", () => {
     console.log("设置用户信息:", user);
     userInfo.value = user;
     // 保存用户信息到 localStorage
-    localStorage.setItem("userInfo", JSON.stringify(user));
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
     // 输出调试信息
     console.log("用户角色:", user.role);
     console.log("isLandlord计算值:", user.role === "ROLE_HOST");
@@ -180,7 +196,7 @@ export const useUserStore = defineStore("user", () => {
         setUser(userData);
 
         // 确保localStorage保存了用户信息
-        localStorage.setItem("userInfo", JSON.stringify(userData));
+        localStorage.setItem(USER_KEY, JSON.stringify(userData));
         console.log("用户信息已保存到localStorage", userData);
         console.log("检查isLandlord:", isLandlord.value);
 
@@ -282,7 +298,7 @@ export const useUserStore = defineStore("user", () => {
         setUser(userData);
 
         // 确保localStorage保存了用户信息
-        localStorage.setItem("userInfo", JSON.stringify(userData));
+        localStorage.setItem(USER_KEY, JSON.stringify(userData));
         console.log("用户信息已保存到localStorage", userData);
 
         // 不再强制刷新页面，让调用方处理导航
@@ -355,10 +371,12 @@ export const useUserStore = defineStore("user", () => {
     userInfo.value = null;
 
     // 清除localStorage中的所有用户相关数据
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     localStorage.removeItem("token");
     localStorage.removeItem("userInfo");
     localStorage.removeItem("user");
-    localStorage.removeItem("favorites"); // 清除收藏数据，防止数据泄露
+    localStorage.removeItem("favorites");
 
     // 清除API请求头中的Authorization
     delete api.defaults.headers.common["Authorization"];
@@ -675,7 +693,7 @@ export const useUserStore = defineStore("user", () => {
       // 这里只需要更新本地用户信息
       if (userInfo.value) {
         userInfo.value.avatar = avatarPath;
-        localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
+        localStorage.setItem(USER_KEY, JSON.stringify(userInfo.value));
         console.log("用户头像已更新:", avatarPath);
       }
 
@@ -729,7 +747,7 @@ export const useUserStore = defineStore("user", () => {
       );
       if (authority) {
         userInfo.value.role = authority.authority;
-        localStorage.setItem("userInfo", JSON.stringify(userInfo.value));
+        localStorage.setItem(USER_KEY, JSON.stringify(userInfo.value));
         console.log("用户角色已同步:", userInfo.value.role);
         return true;
       }

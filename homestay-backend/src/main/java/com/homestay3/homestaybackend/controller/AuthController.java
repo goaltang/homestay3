@@ -5,9 +5,6 @@ import com.homestay3.homestaybackend.dto.AuthResponse;
 import com.homestay3.homestaybackend.dto.PasswordResetRequest;
 import com.homestay3.homestaybackend.dto.RegisterRequest;
 import com.homestay3.homestaybackend.service.AuthService;
-import com.homestay3.homestaybackend.dto.AdminLoginRequest;
-import com.homestay3.homestaybackend.dto.AdminLoginResponse;
-import com.homestay3.homestaybackend.service.AuthenticationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +26,6 @@ import java.util.stream.Collectors;
 public class AuthController {
 
     private final AuthService authService;
-    private final AuthenticationService authenticationService;
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     @PostMapping("/register")

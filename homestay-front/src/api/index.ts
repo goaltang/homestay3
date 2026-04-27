@@ -14,7 +14,7 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("homestay_token") || localStorage.getItem("token");
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -69,6 +69,8 @@ api.interceptors.response.use(
         } else {
           // 对于其他接口的 401，清除认证信息并跳转
           console.warn("非登录接口返回 401，清除认证信息并跳转");
+          localStorage.removeItem("homestay_token");
+          localStorage.removeItem("homestay_user");
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           localStorage.removeItem("userInfo");

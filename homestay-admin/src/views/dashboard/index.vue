@@ -77,7 +77,7 @@ import { codeToText } from 'element-china-area-data'
 import { getStatistics, getOrderTrend, getHomestayDistribution } from '@/api/dashboard'
 import { ElMessage } from 'element-plus'
 
-const username = ref(localStorage.getItem('username') || '管理员')
+const username = ref(localStorage.getItem('homestay_admin_username') || localStorage.getItem('username') || '管理员')
 const mounted = ref(false)
 const orderDays = ref('7')
 const orderChartRef = ref<HTMLElement | null>(null)

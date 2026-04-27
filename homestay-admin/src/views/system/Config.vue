@@ -268,7 +268,7 @@ const saveConfig = () => {
   formRef.value.validate((valid) => {
     if (valid) {
       submitLoading.value = true;
-      const operator = localStorage.getItem('username') || 'admin';
+      const operator = localStorage.getItem('homestay_admin_username') || localStorage.getItem('username') || 'admin';
       const savePromise = editMode.value
         ? updateConfigApi(form.configKey, form, operator)
         : createConfigApi(form, operator);

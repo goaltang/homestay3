@@ -15,11 +15,11 @@ export const useChatStore = defineStore("chat", () => {
   const targetHomestayId = ref<number | null>(null);
 
   const isLoggedIn = computed(() => {
-    return !!localStorage.getItem("token");
+    return !!(localStorage.getItem("homestay_token") || localStorage.getItem("token"));
   });
 
   const currentUserId = computed(() => {
-    const userInfo = localStorage.getItem("userInfo");
+    const userInfo = localStorage.getItem("homestay_user") || localStorage.getItem("userInfo");
     if (userInfo) {
       try {
         return JSON.parse(userInfo).id;

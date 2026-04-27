@@ -561,7 +561,7 @@ const maskedIdCard = computed(() => {
 // 上传头像相关header
 const uploadHeaders = computed(() => {
     return {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
+        Authorization: `Bearer ${localStorage.getItem('homestay_token') || localStorage.getItem('token')}`
     };
 });
 
@@ -900,7 +900,7 @@ const handleAvatarSuccess = (response: any) => {
         if (userStore.userInfo) {
             userStore.userInfo.avatar = avatarUrl;
             // 保存到localStorage确保刷新页面后仍能显示
-            localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo));
+            localStorage.setItem('homestay_user', JSON.stringify(userStore.userInfo));
         }
 
         // 强制刷新头像显示
@@ -1017,7 +1017,7 @@ const handleCustomUpload = (type: 'idCardFront' | 'idCardBack') => {
         fetch(fullUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${localStorage.getItem('homestay_token') || localStorage.getItem('token')}`
             },
             body: formData
         })

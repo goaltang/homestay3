@@ -11,7 +11,7 @@ export const detailedAuthCheck = async () => {
   console.log("====== 开始检查认证状态 ======");
 
   // 1. 检查本地存储的token
-  const localToken = localStorage.getItem("token");
+  const localToken = localStorage.getItem("homestay_token") || localStorage.getItem("token");
   console.log(
     "localStorage中的token: ",
     localToken ? `${localToken.substring(0, 15)}...` : "不存在"
@@ -26,7 +26,7 @@ export const detailedAuthCheck = async () => {
   // 2. 检查用户信息
   let userInfo = null;
   try {
-    const storedUserInfo = localStorage.getItem("userInfo");
+    const storedUserInfo = (localStorage.getItem("homestay_user") || localStorage.getItem("userInfo"));
     if (storedUserInfo) {
       userInfo = JSON.parse(storedUserInfo);
       console.log("localStorage中的用户信息: ", {
@@ -120,22 +120,23 @@ export const testRequestWithToken = async (url: string, token: string) => {
 
 // 获取当前token
 export function getToken(): string | null {
-  return localStorage.getItem("token");
+  return localStorage.getItem("homestay_token") || localStorage.getItem("token");
 }
 
 // 设置token到localStorage
 export function setToken(token: string): void {
-  localStorage.setItem("token", token);
+  localStorage.setItem("homestay_token", token);
 }
 
 // 移除token
 export function removeToken(): void {
+  localStorage.removeItem("homestay_token");
   localStorage.removeItem("token");
 }
 
 // 获取当前用户信息
 export function getCurrentUser(): any {
-  const userString = localStorage.getItem("user");
+  const userString = (localStorage.getItem("homestay_user") || localStorage.getItem("user"));
   if (!userString) return null;
 
   try {
@@ -249,7 +250,7 @@ export async function ensureUserLoggedIn(
   // 获取本地角色信息
   let localUserRole = "";
   try {
-    const userInfoStr = localStorage.getItem("userInfo");
+    const userInfoStr = (localStorage.getItem("homestay_user") || localStorage.getItem("userInfo"));
     if (userInfoStr) {
       const userInfo = JSON.parse(userInfoStr);
       if (userInfo.role) {
@@ -259,7 +260,7 @@ export async function ensureUserLoggedIn(
     }
 
     if (!localUserRole) {
-      const userStr = localStorage.getItem("user");
+      const userStr = (localStorage.getItem("homestay_user") || localStorage.getItem("user"));
       if (!userStr) {
         console.warn("localStorage中没有找到user信息");
       } else {
@@ -294,20 +295,20 @@ export async function ensureUserLoggedIn(
       // 在localStorage中更新角色信息
       try {
         // 更新userInfo
-        const userInfoStr = localStorage.getItem("userInfo");
+        const userInfoStr = (localStorage.getItem("homestay_user") || localStorage.getItem("userInfo"));
         if (userInfoStr) {
           const userInfo = JSON.parse(userInfoStr);
           if (!userInfo.role || !userInfo.role.includes("HOST")) {
             userInfo.role = userInfo.role
               ? `${userInfo.role},ROLE_HOST`
               : "ROLE_HOST";
-            localStorage.setItem("userInfo", JSON.stringify(userInfo));
+            localStorage.setItem("homestay_user", JSON.stringify(userInfo));
             console.log("已更新userInfo中的角色:", userInfo.role);
           }
         }
 
         // 更新user
-        const userStr = localStorage.getItem("user");
+        const userStr = (localStorage.getItem("homestay_user") || localStorage.getItem("user"));
         if (userStr) {
           const user = JSON.parse(userStr);
           // 检查authorities数组
@@ -326,7 +327,7 @@ export async function ensureUserLoggedIn(
               user.authorities = [];
             }
             user.authorities.push({ authority: "ROLE_HOST" });
-            localStorage.setItem("user", JSON.stringify(user));
+            localStorage.setItem("homestay_user", JSON.stringify(user));
             console.log("已更新user.authorities:", user.authorities);
           }
         }
@@ -520,7 +521,7 @@ export class AuthManager {
    * 检查用户是否已登录
    */
   isAuthenticated(): boolean {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("homestay_token") || localStorage.getItem("token");
     return !!token;
   }
 
@@ -528,8 +529,8 @@ export class AuthManager {
    * 获取用户角色
    */
   getUserRole(): string {
-    const userInfo = JSON.parse(localStorage.getItem("userInfo") || "null");
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const userInfo = JSON.parse((localStorage.getItem("homestay_user") || localStorage.getItem("userInfo")) || "null");
+    const user = JSON.parse((localStorage.getItem("homestay_user") || localStorage.getItem("user")) || "null");
     return userInfo?.role || user?.role || "";
   }
 

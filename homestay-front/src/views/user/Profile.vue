@@ -156,7 +156,7 @@ const handleAvatarUploadSuccess = (fileName: string) => {
     // 组件已经自动更新了v-model的值，这里只需要：
     // 1. 更新localStorage
     if (userStore.userInfo) {
-        localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo));
+        localStorage.setItem('homestay_user', JSON.stringify(userStore.userInfo));
     }
 
     // 2. 刷新用户信息确保数据同步

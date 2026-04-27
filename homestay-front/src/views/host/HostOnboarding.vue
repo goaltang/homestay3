@@ -212,7 +212,7 @@ const verifyRules = {
 // 上传相关
 const uploadHeaders = computed(() => {
     return {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
+        Authorization: `Bearer ${localStorage.getItem('homestay_token') || localStorage.getItem('token')}`
     };
 });
 
@@ -255,7 +255,7 @@ const validateAndNext = async (step: number) => {
                     // 如果返回了新 token，更新前端状态
                     if (becomeHostResponse && becomeHostResponse.data && becomeHostResponse.data.token) {
                         // 更新 localStorage 中的 token
-                        localStorage.setItem('token', becomeHostResponse.data.token);
+                        localStorage.setItem('homestay_token', becomeHostResponse.data.token);
                     }
 
                     // 刷新用户信息以同步角色变更

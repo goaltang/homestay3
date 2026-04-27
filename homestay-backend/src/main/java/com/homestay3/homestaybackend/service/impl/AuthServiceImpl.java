@@ -7,7 +7,6 @@ import com.homestay3.homestaybackend.mapper.UserMapper;
 import com.homestay3.homestaybackend.model.VerificationStatus;
 import com.homestay3.homestaybackend.model.UserRole;
 import com.homestay3.homestaybackend.repository.UserRepository;
-import com.homestay3.homestaybackend.repository.AdminRepository;
 import com.homestay3.homestaybackend.repository.CouponTemplateRepository;
 import com.homestay3.homestaybackend.service.CouponService;
 import com.homestay3.homestaybackend.security.JwtTokenProvider;
@@ -48,7 +47,6 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final NotificationService notificationService;
-    private final AdminRepository adminRepository;
     private final UserMapper userMapper;
     private final CouponTemplateRepository couponTemplateRepository;
     private final CouponService couponService;
@@ -175,54 +173,36 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(AuthRequest request) {
         log.info("用户登录: {}", request.getUsername());
 
-        // 先检查用户是否存在，以便区分"用户不存在"和"密码错误"
         User user = userRepository.findByUsername(request.getUsername())
-                .orElse(null);
-                
-        // 检查管理员用户
-        boolean isAdmin = adminRepository.findByUsername(request.getUsername()).isPresent();
-        
-        if (user == null && !isAdmin) {
-            log.warn("用户不存在: {}", request.getUsername());
-            throw new LoginException("用户不存在，请检查用户名或先注册账号");
+                .orElseThrow(() -> new LoginException("用户不存在，请检查用户名或先注册账号"));
+
+        // 拒绝管理员从前端登录
+        if ("ROLE_ADMIN".equals(user.getRole())) {
+            log.warn("管理员尝试从前端登录: {}", request.getUsername());
+            throw new LoginException("管理员请使用管理后台登录");
         }
 
         try {
-            // 验证用户名和密码，获取认证成功的 Authentication 对象
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
-            
-            // 将认证信息存入 SecurityContext (虽然登录通常是无状态的，但有时后续操作可能需要)
-            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // 如果是管理员登录，特殊处理
-            if (user == null && isAdmin) {
-                log.info("管理员登录成功: {}", request.getUsername());
-                // 管理员登录的处理逻辑（如果需要的话）
-                throw new LoginException("请使用管理员登录接口");
-            }
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
             log.info("用户信息: id={}, username={}, realName={}",
                 user.getId(), user.getUsername(), user.getRealName());
 
-            // 更新最后登录时间
             user.setLastLogin(LocalDateTime.now());
             userRepository.save(user);
 
-            // 获取用户权限
-            String authorities = user.getRole();
-            
-            // 生成 token，传入 userId
-            String token = jwtTokenProvider.generateToken(user.getUsername(), user.getId(), authorities);
+            String token = jwtTokenProvider.generateToken(user.getUsername(), user.getId(), user.getRole());
 
-            // 返回认证响应
             AuthResponse response = new AuthResponse();
             response.setToken(token);
             response.setUser(convertToDTO(user));
             log.info("登录响应: {}", response);
             return response;
-            
+
         } catch (org.springframework.security.authentication.BadCredentialsException e) {
             log.warn("密码错误: {}", request.getUsername());
             throw new RuntimeException("密码错误，请重新输入");
@@ -232,6 +212,8 @@ public class AuthServiceImpl implements AuthService {
         } catch (org.springframework.security.authentication.LockedException e) {
             log.warn("账号已被锁定: {}", request.getUsername());
             throw new RuntimeException("账号已被锁定，请联系管理员");
+        } catch (LoginException e) {
+            throw e;
         } catch (Exception e) {
             log.error("登录过程中发生未知错误: {}", e.getMessage());
             throw new RuntimeException("登录失败，请稍后重试");

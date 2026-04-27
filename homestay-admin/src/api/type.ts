@@ -11,7 +11,7 @@ const api = axios.create({
 // 请求拦截器添加token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("homestay_admin_token") || localStorage.getItem("token");
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }

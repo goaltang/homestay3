@@ -102,21 +102,18 @@ request.interceptors.request.use(
       // 尝试从不同地方获取token
       let token: string | null = null;
 
-      // 首先从localStorage获取
-      token = localStorage.getItem("token");
+      // 优先读取新key，兼容旧key
+      token = localStorage.getItem("homestay_token") || localStorage.getItem("token");
 
-      // 按顺序尝试不同的token来源
       if (token) {
         console.log("从localStorage获取到token");
       } else {
-        // 如果localStorage没有，从sessionStorage获取
-        token = sessionStorage.getItem("token");
+        token = sessionStorage.getItem("homestay_token") || sessionStorage.getItem("token");
         if (token) {
           console.log("从sessionStorage获取到token");
         } else {
-          // 如果仍然没有，尝试从用户信息获取
           try {
-            const userInfo = localStorage.getItem("userInfo");
+            const userInfo = localStorage.getItem("homestay_user") || localStorage.getItem("userInfo");
             if (userInfo) {
               const parsed = JSON.parse(userInfo);
               if (parsed && parsed.token && typeof parsed.token === "string") {
@@ -221,9 +218,11 @@ request.interceptors.response.use(
           } else {
             // 对于其他接口的 401，视为登录过期
             ElMessage.error("登录状态无效或已过期，请重新登录");
-            // 清除token
+            // 清除新旧两种token
+            localStorage.removeItem("homestay_token");
+            localStorage.removeItem("homestay_user");
             localStorage.removeItem("token");
-            localStorage.removeItem("user"); // 也清除 user 信息
+            localStorage.removeItem("user");
             localStorage.removeItem("userInfo");
             delete axios.defaults.headers.common["Authorization"]; // 如果 axios 实例是共享的
             // 跳转到登录页 (延迟以显示消息)
@@ -247,7 +246,7 @@ request.interceptors.response.use(
           );
           console.warn(
             `当前用户token: ${
-              localStorage.getItem("token") ? "存在" : "不存在"
+              (localStorage.getItem("homestay_token") || localStorage.getItem("token")) ? "存在" : "不存在"
             }`
           );
 

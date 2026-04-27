@@ -614,7 +614,7 @@ const preprocessFormData = () => {
 
     // 添加用户名(所有者)
     try {
-        const userInfoStr = localStorage.getItem('userInfo')
+        const userInfoStr = (localStorage.getItem('homestay_user') || localStorage.getItem('userInfo'))
         if (userInfoStr) {
             const userInfo = JSON.parse(userInfoStr)
             if (userInfo && userInfo.username) {
@@ -795,7 +795,7 @@ const handleSubmit = async () => {
                 // 确保当前有有效用户名
                 let username = '';
                 try {
-                    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                    const userInfo = JSON.parse((localStorage.getItem('homestay_user') || localStorage.getItem('userInfo')) || '{}');
                     username = userInfo.username || '';
                 } catch (e) {
                     console.warn('无法获取用户信息', e);
@@ -1095,7 +1095,7 @@ onMounted(async () => {
     console.log('HomestayForm组件加载，正在初始化...');
 
     // 打印当前角色信息便于调试
-    const userInfo = localStorage.getItem('userInfo');
+    const userInfo = (localStorage.getItem('homestay_user') || localStorage.getItem('userInfo'));
     if (userInfo) {
         try {
             const userObj = JSON.parse(userInfo);
@@ -1580,7 +1580,7 @@ const checkEditPermission = async (homestayId: number) => {
         // 获取当前用户
         let currentUser;
         try {
-            currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}');
+            currentUser = JSON.parse((localStorage.getItem('homestay_user') || localStorage.getItem('userInfo')) || '{}');
         } catch (e) {
             console.error('解析用户信息失败', e);
             ElMessage.error('无法验证用户信息，请重新登录');

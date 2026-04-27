@@ -98,7 +98,7 @@ const avatarUrl = computed(() => {
 
 // 上传请求头
 const uploadHeaders = computed(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('homestay_token') || localStorage.getItem('token');
     return token ? { Authorization: `Bearer ${token}` } : {};
 });
 

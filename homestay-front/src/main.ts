@@ -49,7 +49,7 @@ const initializeApp = async () => {
         const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
         userStore.userInfo.avatar = defaultAvatar;
         // 保存更新后的用户信息
-        localStorage.setItem("userInfo", JSON.stringify(userStore.userInfo));
+        localStorage.setItem("homestay_user", JSON.stringify(userStore.userInfo));
       }
     } catch (error: any) {
       console.error("获取用户信息失败，可能需要重新登录:", error);

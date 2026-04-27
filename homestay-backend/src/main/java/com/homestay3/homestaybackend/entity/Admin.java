@@ -24,6 +24,9 @@ public class Admin {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Transient
+    private String role;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

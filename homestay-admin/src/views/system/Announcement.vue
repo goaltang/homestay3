@@ -171,8 +171,8 @@ const dialogVisible = ref(false);
 const editMode = ref(false);
 const submitLoading = ref(false);
 const formRef = ref<FormInstance>();
-const currentUsername = ref(localStorage.getItem('username') || 'admin');
-const currentUserId = ref<number>(Number(localStorage.getItem('userId')) || 1);
+const currentUsername = ref(localStorage.getItem('homestay_admin_username') || localStorage.getItem('username') || 'admin');
+const currentUserId = ref<number>(Number(localStorage.getItem('homestay_admin_userId') || localStorage.getItem('userId')) || 1);
 
 const query = reactive<{
   pageIndex: number;

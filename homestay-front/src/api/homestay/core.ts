@@ -244,7 +244,7 @@ export function updateHomestay(
 ): Promise<any> {
   console.log(`开始更新房源, ID: ${id}`, data);
 
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("homestay_token") || localStorage.getItem("token");
   if (!token) {
     console.error("⚠️ 更新房源失败：没有找到token，请先登录！");
     return Promise.reject(new Error("未登录，无法更新房源"));
@@ -257,7 +257,7 @@ export function updateHomestay(
   let username = "";
 
   try {
-    const userInfoStr = localStorage.getItem("userInfo");
+    const userInfoStr = (localStorage.getItem("homestay_user") || localStorage.getItem("userInfo"));
     if (userInfoStr) {
       userInfo = JSON.parse(userInfoStr);
       userId = userInfo.id || "";
@@ -266,7 +266,7 @@ export function updateHomestay(
     }
 
     if (!username) {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const user = JSON.parse((localStorage.getItem("homestay_user") || localStorage.getItem("user")) || "{}");
       if (user.username) {
         username = user.username;
         userId = user.id || "";
@@ -363,11 +363,11 @@ export function updateHomestay(
 export function deleteHomestay(id: number) {
   console.log(`开始删除房源, ID: ${id}`);
 
-  const token = localStorage.getItem("token") || "";
+  const token = localStorage.getItem("homestay_token") || localStorage.getItem("token") || "";
 
   let username = "";
   try {
-    const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+    const userInfo = JSON.parse((localStorage.getItem("homestay_user") || localStorage.getItem("userInfo")) || "{}");
     username = userInfo.username || "";
   } catch (e) {
     console.warn("无法获取用户信息", e);
@@ -527,7 +527,7 @@ export function getHomestaysByIds(ids: number[]) {
  */
 export function checkHomestayOwnership(id: number): Promise<boolean> {
   console.log(`检查房源ID:${id}的所有权`);
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("homestay_token") || localStorage.getItem("token");
 
   if (!token) {
     console.error("未找到token，无法验证所有权");
@@ -543,7 +543,7 @@ export function checkHomestayOwnership(id: number): Promise<boolean> {
   })
     .then((response) => {
       const homestayData = response.data;
-      const userInfo = JSON.parse(localStorage.getItem("userInfo") || "{}");
+      const userInfo = JSON.parse((localStorage.getItem("homestay_user") || localStorage.getItem("userInfo")) || "{}");
       const currentUsername = userInfo.username;
 
       console.log(`房源所有者: ${homestayData.ownerUsername}`);

@@ -3,8 +3,9 @@ package com.homestay3.homestaybackend.service;
 import com.homestay3.homestaybackend.dto.AdminLoginRequest;
 import com.homestay3.homestaybackend.dto.AdminLoginResponse;
 import com.homestay3.homestaybackend.entity.Admin;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.exception.UnauthorizedException;
-import com.homestay3.homestaybackend.repository.AdminRepository;
+import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,34 +23,46 @@ public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
-    private final AdminRepository adminRepository;
+    private final UserRepository userRepository;
 
     public AdminLoginResponse login(AdminLoginRequest request) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                    request.getUsername(),
-                    request.getPassword()
-                )
-            );
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(
+                request.getUsername(),
+                request.getPassword()
+            )
+        );
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            Admin admin = adminRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new UnauthorizedException("用户名或密码错误"));
+        // 验证是否为管理员
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(auth -> auth.equals("ROLE_ADMIN"));
 
-            String authorities = authentication.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .collect(Collectors.joining(","));
-            String jwt = jwtTokenProvider.generateToken(admin.getUsername(), admin.getId(), authorities);
-
-            return AdminLoginResponse.builder()
-                .token(jwt)
-                .admin(admin)
-                .build();
-        } catch (Exception e) {
-            throw new UnauthorizedException("用户名或密码错误");
+        if (!isAdmin) {
+            throw new UnauthorizedException("无权访问管理后台，仅限管理员登录");
         }
+
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new UnauthorizedException("用户不存在"));
+
+        String authorities = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
+        String jwt = jwtTokenProvider.generateToken(user.getUsername(), user.getId(), authorities);
+
+        // 构建兼容的 Admin 对象
+        Admin admin = new Admin();
+        admin.setId(user.getId());
+        admin.setUsername(user.getUsername());
+        admin.setPassword(user.getPassword());
+        admin.setRole(user.getRole());
+
+        return AdminLoginResponse.builder()
+            .token(jwt)
+            .admin(admin)
+            .build();
     }
 
     public void logout() {
@@ -62,4 +75,4 @@ public class AuthenticationService {
         }
         return jwtTokenProvider.getUsernameFromToken(token);
     }
-} 
+}

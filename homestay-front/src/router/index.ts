@@ -297,9 +297,9 @@ router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore();
 
   // 获取 token 和用户信息
-  const storedToken = localStorage.getItem("token");
-  const userInfo = JSON.parse(localStorage.getItem("userInfo") || "null");
-  const userFromAuth = JSON.parse(localStorage.getItem("user") || "null");
+  const storedToken = localStorage.getItem("homestay_token") || localStorage.getItem("token");
+  const userInfo = JSON.parse(localStorage.getItem("homestay_user") || localStorage.getItem("userInfo") || "null");
+  const userFromAuth = JSON.parse(localStorage.getItem("homestay_user") || localStorage.getItem("user") || "null");
 
   // 确保 authStore 和 userStore 的状态与 localStorage 同步
   if (
@@ -358,6 +358,8 @@ router.beforeEach(async (to, from, next) => {
 
   if (requiredRoles && isAuthenticated && !userRole) {
     console.warn("登录状态缺少角色信息，清除本地认证状态并要求重新登录");
+    localStorage.removeItem("homestay_token");
+    localStorage.removeItem("homestay_user");
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("userInfo");

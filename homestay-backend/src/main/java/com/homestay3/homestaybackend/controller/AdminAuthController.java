@@ -3,7 +3,8 @@ package com.homestay3.homestaybackend.controller;
 import com.homestay3.homestaybackend.dto.AdminLoginRequest;
 import com.homestay3.homestaybackend.dto.AdminLoginResponse;
 import com.homestay3.homestaybackend.entity.Admin;
-import com.homestay3.homestaybackend.service.AdminService;
+import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.AuthenticationService;
 import com.homestay3.homestaybackend.service.LoginLogService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAuthController {
 
     private final AuthenticationService authenticationService;
-    private final AdminService adminService;
+    private final UserRepository userRepository;
     private final LoginLogService loginLogService;
 
     @PostMapping("/login")
@@ -50,7 +51,12 @@ public class AdminAuthController {
     @GetMapping("/info")
     public ResponseEntity<Admin> getAdminInfo(@RequestHeader("Authorization") String token) {
         String username = authenticationService.getUsernameFromToken(token);
-        Admin admin = adminService.getAdminByUsername(username);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("管理员不存在"));
+        Admin admin = new Admin();
+        admin.setId(user.getId());
+        admin.setUsername(user.getUsername());
+        admin.setRole(user.getRole());
         return ResponseEntity.ok(admin);
     }
 
