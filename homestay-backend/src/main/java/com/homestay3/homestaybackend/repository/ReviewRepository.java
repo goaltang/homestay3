@@ -141,4 +141,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     // 统计指定房源在指定时间后的评价数量（排除已删除）
     @Query("SELECT COUNT(r) FROM Review r WHERE r.homestay.id = :homestayId AND r.createTime > :createdAtAfter AND r.deleted = false")
     Long countByHomestayIdAndCreatedAtAfter(@Param("homestayId") Long homestayId, @Param("createdAtAfter") LocalDateTime createdAtAfter);
+
+    /**
+     * 批量查询房源平均评分
+     */
+    @Query("SELECT r.homestay.id, AVG(r.rating) FROM Review r WHERE r.homestay.id IN :ids AND r.isPublic = true AND r.deleted = false GROUP BY r.homestay.id")
+    List<Object[]> getAverageRatingByHomestayIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 批量查询房源评价数量
+     */
+    @Query("SELECT r.homestay.id, COUNT(r) FROM Review r WHERE r.homestay.id IN :ids AND r.isPublic = true AND r.deleted = false GROUP BY r.homestay.id")
+    List<Object[]> getReviewCountByHomestayIds(@Param("ids") List<Long> ids);
 }

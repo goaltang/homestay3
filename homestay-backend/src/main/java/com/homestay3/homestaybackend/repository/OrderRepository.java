@@ -58,6 +58,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         @Query("SELECT o FROM Order o WHERE o.guest.id = :guestId")
         Page<Order> findByGuestId(@Param("guestId") Long guestId, Pageable pageable);
 
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.guest.id = :guestId")
+        long countByGuestId(@Param("guestId") Long guestId);
+
         // 根据状态获取用户的订单
         @Query("SELECT o FROM Order o WHERE o.guest.id = :guestId AND o.status = :status")
         Page<Order> findByGuestIdAndStatus(@Param("guestId") Long guestId, @Param("status") String status,
@@ -230,4 +233,36 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         // 待确认订单（今天及之前需要确认的）
         @Query("SELECT COUNT(o) FROM Order o WHERE o.status = 'PENDING' AND o.createdAt < :beforeDate")
         Long countPendingConfirmOrders(@Param("beforeDate") LocalDateTime beforeDate);
+
+        /**
+         * 批量查询指定房源列表中，在指定日期范围内有冲突订单的房源 ID。
+         * 冲突定义：订单状态为 CONFIRMED 或 PAID，且日期范围重叠。
+         */
+        @Query("SELECT DISTINCT o.homestay.id FROM Order o WHERE o.homestay.id IN :ids " +
+               "AND o.status IN ('CONFIRMED', 'PAID') " +
+               "AND o.checkOutDate > :checkInDate AND o.checkInDate < :checkOutDate")
+        List<Long> findConflictingHomestayIds(
+                @Param("ids") List<Long> ids,
+                @Param("checkInDate") LocalDate checkInDate,
+                @Param("checkOutDate") LocalDate checkOutDate);
+
+        /**
+         * 批量统计房源订单数量
+         */
+        @Query("SELECT o.homestay.id, COUNT(o) FROM Order o WHERE o.homestay.id IN :ids GROUP BY o.homestay.id")
+        List<Object[]> countByHomestayIds(@Param("ids") List<Long> ids);
+
+        /**
+         * 房东日历视图 —— 查询指定房东（或指定房源）在日期范围内的所有占用订单。
+         */
+        @Query("SELECT o FROM Order o JOIN o.homestay h WHERE h.owner.id = :hostId " +
+               "AND (:homestayId IS NULL OR h.id = :homestayId) " +
+               "AND o.checkOutDate > :startDate AND o.checkInDate < :endDate " +
+               "AND o.status IN :statuses")
+        List<Order> findHostCalendarOrders(
+                @Param("hostId") Long hostId,
+                @Param("homestayId") Long homestayId,
+                @Param("startDate") LocalDate startDate,
+                @Param("endDate") LocalDate endDate,
+                @Param("statuses") List<String> statuses);
 }

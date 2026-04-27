@@ -10,15 +10,21 @@ import com.homestay3.homestaybackend.entity.HomestayType;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.HomestayStatus;
 import com.homestay3.homestaybackend.model.OrderStatus;
+import com.homestay3.homestaybackend.model.search.HomestayDocument;
 import com.homestay3.homestaybackend.repository.AmenityRepository;
+import com.homestay3.homestaybackend.repository.HomestayDocumentRepository;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.HomestayTypeRepository;
+import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.HomestaySearchService;
+import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
+import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -46,9 +52,33 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
     private final AmenityRepository amenityRepository;
     private final HomestayDtoAssembler homestayDtoAssembler;
     private final HomestaySpecificationSupport homestaySpecificationSupport;
+    private final ObjectProvider<HomestayIndexingService> homestayIndexingServiceProvider;
+    private final ObjectProvider<HomestayDocumentRepository> homestayDocumentRepositoryProvider;
+    private final UserBehaviorTrackingService userBehaviorTrackingService;
+    private final OrderRepository orderRepository;
 
     @Override
     public List<HomestayDTO> searchHomestays(HomestaySearchRequest request) {
+        // 尝试 ES 全文搜索（仅限有 keyword 时）
+        if (StringUtils.hasText(request.getKeyword())) {
+            try {
+                HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+                if (indexingService != null && indexingService.isElasticsearchAvailable()) {
+                    List<HomestayDTO> esResults = searchByElasticsearch(request);
+                    if (esResults != null && !esResults.isEmpty()) {
+                        try {
+                            userBehaviorTrackingService.trackSearch(
+                                    null, null, request.getKeyword(),
+                                    request.getCityCode(), request.getPropertyType());
+                        } catch (Exception ignored) {}
+                        return applySearchSorting(esResults, request);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("ES search failed, falling back to JPA: {}", e.getMessage());
+            }
+        }
+
         final String typeCodeToSearch;
         if (StringUtils.hasText(request.getPropertyType())) {
             Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(request.getPropertyType());
@@ -415,6 +445,75 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
 
     private double roundDistance(double value) {
         return Math.round(value * 100d) / 100d;
+    }
+
+    private List<HomestayDTO> searchByElasticsearch(HomestaySearchRequest request) {
+        String keyword = request.getKeyword();
+        Double minPrice = request.getMinPrice() != null ? request.getMinPrice().doubleValue() : 0.0;
+        Double maxPrice = request.getMaxPrice() != null ? request.getMaxPrice().doubleValue() : Double.MAX_VALUE;
+        Integer minGuests = request.getMinGuests() != null ? request.getMinGuests() : 1;
+
+        HomestayDocumentRepository homestayDocumentRepository = homestayDocumentRepositoryProvider.getIfAvailable();
+        if (homestayDocumentRepository == null) {
+            return Collections.emptyList();
+        }
+        var searchHits = homestayDocumentRepository.searchByKeywordWithScoring(
+                keyword, minPrice, maxPrice, minGuests);
+
+        if (searchHits == null || searchHits.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> homestayIds = searchHits.getSearchHits().stream()
+                .map(hit -> hit.getContent().getId())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (homestayIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 用 ID 列表去 JPA 查询完整实体，保留原有 DTO 组装逻辑
+        List<Homestay> homestays = homestayRepository.findAllById(homestayIds);
+
+        // 保持 ES 返回的顺序
+        Map<Long, Homestay> homestayMap = homestays.stream()
+                .collect(Collectors.toMap(Homestay::getId, h -> h, (a, b) -> a));
+        List<Homestay> orderedHomestays = homestayIds.stream()
+                .map(homestayMap::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        // 补充：可订日期检查（ES 搜索绕过了 JPA 的日期冲突子查询）
+        if (request.getCheckInDate() != null && request.getCheckOutDate() != null) {
+            List<Long> conflictIds = orderRepository.findConflictingHomestayIds(
+                    homestayIds, request.getCheckInDate(), request.getCheckOutDate());
+            if (conflictIds != null && !conflictIds.isEmpty()) {
+                orderedHomestays = orderedHomestays.stream()
+                        .filter(h -> !conflictIds.contains(h.getId()))
+                        .collect(Collectors.toList());
+            }
+        }
+
+        List<String> criteriaFromSearch = new ArrayList<>();
+        if (request.getRequiredAmenities() != null && !request.getRequiredAmenities().isEmpty()) {
+            request.getRequiredAmenities().forEach(amenityCode ->
+                    criteriaFromSearch.add("AMENITY_" + amenityCode.toUpperCase().replace(" ", "_")));
+        }
+        String typeCodeToSearch = null;
+        if (StringUtils.hasText(request.getPropertyType())) {
+            Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(request.getPropertyType());
+            typeCodeToSearch = typeOpt.map(HomestayType::getCode).orElse(null);
+        }
+        if (typeCodeToSearch != null) {
+            criteriaFromSearch.add("PROPERTY_TYPE_" + typeCodeToSearch.toUpperCase());
+        }
+
+        List<String> finalCriteria = criteriaFromSearch.isEmpty()
+                ? null
+                : Collections.unmodifiableList(criteriaFromSearch);
+
+        return homestayDtoAssembler.toDTOs(orderedHomestays, finalCriteria);
     }
 
     private static class MapClusterAccumulator {

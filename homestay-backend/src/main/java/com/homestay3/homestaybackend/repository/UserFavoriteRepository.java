@@ -57,4 +57,10 @@ public interface UserFavoriteRepository extends JpaRepository<UserFavorite, Long
      * 获取收藏了某个民宿的用户数量
      */
     long countByHomestayId(Long homestayId);
+
+    /**
+     * 批量统计房源收藏数量
+     */
+    @Query("SELECT uf.homestayId, COUNT(uf) FROM UserFavorite uf WHERE uf.homestayId IN :ids GROUP BY uf.homestayId")
+    List<Object[]> countByHomestayIds(@Param("ids") List<Long> ids);
 } 
