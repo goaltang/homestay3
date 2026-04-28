@@ -418,18 +418,14 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                         Long.parseLong(params.get("homestayId"))));
             }
 
-            // 按日期范围筛选
+            // 按日期范围筛选（区间重叠判断：订单入住日期 <= 筛选结束日期 且 订单退房日期 >= 筛选开始日期）
             if (params.containsKey("startDate") && params.containsKey("endDate")) {
                 LocalDate startDate = LocalDate.parse(params.get("startDate"));
                 LocalDate endDate = LocalDate.parse(params.get("endDate"));
 
-                predicates.add(cb.or(
-                        cb.and(
-                                cb.greaterThanOrEqualTo(root.get("checkInDate"), startDate),
-                                cb.lessThanOrEqualTo(root.get("checkInDate"), endDate)),
-                        cb.and(
-                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), startDate),
-                                cb.lessThanOrEqualTo(root.get("checkOutDate"), endDate))));
+                predicates.add(cb.and(
+                        cb.lessThanOrEqualTo(root.get("checkInDate"), endDate),
+                        cb.greaterThanOrEqualTo(root.get("checkOutDate"), startDate)));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

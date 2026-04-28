@@ -510,32 +510,32 @@ public class OrderController {
         try {
             String username = authentication.getName();
 
-            // 获取不同状态的订单数量
+            // 一次性分组查询所有状态数量（替代 N+1）
+            List<Object[]> grouped = orderRepository.countOrdersByOwnerUsernameGroupByStatus(username);
+            Map<String, Long> statusCounts = new HashMap<>();
+            long totalCount = 0;
+            for (Object[] row : grouped) {
+                String status = (String) row[0];
+                Long count = (Long) row[1];
+                statusCounts.put(status, count);
+                totalCount += count;
+            }
+
+            // 汇总各类取消状态
+            long cancelledCount = statusCounts.getOrDefault(OrderStatus.CANCELLED.name(), 0L)
+                    + statusCounts.getOrDefault(OrderStatus.CANCELLED_BY_USER.name(), 0L)
+                    + statusCounts.getOrDefault(OrderStatus.CANCELLED_BY_HOST.name(), 0L)
+                    + statusCounts.getOrDefault(OrderStatus.CANCELLED_SYSTEM.name(), 0L);
+
             Map<String, Long> stats = new HashMap<>();
-            Long pendingCount = orderService.getPendingOrderCount(username);
-
-            // 使用自定义查询获取各种状态的订单数量
-            Long totalCount = orderRepository.countByHomestayOwnerUsername(username);
-            Long completedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
-                    OrderStatus.COMPLETED.name());
-            Long cancelledCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
-                    OrderStatus.CANCELLED.name());
-            Long rejectedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
-                    OrderStatus.REJECTED.name());
-            Long confirmedCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
-                    OrderStatus.CONFIRMED.name());
-            Long checkedInCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username,
-                    OrderStatus.CHECKED_IN.name());
-            Long paidCount = orderRepository.countByHomestayOwnerUsernameAndStatus(username, OrderStatus.PAID.name());
-
             stats.put("total", totalCount);
-            stats.put("pending", pendingCount);
-            stats.put("completed", completedCount);
+            stats.put("pending", statusCounts.getOrDefault(OrderStatus.PENDING.name(), 0L));
+            stats.put("confirmed", statusCounts.getOrDefault(OrderStatus.CONFIRMED.name(), 0L));
+            stats.put("checkedIn", statusCounts.getOrDefault(OrderStatus.CHECKED_IN.name(), 0L));
+            stats.put("paid", statusCounts.getOrDefault(OrderStatus.PAID.name(), 0L));
+            stats.put("completed", statusCounts.getOrDefault(OrderStatus.COMPLETED.name(), 0L));
             stats.put("cancelled", cancelledCount);
-            stats.put("rejected", rejectedCount);
-            stats.put("confirmed", confirmedCount);
-            stats.put("checkedIn", checkedInCount);
-            stats.put("paid", paidCount);
+            stats.put("rejected", statusCounts.getOrDefault(OrderStatus.REJECTED.name(), 0L));
 
             return ResponseEntity.ok(stats);
         } catch (Exception e) {

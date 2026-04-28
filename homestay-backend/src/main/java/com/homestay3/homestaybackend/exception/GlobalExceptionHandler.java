@@ -127,6 +127,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
     }
 
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<?>> handleOptimisticLockingFailureException(
+            org.springframework.dao.OptimisticLockingFailureException ex) {
+        logger.warn("订单乐观锁冲突: {}", ex.getMessage());
+        ApiResponse<?> response = ApiResponse.error(409, "订单状态已被其他操作更新，请刷新后重试");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGlobalException(Exception ex, WebRequest request) {
         logger.error("系统发生未捕获异常: {}", ex.getMessage(), ex);

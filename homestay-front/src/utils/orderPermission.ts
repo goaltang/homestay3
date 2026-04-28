@@ -119,8 +119,8 @@ export function canPerformActionOnStatus(
           orderStatus as OrderStatus
         );
       } else if (userRole === UserRole.HOST) {
-        // 房东只能取消待确认的订单
-        return [OrderStatus.PENDING].includes(orderStatus as OrderStatus);
+        // 房东可以取消待确认、已支付、待入住的订单（已支付会进入退款流程）
+        return [OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.READY_FOR_CHECKIN].includes(orderStatus as OrderStatus);
       }
       break;
 
@@ -139,8 +139,9 @@ export function canPerformActionOnStatus(
       );
 
     case OrderAction.CHECK_IN:
-      // 只有房东可以办理入住，且只能处理已支付的订单
-      return userRole === UserRole.HOST && orderStatus === OrderStatus.PAID;
+      // 房东或房客可以办理入住，订单状态需为已支付或待入住
+      return (userRole === UserRole.HOST || userRole === UserRole.USER) &&
+        [OrderStatus.PAID, OrderStatus.READY_FOR_CHECKIN].includes(orderStatus as OrderStatus);
 
     case OrderAction.CHECK_OUT:
       // 只有房东可以办理退房，且只能处理已入住的订单
@@ -159,9 +160,9 @@ export function canPerformActionOnStatus(
       return false;
 
     case OrderAction.DISPUTE:
-      // 用户可以对退款中的订单发起争议
+      // 房东或用户可以对退款中的订单发起争议
       return (
-        userRole === UserRole.USER &&
+        (userRole === UserRole.USER || userRole === UserRole.HOST) &&
         orderStatus === OrderStatus.REFUND_PENDING
       );
 

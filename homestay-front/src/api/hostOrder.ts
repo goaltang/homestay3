@@ -35,9 +35,8 @@ export function updateOrderStatus(id: number, status: string) {
  */
 export function confirmOrder(id: number) {
   return request({
-    url: `/api/orders/${id}/status`,
+    url: `/api/orders/${id}/confirm`,
     method: "put",
-    data: { status: "CONFIRMED" },
   });
 }
 
@@ -48,12 +47,9 @@ export function confirmOrder(id: number) {
  */
 export function rejectOrder(id: number, reason: string) {
   return request({
-    url: `/api/orders/${id}/status`,
+    url: `/api/orders/${id}/reject`,
     method: "put",
-    data: {
-      status: "REJECTED",
-      reason,
-    },
+    data: { reason },
   });
 }
 
@@ -98,16 +94,15 @@ export function getHostOrderStats() {
 }
 
 /**
- * 取消订单
+ * 取消订单（通用接口，后端根据角色自动判定为房东取消或用户取消）
  * @param id 订单ID
  * @param reason 取消原因
  */
 export function cancelOrder(id: number, reason = "") {
   return request({
-    url: `/api/orders/${id}/status`,
+    url: `/api/orders/${id}/cancel`,
     method: "put",
     data: {
-      status: "CANCELLED",
       reason,
     },
   });
@@ -289,6 +284,17 @@ export function confirmSettlement(orderId: number) {
   return request({
     url: `/api/orders/${orderId}/checkout/settle`,
     method: "put",
+  });
+}
+
+/**
+ * 获取退款预览信息
+ * @param orderId 订单ID
+ */
+export function getRefundPreview(orderId: number) {
+  return request({
+    url: `/api/orders/${orderId}/refund-preview`,
+    method: "get",
   });
 }
 

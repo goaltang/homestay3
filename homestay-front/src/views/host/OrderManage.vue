@@ -100,17 +100,6 @@
                                     :loading="autoStatusLoading" plain>
                                     手动执行
                                 </el-button>
-                                <el-button type="warning" size="small" @click="debugUserInfo" plain>
-                                    权限调试
-                                </el-button>
-                            </div>
-                            <div class="action-group">
-                                <el-button type="info" size="small" @click="analyzeHistoryOrders" plain>
-                                    分析历史订单
-                                </el-button>
-                                <el-button type="danger" size="small" @click="fixHistoryOrders" plain>
-                                    修复历史订单
-                                </el-button>
                             </div>
                         </div>
                     </div>
@@ -240,7 +229,7 @@
                 <el-table-column label="订单金额" width="120" align="right">
                     <template #default="scope">
                         <span class="price-value" style="font-weight: bold; color: var(--el-color-danger); font-size: 15px;">
-                            ¥{{ (scope.row.totalPrice || scope.row.totalAmount || 0).toFixed(2) }}
+                            ¥{{ formatAmount(scope.row.totalPrice || scope.row.totalAmount) }}
                         </span>
                     </template>
                 </el-table-column>
@@ -272,10 +261,10 @@
                         </span>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="180" fixed="right" align="center">
+                <el-table-column label="操作" width="200" fixed="right" align="center">
                     <template #default="scope">
                         <div class="action-buttons" style="display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: nowrap;">
-                            <!-- 主操作区 -->
+                            <!-- 主操作区（按订单状态展示最核心操作） -->
                             <el-button v-if="scope.row.status === 'PENDING'" type="primary" size="small"
                                 @click="handleConfirm(scope.row)">
                                 确认接单
@@ -300,7 +289,7 @@
                                 @click="handleConfirmSettlement(scope.row)">
                                 确认结算
                             </el-button>
-                            <el-button v-else-if="scope.row.paymentStatus === 'REFUND_PENDING'" type="warning" size="small"
+                            <el-button v-if="scope.row.paymentStatus === 'REFUND_PENDING' && scope.row.status !== 'DISPUTE_PENDING'" type="warning" size="small"
                                 @click="handleReviewRefund(scope.row)">
                                 审核退款
                             </el-button>
@@ -312,36 +301,37 @@
                                 </el-button>
                                 <template #dropdown>
                                     <el-dropdown-menu>
-                                        <!-- 详情（固定显示在第一个） -->
+                                        <!-- 详情 -->
                                         <el-dropdown-item @click="handleDetails(scope.row)">
                                             <span>详情</span>
                                         </el-dropdown-item>
-                                        <el-dropdown-item v-if="scope.row.status === 'PENDING'"
+                                        <!-- 拒绝接单 -->
+                                        <el-dropdown-item v-if="canDo(OrderAction.REJECT, scope.row)"
                                             @click="handleReject(scope.row)">
                                             <span style="color: var(--el-color-danger)">拒绝接单</span>
                                         </el-dropdown-item>
-                                        <el-dropdown-item v-if="(scope.row.status === 'PENDING' || scope.row.status === 'CONFIRMED') && scope.row.paymentStatus === 'UNPAID'"
+                                        <!-- 取消订单 -->
+                                        <el-dropdown-item v-if="canDo(OrderAction.CANCEL, scope.row)"
                                             @click="handleCancel(scope.row)">
                                             <span style="color: var(--el-color-danger)">取消订单</span>
                                         </el-dropdown-item>
-                                        <el-dropdown-item v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
-                                            @click="handleCancel(scope.row)">
-                                            <span style="color: var(--el-color-danger)">取消订单</span>
-                                        </el-dropdown-item>
+                                        <!-- 取消准备 -->
                                         <el-dropdown-item v-if="scope.row.status === 'READY_FOR_CHECKIN'"
                                             @click="handleCancelPrepare(scope.row)">
                                             <span style="color: var(--el-color-warning)">取消准备</span>
                                         </el-dropdown-item>
-                                        <el-dropdown-item v-if="scope.row.status === 'PAID'"
+                                        <!-- 查看凭证 -->
+                                        <el-dropdown-item v-if="scope.row.status === 'PAID' || scope.row.status === 'READY_FOR_CHECKIN'"
                                             @click="openViewCredential(scope.row)">
                                             <span style="color: var(--el-color-info)">查看凭证</span>
                                         </el-dropdown-item>
+                                        <!-- 发起退款 -->
                                         <el-dropdown-item v-if="canInitiateRefund(scope.row)"
                                             @click="handleRefund(scope.row)">
                                             <span style="color: var(--el-color-warning)">发起退款</span>
                                         </el-dropdown-item>
-                                        <!-- 争议：退款中时可以发起争议 -->
-                                        <el-dropdown-item v-if="scope.row.paymentStatus === 'REFUND_PENDING' && scope.row.status !== 'DISPUTE_PENDING'"
+                                        <!-- 发起争议 -->
+                                        <el-dropdown-item v-if="canDo(OrderAction.DISPUTE, scope.row)"
                                             @click="handleRaiseDispute(scope.row)">
                                             <span style="color: var(--el-color-danger)">发起争议</span>
                                         </el-dropdown-item>
@@ -376,9 +366,7 @@
                     <el-descriptions-item label="入住天数">{{ currentOrder.nights }}晚</el-descriptions-item>
                     <el-descriptions-item label="入住人数">{{ currentOrder.guestCount }}人</el-descriptions-item>
                     <el-descriptions-item label="订单金额" :span="2">
-                        <span class="price">¥{{ (currentOrder.totalPrice || currentOrder.totalAmount ||
-                            0).toFixed(2)
-                            }}</span>
+                        <span class="price">¥{{ formatAmount(currentOrder.totalPrice || currentOrder.totalAmount) }}</span>
                     </el-descriptions-item>
                     <el-descriptions-item label="订单状态" :span="2">
                         <el-tag :type="getStatusType(currentOrder.status)">
@@ -414,7 +402,7 @@
                             {{ getRefundTypeText(currentOrder.refundType) }}
                         </el-descriptions-item>
                         <el-descriptions-item v-if="currentOrder.refundAmount" label="退款金额">
-                            <span class="refund-amount">¥{{ currentOrder.refundAmount.toFixed(2) }}</span>
+                            <span class="refund-amount">¥{{ formatAmount(currentOrder.refundAmount) }}</span>
                         </el-descriptions-item>
                         <el-descriptions-item v-if="currentOrder.refundReason" label="退款原因" :span="2">
                             {{ currentOrder.refundReason }}
@@ -437,13 +425,13 @@
                     </el-descriptions>
                 </div>
 
-                <!-- 操作按钮也需要 currentOrder 存在 -->
+                <!-- 操作按钮 -->
                 <div class="detail-actions" style="margin-top: 20px; text-align: right;">
                     <el-button v-if="currentOrder.status === 'PENDING'" type="success"
                         @click="handleConfirm(currentOrder)">
                         确认订单
                     </el-button>
-                    <el-button v-if="currentOrder.status === 'PENDING'" type="danger"
+                    <el-button v-if="canDo(OrderAction.REJECT, currentOrder)" type="danger"
                         @click="handleReject(currentOrder)">
                         拒绝订单
                     </el-button>
@@ -471,14 +459,9 @@
                         @click="handleConfirmSettlement(currentOrder)">
                         确认结算
                     </el-button>
-                    <el-button
-                        v-if="(currentOrder.status === 'PENDING' || currentOrder.status === 'CONFIRMED') && currentOrder.paymentStatus === 'UNPAID'"
+                    <el-button v-if="canDo(OrderAction.CANCEL, currentOrder)"
                         type="danger" @click="handleCancel(currentOrder)">
                         取消订单
-                    </el-button>
-                    <el-button v-if="currentOrder.status === 'PAID' || currentOrder.status === 'READY_FOR_CHECKIN'"
-                        type="danger" @click="handleCancel(currentOrder)">
-                        取消订单（将退款）
                     </el-button>
                     <el-button
                         v-if="canInitiateRefund(currentOrder)"
@@ -486,9 +469,13 @@
                         发起退款
                     </el-button>
                     <el-button
-                        v-if="currentOrder.paymentStatus === 'REFUND_PENDING'"
+                        v-if="currentOrder.paymentStatus === 'REFUND_PENDING' && currentOrder.status !== 'DISPUTE_PENDING'"
                         type="warning" @click="handleReviewRefund(currentOrder)">
                         审核退款
+                    </el-button>
+                    <el-button v-if="canDo(OrderAction.DISPUTE, currentOrder)"
+                        type="danger" plain @click="handleRaiseDispute(currentOrder)">
+                        发起争议
                     </el-button>
                     <el-button @click="detailsDialogVisible = false">关闭</el-button>
                 </div>
@@ -546,8 +533,13 @@
                     <el-descriptions-item label="预订客户">{{ currentOrder.guestName }}</el-descriptions-item>
                     <el-descriptions-item label="入住日期">{{ currentOrder.checkInDate }} 至 {{ currentOrder.checkOutDate }}</el-descriptions-item>
                     <el-descriptions-item label="退款金额">
-                        <span class="refund-amount-highlight">根据政策动态计算</span>
-                        <el-tag size="small" type="warning" effect="plain" style="margin-left: 8px;">可能扣除违约金</el-tag>
+                        <span v-if="refundPreview && refundPreview.estimatedRefundAmount !== undefined" class="refund-amount-highlight">
+                            ¥{{ formatAmount(refundPreview.estimatedRefundAmount) }}
+                        </span>
+                        <span v-else class="refund-amount-highlight">计算中...</span>
+                        <el-tag v-if="refundPreview && refundPreview.policyDescription" size="small" type="warning" effect="plain" style="margin-left: 8px;">
+                            {{ refundPreview.policyDescription }}
+                        </el-tag>
                     </el-descriptions-item>
                 </el-descriptions>
 
@@ -581,7 +573,7 @@
                 <el-descriptions :column="1" border size="small" class="refund-order-info">
                     <el-descriptions-item label="退款原因">{{ currentOrder.refundReason || '无' }}</el-descriptions-item>
                     <el-descriptions-item label="退款金额">
-                        <span class="refund-amount-highlight">¥{{ (currentOrder.refundAmount || currentOrder.totalAmount || 0).toFixed(2) }}</span>
+                        <span class="refund-amount-highlight">¥{{ formatAmount(currentOrder.refundAmount || currentOrder.totalAmount) }}
                     </el-descriptions-item>
                 </el-descriptions>
 
@@ -623,7 +615,7 @@
                     <el-descriptions-item label="订单号">{{ currentOrder.orderNumber || currentOrder.id }}</el-descriptions-item>
                     <el-descriptions-item label="退款原因">{{ currentOrder.refundReason || '无' }}</el-descriptions-item>
                     <el-descriptions-item label="退款金额">
-                        <span class="refund-amount-highlight">¥{{ (currentOrder.refundAmount || currentOrder.totalAmount || 0).toFixed(2) }}</span>
+                        <span class="refund-amount-highlight">¥{{ formatAmount(currentOrder.refundAmount || currentOrder.totalAmount) }}
                     </el-descriptions-item>
                 </el-descriptions>
 
@@ -834,14 +826,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { Search, Refresh, Clock, CircleCheck, Warning, Setting, ArrowDown } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { useAuthStore } from '@/stores/auth'
 import {
     getHostOrders,
     cancelOrder,
+    confirmOrder,
+    rejectOrder,
     getHostOrderStats,
     hostInitiateRefund,
     hostApproveRefund,
@@ -854,9 +849,11 @@ import {
     performCheckOut,
     getCheckOutRecord,
     processDeposit,
-    confirmSettlement
+    confirmSettlement,
+    getRefundPreview
 } from '@/api/hostOrder'
 import { getHostHomestayOptions } from '@/api/host'
+import { canPerformActionOnStatus, OrderAction } from '@/utils/orderPermission'
 
 // 定义订单项接口
 interface HostOrderItem {
@@ -904,6 +901,22 @@ interface HostOrderItem {
 interface HomestayOption {
     id: number;
     title: string;
+}
+
+const authStore = useAuthStore()
+
+const currentUserIdentity = computed(() => {
+    if (!authStore.user) return null
+    return {
+        userId: authStore.user.id,
+        role: authStore.user.role || ''
+    }
+})
+
+// 辅助：判断当前用户是否可执行某操作
+const canDo = (action: OrderAction, order: HostOrderItem) => {
+    if (!currentUserIdentity.value) return false
+    return canPerformActionOnStatus(action, order.status, currentUserIdentity.value.role)
 }
 
 // 统计数据
@@ -975,6 +988,7 @@ const refundSubmitting = ref(false)
 const refundForm = reactive({
     reason: ''
 })
+const refundPreview = ref<any>(null)
 
 // 审核退款相关
 const reviewRefundDialogVisible = ref(false)
@@ -1180,10 +1194,22 @@ const hasRefundInfo = (order: HostOrderItem | null) => {
 }
 
 // 判断是否有”更多”下拉菜单的操作（始终显示，因为详情已移入下拉菜单）
+// 安全金额格式化
+const formatAmount = (value: any) => {
+    const num = Number(value)
+    if (isNaN(num)) return '0.00'
+    return num.toFixed(2)
+}
+
+// 判断是否有"更多"下拉菜单的操作（除详情外是否还有其他可操作项）
 const hasMoreActions = (order: HostOrderItem) => {
-    if (!order) return false
-    // 始终显示更多菜单（包含详情入口）
-    return true
+    if (!order || !currentUserIdentity.value) return false
+    return canDo(OrderAction.REJECT, order) ||
+        canDo(OrderAction.CANCEL, order) ||
+        canDo(OrderAction.DISPUTE, order) ||
+        order.status === 'READY_FOR_CHECKIN' ||
+        order.status === 'PAID' ||
+        canInitiateRefund(order)
 }
 
 // 展示订单详情
@@ -1213,14 +1239,7 @@ const fetchHomestayOptions = async () => {
     }
 }
 
-// 修复后的确认订单函数
-const confirmOrderFixed = async (id: number) => {
-    console.log("正在使用修复后的确认订单函数", id);
-    return request({
-        url: `/api/orders/${id}/confirm`,
-        method: "put"
-    });
-};
+
 
 // 确认订单
 const handleConfirm = async (order: HostOrderItem) => {
@@ -1237,24 +1256,15 @@ const handleConfirm = async (order: HostOrderItem) => {
         loading.value = true
         try {
             console.log('确认订单ID:', order.id)
-            // 使用修复后的函数
-            await confirmOrderFixed(order.id)
+            await confirmOrder(order.id)
             ElMessage.success('订单已确认')
-            // 更新本地数据
-            const index = orders.value.findIndex(item => item.id === order.id)
-            if (index !== -1) {
-                orders.value[index].status = 'CONFIRMED'
-            }
 
             // 关闭详情对话框（如果打开）
             if (detailsDialogVisible.value) {
                 detailsDialogVisible.value = false
             }
 
-            updateStats()
-
-            // 刷新订单列表
-            fetchOrders()
+            await refreshOrdersAndStats()
         } catch (error: any) {
             console.error('确认订单失败:', error)
             ElMessage.error(error.response?.data?.message || '操作失败，请重试')
@@ -1281,21 +1291,13 @@ const handlePerformCheckIn = async (order: HostOrderItem) => {
             console.log('办理入住，订单ID:', order.id)
             await performCheckIn(order.id)
             ElMessage.success('已办理入住')
-            // 更新本地数据
-            const index = orders.value.findIndex(item => item.id === order.id)
-            if (index !== -1) {
-                orders.value[index].status = 'CHECKED_IN'
-            }
 
             // 关闭详情对话框（如果打开）
             if (detailsDialogVisible.value) {
                 detailsDialogVisible.value = false
             }
 
-            updateStats()
-
-            // 刷新订单列表
-            fetchOrders()
+            await refreshOrdersAndStats()
         } catch (error: any) {
             console.error('办理入住失败:', error)
             ElMessage.error(error.response?.data?.message || '操作失败，请重试')
@@ -1389,19 +1391,13 @@ const handleCancelPrepare = async (order: HostOrderItem) => {
             console.log('取消准备入住，订单ID:', order.id)
             await cancelPrepareCheckIn(order.id)
             ElMessage.success('已取消准备入住')
-            // 更新本地数据
-            const index = orders.value.findIndex(item => item.id === order.id)
-            if (index !== -1) {
-                orders.value[index].status = 'PAID'
-            }
 
             // 关闭详情对话框（如果打开）
             if (detailsDialogVisible.value) {
                 detailsDialogVisible.value = false
             }
 
-            updateStats()
-            fetchOrders()
+            await refreshOrdersAndStats()
         } catch (error: any) {
             console.error('取消准备入住失败:', error)
             ElMessage.error(error.response?.data?.message || '操作失败，请重试')
@@ -1443,8 +1439,7 @@ const submitCheckOut = async () => {
             detailsDialogVisible.value = false
         }
 
-        updateStats()
-        fetchOrders()
+        await refreshOrdersAndStats()
     } catch (error: any) {
         console.error('办理退房失败:', error)
         ElMessage.error(error.response?.data?.message || '操作失败，请重试')
@@ -1503,8 +1498,7 @@ const submitDeposit = async () => {
             detailsDialogVisible.value = false
         }
 
-        updateStats()
-        fetchOrders()
+        await refreshOrdersAndStats()
     } catch (error: any) {
         console.error('押金操作失败:', error)
         ElMessage.error(error.response?.data?.message || '操作失败，请重试')
@@ -1530,19 +1524,13 @@ const handleConfirmSettlement = async (order: HostOrderItem) => {
             console.log('确认结算，订单ID:', order.id)
             await confirmSettlement(order.id)
             ElMessage.success('已确认结算，订单已完成')
-            // 更新本地数据
-            const index = orders.value.findIndex(item => item.id === order.id)
-            if (index !== -1) {
-                orders.value[index].status = 'COMPLETED'
-            }
 
             // 关闭详情对话框（如果打开）
             if (detailsDialogVisible.value) {
                 detailsDialogVisible.value = false
             }
 
-            updateStats()
-            fetchOrders()
+            await refreshOrdersAndStats()
         } catch (error: any) {
             console.error('确认结算失败:', error)
             ElMessage.error(error.response?.data?.message || '操作失败，请重试')
@@ -1607,12 +1595,6 @@ const confirmCancel = async () => {
                 console.log('取消订单ID:', currentOrder.value!.id, '原因:', cancelForm.reason)
                 await cancelOrder(currentOrder.value!.id, cancelForm.reason)
 
-                // 更新本地数据
-                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
-                if (index !== -1) {
-                    orders.value[index].status = 'CANCELLED'
-                }
-
                 ElMessage.success('订单已取消')
                 cancelDialogVisible.value = false
 
@@ -1620,8 +1602,7 @@ const confirmCancel = async () => {
                     detailsDialogVisible.value = false
                 }
 
-                updateStats()
-                fetchOrders()
+                await refreshOrdersAndStats()
             } catch (error: any) {
                 console.error('取消订单失败:', error)
                 ElMessage.error(error.message || '取消订单失败，请重试')
@@ -1632,15 +1613,7 @@ const confirmCancel = async () => {
     })
 }
 
-// 修复后的拒绝订单函数
-const rejectOrderFixed = async (id: number, reason: string) => {
-    console.log("正在使用修复后的拒绝订单函数", id, reason);
-    return request({
-        url: `/api/orders/${id}/reject`,
-        method: "put",
-        data: { reason }
-    });
-};
+
 
 // 处理拒绝订单
 const handleReject = (order: HostOrderItem) => {
@@ -1669,14 +1642,7 @@ const confirmReject = async () => {
 
             try {
                 console.log('拒绝订单ID:', currentOrder.value!.id, '原因:', rejectForm.reason)
-                await rejectOrderFixed(currentOrder.value!.id, rejectForm.reason)
-
-                // 更新本地数据
-                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
-
-                if (index !== -1) {
-                    orders.value[index].status = 'REJECTED'
-                }
+                await rejectOrder(currentOrder.value!.id, rejectForm.reason)
 
                 ElMessage.success('订单已拒绝')
                 rejectDialogVisible.value = false
@@ -1685,8 +1651,7 @@ const confirmReject = async () => {
                     detailsDialogVisible.value = false
                 }
 
-                updateStats()
-                fetchOrders()
+                await refreshOrdersAndStats()
             } catch (error: any) {
                 console.error('拒绝订单失败:', error)
                 ElMessage.error(error.response?.data?.message || error.message || '拒绝订单失败，请重试')
@@ -1698,7 +1663,7 @@ const confirmReject = async () => {
 }
 
 // 发起退款
-const handleRefund = (order: HostOrderItem) => {
+const handleRefund = async (order: HostOrderItem) => {
     if (!order || !order.id) {
         ElMessage.error('无效的订单数据')
         return
@@ -1706,6 +1671,16 @@ const handleRefund = (order: HostOrderItem) => {
 
     currentOrder.value = order
     refundForm.reason = ''
+    refundPreview.value = null
+
+    try {
+        const res = await getRefundPreview(order.id)
+        refundPreview.value = res.data || res
+    } catch (err: any) {
+        console.warn('获取退款预览失败:', err)
+        // 不影响弹窗打开，仅提示
+    }
+
     refundDialogVisible.value = true
 }
 
@@ -1725,12 +1700,6 @@ const confirmRefund = async () => {
                 console.log('发起退款，订单ID:', currentOrder.value!.id, '原因:', refundForm.reason)
                 await hostInitiateRefund(currentOrder.value!.id, refundForm.reason)
 
-                // 更新本地数据
-                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
-                if (index !== -1) {
-                    orders.value[index].paymentStatus = 'REFUND_PENDING'
-                }
-
                 ElMessage.success('退款申请已提交，等待处理')
                 refundDialogVisible.value = false
 
@@ -1738,8 +1707,7 @@ const confirmRefund = async () => {
                     detailsDialogVisible.value = false
                 }
 
-                updateStats()
-                fetchOrders()
+                await refreshOrdersAndStats()
             } catch (error: any) {
                 console.error('发起退款失败:', error)
                 ElMessage.error(error.response?.data?.error || error.message || '发起退款失败，请重试')
@@ -1786,25 +1754,13 @@ const confirmReviewRefund = async () => {
                     ElMessage.success('已拒绝退款')
                 }
 
-                // 更新本地数据
-                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
-                if (index !== -1) {
-                    if (reviewRefundForm.action === 'approve') {
-                        orders.value[index].paymentStatus = 'REFUNDED'
-                    } else {
-                        // 拒绝后重置支付状态，最好刷新页面获取最新状态
-                        orders.value[index].paymentStatus = 'PAID'
-                    }
-                }
-
                 reviewRefundDialogVisible.value = false
 
                 if (detailsDialogVisible.value) {
                     detailsDialogVisible.value = false
                 }
 
-                updateStats()
-                fetchOrders()
+                await refreshOrdersAndStats()
             } catch (error: any) {
                 console.error('审核退款失败:', error)
                 ElMessage.error(error.response?.data?.error || error.message || '审核退款失败，请重试')
@@ -1843,12 +1799,6 @@ const confirmDispute = async () => {
                 console.log('发起争议，订单ID:', currentOrder.value!.id, '原因:', disputeForm.reason)
                 await hostRaiseDispute(currentOrder.value!.id, disputeForm.reason)
 
-                // 更新本地数据
-                const index = orders.value.findIndex(item => item.id === currentOrder.value!.id)
-                if (index !== -1) {
-                    orders.value[index].status = 'DISPUTE_PENDING'
-                }
-
                 ElMessage.success('争议已发起，等待管理员仲裁')
                 disputeDialogVisible.value = false
 
@@ -1856,7 +1806,7 @@ const confirmDispute = async () => {
                     detailsDialogVisible.value = false
                 }
 
-                fetchOrders()
+                await refreshOrdersAndStats()
             } catch (error: any) {
                 console.error('发起争议失败:', error)
                 ElMessage.error(error.response?.data?.error || error.message || '发起争议失败，请重试')
@@ -1889,7 +1839,7 @@ const updateStats = async () => {
             orderStats.checked_in = orders.value.filter(item => item.status === 'CHECKED_IN').length;
             orderStats.paid = orders.value.filter(item => item.status === 'PAID').length;
             orderStats.completed = orders.value.filter(item => item.status === 'COMPLETED').length;
-            orderStats.cancelled = orders.value.filter(item => ['CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER'].includes(item.status)).length;
+            orderStats.cancelled = orders.value.filter(item => ['CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST'].includes(item.status)).length;
             orderStats.rejected = orders.value.filter(item => item.status === 'REJECTED').length;
             orderStats.total = orders.value.length;
         }
@@ -1901,7 +1851,7 @@ const updateStats = async () => {
         orderStats.checked_in = orders.value.filter(item => item.status === 'CHECKED_IN').length;
         orderStats.paid = orders.value.filter(item => item.status === 'PAID').length;
         orderStats.completed = orders.value.filter(item => item.status === 'COMPLETED').length;
-        orderStats.cancelled = orders.value.filter(item => ['CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER'].includes(item.status)).length;
+        orderStats.cancelled = orders.value.filter(item => ['CANCELLED', 'CANCELLED_SYSTEM', 'CANCELLED_BY_USER', 'CANCELLED_BY_HOST'].includes(item.status)).length;
         orderStats.rejected = orders.value.filter(item => item.status === 'REJECTED').length;
         orderStats.total = orders.value.length;
     }
@@ -1917,6 +1867,39 @@ const handleCurrentChange = (page: number) => {
 const handleSizeChange = (size: number) => {
     pageSize.value = size
     fetchOrders()
+}
+
+// 安全刷新：操作后若当前页为空则自动回退上一页
+const refreshOrdersAndStats = async () => {
+    await fetchOrders()
+    await updateStats()
+    // 若当前页无数据且不在第一页，回退一页
+    if (orders.value.length === 0 && currentPage.value > 1) {
+        currentPage.value -= 1
+        await fetchOrders()
+    }
+}
+
+// 统一提取分页数据（兼容多种后端返回格式）
+const extractPageData = (res: any): { content: any[], totalElements: number } => {
+    if (!res) return { content: [], totalElements: 0 }
+    const payload = res.data ?? res
+    if (payload && Array.isArray(payload.content)) {
+        return { content: payload.content, totalElements: payload.totalElements ?? payload.content.length }
+    }
+    if (payload && payload.data && Array.isArray(payload.data.content)) {
+        return { content: payload.data.content, totalElements: payload.data.totalElements ?? payload.data.content.length }
+    }
+    if (Array.isArray(payload)) {
+        return { content: payload, totalElements: payload.length }
+    }
+    if (payload && payload.data && Array.isArray(payload.data)) {
+        return { content: payload.data, totalElements: payload.data.length }
+    }
+    if (payload && typeof payload === 'object') {
+        return { content: [payload], totalElements: 1 }
+    }
+    return { content: [], totalElements: 0 }
 }
 
 // 获取订单列表
@@ -1946,58 +1929,16 @@ const fetchOrders = async () => {
         console.log('发送查询参数:', params)
 
         try {
-            // 尝试使用房东专用接口
             const response = await getHostOrders(params)
             console.log('订单API响应:', response)
-            // 直接访问响应数据(可能是data属性或者本身就是数据)
-            if (response && response.data) {
-                // 检查响应数据结构
-                console.log('响应数据结构:', JSON.stringify(response.data).substring(0, 500))
-
-                // Spring Data JPA 分页格式
-                if (response.data.data && response.data.data.content) {
-                    orders.value = response.data.data.content
-                    total.value = response.data.data.totalElements || response.data.data.content.length
-                }
-                // 普通数组格式
-                else if (Array.isArray(response.data)) {
-                    orders.value = response.data
-                    total.value = response.data.length
-                }
-                // 包含分页信息的格式
-                else if (response.data.content) {
-                    orders.value = response.data.content
-                    total.value = response.data.totalElements || response.data.content.length
-                }
-                // 嵌套的data对象
-                else if (response.data.data) {
-                    if (Array.isArray(response.data.data)) {
-                        orders.value = response.data.data
-                        total.value = response.data.data.length
-                    } else {
-                        orders.value = [response.data.data]
-                        total.value = 1
-                    }
-                }
-                // 直接是数据对象本身
-                else {
-                    orders.value = [response.data]
-                    total.value = 1
-                }
-            } else if (Array.isArray(response)) {
-                // 直接返回数组
-                orders.value = response
-                total.value = response.length
-            } else {
-                console.warn('未能从响应中提取订单数据:', response)
-                orders.value = []
-                total.value = 0
-            }
+            const { content, totalElements } = extractPageData(response)
+            orders.value = content
+            total.value = totalElements
 
             // 更新统计数据
-            updateStats()
+            await updateStats()
         } catch (apiError) {
-            console.error('房东订单接口不可用，尝试使用备用方法:', apiError)
+            console.error('房东订单接口不可用:', apiError)
             ElMessage.warning('订单接口请求异常，请稍后再试')
             orders.value = []
             total.value = 0
@@ -2016,6 +1957,7 @@ const fetchOrders = async () => {
 const formatDateString = (dateString: string) => {
     if (!dateString) return ''
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return ''
     const month = date.getMonth() + 1
     const day = date.getDate()
     return `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
@@ -2025,6 +1967,7 @@ const formatDateString = (dateString: string) => {
 const formatDateTime = (dateTimeString: string) => {
     if (!dateTimeString) return ''
     const date = new Date(dateTimeString)
+    if (isNaN(date.getTime())) return ''
     const year = date.getFullYear()
     const month = date.getMonth() + 1
     const day = date.getDate()
@@ -2073,21 +2016,6 @@ const showAutoStatusConfig = async () => {
     }
 }
 
-// 调试：检查当前用户权限信息
-const debugUserInfo = async () => {
-    try {
-        const response = await request({
-            url: '/api/host/order-auto-status/debug/user-info',
-            method: 'get'
-        })
-        console.log('🔍 当前用户权限信息:', response.data)
-        ElMessage.info('权限信息已输出到控制台')
-    } catch (error: any) {
-        console.error('获取用户权限信息失败:', error)
-        console.log('错误状态码:', error.response?.status)
-    }
-}
-
 // 手动触发自动状态流转
 const manualTriggerAutoStatus = async () => {
     ElMessageBox.confirm('确认手动执行一次自动状态流转吗？', '手动执行', {
@@ -2104,101 +2032,10 @@ const manualTriggerAutoStatus = async () => {
             ElMessage.success('自动状态流转执行完成')
             // 刷新统计数据
             fetchAutoStatusStats()
-            fetchOrders()
-            updateStats()
+            await refreshOrdersAndStats()
         } catch (error: any) {
             console.error('手动触发自动状态流转失败:', error)
             ElMessage.error(error.response?.data?.error || '执行失败，请重试')
-        } finally {
-            autoStatusLoading.value = false
-        }
-    }).catch(() => { })
-}
-
-// 分析历史订单
-const analyzeHistoryOrders = async () => {
-    autoStatusLoading.value = true
-    try {
-        const response = await request({
-            url: '/api/host/order-auto-status/analyze-history',
-            method: 'get'
-        })
-
-        if (response && response.data) {
-            const data = response.data
-            ElMessageBox.alert(
-                `分析结果：
-                
-需要修复入住状态的订单：${data.shouldBeCheckedInCount} 个
-需要修复完成状态的订单：${data.shouldBeCompletedCount} 个
-总计问题订单：${data.totalIssues} 个
-
-建议：${data.recommendation}`,
-                '历史订单分析结果',
-                {
-                    confirmButtonText: '了解',
-                    type: data.totalIssues > 0 ? 'warning' : 'success'
-                }
-            )
-        }
-    } catch (error: any) {
-        console.error('分析历史订单失败:', error)
-        ElMessage.error(error.response?.data?.error || '分析失败，请重试')
-    } finally {
-        autoStatusLoading.value = false
-    }
-}
-
-// 修复历史订单
-const fixHistoryOrders = async () => {
-    ElMessageBox.confirm(
-        '此操作将自动修复过去100天内需要状态转换的历史订单。这可能会影响已支付但未入住的订单状态，确认执行吗？',
-        '修复历史订单',
-        {
-            confirmButtonText: '确认修复',
-            cancelButtonText: '取消',
-            type: 'warning'
-        }
-    ).then(async () => {
-        autoStatusLoading.value = true
-        try {
-            const response = await request({
-                url: '/api/host/order-auto-status/fix-history',
-                method: 'post'
-            })
-
-            if (response && response.data) {
-                const data = response.data
-                if (data.success) {
-                    ElMessage.success(data.message)
-                    // 刷新数据
-                    fetchAutoStatusStats()
-                    fetchOrders()
-                    updateStats()
-                } else {
-                    ElMessage.error(data.error || data.warning || '修复过程中出现问题')
-                }
-
-                // 显示详细结果
-                if (data.totalFixed > 0 || data.failedCount > 0) {
-                    ElMessageBox.alert(
-                        `修复完成：
-                        
-修复入住状态：${data.fixedCheckedIn} 个
-修复完成状态：${data.fixedCompleted} 个
-总计修复：${data.totalFixed} 个
-失败：${data.failedCount} 个`,
-                        '修复结果',
-                        {
-                            confirmButtonText: '了解',
-                            type: data.success ? 'success' : 'warning'
-                        }
-                    )
-                }
-            }
-        } catch (error: any) {
-            console.error('修复历史订单失败:', error)
-            ElMessage.error(error.response?.data?.error || '修复失败，请重试')
         } finally {
             autoStatusLoading.value = false
         }
