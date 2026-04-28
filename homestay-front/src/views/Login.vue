@@ -319,8 +319,13 @@ const handleLogin = async (event?: Event) => {
 
       try {
         // 获取完整用户信息
-        await userStore.fetchUserInfo();
-        console.log("用户信息获取成功:", userStore.userInfo);
+        const userData = await userStore.fetchUserInfo();
+        console.log("用户信息获取结果:", userData);
+
+        // 如果 fetchUserInfo 返回 null 或 undefined，说明获取失败
+        if (!userData || !userStore.userInfo) {
+          throw new Error("获取用户信息失败，请重新登录");
+        }
 
         ElMessage.success({
           message: `欢迎回来，${userStore.userInfo?.realName || userStore.userInfo?.username || '用户'}！`,
@@ -332,9 +337,9 @@ const handleLogin = async (event?: Event) => {
         // 导航逻辑
         await handleLoginSuccess();
 
-      } catch (fetchError) {
+      } catch (fetchError: any) {
         console.error("获取用户信息失败:", fetchError);
-        ElMessage.error("获取用户信息失败，请重新登录");
+        ElMessage.error(fetchError.message || "获取用户信息失败，请重新登录");
         userStore.logout();
       }
 

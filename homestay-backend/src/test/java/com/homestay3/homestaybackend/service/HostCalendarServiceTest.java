@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.CalendarAvailabilityUpdateRequest;
 import com.homestay3.homestaybackend.dto.HostCalendarDayDTO;
+import com.homestay3.homestaybackend.dto.HostCalendarResponse;
 import com.homestay3.homestaybackend.dto.HostCalendarSummaryDTO;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.HomestayAvailability;
@@ -93,7 +94,7 @@ class HostCalendarServiceTest {
             when(orderRepository.findHostCalendarOrders(anyLong(), any(), any(), any(), anyList()))
                     .thenReturn(List.of());
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             assertThat(days).hasSize(3);
             assertThat(days.get(0).getDate()).isEqualTo(start);
@@ -121,7 +122,7 @@ class HostCalendarServiceTest {
             when(orderRepository.findHostCalendarOrders(anyLong(), any(), any(), any(), anyList()))
                     .thenReturn(List.of());
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", null, today, today.plusDays(2));
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", null, today, today.plusDays(2)).getDays();
 
             // 2 homestays * 2 days = 4 entries
             assertThat(days).hasSize(4);
@@ -129,13 +130,15 @@ class HostCalendarServiceTest {
         }
 
         @Test
-        @DisplayName("房东无房源时返回空列表")
+        @DisplayName("房东无房源时返回空列表和零值摘要")
         void noHomestays() {
             when(homestayRepository.findByOwnerId(host.getId())).thenReturn(List.of());
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", null, today, today.plusDays(2));
+            HostCalendarResponse response = hostCalendarService.getCalendarDays("host1", null, today, today.plusDays(2));
 
-            assertThat(days).isEmpty();
+            assertThat(response.getDays()).isEmpty();
+            assertThat(response.getSummary().getAvailableCount()).isZero();
+            assertThat(response.getSummary().getEstimatedRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
         }
 
         @Test
@@ -218,7 +221,7 @@ class HostCalendarServiceTest {
             when(availabilityRepository.findByHomestayIdsAndDateRange(anyList(), any(), any()))
                     .thenReturn(List.of(av));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             HostCalendarDayDTO day = days.get(0);
             assertThat(day.getStatus()).isEqualTo("UNAVAILABLE");
@@ -246,7 +249,7 @@ class HostCalendarServiceTest {
             when(availabilityRepository.findByHomestayIdsAndDateRange(anyList(), any(), any()))
                     .thenReturn(List.of(av));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             assertThat(days.get(0).getStatus()).isEqualTo("LOCKED");
             assertThat(days.get(0).getSource()).isEqualTo("SYSTEM");
@@ -271,7 +274,7 @@ class HostCalendarServiceTest {
             when(availabilityRepository.findByHomestayIdsAndDateRange(anyList(), any(), any()))
                     .thenReturn(List.of(av));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             // 过期锁不应设为 LOCKED，保持默认 AVAILABLE
             assertThat(days.get(0).getStatus()).isEqualTo("AVAILABLE");
@@ -311,7 +314,7 @@ class HostCalendarServiceTest {
             when(orderRepository.findHostCalendarOrders(anyLong(), any(), any(), any(), anyList()))
                     .thenReturn(List.of(order));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             // day 1 = today+1, occupied
             HostCalendarDayDTO occupied = days.get(1);
@@ -353,7 +356,7 @@ class HostCalendarServiceTest {
             when(orderRepository.findHostCalendarOrders(anyLong(), any(), any(), any(), anyList()))
                     .thenReturn(List.of(order));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             assertThat(days.get(0).getStatus()).isEqualTo("PENDING_CONFIRM");
         }
@@ -384,7 +387,7 @@ class HostCalendarServiceTest {
             when(orderRepository.findHostCalendarOrders(anyLong(), any(), any(), any(), anyList()))
                     .thenReturn(List.of(order));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             assertThat(days.get(0).getStatus()).isEqualTo("CHECKED_IN");
         }
@@ -416,7 +419,7 @@ class HostCalendarServiceTest {
             when(orderRepository.findHostCalendarOrders(anyLong(), any(), any(), any(), anyList()))
                     .thenReturn(List.of(order));
 
-            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end);
+            List<HostCalendarDayDTO> days = hostCalendarService.getCalendarDays("host1", 100L, start, end).getDays();
 
             assertThat(days.get(0).getGuestName()).isEqualTo("guest3");
         }

@@ -254,7 +254,7 @@ request.interceptors.response.use(
           break;
         case 500:
           console.error(`服务器错误: ${config.url}`, data);
-          ElMessage.error("服务器错误，请稍后再试");
+          ElMessage.error(data?.message || "服务器错误，请稍后再试");
           break;
         default:
           ElMessage.error(data.message || "未知错误");

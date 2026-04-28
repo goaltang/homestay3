@@ -2,7 +2,6 @@ import { computed, ref, shallowRef, watch } from "vue";
 import { ElMessage } from "element-plus";
 import {
   getHostCalendar,
-  getHostCalendarSummary,
   updateHostCalendarAvailability,
   type CalendarAvailabilityUpdateRequest,
   type HostCalendarDay,
@@ -83,21 +82,15 @@ export function useHostCalendar() {
   async function loadCalendar() {
     loading.value = true;
     try {
-      const [calendarResponse, summaryResponse] = await Promise.all([
-        getHostCalendar(queryParams.value),
-        getHostCalendarSummary(queryParams.value),
-      ]);
-
-      days.value = Array.isArray(calendarResponse.data)
-        ? (calendarResponse.data as HostCalendarDay[])
-        : [];
+      const response = await getHostCalendar(queryParams.value);
+      const data = response.data;
+      days.value = Array.isArray(data.days) ? data.days : [];
       summary.value = {
         ...emptySummary,
-        ...(summaryResponse.data as HostCalendarSummary),
+        ...(data.summary as HostCalendarSummary),
       };
-    } catch (error) {
+    } catch {
       ElMessage.error("加载房东日历失败");
-      throw error;
     } finally {
       loading.value = false;
     }
@@ -115,6 +108,10 @@ export function useHostCalendar() {
       await updateHostCalendarAvailability(payload);
       ElMessage.success(payload.status === "UNAVAILABLE" ? "已设为不可订" : "已恢复可订");
       await loadCalendar();
+      return true;
+    } catch {
+      // 错误消息已由响应拦截器展示，此处仅阻止继续执行
+      return false;
     } finally {
       saving.value = false;
     }

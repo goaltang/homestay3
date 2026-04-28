@@ -535,28 +535,24 @@ export const useUserStore = defineStore("user", () => {
     } catch (error: any) {
       console.error("获取用户信息失败:", error);
 
-      // 输出详细的API错误信息
       if (error.response) {
         console.error("API响应错误:", {
           status: error.response.status,
-          url: error.config.url,
-          method: error.config.method,
+          url: error.config?.url,
+          method: error.config?.method,
           data: error.response.data,
         });
-
-        // 如果是401错误，可能是token过期
-        if (error.response.status === 401) {
-          console.warn("用户认证失败，可能是token已过期");
-          logout(); // 清除token和用户信息
-        }
       }
 
-      // 尝试备用API端点
+      // 401 时直接抛出异常，让调用方处理（避免内部 logout 导致状态混乱）
+      if (error.response?.status === 401) {
+        throw new Error("登录状态已过期，请重新登录");
+      }
+
+      // 尝试备用接口（仅非401错误时）
       try {
         console.log("尝试备用API获取用户信息");
-        const backupResponse = await api.get("/api/users/current");
-        console.log("备用API响应:", backupResponse.data);
-
+        const backupResponse = await api.get("/api/auth/current");
         if (
           backupResponse.data &&
           (backupResponse.data.username || backupResponse.data.id)
@@ -572,41 +568,6 @@ export const useUserStore = defineStore("user", () => {
             avatar: backupResponse.data.avatar || "",
             verificationStatus: backupResponse.data.verificationStatus || "",
           };
-
-          // 处理头像URL，确保如果是完整URL带域名的，转换为相对路径
-          if (
-            userData.avatar &&
-            (userData.avatar.startsWith("http://") ||
-              userData.avatar.startsWith("https://"))
-          ) {
-            try {
-              const url = new URL(userData.avatar);
-              // 如果包含/uploads/avatars/或/uploads/avatar/路径，转换为/api/files/avatar/格式
-              if (
-                url.pathname.includes("/uploads/avatars/") ||
-                url.pathname.includes("/uploads/avatar/")
-              ) {
-                const filename = url.pathname.split("/").pop();
-                userData.avatar = `/api/files/avatar/${filename}`;
-                console.log(
-                  "备用API: 头像URL已转换为API路径:",
-                  userData.avatar
-                );
-              }
-              // 如果是其他/uploads/路径
-              else if (url.pathname.includes("/uploads/")) {
-                // 将完整URL转换为API路径
-                userData.avatar = `/api${url.pathname}`;
-                console.log(
-                  "备用API: 头像URL已转换为相对路径:",
-                  userData.avatar
-                );
-              }
-            } catch (e) {
-              console.error("头像URL解析错误:", e);
-            }
-          }
-
           setUser(userData);
           await fetchUnreadCount();
           return userData;
@@ -615,7 +576,7 @@ export const useUserStore = defineStore("user", () => {
         console.error("备用API也失败:", backupError);
       }
 
-      return null;
+      throw new Error(error.displayMessage || "获取用户信息失败");
     }
   };
 

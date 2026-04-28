@@ -102,7 +102,7 @@ async function submitAvailability() {
     return;
   }
 
-  await saveAvailability({
+  const ok = await saveAvailability({
     homestayId: form.homestayId,
     startDate: form.dateRange[0],
     endDate: addCalendarDays(form.dateRange[1], 1),
@@ -110,7 +110,9 @@ async function submitAvailability() {
     reason: form.status === "UNAVAILABLE" ? form.reason.trim() : undefined,
     note: form.status === "UNAVAILABLE" ? form.note.trim() : undefined,
   });
-  drawerVisible.value = false;
+  if (ok) {
+    drawerVisible.value = false;
+  }
 }
 
 onMounted(() => {

@@ -79,6 +79,30 @@ public class AdminServiceImpl implements AdminService {
                     log.info("已将 admin 表中的 {} 迁移到 users 表", admin.getUsername());
                 }
             }
+
+            // 创建普通测试用户
+            if (!userRepository.existsByUsername("user")) {
+                User normalUser = new User();
+                normalUser.setUsername("user");
+                normalUser.setPassword(passwordEncoder.encode("111111"));
+                normalUser.setRole("ROLE_USER");
+                normalUser.setEmail("user@homestay.local");
+                normalUser.setEnabled(true);
+                userRepository.save(normalUser);
+                log.info("已创建默认普通测试用户 user，密码为 111111");
+            }
+
+            // 创建房东测试用户
+            if (!userRepository.existsByUsername("host")) {
+                User hostUser = new User();
+                hostUser.setUsername("host");
+                hostUser.setPassword(passwordEncoder.encode("111111"));
+                hostUser.setRole("ROLE_HOST");
+                hostUser.setEmail("host@homestay.local");
+                hostUser.setEnabled(true);
+                userRepository.save(hostUser);
+                log.info("已创建默认房东测试用户 host，密码为 111111");
+            }
         };
     }
 }

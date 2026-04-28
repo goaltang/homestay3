@@ -205,7 +205,7 @@ public class AuthServiceImpl implements AuthService {
 
         } catch (org.springframework.security.authentication.BadCredentialsException e) {
             log.warn("密码错误: {}", request.getUsername());
-            throw new RuntimeException("密码错误，请重新输入");
+            throw new LoginException("密码错误，请重新输入");
         } catch (org.springframework.security.authentication.DisabledException e) {
             log.warn("账号已被禁用: {}", request.getUsername());
             throw new RuntimeException("账号已被禁用，请联系管理员");

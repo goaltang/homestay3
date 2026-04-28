@@ -15,18 +15,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem("homestay_token") || localStorage.getItem("token");
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // 添加详细日志，特别是注册请求
-    if (config.url && config.url.includes("/auth/register")) {
-      console.log("发送注册请求:", {
-        url: config.url,
-        method: config.method,
-        data: config.data,
-        headers: config.headers,
-      });
+    if (token) {
+      // 使用 set 方法确保 header 正确设置（兼容 axios v1.x）
+      config.headers.set("Authorization", `Bearer ${token}`);
+      console.log(`[API] ${config.method?.toUpperCase()} ${config.url} 已附加 token`);
+    } else {
+      console.warn(`[API] ${config.method?.toUpperCase()} ${config.url} 未找到 token`);
     }
 
     return config;
@@ -40,72 +34,46 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
-    // 记录注册相关的响应
-    if (response.config.url && response.config.url.includes("/auth/register")) {
-      console.log("注册请求响应:", {
-        status: response.status,
-        data: response.data,
-        url: response.config.url,
-      });
-    }
     return response;
   },
   (error) => {
     if (error.response) {
-      // 更详细地记录错误
-      console.error("API响应错误:", {
-        status: error.response.status,
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.response.data,
-      });
+      const status = error.response.status;
+      const url = error.config?.url;
 
-      // 处理401错误（未授权）
-      if (error.response.status === 401) {
-        // 如果是登录接口本身的 401，不进行全局处理，让错误继续传递
-        if (error.config?.url?.includes("/api/auth/login")) {
-          console.warn("登录接口返回 401，跳过全局处理，让组件处理");
-          // 不做任何操作，让错误继续传递到调用者
-        } else {
-          // 对于其他接口的 401，清除认证信息并跳转
-          console.warn("非登录接口返回 401，清除认证信息并跳转");
-          localStorage.removeItem("homestay_token");
-          localStorage.removeItem("homestay_user");
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          localStorage.removeItem("userInfo");
-          // 使用路由跳转而不是强制刷新页面
-          import("@/router").then(({ default: router }) => {
-            router.push("/login");
-          });
-        }
-      }
+      console.error(`[API] 响应错误: ${status} ${url}`, error.response.data);
 
-      // 处理其他错误
+      // 提取错误消息
       let errorMessage = "请求失败";
-
-      // 提取错误消息 - 考虑多种可能的数据结构
-      if (error.response.data) {
-        if (typeof error.response.data === "string") {
-          errorMessage = error.response.data;
-        } else if (error.response.data.message) {
-          errorMessage = error.response.data.message;
-        } else if (error.response.data.error) {
-          errorMessage = error.response.data.error;
-        } else if (error.response.data.msg) {
-          errorMessage = error.response.data.msg;
+      const data = error.response.data;
+      if (data) {
+        if (typeof data === "string") {
+          errorMessage = data;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (data.error) {
+          errorMessage = data.error;
+        } else if (data.msg) {
+          errorMessage = data.msg;
         }
       }
-
-      // 将提取的错误消息保存到error对象中，方便上层调用者使用
       error.displayMessage = errorMessage;
 
-      console.error("API错误消息:", errorMessage);
+      // 401 处理：仅清除存储，不自动跳转（避免干扰登录流程）
+      // 页面跳转由路由守卫或调用方负责
+      if (status === 401) {
+        console.warn("[API] 收到 401，清除本地认证状态");
+        localStorage.removeItem("homestay_token");
+        localStorage.removeItem("homestay_user");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userInfo");
+      }
     } else if (error.request) {
-      console.error("网络错误 - 没有收到响应:", error.message);
+      console.error("[API] 网络错误:", error.message);
       error.displayMessage = "网络连接失败，请检查您的网络连接";
     } else {
-      console.error("请求配置错误:", error.message);
+      console.error("[API] 请求配置错误:", error.message);
       error.displayMessage = "请求配置错误: " + error.message;
     }
 

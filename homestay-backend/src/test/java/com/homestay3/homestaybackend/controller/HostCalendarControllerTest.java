@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.CalendarAvailabilityUpdateRequest;
 import com.homestay3.homestaybackend.dto.HostCalendarDayDTO;
+import com.homestay3.homestaybackend.dto.HostCalendarResponse;
 import com.homestay3.homestaybackend.dto.HostCalendarSummaryDTO;
 import com.homestay3.homestaybackend.service.HostCalendarService;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,7 @@ class HostCalendarControllerTest {
     class GetCalendar {
 
         @Test
-        @DisplayName("正常返回日历数据")
+        @DisplayName("正常返回日历数据和摘要")
         void ok() {
             List<HostCalendarDayDTO> days = List.of(
                     HostCalendarDayDTO.builder()
@@ -61,28 +62,51 @@ class HostCalendarControllerTest {
                             .finalPrice(new BigDecimal("300"))
                             .build()
             );
-            when(hostCalendarService.getCalendarDays(eq("host1"), eq(100L), any(), any())).thenReturn(days);
+            HostCalendarSummaryDTO summary = HostCalendarSummaryDTO.builder()
+                    .availableCount(1)
+                    .bookedCount(0)
+                    .pendingCount(0)
+                    .unavailableCount(0)
+                    .checkInCount(0)
+                    .checkOutCount(0)
+                    .estimatedRevenue(BigDecimal.ZERO)
+                    .build();
+            HostCalendarResponse calendarResponse = HostCalendarResponse.builder()
+                    .days(days)
+                    .summary(summary)
+                    .build();
+            when(hostCalendarService.getCalendarDays(eq("host1"), eq(100L), any(), any()))
+                    .thenReturn(calendarResponse);
 
-            ResponseEntity<List<HostCalendarDayDTO>> response = controller.getCalendar(
+            ResponseEntity<HostCalendarResponse> response = controller.getCalendar(
                     100L, today, today.plusDays(3), authentication);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).hasSize(1);
-            assertThat(response.getBody().get(0).getHomestayId()).isEqualTo(100L);
-            assertThat(response.getBody().get(0).getStatus()).isEqualTo("AVAILABLE");
+            assertThat(response.getBody().getDays()).hasSize(1);
+            assertThat(response.getBody().getDays().get(0).getHomestayId()).isEqualTo(100L);
+            assertThat(response.getBody().getDays().get(0).getStatus()).isEqualTo("AVAILABLE");
+            assertThat(response.getBody().getSummary().getAvailableCount()).isEqualTo(1);
         }
 
         @Test
         @DisplayName("返回所有房源日历 (homestayId=null)")
         void allHomestays() {
+            HostCalendarResponse emptyResponse = HostCalendarResponse.builder()
+                    .days(List.of())
+                    .summary(HostCalendarSummaryDTO.builder()
+                            .availableCount(0).bookedCount(0).pendingCount(0)
+                            .unavailableCount(0).checkInCount(0).checkOutCount(0)
+                            .estimatedRevenue(BigDecimal.ZERO)
+                            .build())
+                    .build();
             when(hostCalendarService.getCalendarDays(eq("host1"), eq(null), any(), any()))
-                    .thenReturn(List.of());
+                    .thenReturn(emptyResponse);
 
-            ResponseEntity<List<HostCalendarDayDTO>> response = controller.getCalendar(
+            ResponseEntity<HostCalendarResponse> response = controller.getCalendar(
                     null, today, today.plusDays(3), authentication);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(response.getBody()).isEmpty();
+            assertThat(response.getBody().getDays()).isEmpty();
         }
     }
 

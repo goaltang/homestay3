@@ -51,17 +51,14 @@ export interface CalendarAvailabilityUpdateRequest {
   note?: string;
 }
 
-export function getHostCalendar(params: HostCalendarQuery) {
-  return request({
-    url: "/api/host/calendar",
-    method: "get",
-    params,
-  });
+export interface HostCalendarResponse {
+  days: HostCalendarDay[];
+  summary: HostCalendarSummary;
 }
 
-export function getHostCalendarSummary(params: HostCalendarQuery) {
-  return request({
-    url: "/api/host/calendar/summary",
+export function getHostCalendar(params: HostCalendarQuery) {
+  return request<HostCalendarResponse>({
+    url: "/api/host/calendar",
     method: "get",
     params,
   });

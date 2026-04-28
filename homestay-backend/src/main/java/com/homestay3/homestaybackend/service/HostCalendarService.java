@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.CalendarAvailabilityUpdateRequest;
 import com.homestay3.homestaybackend.dto.HostCalendarDayDTO;
+import com.homestay3.homestaybackend.dto.HostCalendarResponse;
 import com.homestay3.homestaybackend.dto.HostCalendarSummaryDTO;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.HomestayAvailability;
@@ -27,7 +28,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -63,7 +63,7 @@ public class HostCalendarService {
     private final OrderRepository orderRepository;
 
     @Transactional(readOnly = true)
-    public List<HostCalendarDayDTO> getCalendarDays(
+    public HostCalendarResponse getCalendarDays(
             String username,
             Long homestayId,
             LocalDate startDate,
@@ -73,24 +73,23 @@ public class HostCalendarService {
         User host = getHost(username);
         List<Homestay> homestays = getHostHomestays(host, homestayId);
         if (homestays.isEmpty()) {
-            return List.of();
+            return HostCalendarResponse.builder()
+                    .days(List.of())
+                    .summary(HostCalendarSummaryDTO.builder()
+                            .availableCount(0)
+                            .bookedCount(0)
+                            .pendingCount(0)
+                            .unavailableCount(0)
+                            .checkInCount(0)
+                            .checkOutCount(0)
+                            .estimatedRevenue(BigDecimal.ZERO)
+                            .build())
+                    .build();
         }
 
         Map<String, HostCalendarDayDTO> dayMap = buildBaseDays(homestays, startDate, endDate);
         applyAvailability(dayMap, homestays, startDate, endDate);
-        applyOrders(dayMap, host.getId(), homestayId, startDate, endDate);
-
-        return new ArrayList<>(dayMap.values());
-    }
-
-    @Transactional(readOnly = true)
-    public HostCalendarSummaryDTO getSummary(
-            String username,
-            Long homestayId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        List<HostCalendarDayDTO> days = getCalendarDays(username, homestayId, startDate, endDate);
+        List<Order> orders = applyOrders(dayMap, host.getId(), homestayId, startDate, endDate);
 
         int available = 0;
         int booked = 0;
@@ -99,7 +98,7 @@ public class HostCalendarService {
         int checkIns = 0;
         int checkOuts = 0;
 
-        for (HostCalendarDayDTO day : days) {
+        for (HostCalendarDayDTO day : dayMap.values()) {
             if (Boolean.TRUE.equals(day.getCheckIn())) {
                 checkIns++;
             }
@@ -117,17 +116,30 @@ public class HostCalendarService {
             }
         }
 
-        BigDecimal estimatedRevenue = getEstimatedRevenue(username, homestayId, startDate, endDate);
+        BigDecimal estimatedRevenue = computeEstimatedRevenue(orders, startDate, endDate);
 
-        return HostCalendarSummaryDTO.builder()
-                .availableCount(available)
-                .bookedCount(booked)
-                .pendingCount(pending)
-                .unavailableCount(unavailable)
-                .checkInCount(checkIns)
-                .checkOutCount(checkOuts)
-                .estimatedRevenue(estimatedRevenue)
+        return HostCalendarResponse.builder()
+                .days(new ArrayList<>(dayMap.values()))
+                .summary(HostCalendarSummaryDTO.builder()
+                        .availableCount(available)
+                        .bookedCount(booked)
+                        .pendingCount(pending)
+                        .unavailableCount(unavailable)
+                        .checkInCount(checkIns)
+                        .checkOutCount(checkOuts)
+                        .estimatedRevenue(estimatedRevenue)
+                        .build())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public HostCalendarSummaryDTO getSummary(
+            String username,
+            Long homestayId,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return getCalendarDays(username, homestayId, startDate, endDate).getSummary();
     }
 
     @Transactional
@@ -227,7 +239,7 @@ public class HostCalendarService {
         }
     }
 
-    private void applyOrders(
+    private List<Order> applyOrders(
             Map<String, HostCalendarDayDTO> dayMap,
             Long hostId,
             Long homestayId,
@@ -260,6 +272,8 @@ public class HostCalendarService {
                 }
             }
         }
+
+        return orders;
     }
 
     private void applyOrderToDay(HostCalendarDayDTO day, Order order, LocalDate date) {
@@ -285,22 +299,9 @@ public class HostCalendarService {
         return STATUS_BOOKED;
     }
 
-    private BigDecimal getEstimatedRevenue(String username, Long homestayId, LocalDate startDate, LocalDate endDate) {
-        User host = getHost(username);
-        List<Order> orders = orderRepository.findHostCalendarOrders(
-                host.getId(),
-                homestayId,
-                startDate,
-                endDate,
-                OCCUPYING_ORDER_STATUSES
-        );
-        Set<Long> countedOrderIds = orders.stream()
-                .filter(order -> !OrderStatus.PENDING.name().equals(order.getStatus()))
-                .map(Order::getId)
-                .collect(Collectors.toSet());
-
+    private BigDecimal computeEstimatedRevenue(List<Order> orders, LocalDate startDate, LocalDate endDate) {
         return orders.stream()
-                .filter(order -> countedOrderIds.contains(order.getId()))
+                .filter(order -> !OrderStatus.PENDING.name().equals(order.getStatus()))
                 .filter(order -> !order.getCheckInDate().isBefore(startDate) && order.getCheckInDate().isBefore(endDate))
                 .map(order -> order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

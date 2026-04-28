@@ -6,7 +6,6 @@ import com.homestay3.homestaybackend.service.LoginLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -18,7 +17,6 @@ public class LoginLogServiceImpl implements LoginLogService {
     private final LoginLogRepository loginLogRepository;
 
     @Override
-    @Async
     public LoginLog recordLogin(String username, String ipAddress, String userAgent, String loginStatus, String loginType) {
         LoginLog log = LoginLog.builder()
                 .username(username)
