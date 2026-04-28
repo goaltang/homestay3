@@ -138,6 +138,15 @@ const router = createRouter({
           },
         },
         {
+          path: "orders/:id",
+          name: "HostOrderDetail",
+          component: () => import("../views/host/HostOrderDetail.vue"),
+          meta: {
+            title: "订单详情",
+            activeMenu: "/host/orders",
+          },
+        },
+        {
           path: "earnings",
           name: "HostEarnings",
           component: () => import("../views/host/EarningManage.vue"),
@@ -295,6 +304,12 @@ const router = createRouter({
           name: "UserNotifications",
           component: () => import("@/views/user/NotificationCenter.vue"),
           meta: { title: "通知中心" },
+        },
+        {
+          path: "invite",
+          name: "UserInvite",
+          component: () => import("@/views/user/MyInvite.vue"),
+          meta: { title: "我的邀请" },
         },
       ],
     },

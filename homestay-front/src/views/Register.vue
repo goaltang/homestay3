@@ -165,6 +165,13 @@
                   </div>
                 </el-form-item>
 
+                <el-form-item label="邀请码（可选）">
+                  <el-input v-model="form.referralCode" placeholder="如有邀请码，请输入" prefix-icon="Ticket" name="referralCode" autocomplete="off" :disabled="loading" clearable />
+                  <div class="form-item-tip" v-if="form.referralCode">
+                    <span class="checking-text">注册成功后将自动领取邀请奖励</span>
+                  </div>
+                </el-form-item>
+
                 <!-- 用户协议和隐私政策 -->
                 <el-form-item prop="agreement">
                   <el-checkbox v-model="form.agreement" :disabled="loading" class="agreement-checkbox">
@@ -218,6 +225,7 @@ const form = reactive({
   password: '',
   confirmPassword: '',
   role: 'ROLE_USER',
+  referralCode: '',
   agreement: false,
 });
 
