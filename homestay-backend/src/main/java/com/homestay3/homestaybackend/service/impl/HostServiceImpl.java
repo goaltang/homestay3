@@ -280,7 +280,7 @@ public class HostServiceImpl implements HostService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("用户不存在: " + username));
         
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
         return reviewRepository.findByHostId(user.getId(), pageable)
                 .map(review -> convertToReviewDTO(review));
     }
