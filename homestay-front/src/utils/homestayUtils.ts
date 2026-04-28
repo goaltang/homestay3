@@ -41,16 +41,28 @@ export const formatLocation = (homestay: HomestayDetail | null): string => {
 
   const parts = [];
 
+  // 优先使用 code 映射，失败时回退到后端返回的 text 字段
   if (homestay.provinceCode && codeToText[homestay.provinceCode]) {
     parts.push(codeToText[homestay.provinceCode]);
+  } else if (homestay.provinceText) {
+    parts.push(homestay.provinceText);
   }
+
   if (homestay.cityCode && codeToText[homestay.cityCode]) {
-    if (!parts.includes(codeToText[homestay.cityCode])) {
-      parts.push(codeToText[homestay.cityCode]);
+    const cityName = codeToText[homestay.cityCode];
+    if (!parts.includes(cityName)) {
+      parts.push(cityName);
+    }
+  } else if (homestay.cityText) {
+    if (!parts.includes(homestay.cityText)) {
+      parts.push(homestay.cityText);
     }
   }
+
   if (homestay.districtCode && codeToText[homestay.districtCode]) {
     parts.push(codeToText[homestay.districtCode]);
+  } else if (homestay.districtText) {
+    parts.push(homestay.districtText);
   }
 
   if (parts.length > 0) {

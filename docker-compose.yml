@@ -1,0 +1,15 @@
+﻿version: '3.8'
+services:
+  elasticsearch:
+    image: elasticsearch:8.5.3
+    container_name: homestay-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+volumes:
+  es-data:

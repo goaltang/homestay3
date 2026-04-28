@@ -61,9 +61,11 @@
                             <div class="map-subtitle">点击查看位置信息</div>
                         </div>
                     </div>
-                    <!-- 临时强制显示当前房源的地图 -->
-                    <img :src="forceMapUrl" alt="位置地图" class="map-image" @error="$emit('map-error', $event)"
+                    <img v-if="forceMapUrl" :src="forceMapUrl" alt="位置地图" class="map-image" @error="$emit('map-error', $event)"
                         @load="onMapLoad" />
+                    <div v-else class="map-placeholder-content">
+                        <span class="placeholder-text">地图加载失败</span>
+                    </div>
                 </div>
             </div>
         </div>

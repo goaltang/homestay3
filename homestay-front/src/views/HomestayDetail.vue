@@ -102,7 +102,7 @@
 
             <!-- 位置信息组件 -->
             <LocationInfo :formatted-location="formattedLocation" :address-detail="homestay.addressDetail"
-                :distance-from-center="homestay.distanceFromCenter" :map-loading="mapComposable.mapData.value.isLoading"
+                :distance-from-center="homestay.distanceKm ?? homestay.distanceFromCenter" :map-loading="mapComposable.mapData.value.isLoading"
                 :has-location="mapComposable.mapData.value.hasLocation"
                 :static-map-url="mapComposable.mapData.value.staticMapUrl"
                 :nearby-places="mapComposable.nearbyPlaces.value" @open-map="mapComposable.openMapModal"

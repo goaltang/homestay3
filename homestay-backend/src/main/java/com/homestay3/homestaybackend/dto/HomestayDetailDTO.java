@@ -58,4 +58,5 @@ public class HomestayDetailDTO {
     private LocalDateTime updatedAt;
     private Double latitude;
     private Double longitude;
+    private Double distanceKm;
 }
