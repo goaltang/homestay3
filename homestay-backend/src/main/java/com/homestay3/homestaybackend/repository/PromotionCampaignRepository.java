@@ -52,4 +52,23 @@ public interface PromotionCampaignRepository extends JpaRepository<PromotionCamp
      */
     @Query("SELECT pc FROM PromotionCampaign pc WHERE pc.status = 'ACTIVE' AND pc.endAt < :now")
     List<PromotionCampaign> findActiveCampaignsPastEndTime(@Param("now") LocalDateTime now);
+
+    /**
+     * 原子更新预算预警标志（避免竞态条件）
+     * @return 影响行数
+     */
+    @Modifying
+    @Query("UPDATE PromotionCampaign c SET c.budgetAlertTriggered = true " +
+           "WHERE c.id = :id AND c.budgetTotal IS NOT NULL AND c.budgetTotal > 0 " +
+           "AND c.budgetUsed >= c.budgetTotal * :threshold AND c.budgetAlertTriggered = false")
+    int triggerBudgetAlert(@Param("id") Long id, @Param("threshold") BigDecimal threshold);
+
+    /**
+     * 原子更新活动状态为ENDED（预算耗尽时）
+     * @return 影响行数
+     */
+    @Modifying
+    @Query("UPDATE PromotionCampaign c SET c.status = 'ENDED' " +
+           "WHERE c.id = :id AND c.budgetTotal IS NOT NULL AND c.budgetUsed >= c.budgetTotal AND c.status != 'ENDED'")
+    int endCampaignByBudgetExhaustion(@Param("id") Long id);
 }

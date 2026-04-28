@@ -54,37 +54,42 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
                 continue;
             }
 
+            // 遍历活动内所有规则，取优惠金额最大的一条
+            BigDecimal bestDiscount = BigDecimal.ZERO;
             for (PromotionRule rule : campaign.getRules()) {
                 if (!isRuleApplicable(rule, homestay, nights, originalAmount, isFirstOrder)) {
                     continue;
                 }
 
                 BigDecimal discount = calculateDiscount(rule, originalAmount, nights);
-                if (discount.compareTo(BigDecimal.ZERO) <= 0) {
-                    continue;
+                if (discount.compareTo(bestDiscount) > 0) {
+                    bestDiscount = discount;
                 }
+            }
 
-                // 预算限制
-                if (campaign.getBudgetTotal() != null) {
-                    BigDecimal remaining = campaign.getBudgetTotal().subtract(campaign.getBudgetUsed());
-                    if (discount.compareTo(remaining) > 0) {
-                        discount = remaining;
-                    }
+            if (bestDiscount.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            // 预算限制
+            if (campaign.getBudgetTotal() != null) {
+                BigDecimal remaining = campaign.getBudgetTotal().subtract(campaign.getBudgetUsed());
+                if (bestDiscount.compareTo(remaining) > 0) {
+                    bestDiscount = remaining;
                 }
+            }
 
-                PromotionMatch match = new PromotionMatch(
-                        campaign.getId(), campaign.getName(), campaign.getCampaignType(),
-                        discount, campaign.getSubsidyBearer()
-                );
+            PromotionMatch match = new PromotionMatch(
+                    campaign.getId(), campaign.getName(), campaign.getCampaignType(),
+                    bestDiscount, campaign.getSubsidyBearer()
+            );
 
-                if (!Boolean.TRUE.equals(campaign.getStackable())) {
-                    if (bestNonStackable == null || match.getDiscountAmount().compareTo(bestNonStackable.getDiscountAmount()) > 0) {
-                        bestNonStackable = match;
-                    }
-                } else {
-                    matches.add(match);
+            if (!Boolean.TRUE.equals(campaign.getStackable())) {
+                if (bestNonStackable == null || match.getDiscountAmount().compareTo(bestNonStackable.getDiscountAmount()) > 0) {
+                    bestNonStackable = match;
                 }
-                break; // 每个活动只取第一条匹配规则
+            } else {
+                matches.add(match);
             }
         }
 
@@ -213,10 +218,7 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
                 }
                 break;
             case "FULL_REDUCTION":
-                if (rule.getThresholdAmount() != null && originalAmount.compareTo(rule.getThresholdAmount()) >= 0
-                        && rule.getDiscountAmount() != null) {
-                    discount = rule.getDiscountAmount();
-                }
+                discount = calculateFullReductionDiscount(rule, originalAmount);
                 break;
             case "PER_NIGHT_OFF":
                 if (rule.getDiscountAmount() != null) {
@@ -231,6 +233,35 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
         return discount.setScale(2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 计算满减优惠，支持阶梯满减配置
+     */
+    private BigDecimal calculateFullReductionDiscount(PromotionRule rule, BigDecimal originalAmount) {
+        // 优先使用阶梯配置
+        if (rule.getTierConfigJson() != null && !rule.getTierConfigJson().isBlank()) {
+            try {
+                JsonNode tiers = objectMapper.readTree(rule.getTierConfigJson());
+                BigDecimal bestDiscount = BigDecimal.ZERO;
+                for (JsonNode tier : tiers) {
+                    BigDecimal threshold = new BigDecimal(tier.get("threshold").asText());
+                    BigDecimal discount = new BigDecimal(tier.get("discount").asText());
+                    if (originalAmount.compareTo(threshold) >= 0 && discount.compareTo(bestDiscount) > 0) {
+                        bestDiscount = discount;
+                    }
+                }
+                return bestDiscount;
+            } catch (Exception e) {
+                log.warn("解析阶梯满减配置失败，回退到单档规则: {}", e.getMessage());
+            }
+        }
+        // 回退到单档规则
+        if (rule.getThresholdAmount() != null && originalAmount.compareTo(rule.getThresholdAmount()) >= 0
+                && rule.getDiscountAmount() != null) {
+            return rule.getDiscountAmount();
+        }
+        return BigDecimal.ZERO;
+    }
+
     @Override
     @Transactional
     public boolean deductCampaignBudget(Long campaignId, BigDecimal amount) {
@@ -243,29 +274,18 @@ public class PromotionMatchServiceImpl implements PromotionMatchService {
             return false;
         }
 
-        // 检查预算预警和耗尽
-        PromotionCampaign campaign = campaignRepository.findById(campaignId).orElse(null);
-        if (campaign != null && campaign.getBudgetTotal() != null
-                && campaign.getBudgetTotal().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal usageRate = campaign.getBudgetUsed().divide(campaign.getBudgetTotal(), 4, RoundingMode.HALF_UP);
-            BigDecimal threshold = campaign.getBudgetAlertThreshold() != null
-                    ? campaign.getBudgetAlertThreshold()
-                    : new BigDecimal("0.80");
-
-            // 预警检查
-            if (usageRate.compareTo(threshold) >= 0 && !Boolean.TRUE.equals(campaign.getBudgetAlertTriggered())) {
-                campaign.setBudgetAlertTriggered(true);
-                campaignRepository.save(campaign);
-                log.info("活动预算预警触发: 活动ID={}, 使用率={}%", campaignId, usageRate.multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP));
-            }
-
-            // 预算耗尽自动结束
-            if (campaign.getBudgetUsed().compareTo(campaign.getBudgetTotal()) >= 0) {
-                campaign.setStatus("ENDED");
-                campaignRepository.save(campaign);
-                log.info("活动预算耗尽自动结束: 活动ID={}", campaignId);
-            }
+        // 使用数据库原子操作检查预算预警和耗尽，避免竞态条件
+        BigDecimal threshold = new BigDecimal("0.80");
+        int alertUpdated = campaignRepository.triggerBudgetAlert(campaignId, threshold);
+        if (alertUpdated > 0) {
+            log.info("活动预算预警触发: 活动ID={}", campaignId);
         }
+
+        int endedUpdated = campaignRepository.endCampaignByBudgetExhaustion(campaignId);
+        if (endedUpdated > 0) {
+            log.info("活动预算耗尽自动结束: 活动ID={}", campaignId);
+        }
+
         return true;
     }
 

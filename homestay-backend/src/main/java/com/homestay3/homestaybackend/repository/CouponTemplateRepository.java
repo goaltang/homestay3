@@ -23,4 +23,6 @@ public interface CouponTemplateRepository extends JpaRepository<CouponTemplate, 
 
     List<CouponTemplate> findByIsNewUserCouponTrueAndStatusAndValidStartAtLessThanEqualAndValidEndAtGreaterThanEqual(
             String status, LocalDateTime now1, LocalDateTime now2);
+
+    List<CouponTemplate> findByAutoIssueTriggerAndStatus(String autoIssueTrigger, String status);
 }

@@ -6,7 +6,10 @@ import com.homestay3.homestaybackend.entity.PromotionUsage;
 import com.homestay3.homestaybackend.repository.CouponTemplateRepository;
 import com.homestay3.homestaybackend.repository.PromotionCampaignRepository;
 import com.homestay3.homestaybackend.repository.PromotionUsageRepository;
+import com.homestay3.homestaybackend.service.CouponAnalyticsService;
+import com.homestay3.homestaybackend.service.CouponBatchIssueService;
 import com.homestay3.homestaybackend.service.CouponService;
+import com.homestay3.homestaybackend.service.ReferralService;
 import com.homestay3.homestaybackend.service.RoiAnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -37,6 +40,9 @@ public class AdminPromotionController {
     private final PromotionUsageRepository promotionUsageRepository;
     private final CouponService couponService;
     private final RoiAnalysisService roiAnalysisService;
+    private final CouponBatchIssueService couponBatchIssueService;
+    private final ReferralService referralService;
+    private final CouponAnalyticsService couponAnalyticsService;
 
     // ========== 活动管理 ==========
 
@@ -319,6 +325,103 @@ public class AdminPromotionController {
         LocalDateTime start = parseDateTime(startDate, true);
         LocalDateTime end = parseDateTime(endDate, false);
         return ResponseEntity.ok(roiAnalysisService.getPlatformCampaignRoi(start, end, limit));
+    }
+
+    // ========== 批量发券 ==========
+
+    @PostMapping("/batch-tasks")
+    public ResponseEntity<?> createBatchTask(@RequestBody Map<String, Object> request) {
+        try {
+            Long templateId = Long.valueOf(request.get("templateId").toString());
+            String name = (String) request.get("name");
+            String filterType = (String) request.get("filterType");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> filterParams = (Map<String, Object>) request.getOrDefault("filterParams", Map.of());
+            // 简化：创建任务后立即触发异步执行
+            var task = couponBatchIssueService.createBatchTask(templateId, name, filterType, filterParams, null);
+            couponBatchIssueService.executeBatchTask(task.getId());
+            return ResponseEntity.ok(Map.of("taskId", task.getId(), "totalCount", task.getTotalCount(), "message", "任务已创建并执行"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/batch-tasks")
+    public ResponseEntity<?> getBatchTasks(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return ResponseEntity.ok(couponBatchIssueService.getTaskList(status, pageable));
+    }
+
+    @GetMapping("/batch-tasks/{id}")
+    public ResponseEntity<?> getBatchTaskDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(couponBatchIssueService.getTaskDetail(id));
+    }
+
+    @GetMapping("/batch-tasks/{id}/items")
+    public ResponseEntity<?> getBatchTaskItems(
+            @PathVariable Long id,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return ResponseEntity.ok(couponBatchIssueService.getTaskItems(id, status, pageable));
+    }
+
+    @PostMapping("/batch-tasks/{id}/retry-failed")
+    public ResponseEntity<?> retryFailedItems(@PathVariable Long id) {
+        try {
+            couponBatchIssueService.retryFailedItems(id);
+            return ResponseEntity.ok(Map.of("message", "已开始重试失败项"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ========== 邀请裂变 ==========
+
+    @PostMapping("/referral-codes")
+    public ResponseEntity<?> generateReferralCode(@RequestBody Map<String, Object> request) {
+        try {
+            Long inviterId = Long.valueOf(request.get("inviterId").toString());
+            Long templateIdForInvitee = request.get("templateIdForInvitee") != null
+                    ? Long.valueOf(request.get("templateIdForInvitee").toString()) : null;
+            Long templateIdForInviter = request.get("templateIdForInviter") != null
+                    ? Long.valueOf(request.get("templateIdForInviter").toString()) : null;
+            Integer maxUses = request.get("maxUses") != null ? Integer.valueOf(request.get("maxUses").toString()) : 1;
+            Integer validDays = request.get("validDays") != null ? Integer.valueOf(request.get("validDays").toString()) : 30;
+            return ResponseEntity.ok(referralService.generateReferralCode(inviterId, templateIdForInvitee, templateIdForInviter, maxUses, validDays));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ========== 转化漏斗 & 渠道分析 ==========
+
+    @GetMapping("/analytics/funnel")
+    public ResponseEntity<?> getCouponFunnel(
+            @RequestParam Long templateId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        LocalDateTime start = parseDateTime(startDate, true);
+        LocalDateTime end = parseDateTime(endDate, false);
+        if (start == null) start = LocalDateTime.now().minusDays(30);
+        if (end == null) end = LocalDateTime.now();
+        return ResponseEntity.ok(couponAnalyticsService.getCouponFunnel(templateId, start, end));
+    }
+
+    @GetMapping("/analytics/channels")
+    public ResponseEntity<?> getChannelStats(
+            @RequestParam Long templateId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        LocalDateTime start = parseDateTime(startDate, true);
+        LocalDateTime end = parseDateTime(endDate, false);
+        if (start == null) start = LocalDateTime.now().minusDays(30);
+        if (end == null) end = LocalDateTime.now();
+        return ResponseEntity.ok(couponAnalyticsService.getChannelStats(templateId, start, end));
     }
 
     private LocalDateTime parseDateTime(String dateStr, boolean startOfDay) {

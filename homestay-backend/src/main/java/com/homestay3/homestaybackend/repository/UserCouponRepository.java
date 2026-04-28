@@ -47,4 +47,25 @@ public interface UserCouponRepository extends JpaRepository<UserCoupon, Long> {
      */
     @Query("SELECT uc FROM UserCoupon uc JOIN FETCH uc.template WHERE uc.status = 'AVAILABLE' AND uc.expireAt > :now AND uc.expireAt <= :deadline")
     List<UserCoupon> findCouponsExpiringBetween(@Param("now") LocalDateTime now, @Param("deadline") LocalDateTime deadline);
+
+    /**
+     * 按锁定订单ID和状态查询优惠券（避免全表扫描）
+     */
+    List<UserCoupon> findByLockedOrderIdAndStatus(Long lockedOrderId, String status);
+
+    /**
+     * 批量释放订单锁定的优惠券（原子操作）
+     * @return 影响行数
+     */
+    @Modifying
+    @Query("UPDATE UserCoupon uc SET uc.status = 'AVAILABLE', uc.lockedOrderId = null, uc.lockedAt = null WHERE uc.lockedOrderId = :orderId AND uc.status = 'LOCKED'")
+    int releaseCouponsByOrderId(@Param("orderId") Long orderId);
+
+    /**
+     * 批量核销订单锁定的优惠券（原子操作）
+     * @return 影响行数
+     */
+    @Modifying
+    @Query("UPDATE UserCoupon uc SET uc.status = 'USED', uc.usedOrderId = :orderId, uc.usedAt = :now WHERE uc.lockedOrderId = :orderId AND uc.status = 'LOCKED'")
+    int useCouponsByOrderId(@Param("orderId") Long orderId, @Param("now") LocalDateTime now);
 }

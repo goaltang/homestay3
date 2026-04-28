@@ -56,6 +56,9 @@ public class PromotionRule {
     @Column(name = "scope_value_json", columnDefinition = "TEXT")
     private String scopeValueJson;
 
+    @Column(name = "tier_config_json", columnDefinition = "TEXT")
+    private String tierConfigJson;
+
     @Column(name = "first_order_only", nullable = false)
     @Builder.Default
     private Boolean firstOrderOnly = false;

@@ -16,6 +16,7 @@ import com.homestay3.homestaybackend.repository.HomestayDocumentRepository;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.HomestayTypeRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
+import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.HomestaySearchService;
 import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
 import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
@@ -25,18 +26,29 @@ import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.StringQuery;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -54,8 +66,10 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
     private final HomestaySpecificationSupport homestaySpecificationSupport;
     private final ObjectProvider<HomestayIndexingService> homestayIndexingServiceProvider;
     private final ObjectProvider<HomestayDocumentRepository> homestayDocumentRepositoryProvider;
+    private final ObjectProvider<ElasticsearchOperations> elasticsearchOperationsProvider;
     private final UserBehaviorTrackingService userBehaviorTrackingService;
     private final OrderRepository orderRepository;
+    private final ReviewRepository reviewRepository;
 
     @Override
     public List<HomestayDTO> searchHomestays(HomestaySearchRequest request) {
@@ -218,6 +232,208 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
     }
 
     @Override
+    public Page<HomestaySearchResultDTO> searchHomestayPage(HomestaySearchRequest request) {
+        int page = request.getPage() != null && request.getPage() >= 0 ? request.getPage() : 0;
+        int size = request.getSize() != null && request.getSize() > 0 ? request.getSize() : 12;
+
+        // ES 路径：暂全量查询后内存分页
+        if (StringUtils.hasText(request.getKeyword())) {
+            try {
+                HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+                if (indexingService != null && indexingService.isElasticsearchAvailable()) {
+                    List<HomestayDTO> esResults = searchByElasticsearch(request);
+                    esResults = applySearchSorting(esResults, request);
+                    return toSearchResultPage(esResults, page, size);
+                }
+            } catch (Exception e) {
+                log.warn("ES search failed, falling back to JPA: {}", e.getMessage());
+            }
+        }
+
+        final String typeCodeToSearch = resolveTypeCode(request.getPropertyType());
+
+        // Distance / Rating 排序需要全量查询后内存计算
+        if ((isDistanceSort(request.getSortBy()) && hasDistanceSortOrigin(request)) || isRatingSort(request.getSortBy())) {
+            Specification<Homestay> specification = buildSearchSpecification(request, typeCodeToSearch);
+            List<Homestay> homestays = homestayRepository.findAll(
+                    homestaySpecificationSupport.withDetailFetch(specification));
+            List<String> finalCriteria = buildFinalCriteria(request, typeCodeToSearch);
+            List<HomestayDTO> dtos = homestayDtoAssembler.toDTOs(homestays, finalCriteria);
+            dtos = applySearchSorting(dtos, request);
+            return toSearchResultPage(dtos, page, size);
+        }
+
+        // JPA 路径：数据库层排序 + 分页
+        Specification<Homestay> specification = buildSearchSpecification(request, typeCodeToSearch);
+        Sort sort = buildJpaSort(request.getSortBy(), request.getSortDirection());
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<Homestay> homestayPage = homestayRepository.findAll(
+                homestaySpecificationSupport.withDetailFetch(specification), pageable);
+
+        List<String> finalCriteria = buildFinalCriteria(request, typeCodeToSearch);
+        List<HomestaySearchResultDTO> content = homestayDtoAssembler.toDTOs(homestayPage.getContent(), finalCriteria)
+                .stream()
+                .map(homestayDtoAssembler::toSearchResultDTO)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, pageable, homestayPage.getTotalElements());
+    }
+
+    private String resolveTypeCode(String propertyType) {
+        if (!StringUtils.hasText(propertyType)) {
+            return null;
+        }
+        Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(propertyType);
+        return typeOpt.map(HomestayType::getCode).orElse(null);
+    }
+
+    private Specification<Homestay> buildSearchSpecification(HomestaySearchRequest request, String typeCodeToSearch) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("status"), HomestayStatus.ACTIVE));
+
+            if (StringUtils.hasText(request.getKeyword())) {
+                String keyword = "%" + request.getKeyword() + "%";
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(root.get("title"), keyword),
+                        criteriaBuilder.like(root.get("description"), keyword),
+                        criteriaBuilder.like(root.get("addressDetail"), keyword)));
+            }
+
+            if (StringUtils.hasText(request.getLocation())) {
+                String locationLike = "%" + request.getLocation() + "%";
+                String locationExact = request.getLocation();
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(root.get("provinceText"), locationLike),
+                        criteriaBuilder.like(root.get("cityText"), locationLike),
+                        criteriaBuilder.like(root.get("districtText"), locationLike),
+                        criteriaBuilder.like(root.get("addressDetail"), locationLike),
+                        criteriaBuilder.equal(root.get("provinceCode"), locationExact),
+                        criteriaBuilder.equal(root.get("cityCode"), locationExact),
+                        criteriaBuilder.equal(root.get("districtCode"), locationExact)));
+            }
+
+            if (StringUtils.hasText(request.getProvinceCode())) {
+                predicates.add(root.get("provinceCode")
+                        .in(homestaySpecificationSupport.getProvinceCodeCandidates(request.getProvinceCode())));
+            }
+            if (StringUtils.hasText(request.getCityCode())) {
+                predicates.add(root.get("cityCode")
+                        .in(homestaySpecificationSupport.getCityCodeCandidates(request.getCityCode())));
+            }
+            if (StringUtils.hasText(request.getDistrictCode())) {
+                predicates.add(criteriaBuilder.equal(root.get("districtCode"), request.getDistrictCode().trim()));
+            }
+
+            if (request.getMinPrice() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("price"), request.getMinPrice()));
+            }
+            if (request.getMaxPrice() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"), request.getMaxPrice()));
+            }
+
+            if (Stream.of(
+                    request.getNorthEastLat(),
+                    request.getNorthEastLng(),
+                    request.getSouthWestLat(),
+                    request.getSouthWestLng()).allMatch(Objects::nonNull)) {
+                BigDecimal minLatitude = request.getNorthEastLat().min(request.getSouthWestLat());
+                BigDecimal maxLatitude = request.getNorthEastLat().max(request.getSouthWestLat());
+                BigDecimal minLongitude = request.getNorthEastLng().min(request.getSouthWestLng());
+                BigDecimal maxLongitude = request.getNorthEastLng().max(request.getSouthWestLng());
+
+                predicates.add(criteriaBuilder.isNotNull(root.get("latitude")));
+                predicates.add(criteriaBuilder.isNotNull(root.get("longitude")));
+                predicates.add(criteriaBuilder.between(root.get("latitude"), minLatitude, maxLatitude));
+                predicates.add(criteriaBuilder.between(root.get("longitude"), minLongitude, maxLongitude));
+            }
+
+            if (request.getMinGuests() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("maxGuests"), request.getMinGuests()));
+            }
+
+            if (typeCodeToSearch != null) {
+                predicates.add(criteriaBuilder.equal(root.get("type"), typeCodeToSearch));
+            }
+
+            List<String> requiredAmenityValues = request.getRequiredAmenities();
+            if (requiredAmenityValues != null && !requiredAmenityValues.isEmpty()) {
+                List<Amenity> requiredAmenities = amenityRepository.findByValueInIgnoreCase(requiredAmenityValues);
+                if (!requiredAmenities.isEmpty()) {
+                    for (Amenity amenity : requiredAmenities) {
+                        predicates.add(criteriaBuilder.isMember(amenity, root.get("amenities")));
+                    }
+                } else {
+                    predicates.add(criteriaBuilder.disjunction());
+                }
+            }
+
+            LocalDate checkInDate = request.getCheckInDate();
+            LocalDate checkOutDate = request.getCheckOutDate();
+            if (checkInDate != null && checkOutDate != null) {
+                Subquery<Long> subquery = query.subquery(Long.class);
+                Root<Order> orderRoot = subquery.from(Order.class);
+                subquery.select(orderRoot.get("id"));
+
+                Predicate homestayMatch = criteriaBuilder.equal(orderRoot.get("homestay"), root);
+                Predicate statusMatch = orderRoot.get("status").in(
+                        OrderStatus.CONFIRMED.name(),
+                        OrderStatus.PAID.name());
+                Predicate dateOverlap = criteriaBuilder.and(
+                        criteriaBuilder.greaterThan(orderRoot.get("checkOutDate"), checkInDate),
+                        criteriaBuilder.lessThan(orderRoot.get("checkInDate"), checkOutDate));
+
+                subquery.where(criteriaBuilder.and(homestayMatch, statusMatch, dateOverlap));
+                predicates.add(criteriaBuilder.not(criteriaBuilder.exists(subquery)));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private List<String> buildFinalCriteria(HomestaySearchRequest request, String typeCodeToSearch) {
+        List<String> criteriaFromSearch = new ArrayList<>();
+        if (request.getRequiredAmenities() != null && !request.getRequiredAmenities().isEmpty()) {
+            request.getRequiredAmenities().forEach(amenityCode ->
+                    criteriaFromSearch.add("AMENITY_" + amenityCode.toUpperCase().replace(" ", "_")));
+        }
+        if (typeCodeToSearch != null) {
+            criteriaFromSearch.add("PROPERTY_TYPE_" + typeCodeToSearch.toUpperCase());
+        }
+        return criteriaFromSearch.isEmpty() ? null : Collections.unmodifiableList(criteriaFromSearch);
+    }
+
+    private Sort buildJpaSort(String sortBy, String sortDirection) {
+        if (!StringUtils.hasText(sortBy)) {
+            return Sort.by(Sort.Direction.DESC, "id");
+        }
+        Sort.Direction direction = isDescending(sortDirection) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        String property = switch (sortBy.toLowerCase()) {
+            case "price", "pricepernight" -> "price";
+            case "createdat", "created_at" -> "createdAt";
+            case "id", "default" -> "id";
+            case "rating" -> "id"; // rating 走内存排序，数据库层用 id 兜底
+            default -> "id";
+        };
+        return Sort.by(direction, property);
+    }
+
+    private Page<HomestaySearchResultDTO> toSearchResultPage(List<HomestayDTO> dtos, int page, int size) {
+        int total = dtos.size();
+        int start = page * size;
+        if (start >= total) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page, size), total);
+        }
+        int end = Math.min(start + size, total);
+        List<HomestaySearchResultDTO> content = dtos.subList(start, end).stream()
+                .map(homestayDtoAssembler::toSearchResultDTO)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        return new PageImpl<>(content, PageRequest.of(page, size), total);
+    }
+
+    @Override
     public List<MapClusterDTO> getMapClusters(HomestaySearchRequest request) {
         int zoom = request.getZoom() != null ? request.getZoom() : 12;
         double gridSize = resolveClusterGridSize(zoom);
@@ -301,30 +517,55 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
             return results;
         }
 
-        if (!isDistanceSort(request.getSortBy())) {
-            return results;
+        if (isDistanceSort(request.getSortBy())) {
+            if (!hasDistanceSortOrigin(request)) {
+                log.warn("Distance sort requested without origin coordinates");
+                return results;
+            }
+            double latitude = request.getLatitude().doubleValue();
+            double longitude = request.getLongitude().doubleValue();
+            results.forEach(homestay -> attachDistanceKm(homestay, latitude, longitude));
+            boolean descending = isDescending(request.getSortDirection());
+            Comparator<HomestayDTO> comparator = (left, right) -> compareDistanceKm(left, right, descending);
+            return results.stream()
+                    .sorted(comparator.thenComparing(HomestayDTO::getId, Comparator.nullsLast(Long::compareTo)))
+                    .collect(Collectors.toList());
         }
 
-        if (!hasDistanceSortOrigin(request)) {
-            log.warn("Distance sort requested without origin coordinates");
-            return results;
+        if (isRatingSort(request.getSortBy())) {
+            boolean descending = isDescending(request.getSortDirection());
+            // 批量预加载评分，避免 N+1
+            List<Long> ids = results.stream().map(HomestayDTO::getId).filter(Objects::nonNull).collect(Collectors.toList());
+            if (!ids.isEmpty()) {
+                Map<Long, Double> ratingMap = toMapDouble(reviewRepository.getAverageRatingByHomestayIds(ids));
+                results.forEach(dto -> dto.setRating(ratingMap.getOrDefault(dto.getId(), 0.0)));
+            }
+            Comparator<HomestayDTO> comparator = (left, right) -> {
+                Double leftRating = left.getRating();
+                Double rightRating = right.getRating();
+                if (leftRating == null && rightRating == null) return 0;
+                if (leftRating == null) return 1;
+                if (rightRating == null) return -1;
+                int result = Double.compare(leftRating, rightRating);
+                return descending ? -result : result;
+            };
+            return results.stream()
+                    .sorted(comparator.thenComparing(HomestayDTO::getId, Comparator.nullsLast(Long::compareTo)))
+                    .collect(Collectors.toList());
         }
 
-        double latitude = request.getLatitude().doubleValue();
-        double longitude = request.getLongitude().doubleValue();
-        results.forEach(homestay -> attachDistanceKm(homestay, latitude, longitude));
-
-        boolean descending = isDescending(request.getSortDirection());
-        Comparator<HomestayDTO> comparator = (left, right) -> compareDistanceKm(left, right, descending);
-        return results.stream()
-                .sorted(comparator.thenComparing(HomestayDTO::getId, Comparator.nullsLast(Long::compareTo)))
-                .collect(Collectors.toList());
+        return results;
     }
 
     private boolean isDistanceSort(String sortBy) {
         return "DISTANCE".equalsIgnoreCase(sortBy)
                 || "distance".equalsIgnoreCase(sortBy)
                 || "distanceKm".equalsIgnoreCase(sortBy);
+    }
+
+    private boolean isRatingSort(String sortBy) {
+        return "RATING".equalsIgnoreCase(sortBy)
+                || "rating".equalsIgnoreCase(sortBy);
     }
 
     private boolean hasDistanceSortOrigin(HomestaySearchRequest request) {
@@ -447,73 +688,156 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
         return Math.round(value * 100d) / 100d;
     }
 
+    @SuppressWarnings("unchecked")
+    private static Map<Long, Double> toMapDouble(List<Object[]> rows) {
+        if (rows == null) return Map.of();
+        return rows.stream().collect(Collectors.toMap(
+                r -> ((Number) r[0]).longValue(),
+                r -> ((Number) r[1]).doubleValue(),
+                (a, b) -> a));
+    }
+
     private List<HomestayDTO> searchByElasticsearch(HomestaySearchRequest request) {
         String keyword = request.getKeyword();
-        Double minPrice = request.getMinPrice() != null ? request.getMinPrice().doubleValue() : 0.0;
-        Double maxPrice = request.getMaxPrice() != null ? request.getMaxPrice().doubleValue() : Double.MAX_VALUE;
-        Integer minGuests = request.getMinGuests() != null ? request.getMinGuests() : 1;
-
-        HomestayDocumentRepository homestayDocumentRepository = homestayDocumentRepositoryProvider.getIfAvailable();
-        if (homestayDocumentRepository == null) {
-            return Collections.emptyList();
-        }
-        var searchHits = homestayDocumentRepository.searchByKeywordWithScoring(
-                keyword, minPrice, maxPrice, minGuests);
-
-        if (searchHits == null || searchHits.isEmpty()) {
+        if (!StringUtils.hasText(keyword)) {
             return Collections.emptyList();
         }
 
-        List<Long> homestayIds = searchHits.getSearchHits().stream()
-                .map(hit -> hit.getContent().getId())
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
-        if (homestayIds.isEmpty()) {
+        ElasticsearchOperations elasticsearchOperations = elasticsearchOperationsProvider.getIfAvailable();
+        if (elasticsearchOperations == null) {
             return Collections.emptyList();
         }
 
-        // 用 ID 列表去 JPA 查询完整实体，保留原有 DTO 组装逻辑
-        List<Homestay> homestays = homestayRepository.findAllById(homestayIds);
+        try {
+            String queryJson = buildElasticsearchQueryJson(request);
+            StringQuery stringQuery = new StringQuery(queryJson, PageRequest.of(0, 10000));
+            SearchHits<HomestayDocument> searchHits = elasticsearchOperations.search(
+                    stringQuery, HomestayDocument.class);
 
-        // 保持 ES 返回的顺序
-        Map<Long, Homestay> homestayMap = homestays.stream()
-                .collect(Collectors.toMap(Homestay::getId, h -> h, (a, b) -> a));
-        List<Homestay> orderedHomestays = homestayIds.stream()
-                .map(homestayMap::get)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
-        // 补充：可订日期检查（ES 搜索绕过了 JPA 的日期冲突子查询）
-        if (request.getCheckInDate() != null && request.getCheckOutDate() != null) {
-            List<Long> conflictIds = orderRepository.findConflictingHomestayIds(
-                    homestayIds, request.getCheckInDate(), request.getCheckOutDate());
-            if (conflictIds != null && !conflictIds.isEmpty()) {
-                orderedHomestays = orderedHomestays.stream()
-                        .filter(h -> !conflictIds.contains(h.getId()))
-                        .collect(Collectors.toList());
+            if (searchHits == null || searchHits.isEmpty()) {
+                return Collections.emptyList();
             }
+
+            List<Long> homestayIds = searchHits.getSearchHits().stream()
+                    .map(hit -> hit.getContent().getId())
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (homestayIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            // 用 ID 列表去 JPA 查询完整实体，保留原有 DTO 组装逻辑
+            List<Homestay> homestays = homestayRepository.findAllById(homestayIds);
+
+            // 保持 ES 返回的顺序
+            Map<Long, Homestay> homestayMap = homestays.stream()
+                    .collect(Collectors.toMap(Homestay::getId, h -> h, (a, b) -> a));
+            List<Homestay> orderedHomestays = homestayIds.stream()
+                    .map(homestayMap::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            // 补充：可订日期检查（ES 搜索绕过了 JPA 的日期冲突子查询）
+            if (request.getCheckInDate() != null && request.getCheckOutDate() != null) {
+                List<Long> conflictIds = orderRepository.findConflictingHomestayIds(
+                        homestayIds, request.getCheckInDate(), request.getCheckOutDate());
+                if (conflictIds != null && !conflictIds.isEmpty()) {
+                    orderedHomestays = orderedHomestays.stream()
+                            .filter(h -> !conflictIds.contains(h.getId()))
+                            .collect(Collectors.toList());
+                }
+            }
+
+            List<String> finalCriteria = buildFinalCriteria(request, resolveTypeCode(request.getPropertyType()));
+            return homestayDtoAssembler.toDTOs(orderedHomestays, finalCriteria);
+        } catch (Exception e) {
+            log.warn("ES advanced search failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private String buildElasticsearchQueryJson(HomestaySearchRequest request) {
+        String keyword = jsonEscape(request.getKeyword());
+        double minPrice = request.getMinPrice() != null ? request.getMinPrice().doubleValue() : 0.0;
+        double maxPrice = request.getMaxPrice() != null ? request.getMaxPrice().doubleValue() : Double.MAX_VALUE;
+        int minGuests = request.getMinGuests() != null ? request.getMinGuests() : 1;
+
+        StringBuilder filters = new StringBuilder();
+        filters.append(String.format("{\"range\":{\"price\":{\"gte\":%.2f,\"lte\":%.2f}}},", minPrice, maxPrice));
+        filters.append(String.format("{\"range\":{\"maxGuests\":{\"gte\":%d}}},", minGuests));
+
+        if (StringUtils.hasText(request.getProvinceCode())) {
+            Set<String> candidates = homestaySpecificationSupport.getProvinceCodeCandidates(request.getProvinceCode());
+            filters.append("{\"terms\":{\"provinceCode\":[");
+            boolean first = true;
+            for (String c : candidates) {
+                if (!first) filters.append(",");
+                filters.append("\"").append(jsonEscape(c)).append("\"");
+                first = false;
+            }
+            filters.append("]}},");
         }
 
-        List<String> criteriaFromSearch = new ArrayList<>();
+        if (StringUtils.hasText(request.getCityCode())) {
+            Set<String> candidates = homestaySpecificationSupport.getCityCodeCandidates(request.getCityCode());
+            filters.append("{\"terms\":{\"cityCode\":[");
+            boolean first = true;
+            for (String c : candidates) {
+                if (!first) filters.append(",");
+                filters.append("\"").append(jsonEscape(c)).append("\"");
+                first = false;
+            }
+            filters.append("]}},");
+        }
+
+        if (StringUtils.hasText(request.getDistrictCode())) {
+            filters.append(String.format("{\"term\":{\"districtCode\":\"%s\"}},",
+                    jsonEscape(request.getDistrictCode().trim())));
+        }
+
+        String typeCode = resolveTypeCode(request.getPropertyType());
+        if (typeCode != null) {
+            filters.append(String.format("{\"term\":{\"type\":\"%s\"}},", jsonEscape(typeCode)));
+        }
+
         if (request.getRequiredAmenities() != null && !request.getRequiredAmenities().isEmpty()) {
-            request.getRequiredAmenities().forEach(amenityCode ->
-                    criteriaFromSearch.add("AMENITY_" + amenityCode.toUpperCase().replace(" ", "_")));
-        }
-        String typeCodeToSearch = null;
-        if (StringUtils.hasText(request.getPropertyType())) {
-            Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(request.getPropertyType());
-            typeCodeToSearch = typeOpt.map(HomestayType::getCode).orElse(null);
-        }
-        if (typeCodeToSearch != null) {
-            criteriaFromSearch.add("PROPERTY_TYPE_" + typeCodeToSearch.toUpperCase());
+            filters.append("{\"terms\":{\"amenities\":[");
+            boolean first = true;
+            for (String a : request.getRequiredAmenities()) {
+                if (!first) filters.append(",");
+                filters.append("\"").append(jsonEscape(a)).append("\"");
+                first = false;
+            }
+            filters.append("]}},");
         }
 
-        List<String> finalCriteria = criteriaFromSearch.isEmpty()
-                ? null
-                : Collections.unmodifiableList(criteriaFromSearch);
+        if (Stream.of(request.getNorthEastLat(), request.getNorthEastLng(),
+                request.getSouthWestLat(), request.getSouthWestLng()).allMatch(Objects::nonNull)) {
+            double topLat = request.getNorthEastLat().max(request.getSouthWestLat()).doubleValue();
+            double bottomLat = request.getNorthEastLat().min(request.getSouthWestLat()).doubleValue();
+            double leftLng = request.getNorthEastLng().min(request.getSouthWestLng()).doubleValue();
+            double rightLng = request.getNorthEastLng().max(request.getSouthWestLng()).doubleValue();
+            filters.append(String.format(
+                    "{\"geo_bounding_box\":{\"location\":{\"top_left\":{\"lat\":%.6f,\"lon\":%.6f},\"bottom_right\":{\"lat\":%.6f,\"lon\":%.6f}}}},",
+                    topLat, leftLng, bottomLat, rightLng));
+        }
 
-        return homestayDtoAssembler.toDTOs(orderedHomestays, finalCriteria);
+        String filterStr = filters.toString();
+        if (filterStr.endsWith(",")) {
+            filterStr = filterStr.substring(0, filterStr.length() - 1);
+        }
+
+        return String.format(
+                "{\"function_score\":{\"query\":{\"bool\":{\"must\":[{\"match\":{\"status\":\"ACTIVE\"}},{\"multi_match\":{\"query\":\"%s\",\"fields\":[\"title^3\",\"description^2\",\"addressDetail^2\",\"amenities\"],\"type\":\"best_fields\",\"fuzziness\":\"AUTO\"}}],\"filter\":[%s]}},\"functions\":[{\"field_value_factor\":{\"field\":\"rating\",\"factor\":0.20,\"modifier\":\"log1p\",\"missing\":0}},{\"field_value_factor\":{\"field\":\"bookingCount\",\"factor\":0.075,\"modifier\":\"log1p\",\"missing\":0}},{\"field_value_factor\":{\"field\":\"favoriteCount\",\"factor\":0.075,\"modifier\":\"log1p\",\"missing\":0}},{\"gauss\":{\"createdAt\":{\"origin\":\"now\",\"scale\":\"30d\",\"decay\":0.5}}}],\"score_mode\":\"sum\",\"boost_mode\":\"multiply\"}}",
+                keyword, filterStr);
+    }
+
+    private static String jsonEscape(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     private static class MapClusterAccumulator {

@@ -50,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final CouponTemplateRepository couponTemplateRepository;
     private final CouponService couponService;
+    private final com.homestay3.homestaybackend.service.ReferralService referralService;
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Value("${app.frontend-url:http://localhost:5173}")
@@ -151,6 +152,22 @@ public class AuthServiceImpl implements AuthService {
             } catch (Exception e) {
                 log.error("新人券自动发放流程异常: {}", e.getMessage(), e);
                 // 新人券发放失败不应中断注册流程
+            }
+
+            // 处理邀请码（分享裂变）
+            try {
+                String referralCode = request.getReferralCode();
+                if (referralCode != null && !referralCode.isBlank()) {
+                    boolean success = referralService.useReferralCode(referralCode, savedUser.getId());
+                    if (success) {
+                        log.info("新用户 {} 使用邀请码 {} 成功，奖励已发放", savedUser.getUsername(), referralCode);
+                    } else {
+                        log.warn("新用户 {} 使用邀请码 {} 失败，可能已过期或无效", savedUser.getUsername(), referralCode);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("邀请码处理失败: {}", e.getMessage());
+                // 邀请码处理失败不应中断注册流程
             }
 
             // 生成token - 修改这部分，避免使用userDetailsService

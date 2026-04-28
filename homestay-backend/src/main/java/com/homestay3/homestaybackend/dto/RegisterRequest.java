@@ -33,6 +33,8 @@ public class RegisterRequest {
     
     private String role;
 
+    private String referralCode;
+
     // 显式添加 getter 和 setter 方法，以防 Lombok 注解未生效
     public String getUsername() {
         return username;
@@ -72,5 +74,13 @@ public class RegisterRequest {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getReferralCode() {
+        return referralCode;
+    }
+
+    public void setReferralCode(String referralCode) {
+        this.referralCode = referralCode;
     }
 } 

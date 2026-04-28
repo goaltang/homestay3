@@ -83,6 +83,14 @@ public class CouponTemplate {
     @Builder.Default
     private Boolean isNewUserCoupon = false;
 
+    @Column(name = "auto_issue_trigger", nullable = false, length = 50)
+    @Builder.Default
+    private String autoIssueTrigger = "NONE";
+
+    @Column(name = "stack_group", nullable = false, length = 50)
+    @Builder.Default
+    private String stackGroup = "DEFAULT";
+
     @Column(nullable = false, length = 50)
     @Builder.Default
     private String status = "DRAFT";

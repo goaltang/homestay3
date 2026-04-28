@@ -89,6 +89,23 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
     @Override
     @SuppressWarnings("unchecked")
     public List<RoiCampaignDTO> getPlatformCampaignRoi(LocalDateTime startDate, LocalDateTime endDate, int limit) {
+        // 构建 GMV 子查询（与主查询时间条件一致）
+        StringBuilder gmvSubSql = new StringBuilder();
+        gmvSubSql.append("SELECT campaign_id, COALESCE(SUM(ops.payable_amount), 0) as gmv ");
+        gmvSubSql.append("FROM (SELECT DISTINCT campaign_id, order_id FROM promotion_usage WHERE campaign_id IS NOT NULL ");
+        List<Object> gmvSubParams = new ArrayList<>();
+        if (startDate != null) {
+            gmvSubSql.append("AND created_at >= ? ");
+            gmvSubParams.add(startDate);
+        }
+        if (endDate != null) {
+            gmvSubSql.append("AND created_at <= ? ");
+            gmvSubParams.add(endDate);
+        }
+        gmvSubSql.append(") distinct_pu ");
+        gmvSubSql.append("JOIN order_price_snapshot ops ON distinct_pu.order_id = ops.order_id ");
+        gmvSubSql.append("GROUP BY campaign_id");
+
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ");
         sql.append("  pc.id as campaign_id, ");
@@ -100,12 +117,15 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
         sql.append("  COUNT(*) as usage_count, ");
         sql.append("  SUM(CASE WHEN pu.status = 'USED' THEN 1 ELSE 0 END) as used_count, ");
         sql.append("  pc.budget_total, ");
-        sql.append("  pc.budget_used ");
+        sql.append("  pc.budget_used, ");
+        sql.append("  COALESCE(gmv.gmv, 0) as gmv ");
         sql.append("FROM promotion_usage pu ");
         sql.append("JOIN promotion_campaign pc ON pu.campaign_id = pc.id ");
+        sql.append("LEFT JOIN (").append(gmvSubSql).append(") gmv ON gmv.campaign_id = pc.id ");
         sql.append("WHERE 1=1 ");
 
         List<Object> params = new ArrayList<>();
+        params.addAll(gmvSubParams);
         if (startDate != null) {
             sql.append("AND pu.created_at >= ? ");
             params.add(startDate);
@@ -114,7 +134,7 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
             sql.append("AND pu.created_at <= ? ");
             params.add(endDate);
         }
-        sql.append("GROUP BY pc.id, pc.name, pc.campaign_type, pc.subsidy_bearer, pc.budget_total, pc.budget_used ");
+        sql.append("GROUP BY pc.id, pc.name, pc.campaign_type, pc.subsidy_bearer, pc.budget_total, pc.budget_used, gmv.gmv ");
         sql.append("ORDER BY discount_cost DESC ");
         sql.append("LIMIT ?");
         params.add(limit);
@@ -127,7 +147,6 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
         List<Object[]> rows = query.getResultList();
         List<RoiCampaignDTO> result = new ArrayList<>();
 
-        // 查询每个活动的 GMV
         for (Object[] row : rows) {
             Long campaignId = ((Number) row[0]).longValue();
             String campaignName = (String) row[1];
@@ -139,9 +158,7 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
             Number usedCount = (Number) row[7];
             BigDecimal budgetTotal = toBigDecimal(row[8]);
             BigDecimal budgetUsed = toBigDecimal(row[9]);
-
-            // 查询该活动的 GMV
-            BigDecimal gmv = getCampaignGmv(campaignId, startDate, endDate);
+            BigDecimal gmv = toBigDecimal(row[10]);
 
             BigDecimal roi = calculateRoi(gmv, discountCost);
             BigDecimal usageRate = calculateRate(usedCount, usageCount);
@@ -246,6 +263,26 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
     @Override
     @SuppressWarnings("unchecked")
     public List<RoiCampaignDTO> getHostCampaignRoi(Long hostId, LocalDateTime startDate, LocalDateTime endDate) {
+        // 构建 GMV 子查询（限定该房东的活动）
+        StringBuilder gmvSubSql = new StringBuilder();
+        gmvSubSql.append("SELECT pu.campaign_id, COALESCE(SUM(ops.payable_amount), 0) as gmv ");
+        gmvSubSql.append("FROM (SELECT DISTINCT campaign_id, order_id FROM promotion_usage WHERE campaign_id IS NOT NULL ");
+        List<Object> gmvSubParams = new ArrayList<>();
+        if (startDate != null) {
+            gmvSubSql.append("AND created_at >= ? ");
+            gmvSubParams.add(startDate);
+        }
+        if (endDate != null) {
+            gmvSubSql.append("AND created_at <= ? ");
+            gmvSubParams.add(endDate);
+        }
+        gmvSubSql.append(") pu ");
+        gmvSubSql.append("JOIN promotion_campaign pc ON pu.campaign_id = pc.id ");
+        gmvSubSql.append("JOIN order_price_snapshot ops ON pu.order_id = ops.order_id ");
+        gmvSubSql.append("WHERE pc.host_id = ? ");
+        gmvSubParams.add(hostId);
+        gmvSubSql.append("GROUP BY pu.campaign_id");
+
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ");
         sql.append("  pc.id as campaign_id, ");
@@ -257,12 +294,15 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
         sql.append("  COUNT(*) as usage_count, ");
         sql.append("  SUM(CASE WHEN pu.status = 'USED' THEN 1 ELSE 0 END) as used_count, ");
         sql.append("  pc.budget_total, ");
-        sql.append("  pc.budget_used ");
+        sql.append("  pc.budget_used, ");
+        sql.append("  COALESCE(gmv.gmv, 0) as gmv ");
         sql.append("FROM promotion_usage pu ");
         sql.append("JOIN promotion_campaign pc ON pu.campaign_id = pc.id ");
+        sql.append("LEFT JOIN (").append(gmvSubSql).append(") gmv ON gmv.campaign_id = pc.id ");
         sql.append("WHERE pc.host_id = ? ");
 
         List<Object> params = new ArrayList<>();
+        params.addAll(gmvSubParams);
         params.add(hostId);
         if (startDate != null) {
             sql.append("AND pu.created_at >= ? ");
@@ -272,7 +312,7 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
             sql.append("AND pu.created_at <= ? ");
             params.add(endDate);
         }
-        sql.append("GROUP BY pc.id, pc.name, pc.campaign_type, pc.subsidy_bearer, pc.budget_total, pc.budget_used ");
+        sql.append("GROUP BY pc.id, pc.name, pc.campaign_type, pc.subsidy_bearer, pc.budget_total, pc.budget_used, gmv.gmv ");
         sql.append("ORDER BY discount_cost DESC");
 
         Query query = entityManager.createNativeQuery(sql.toString());
@@ -294,8 +334,8 @@ public class RoiAnalysisServiceImpl implements RoiAnalysisService {
             Number usedCount = (Number) row[7];
             BigDecimal budgetTotal = toBigDecimal(row[8]);
             BigDecimal budgetUsed = toBigDecimal(row[9]);
+            BigDecimal gmv = toBigDecimal(row[10]);
 
-            BigDecimal gmv = getCampaignGmv(campaignId, startDate, endDate);
             BigDecimal roi = calculateRoi(gmv, discountCost);
             BigDecimal usageRate = calculateRate(usedCount, usageCount);
             BigDecimal budgetUsageRate = calculateRate(budgetUsed, budgetTotal);

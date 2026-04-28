@@ -56,6 +56,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private final PaymentService paymentService;
     private final CouponService couponService;
     private final PromotionUsageRepository promotionUsageRepository;
+    private final com.homestay3.homestaybackend.repository.UserCouponRepository userCouponRepository;
+    private final com.homestay3.homestaybackend.service.CouponAnalyticsService couponAnalyticsService;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     @Override
@@ -114,6 +116,19 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
                 couponService.useCoupons(paidOrder.getId());
                 promotionUsageRepository.updateStatusByOrderId(paidOrder.getId(), "USED");
                 log.info("订单 {} 优惠券与活动流水已核销。", paidOrder.getOrderNumber());
+                // 转化漏斗埋点：核销
+                try {
+                    var lockedCoupons = userCouponRepository.findByLockedOrderIdAndStatus(paidOrder.getId(), "LOCKED");
+                    for (var uc : lockedCoupons) {
+                        if (uc.getTemplate() != null) {
+                            couponAnalyticsService.track(uc.getTemplate().getId(), null, "ORDER_PAY", "USE",
+                                    paidOrder.getGuest() != null ? paidOrder.getGuest().getId() : null,
+                                    null, paidOrder.getId());
+                        }
+                    }
+                } catch (Exception trackEx) {
+                    log.warn("订单 {} 优惠券核销埋点失败: {}", paidOrder.getOrderNumber(), trackEx.getMessage());
+                }
             } catch (Exception writeOffEx) {
                 log.error("订单 {} 核销优惠券或活动流水失败: {}", paidOrder.getOrderNumber(), writeOffEx.getMessage(), writeOffEx);
             }

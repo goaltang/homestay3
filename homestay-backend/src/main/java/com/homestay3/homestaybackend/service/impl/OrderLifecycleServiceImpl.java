@@ -31,6 +31,7 @@ import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PricingService;
 import com.homestay3.homestaybackend.service.PromotionMatchService;
 import com.homestay3.homestaybackend.service.SystemConfigService;
+import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
 import com.homestay3.homestaybackend.dto.PricingResult;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -44,6 +45,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import jakarta.persistence.criteria.Join;
@@ -79,7 +82,11 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     private final CouponService couponService;
     private final PromotionMatchService promotionMatchService;
     private final PromotionUsageRepository promotionUsageRepository;
+    private final com.homestay3.homestaybackend.repository.UserCouponRepository userCouponRepository;
+    private final com.homestay3.homestaybackend.repository.CouponTemplateRepository couponTemplateRepository;
+    private final com.homestay3.homestaybackend.service.CouponAnalyticsService couponAnalyticsService;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
+    private final UserBehaviorTrackingService userBehaviorTrackingService;
 
     // Note: Payment processing is handled by PaymentProcessingService, not here
 
@@ -178,16 +185,22 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             Order savedOrder = bookingConflictService.safeCreateOrder(order);
             log.info("订单创建成功: id={}, orderNumber={}", savedOrder.getId(), savedOrder.getOrderNumber());
 
-            // 8.1 保存价格快照（用于后续退款/对账追溯）
-            try {
-                pricingService.savePriceSnapshot(savedOrder.getId(), pricingResult, orderDTO.getQuoteToken());
-            } catch (Exception e) {
-                log.error("保存价格快照失败，不影响订单创建: {}", e.getMessage());
-            }
+            // 8.1 保存价格快照（用于后续退款/对账追溯，失败则回滚订单）
+            pricingService.savePriceSnapshot(savedOrder.getId(), pricingResult, orderDTO.getQuoteToken());
 
             // 8.2 锁定优惠券（失败抛异常，事务回滚，避免订单落库但券未锁定）
             if (orderDTO.getCouponIds() != null && !orderDTO.getCouponIds().isEmpty()) {
                 couponService.lockCoupons(orderDTO.getCouponIds(), savedOrder.getId(), currentUser.getId());
+                // 转化漏斗埋点：锁定（下单）
+                for (Long couponId : orderDTO.getCouponIds()) {
+                    try {
+                        com.homestay3.homestaybackend.entity.UserCoupon uc = userCouponRepository.findById(couponId).orElse(null);
+                        if (uc != null && uc.getTemplate() != null) {
+                            couponAnalyticsService.track(uc.getTemplate().getId(), null, "ORDER_CONFIRM", "LOCK",
+                                    currentUser.getId(), null, savedOrder.getId());
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
 
             // 8.3 扣减活动预算并记录优惠使用流水
@@ -214,32 +227,26 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 }
             }
 
-            // 记录优惠券流水
+            // 记录优惠券流水（使用锁定后的券查询，避免状态不匹配；只记录一条总流水防止重复计算）
             if (orderDTO.getCouponIds() != null && !orderDTO.getCouponIds().isEmpty()) {
-                for (Long couponId : orderDTO.getCouponIds()) {
-                    UserCoupon userCoupon = couponService.getAvailableCoupons(currentUser.getId()).stream()
-                            .filter(c -> c.getId().equals(couponId))
-                            .findFirst()
-                            .orElse(null);
-                    if (userCoupon != null) {
-                        String couponBearer = userCoupon.getTemplate() != null
-                                ? userCoupon.getTemplate().getSubsidyBearer()
-                                : "PLATFORM";
-                        BigDecimal couponDiscount = pricingResult.getCouponDiscountAmount() != null
-                                ? pricingResult.getCouponDiscountAmount()
-                                : BigDecimal.ZERO;
-                        if (couponDiscount.compareTo(BigDecimal.ZERO) > 0) {
-                            PromotionUsage usage = PromotionUsage.builder()
-                                    .orderId(savedOrder.getId())
-                                    .userId(currentUser.getId())
-                                    .couponId(couponId)
-                                    .discountAmount(couponDiscount)
-                                    .bearer(couponBearer)
-                                    .status("LOCKED")
-                                    .build();
-                            promotionUsageRepository.save(usage);
-                        }
-                    }
+                List<UserCoupon> lockedCoupons = userCouponRepository.findByLockedOrderIdAndStatus(savedOrder.getId(), "LOCKED");
+                BigDecimal totalCouponDiscount = pricingResult.getCouponDiscountAmount() != null
+                        ? pricingResult.getCouponDiscountAmount()
+                        : BigDecimal.ZERO;
+                if (!lockedCoupons.isEmpty() && totalCouponDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                    // 取第一张锁定券的承担方作为代表（多券叠加时承担方已在 CouponService 中计算）
+                    String couponBearer = lockedCoupons.get(0).getTemplate() != null
+                            ? lockedCoupons.get(0).getTemplate().getSubsidyBearer()
+                            : "PLATFORM";
+                    PromotionUsage usage = PromotionUsage.builder()
+                            .orderId(savedOrder.getId())
+                            .userId(currentUser.getId())
+                            .couponId(lockedCoupons.get(0).getId())
+                            .discountAmount(totalCouponDiscount)
+                            .bearer(couponBearer)
+                            .status("LOCKED")
+                            .build();
+                    promotionUsageRepository.save(usage);
                 }
             }
 
@@ -287,6 +294,8 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             savedOrder.setPaymentStatus(PaymentStatus.UNPAID);
             savedOrder = orderRepository.save(savedOrder);
 
+            trackBookingAfterCommit(currentUser.getId(), homestay);
+
             return convertToDTO(savedOrder);
 
         } catch (DataIntegrityViolationException e) {
@@ -295,6 +304,38 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         } catch (Exception e) {
             log.error("订单创建过程中发生异常: {}", e.getMessage(), e);
             throw new RuntimeException("订单创建失败，请稍后重试");
+        }
+    }
+
+    private void trackBookingAfterCommit(Long userId, Homestay homestay) {
+        if (userId == null || homestay == null || homestay.getId() == null) {
+            return;
+        }
+
+        Runnable trackingTask = () -> {
+            try {
+                userBehaviorTrackingService.trackBooking(
+                        userId,
+                        null,
+                        homestay.getId(),
+                        homestay.getCityCode(),
+                        homestay.getType(),
+                        homestay.getPrice());
+            } catch (Exception e) {
+                log.warn("记录预订行为失败: userId={}, homestayId={}, error={}",
+                        userId, homestay.getId(), e.getMessage());
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    trackingTask.run();
+                }
+            });
+        } else {
+            trackingTask.run();
         }
     }
 
@@ -743,6 +784,13 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                         currentUser.getId());
             } catch (Exception notifyEx) {
                 log.error("发送订单 {} 完成通知失败: {}", order.getOrderNumber(), notifyEx.getMessage(), notifyEx);
+            }
+
+            // 订单完成返券
+            try {
+                issueRewardCoupons(order.getGuest().getId(), "ORDER_COMPLETED");
+            } catch (Exception e) {
+                log.error("订单 {} 完成返券失败: {}", order.getOrderNumber(), e.getMessage());
             }
         } else if (targetStatus == OrderStatus.CHECKED_IN) {
             if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser)) {
@@ -1311,6 +1359,31 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         return refundAmt;
+    }
+
+    /**
+     * 订单完成后自动发放返券
+     */
+    private void issueRewardCoupons(Long userId, String triggerEvent) {
+        List<com.homestay3.homestaybackend.entity.CouponTemplate> templates =
+                couponTemplateRepository.findByAutoIssueTriggerAndStatus(triggerEvent, "ACTIVE");
+        if (templates.isEmpty()) {
+            return;
+        }
+        for (com.homestay3.homestaybackend.entity.CouponTemplate template : templates) {
+            try {
+                // 检查用户是否已领取该模板（避免重复发放）
+                long claimedCount = userCouponRepository.countByUserIdAndTemplateId(userId, template.getId());
+                if (claimedCount >= template.getPerUserLimit()) {
+                    log.debug("用户 {} 已达到模板 {} 领取上限，跳过返券", userId, template.getId());
+                    continue;
+                }
+                couponService.claimCoupon(userId, template.getId());
+                log.info("订单返券成功：用户ID={}, 模板ID={}, 触发事件={}", userId, template.getId(), triggerEvent);
+            } catch (Exception e) {
+                log.warn("订单返券失败：用户ID={}, 模板ID={}, 原因={}", userId, template.getId(), e.getMessage());
+            }
+        }
     }
 
     /**
