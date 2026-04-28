@@ -22,6 +22,9 @@ Thumbs.db
 # === Uploads (generated files) ===
 uploads/
 
+# === Scripts (seed data generators) ===
+scripts/
+
 # === Node (if any) ===
 node_modules/
 
