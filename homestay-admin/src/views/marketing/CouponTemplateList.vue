@@ -118,6 +118,18 @@
             <el-option label="混合" value="MIXED" />
           </el-select>
         </el-form-item>
+        <el-form-item label="互斥组">
+          <el-input v-model="form.stackGroup" placeholder="DEFAULT 表示可与任何券叠加" />
+          <span class="form-tip">同组券不可叠加，DEFAULT 可与所有券叠加</span>
+        </el-form-item>
+        <el-form-item label="自动发放触发">
+          <el-select v-model="form.autoIssueTrigger">
+            <el-option label="不自动发放" value="NONE" />
+            <el-option label="注册时发放" value="REGISTER" />
+            <el-option label="首单完成后发放" value="FIRST_ORDER" />
+            <el-option label="订单完成后发放" value="ORDER_COMPLETED" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="新人专属">
           <el-switch v-model="form.isNewUserCoupon" active-text="注册自动发放" />
         </el-form-item>
@@ -217,6 +229,8 @@ const {
     name: '',
     couponType: 'CASH',
     subsidyBearer: 'PLATFORM',
+    stackGroup: 'DEFAULT',
+    autoIssueTrigger: 'NONE',
     isNewUserCoupon: false,
     faceValue: 0,
     discountRate: 0,
@@ -271,6 +285,8 @@ const handleEditWithDate = (row: any) => {
     name: row.name,
     couponType: row.couponType,
     subsidyBearer: row.subsidyBearer || 'PLATFORM',
+    stackGroup: row.stackGroup || 'DEFAULT',
+    autoIssueTrigger: row.autoIssueTrigger || 'NONE',
     isNewUserCoupon: row.isNewUserCoupon || false,
     faceValue: row.faceValue || 0,
     discountRate: row.discountRate || 0,

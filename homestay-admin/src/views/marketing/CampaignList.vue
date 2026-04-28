@@ -187,17 +187,41 @@
               </el-form-item>
             </el-col>
           </el-row>
+          <!-- 阶梯满减配置 -->
+          <div v-if="rule.ruleType === 'FULL_REDUCTION'" class="tier-config-section">
+            <el-form-item label="阶梯满减" label-width="80px">
+              <div class="tier-list">
+                <div v-for="(tier, tIndex) in rule.tierConfig" :key="tIndex" class="tier-row">
+                  <span class="tier-label">满</span>
+                  <el-input-number v-model="tier.threshold" :min="0" :precision="2" :controls="false" style="width: 90px" />
+                  <span class="tier-label">减</span>
+                  <el-input-number v-model="tier.discount" :min="0" :precision="2" :controls="false" style="width: 90px" />
+                  <el-button type="danger" size="small" text @click="rule.tierConfig.splice(tIndex, 1)" v-if="rule.tierConfig.length > 1">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+                <el-button type="primary" size="small" text @click="rule.tierConfig.push({ threshold: 0, discount: 0 })">
+                  <el-icon><Plus /></el-icon> 添加档位
+                </el-button>
+              </div>
+              <span class="form-tip">系统会自动选择满足门槛的最高档位</span>
+            </el-form-item>
+          </div>
+
           <el-row :gutter="16">
             <el-col :span="8">
-              <el-form-item label="优惠金额" label-width="80px" v-if="rule.ruleType === 'AMOUNT_OFF' || rule.ruleType === 'FULL_REDUCTION' || rule.ruleType === 'PER_NIGHT_OFF'">
+              <el-form-item label="优惠金额" label-width="80px" v-if="rule.ruleType === 'AMOUNT_OFF' || rule.ruleType === 'PER_NIGHT_OFF'">
                 <el-input-number v-model="rule.discountAmount" :min="0" :precision="2" style="width: 100%" />
               </el-form-item>
               <el-form-item label="折扣率" label-width="80px" v-if="rule.ruleType === 'PERCENT_OFF'">
                 <el-input-number v-model="rule.discountRate" :min="0.01" :max="0.99" :precision="2" :step="0.05" style="width: 100%" />
               </el-form-item>
+              <el-form-item label="优惠金额" label-width="80px" v-if="rule.ruleType === 'FULL_REDUCTION' && !hasValidTier(rule)">
+                <el-input-number v-model="rule.discountAmount" :min="0" :precision="2" style="width: 100%" placeholder="单档满减金额" />
+              </el-form-item>
             </el-col>
             <el-col :span="8">
-              <el-form-item label="门槛金额" label-width="80px">
+              <el-form-item label="门槛金额" label-width="80px" v-if="rule.ruleType !== 'FULL_REDUCTION' || !hasValidTier(rule)">
                 <el-input-number v-model="rule.thresholdAmount" :min="0" :precision="2" style="width: 100%" placeholder="可选" />
               </el-form-item>
             </el-col>
@@ -246,11 +270,17 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus } from '@element-plus/icons-vue';
+import { Plus, Delete } from '@element-plus/icons-vue';
 import {
   getCampaigns, createCampaign, updateCampaign,
   publishCampaign, pauseCampaign, deleteCampaign
 } from '@/api/marketing';
+
+// 阶梯配置项
+interface TierItem {
+  threshold: number;
+  discount: number;
+}
 
 // 规则类型
 interface RuleForm {
@@ -264,6 +294,7 @@ interface RuleForm {
   scopeType: string;
   scopeValueInput: string;
   firstOrderOnly: boolean;
+  tierConfig: TierItem[];
 }
 
 // 表单类型
@@ -308,6 +339,7 @@ function createEmptyRule(): RuleForm {
     scopeType: 'ALL',
     scopeValueInput: '',
     firstOrderOnly: false,
+    tierConfig: [{ threshold: 0, discount: 0 }],
   };
 }
 
@@ -436,18 +468,35 @@ const handleEdit = (row: any) => {
 
   // 从已有规则还原
   if (row.rules && row.rules.length > 0) {
-    form.rules = row.rules.map((r: any) => ({
-      ruleType: r.ruleType || 'PERCENT_OFF',
-      discountAmount: r.discountAmount || null,
-      discountRate: r.discountRate || null,
-      thresholdAmount: r.thresholdAmount || null,
-      maxDiscount: r.maxDiscount || null,
-      minNights: r.minNights || null,
-      maxNights: r.maxNights || null,
-      scopeType: r.scopeType || 'ALL',
-      scopeValueInput: parseScopeValueInput(r.scopeType || 'ALL', r.scopeValueJson || ''),
-      firstOrderOnly: r.firstOrderOnly || false,
-    }));
+    form.rules = row.rules.map((r: any) => {
+      let tierConfig: TierItem[] = [{ threshold: 0, discount: 0 }];
+      if (r.tierConfigJson) {
+        try {
+          const parsed = JSON.parse(r.tierConfigJson);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            tierConfig = parsed.map((t: any) => ({
+              threshold: Number(t.threshold) || 0,
+              discount: Number(t.discount) || 0,
+            }));
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      return {
+        ruleType: r.ruleType || 'PERCENT_OFF',
+        discountAmount: r.discountAmount || null,
+        discountRate: r.discountRate || null,
+        thresholdAmount: r.thresholdAmount || null,
+        maxDiscount: r.maxDiscount || null,
+        minNights: r.minNights || null,
+        maxNights: r.maxNights || null,
+        scopeType: r.scopeType || 'ALL',
+        scopeValueInput: parseScopeValueInput(r.scopeType || 'ALL', r.scopeValueJson || ''),
+        firstOrderOnly: r.firstOrderOnly || false,
+        tierConfig,
+      };
+    });
   } else {
     form.rules = [createEmptyRule()];
   }
@@ -471,19 +520,29 @@ const submitForm = async () => {
       return;
     }
 
-    // 构建规则数据（去除临时字段 scopeValueInput）
-    const rules = form.rules.map(r => ({
-      ruleType: r.ruleType,
-      discountAmount: r.discountAmount,
-      discountRate: r.ruleType === 'PERCENT_OFF' ? r.discountRate : null,
-      maxDiscount: r.maxDiscount,
-      thresholdAmount: r.thresholdAmount,
-      minNights: r.minNights,
-      maxNights: r.maxNights,
-      scopeType: r.scopeType,
-      scopeValueJson: buildScopeValueJson(r.scopeType, r.scopeValueInput),
-      firstOrderOnly: r.firstOrderOnly,
-    }));
+    // 构建规则数据（去除临时字段 scopeValueInput，序列化 tierConfig）
+    const rules = form.rules.map(r => {
+      const rule: any = {
+        ruleType: r.ruleType,
+        discountAmount: r.discountAmount,
+        discountRate: r.ruleType === 'PERCENT_OFF' ? r.discountRate : null,
+        maxDiscount: r.maxDiscount,
+        thresholdAmount: r.thresholdAmount,
+        minNights: r.minNights,
+        maxNights: r.maxNights,
+        scopeType: r.scopeType,
+        scopeValueJson: buildScopeValueJson(r.scopeType, r.scopeValueInput),
+        firstOrderOnly: r.firstOrderOnly,
+      };
+      // 阶梯满减：如果有有效阶梯配置，序列化为 JSON
+      if (r.ruleType === 'FULL_REDUCTION' && r.tierConfig && r.tierConfig.length > 0) {
+        const validTiers = r.tierConfig.filter(t => t.threshold > 0 && t.discount > 0);
+        if (validTiers.length > 0) {
+          rule.tierConfigJson = JSON.stringify(validTiers);
+        }
+      }
+      return rule;
+    });
 
     const payload: any = {
       name: form.name,
@@ -560,6 +619,10 @@ const formatBearer = (bearer: string) => {
     MIXED: '混合',
   };
   return map[bearer] || bearer;
+};
+
+const hasValidTier = (rule: RuleForm): boolean => {
+  return rule.tierConfig.some(t => t.threshold > 0 && t.discount > 0);
 };
 
 const formatStatus = (status: string) => {
@@ -642,5 +705,26 @@ onMounted(fetchData);
   margin-bottom: 12px;
   font-weight: 500;
   color: #303133;
+}
+.tier-config-section {
+  background: #f0f9ff;
+  border: 1px dashed #409eff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.tier-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tier-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tier-label {
+  color: #606266;
+  font-size: 13px;
 }
 </style>

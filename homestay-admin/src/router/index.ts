@@ -217,6 +217,42 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/marketing/MarketingDashboard.vue"),
       },
       {
+        path: "/marketing/batch-issue",
+        name: "marketingBatchIssue",
+        meta: {
+          title: "批量发券",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/BatchIssueManage.vue"),
+      },
+      {
+        path: "/marketing/referral",
+        name: "marketingReferral",
+        meta: {
+          title: "邀请裂变",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/ReferralManage.vue"),
+      },
+      {
+        path: "/marketing/funnel",
+        name: "marketingFunnel",
+        meta: {
+          title: "转化漏斗",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/CouponFunnel.vue"),
+      },
+      {
+        path: "/marketing/ab-test",
+        name: "marketingAbTest",
+        meta: {
+          title: "AB测试",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/marketing/AbTestManage.vue"),
+      },
+      {
         path: "/pricing/rules",
         name: "pricingRules",
         meta: {

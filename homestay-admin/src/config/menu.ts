@@ -121,6 +121,30 @@ export const menuData: Menus[] = [
         title: "营销报表",
         index: "/marketing/dashboard",
       },
+      {
+        id: "marketing-batch-issue",
+        pid: "marketing",
+        title: "批量发券",
+        index: "/marketing/batch-issue",
+      },
+      {
+        id: "marketing-referral",
+        pid: "marketing",
+        title: "邀请裂变",
+        index: "/marketing/referral",
+      },
+      {
+        id: "marketing-funnel",
+        pid: "marketing",
+        title: "转化漏斗",
+        index: "/marketing/funnel",
+      },
+      {
+        id: "marketing-ab-test",
+        pid: "marketing",
+        title: "AB测试",
+        index: "/marketing/ab-test",
+      },
     ],
   },
   {
