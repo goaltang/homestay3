@@ -148,24 +148,6 @@ export function adaptHomestayItem(item: any): Homestay {
     } as Homestay;
   }
 
-  // 打印原始数据以便调试房东信息
-  console.log("原始房源数据:", {
-    id: item.id,
-    title: item.title,
-    ownerInfo: {
-      ownerName: item.ownerName,
-      ownerUsername: item.ownerUsername,
-      ownerPhone: item.ownerPhone,
-      ownerId: item.ownerId,
-      owner: item.owner,
-      user: item.user,
-      host: item.host,
-      hostId: item.hostId,
-      hostName: item.hostName,
-    },
-    allFields: Object.keys(item),
-  });
-
   const originalImages = Array.isArray(item.images)
     ? item.images.filter(
         (img: any) =>

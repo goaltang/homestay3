@@ -71,6 +71,19 @@ public class HomestaySpecificationSupport {
         };
     }
 
+    public Specification<Homestay> withOwnerFetch(Specification<Homestay> delegate) {
+        return (root, query, criteriaBuilder) -> {
+            if (query != null && !isCountQuery(query)) {
+                root.fetch("owner", JoinType.LEFT);
+                query.distinct(true);
+            }
+
+            return delegate == null
+                    ? criteriaBuilder.conjunction()
+                    : delegate.toPredicate(root, query, criteriaBuilder);
+        };
+    }
+
     private boolean isCountQuery(CriteriaQuery<?> query) {
         Class<?> resultType = query.getResultType();
         return Long.class.equals(resultType) || long.class.equals(resultType);

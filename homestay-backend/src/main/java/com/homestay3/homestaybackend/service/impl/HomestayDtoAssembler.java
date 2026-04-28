@@ -8,6 +8,7 @@ import com.homestay3.homestaybackend.dto.HomestaySearchResultDTO;
 import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.HomestayType;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.mapper.HomestayMapper;
 import com.homestay3.homestaybackend.repository.HomestayTypeRepository;
 import com.homestay3.homestaybackend.service.AmenityService;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -184,13 +186,93 @@ public class HomestayDtoAssembler {
     public Page<HomestayAdminSummaryDTO> toAdminSummaryDTOPage(
             Page<Homestay> homestaysPage,
             List<String> referringSearchCriteria) {
-        return new PageImpl<>(
-                toDTOs(homestaysPage.getContent(), referringSearchCriteria).stream()
-                        .map(this::toAdminSummaryDTO)
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList()),
-                homestaysPage.getPageable(),
-                homestaysPage.getTotalElements());
+        if (homestaysPage == null) {
+            return new PageImpl<>(new ArrayList<>(), Pageable.unpaged(), 0);
+        }
+        List<HomestayAdminSummaryDTO> content = toAdminSummaryDTOs(homestaysPage.getContent());
+        return new PageImpl<>(content, homestaysPage.getPageable(), homestaysPage.getTotalElements());
+    }
+
+    private List<HomestayAdminSummaryDTO> toAdminSummaryDTOs(Collection<Homestay> homestays) {
+        if (homestays == null || homestays.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<String, String> propertyTypeNameMap = resolvePropertyTypeNames(homestays);
+        List<HomestayAdminSummaryDTO> result = new ArrayList<>();
+        for (Homestay homestay : homestays) {
+            try {
+                if (homestay == null) {
+                    log.warn("Skip null homestay while assembling admin summary DTO list");
+                    continue;
+                }
+                HomestayAdminSummaryDTO dto = buildAdminSummaryDTO(homestay, propertyTypeNameMap);
+                if (dto != null) {
+                    result.add(dto);
+                }
+            } catch (Exception exception) {
+                log.error(
+                        "Failed to assemble homestay {} to admin summary DTO: {}",
+                        homestay != null ? homestay.getId() : null,
+                        exception.getMessage(),
+                        exception);
+            }
+        }
+        return result;
+    }
+
+    private HomestayAdminSummaryDTO buildAdminSummaryDTO(Homestay homestay, Map<String, String> propertyTypeNameMap) {
+        if (homestay == null) {
+            return null;
+        }
+        try {
+            String propertyTypeName = resolvePropertyTypeName(homestay.getType(), propertyTypeNameMap);
+            String coverImage = homestay.getCoverImage();
+            if (imageUrlUtil != null) {
+                coverImage = imageUrlUtil.ensureCompleteImageUrl(coverImage);
+            }
+
+            Long ownerId = null;
+            String ownerUsername = null;
+            String ownerName = null;
+            if (homestay.getOwner() != null) {
+                User owner = homestay.getOwner();
+                ownerId = owner.getId();
+                ownerUsername = owner.getUsername();
+                ownerName = owner.getRealName();
+                if (!StringUtils.hasText(ownerName)) {
+                    ownerName = owner.getNickname();
+                }
+                if (!StringUtils.hasText(ownerName)) {
+                    ownerName = owner.getUsername();
+                }
+            }
+
+            return HomestayAdminSummaryDTO.builder()
+                    .id(homestay.getId())
+                    .title(homestay.getTitle())
+                    .type(homestay.getType())
+                    .propertyTypeName(propertyTypeName)
+                    .price(homestay.getPrice() != null ? homestay.getPrice().toString() : "0")
+                    .status(homestay.getStatus() != null ? homestay.getStatus().name() : "UNKNOWN")
+                    .maxGuests(homestay.getMaxGuests())
+                    .provinceText(homestay.getProvinceText())
+                    .cityText(homestay.getCityText())
+                    .districtText(homestay.getDistrictText())
+                    .addressDetail(homestay.getAddressDetail())
+                    .coverImage(coverImage)
+                    .ownerId(ownerId)
+                    .ownerUsername(ownerUsername)
+                    .ownerName(ownerName)
+                    .featured(homestay.getFeatured() != null ? homestay.getFeatured() : false)
+                    .createdAt(homestay.getCreatedAt())
+                    .updatedAt(homestay.getUpdatedAt())
+                    .latitude(homestay.getLatitude() != null ? homestay.getLatitude().doubleValue() : null)
+                    .longitude(homestay.getLongitude() != null ? homestay.getLongitude().doubleValue() : null)
+                    .build();
+        } catch (Exception exception) {
+            log.error("Failed to assemble homestay {} to admin summary DTO", homestay.getId(), exception);
+            return null;
+        }
     }
 
     public HomestayAdminDetailDTO toAdminDetailDTO(HomestayDTO dto) {
@@ -321,6 +403,7 @@ public class HomestayDtoAssembler {
                 .updatedAt(dto.getUpdatedAt())
                 .latitude(dto.getLatitude())
                 .longitude(dto.getLongitude())
+                .distanceKm(dto.getDistanceKm())
                 .build();
     }
 

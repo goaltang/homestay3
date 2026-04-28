@@ -112,7 +112,7 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
         };
 
         Page<Homestay> homestaysPage = homestayRepository.findAll(
-                homestaySpecificationSupport.withDetailFetch(specification),
+                homestaySpecificationSupport.withOwnerFetch(specification),
                 pageable);
         return homestaysPage;
     }
