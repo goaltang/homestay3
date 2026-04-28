@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.ReviewDTO;
 import com.homestay3.homestaybackend.service.ReviewService;
+import com.homestay3.homestaybackend.util.SortUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/reviews")
@@ -34,11 +36,13 @@ public class AdminReviewController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer rating,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "createTime,desc") String sort
     ) {
-        logger.info("管理员获取评价列表，页码: {}, 每页数量: {}, 评分: {}, 状态: {}", page, size, rating, status);
+        logger.info("管理员获取评价列表，页码: {}, 每页数量: {}, 评分: {}, 状态: {}, 排序: {}", page, size, rating, status, sort);
         
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+        Set<String> allowedFields = Set.of("id", "createTime", "updatedAt", "rating");
+        Pageable pageable = SortUtils.buildPageable(page, size, sort, null, allowedFields);
         Page<ReviewDTO> reviews = reviewService.getAdminReviews(pageable, rating, status);
         
         Map<String, Object> response = new HashMap<>();

@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.UserDTO;
 import com.homestay3.homestaybackend.service.UserService;
+import com.homestay3.homestaybackend.util.SortUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/users")
@@ -34,15 +36,17 @@ public class AdminUserController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String email,
-            @RequestParam(required = false) String role
+            @RequestParam(required = false) String role,
+            @RequestParam(defaultValue = "createdAt,desc") String sort
     ) {
-        logger.info("管理员获取用户列表，页码: {}, 每页数量: {}, 用户名: {}, 邮箱: {}, 角色: {}", 
-                page, size, username, email, role);
+        logger.info("管理员获取用户列表，页码: {}, 每页数量: {}, 用户名: {}, 邮箱: {}, 角色: {}, 排序: {}", 
+                page, size, username, email, role, sort);
         
         // 确保页码是 0-based for Spring Data JPA
         int pageNumber = page > 0 ? page - 1 : 0;
         
-        Pageable pageable = PageRequest.of(pageNumber, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Set<String> allowedFields = Set.of("id", "createdAt", "updatedAt", "username", "email", "status");
+        Pageable pageable = SortUtils.buildPageable(pageNumber, size, sort, null, allowedFields);
         Page<UserDTO> users = userService.getAdminUsers(pageable, username, email, role);
         
         Map<String, Object> response = new HashMap<>();

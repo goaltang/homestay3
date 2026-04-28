@@ -11,6 +11,8 @@ import com.homestay3.homestaybackend.controller.support.HomestayWriteRequestAdap
 import com.homestay3.homestaybackend.service.HomestayAdminService;
 import com.homestay3.homestaybackend.service.HomestayCommandService;
 import com.homestay3.homestaybackend.service.HomestayQueryService;
+import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
+import com.homestay3.homestaybackend.util.SortUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/homestays")
@@ -39,6 +42,7 @@ public class AdminHomestayController {
     private final HomestayQueryService homestayQueryService;
     private final HomestayResponseAdapter homestayResponseAdapter;
     private final HomestayWriteRequestAdapter homestayWriteRequestAdapter;
+    private final HomestayIndexingService homestayIndexingService;
 
     /**
      * 获取房源列表，支持分页和筛选
@@ -49,16 +53,22 @@ public class AdminHomestayController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String provinceCode,
+            @RequestParam(required = false) String cityCode,
+            @RequestParam(required = false) Integer minPrice,
+            @RequestParam(required = false) Integer maxPrice,
+            @RequestParam(defaultValue = "createdAt,desc") String sort
     ) {
-        logger.info("管理员获取房源列表，请求页码 (1-based): {}, 每页数量: {}, 标题: {}, 状态: {}, 类型: {}", 
-                page, size, title, status, type);
-        
+        logger.info("管理员获取房源列表，请求页码 (1-based): {}, 每页数量: {}, 标题: {}, 状态: {}, 类型: {}, 省: {}, 市: {}, 价格: {}-{}, 排序: {}",
+                page, size, title, status, type, provinceCode, cityCode, minPrice, maxPrice, sort);
+
         int pageZeroBased = Math.max(0, page - 1);
-        
-        Pageable pageable = PageRequest.of(pageZeroBased, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Set<String> allowedFields = Set.of("id", "createdAt", "updatedAt", "title", "price", "status");
+        Pageable pageable = SortUtils.buildPageable(pageZeroBased, size, sort, null, allowedFields);
         Page<HomestayAdminSummaryDTO> homestays =
-                homestayAdminService.getAdminHomestaySummaries(pageable, title, status, type);
+                homestayAdminService.getAdminHomestaySummaries(pageable, title, status, type, provinceCode, cityCode, minPrice, maxPrice);
         
         Map<String, Object> response = new HashMap<>();
         response.put("content", homestays.getContent());
@@ -76,13 +86,15 @@ public class AdminHomestayController {
     @GetMapping("/pending-review")
     public ResponseEntity<?> getPendingReviewHomestays(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "updatedAt,desc") String sort
     ) {
-        logger.info("管理员获取待审核房源列表，页码: {}, 每页数量: {}", page, size);
+        logger.info("管理员获取待审核房源列表，页码: {}, 每页数量: {}, 排序: {}", page, size, sort);
         
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        Set<String> allowedFields = Set.of("id", "createdAt", "updatedAt", "title", "status");
+        Pageable pageable = SortUtils.buildPageable(page, size, sort, null, allowedFields);
         Page<HomestayAdminSummaryDTO> homestays =
-                homestayAdminService.getAdminHomestaySummaries(pageable, null, "PENDING", null);
+                homestayAdminService.getAdminHomestaySummaries(pageable, null, "PENDING", null, null, null, null, null);
         
         Map<String, Object> response = new HashMap<>();
         response.put("content", homestays.getContent());
@@ -285,6 +297,25 @@ public class AdminHomestayController {
             logger.error("批量补全坐标失败", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 全量重建 ES 搜索索引
+     */
+    @PostMapping("/rebuild-index")
+    public ResponseEntity<?> rebuildElasticsearchIndex() {
+        logger.info("管理员请求重建 ES 房源索引");
+        try {
+            homestayIndexingService.rebuildIndex();
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "ES 房源索引重建成功"
+            ));
+        } catch (Exception e) {
+            logger.error("重建 ES 索引失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "重建索引失败: " + e.getMessage()));
         }
     }
 

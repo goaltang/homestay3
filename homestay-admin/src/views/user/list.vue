@@ -68,64 +68,12 @@
 
         <!-- 搜索筛选区域 -->
         <div class="search-box">
-            <el-form :inline="true" :model="searchForm">
-                <el-form-item label="用户名">
-                    <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable />
-                </el-form-item>
-                <el-form-item label="手机号">
-                    <el-input v-model="searchForm.phone" placeholder="请输入手机号" clearable disabled />
-                    <el-text size="small" type="info">（搜索功能待后端支持）</el-text>
-                </el-form-item>
-                <el-form-item label="邮箱">
-                    <el-input v-model="searchForm.email" placeholder="请输入邮箱" clearable />
-                </el-form-item>
-                <el-form-item label="状态">
-                    <el-select v-model="searchForm.status" placeholder="请选择状态" clearable disabled>
-                        <el-option label="正常" value="1" />
-                        <el-option label="禁用" value="0" />
-                    </el-select>
-                    <el-text size="small" type="info">（搜索功能待后端支持）</el-text>
-                </el-form-item>
-                <el-form-item label="用户类型">
-                    <el-select v-model="searchForm.userType" placeholder="请选择用户类型" clearable>
-                        <el-option label="普通用户" value="ROLE_USER" />
-                        <el-option label="房东" value="ROLE_HOST" />
-                        <el-option label="管理员" value="ROLE_ADMIN" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="注册时间">
-                    <el-date-picker v-model="searchForm.dateRange" type="datetimerange" range-separator="至"
-                        start-placeholder="开始日期" end-placeholder="结束日期" format="YYYY-MM-DD HH:mm"
-                        value-format="YYYY-MM-DD HH:mm:ss" clearable disabled />
-                    <el-text size="small" type="info">（搜索功能待后端支持）</el-text>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="handleSearch" :loading="loading">
-                        <el-icon>
-                            <Search />
-                        </el-icon>
-                        搜索
-                    </el-button>
-                    <el-button @click="resetSearch">
-                        <el-icon>
-                            <Refresh />
-                        </el-icon>
-                        重置
-                    </el-button>
-                    <el-button type="success" @click="handleAdd">
-                        <el-icon>
-                            <Plus />
-                        </el-icon>
-                        新增用户
-                    </el-button>
-                    <el-button type="info" @click="handleExport" :loading="exportLoading">
-                        <el-icon>
-                            <Download />
-                        </el-icon>
-                        导出
-                    </el-button>
-                </el-form-item>
-            </el-form>
+            <table-search :query="searchForm" :options="searchOptions" :search="handleSearch">
+                <template #actions>
+                    <el-button type="success" @click="handleAdd" :icon="Plus">新增用户</el-button>
+                    <el-button type="info" @click="handleExport" :loading="exportLoading" :icon="Download">导出</el-button>
+                </template>
+            </table-search>
         </div>
 
         <!-- 批量操作区域 -->
@@ -165,9 +113,10 @@
 
         <!-- 用户列表 -->
         <el-table :data="tableData" border style="width: 100%" v-loading="loading"
-            @selection-change="handleSelectionChange" :header-cell-style="{ background: '#f5f7fa', color: '#606266' }">
+            @selection-change="handleSelectionChange" @sort-change="handleSortChange"
+            :header-cell-style="{ background: '#f5f7fa', color: '#606266' }">
             <el-table-column type="selection" width="55" />
-            <el-table-column prop="id" label="ID" width="80" sortable />
+            <el-table-column prop="id" label="ID" width="80" sortable="custom" />
 
             <!-- 头像和基本信息 -->
             <el-table-column label="用户信息" width="200">
@@ -212,10 +161,10 @@
                 </template>
             </el-table-column>
 
-            <el-table-column prop="createTime" label="注册时间" width="180" sortable />
+            <el-table-column prop="createTime" label="注册时间" width="180" sortable="custom" />
 
             <!-- 最后登录时间 -->
-            <el-table-column prop="lastLoginTime" label="最后登录" width="180" sortable>
+            <el-table-column prop="lastLoginTime" label="最后登录" width="180" sortable="custom">
                 <template #default="scope">
                     <span v-if="scope.row.lastLoginTime">
                         {{ formatDateTime(scope.row.lastLoginTime) }}
@@ -401,8 +350,6 @@ import type { FormInstance, FormRules } from 'element-plus'
 import {
     User,
     Plus,
-    Search,
-    Refresh,
     Download,
     CircleCheck,
     CircleClose,
@@ -426,9 +373,11 @@ import {
     createUser,
     getUserDetail
 } from '@/api/user'
+import TableSearch from '@/components/table-search.vue'
+import type { FormOptionList } from '@/types/form-option'
 
 // 搜索表单
-const searchForm = reactive<UserSearchParams & { dateRange?: string[] }>({
+const searchForm = reactive<UserSearchParams & { dateRange?: string[], sort?: string }>({
     page: 1,
     pageSize: 10,
     username: '',
@@ -436,8 +385,20 @@ const searchForm = reactive<UserSearchParams & { dateRange?: string[] }>({
     email: '',
     status: '',
     userType: '',
-    dateRange: []
+    dateRange: [],
+    sort: 'createdAt,desc'
 })
+
+// 筛选配置
+const searchOptions: FormOptionList[] = [
+    { label: '用户名', prop: 'username', type: 'input', placeholder: '请输入用户名' },
+    { label: '邮箱', prop: 'email', type: 'input', placeholder: '请输入邮箱' },
+    { label: '用户类型', prop: 'userType', type: 'select', placeholder: '请选择用户类型', opts: [
+        { label: '普通用户', value: 'ROLE_USER' },
+        { label: '房东', value: 'ROLE_HOST' },
+        { label: '管理员', value: 'ROLE_ADMIN' }
+    ]},
+]
 
 // 统计数据
 const totalUsers = ref(0)
@@ -580,19 +541,6 @@ const handleSearch = () => {
     fetchData()
 }
 
-// 重置搜索
-const resetSearch = () => {
-    Object.assign(searchForm, {
-        username: '',
-        phone: '',
-        email: '',
-        status: '',
-        userType: '',
-        dateRange: []
-    })
-    handleSearch()
-}
-
 // 获取数据
 const fetchData = async () => {
     loading.value = true
@@ -609,12 +557,9 @@ const fetchData = async () => {
             page: currentPage.value,
             pageSize: pageSize.value,
             username: params.username,
-            // phone: params.phone, // 暂时注释，后端不支持
             email: params.email,
-            // status: params.status, // 暂时注释，后端不支持此字段
             userType: params.userType as string,
-            // startTime: params.startTime, // 暂时注释，后端不支持
-            // endTime: params.endTime // 暂时注释，后端不支持
+            sort: params.sort || 'createdAt,desc',
         } as UserSearchParams)
         tableData.value = res.list
         total.value = res.total
@@ -747,6 +692,18 @@ const handleDelete = async (row: UserType) => {
             ElMessage.error('删除用户失败')
         }
     }
+}
+
+// 排序变化
+const handleSortChange = ({ prop, order }: any) => {
+    if (!prop || !order) {
+        searchForm.sort = 'createdAt,desc'
+    } else {
+        const direction = order === 'descending' ? 'desc' : 'asc'
+        searchForm.sort = `${prop},${direction}`
+    }
+    currentPage.value = 1
+    fetchData()
 }
 
 // 查看操作日志

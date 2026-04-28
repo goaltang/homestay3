@@ -90,6 +90,7 @@ export interface User {
 export interface HomestaySearchParams extends PageParams {
   name?: string;
   status?: string;
+  sort?: string;
 }
 
 // 订单搜索参数
@@ -107,6 +108,7 @@ export interface UserSearchParams extends PageParams {
   userType?: string;
   startTime?: string;
   endTime?: string;
+  sort?: string;
 }
 
 // 状态映射

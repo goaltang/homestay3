@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Document(indexName = "homestay_index")
-@Setting(shards = 1, replicas = 0)
+@Setting(settingPath = "elasticsearch/homestay_index_settings.json")
 @Getter
 @Setter
 @Builder
@@ -21,13 +21,13 @@ public class HomestayDocument {
     @Id
     private Long id;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
     private String title;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
     private String description;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
     private String addressDetail;
 
     @Field(type = FieldType.Keyword)

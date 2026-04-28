@@ -1,27 +1,12 @@
 <template>
     <div class="homestay-list">
         <div class="search-box">
-            <el-form :inline="true" :model="searchForm">
-                <el-form-item label="房源名称">
-                    <el-input v-model="searchForm.name" placeholder="请输入房源名称" clearable />
-                </el-form-item>
-                <el-form-item label="状态">
-                    <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
-                        <el-option label="草稿" value="DRAFT" />
-                        <el-option label="待审核" value="PENDING" />
-                        <el-option label="已上架" value="ACTIVE" />
-                        <el-option label="已下架" value="INACTIVE" />
-                        <el-option label="已拒绝" value="REJECTED" />
-                        <el-option label="已暂停" value="SUSPENDED" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="handleSearch">搜索</el-button>
-                    <el-button @click="resetSearch">重置</el-button>
-                    <el-button type="success" @click="handleAdd">新增房源</el-button>
-                    <el-button type="warning" @click="goToAuditWorkbench" v-if="hasPendingItems">去审核中心</el-button>
-                </el-form-item>
-            </el-form>
+            <table-search :query="searchForm" :options="searchOptions" :search="handleSearch">
+                <template #actions>
+                    <el-button type="success" @click="handleAdd" :icon="Plus">新增房源</el-button>
+                    <el-button type="warning" @click="goToAuditWorkbench" v-if="hasPendingItems" :icon="Warning">去审核中心</el-button>
+                </template>
+            </table-search>
         </div>
 
         <!-- 批量操作区域 -->
@@ -39,11 +24,11 @@
         </div>
 
         <el-table :data="tableData" border style="width: 100%" v-loading="loading"
-            @selection-change="handleSelectionChange">
+            @selection-change="handleSelectionChange" @sort-change="handleSortChange">
             <el-table-column type="selection" width="55" />
-            <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="title" label="房源名称" />
-            <el-table-column prop="price" label="价格" width="120">
+            <el-table-column prop="id" label="ID" width="80" sortable="custom" />
+            <el-table-column prop="title" label="房源名称" sortable="custom" />
+            <el-table-column prop="price" label="价格" width="120" sortable="custom">
                 <template #default="scope">
                     ¥{{ scope.row.price || scope.row.pricePerNight || 'N/A' }}
                 </template>
@@ -53,7 +38,7 @@
                     {{ getLocationText(scope.row) }}
                 </template>
             </el-table-column>
-            <el-table-column prop="status" label="状态" width="120">
+            <el-table-column prop="status" label="状态" width="120" sortable="custom">
                 <template #default="scope">
                     <el-tag :type="getStatusTagType(scope.row.status)" size="small">
                         {{ formatStatus(scope.row.status) }}
@@ -262,7 +247,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, ArrowRight } from '@element-plus/icons-vue'
+import { Document, ArrowRight, Plus, Warning } from '@element-plus/icons-vue'
 import {
     getHomestayList,
     deleteHomestay,
@@ -275,6 +260,8 @@ import {
 } from '@/api/homestay'
 import { getHomestayReports } from '@/api/violation'
 import type { Homestay } from '@/types'
+import TableSearch from '@/components/table-search.vue'
+import type { FormOptionList } from '@/types/form-option'
 // 简化的区域代码映射
 const codeToText: Record<string, string> = {
     '11': '北京市',
@@ -305,8 +292,22 @@ const router = useRouter()
 // 搜索表单
 const searchForm = reactive({
     name: '',
-    status: ''
+    status: '',
+    sort: 'createdAt,desc'
 })
+
+// 筛选配置
+const searchOptions: FormOptionList[] = [
+    { label: '房源名称', prop: 'name', type: 'input', placeholder: '请输入房源名称' },
+    { label: '状态', prop: 'status', type: 'select', placeholder: '请选择状态', opts: [
+        { label: '草稿', value: 'DRAFT' },
+        { label: '待审核', value: 'PENDING' },
+        { label: '已上架', value: 'ACTIVE' },
+        { label: '已下架', value: 'INACTIVE' },
+        { label: '已拒绝', value: 'REJECTED' },
+        { label: '已暂停', value: 'SUSPENDED' },
+    ]},
+]
 
 // 表格数据
 const tableData = ref<Homestay[]>([])
@@ -368,12 +369,7 @@ const handleSearch = () => {
     fetchData()
 }
 
-// 重置搜索
-const resetSearch = () => {
-    searchForm.name = ''
-    searchForm.status = ''
-    handleSearch()
-}
+
 
 // 获取数据
 const fetchData = async () => {
@@ -383,7 +379,8 @@ const fetchData = async () => {
             page: currentPage.value,
             pageSize: pageSize.value,
             name: searchForm.name,
-            status: searchForm.status
+            status: searchForm.status,
+            sort: searchForm.sort || 'createdAt,desc',
         });
 
         if (res && res.list) {
@@ -789,6 +786,18 @@ const getViolationStatusTag = (status: string): 'primary' | 'success' | 'warning
         default: return 'info';
     }
 };
+
+// 排序变化
+const handleSortChange = ({ prop, order }: any) => {
+    if (!prop || !order) {
+        searchForm.sort = 'createdAt,desc'
+    } else {
+        const direction = order === 'descending' ? 'desc' : 'asc'
+        searchForm.sort = `${prop},${direction}`
+    }
+    currentPage.value = 1
+    fetchData()
+}
 
 // 初始化
 onMounted(() => {

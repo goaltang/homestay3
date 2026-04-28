@@ -11,6 +11,32 @@
         <!-- 搜索栏 -->
         <SearchBar @search="handleSearchBarSearch" @reset="handleSearchBarReset" :loading="loading" :initialParams="searchParams" />
 
+        <!-- 筛选栏 -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <span class="filter-label">价格区间</span>
+                <el-input-number v-model="minPrice" :min="0" :step="50" placeholder="最低" size="small" controls-position="right" style="width: 90px" @change="handleFilterChange" />
+                <span class="filter-separator">-</span>
+                <el-input-number v-model="maxPrice" :min="0" :step="50" placeholder="最高" size="small" controls-position="right" style="width: 90px" @change="handleFilterChange" />
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">设施</span>
+                <el-select v-model="selectedAmenities" multiple collapse-tags collapse-tags-tooltip placeholder="选择设施" size="small" style="width: 160px" @change="handleFilterChange">
+                    <el-option v-for="amenity in amenityOptions" :key="amenity.value" :label="amenity.label" :value="amenity.value" />
+                </el-select>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">排序</span>
+                <el-select v-model="currentSort" placeholder="排序方式" size="small" style="width: 140px" @change="handleFilterChange">
+                    <el-option label="最新发布" value="id,desc" />
+                    <el-option label="价格低到高" value="price,asc" />
+                    <el-option label="价格高到低" value="price,desc" />
+                    <el-option label="评分高到低" value="rating,desc" />
+                </el-select>
+            </div>
+            <el-button link size="small" type="primary" @click="handleFilterReset">重置筛选</el-button>
+        </div>
+
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-container">
             <el-skeleton :rows="3" animated />
@@ -45,7 +71,9 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { getActiveHomestays, getHomestayTypes, getHomestayGroups, searchHomestays, type HomestaySearchRequest } from '@/api/homestay';
-import { getPopularHomestaysPage, getRecommendedHomestaysPage, getPersonalizedRecommendations } from '@/api/recommendation';
+import { getHomestayAmenities } from '@/api/homestay/meta';
+import { getPopularHomestaysPage, getRecommendedHomestaysPage, getMyPersonalizedRecommendations } from '@/api/recommendation';
+import { trackSearch } from '@/api/tracking';
 import HomestayCard from '@/components/homestay/HomestayCard.vue';
 import SearchBar from '@/components/SearchBar.vue';
 import { codeToText } from 'element-china-area-data';
@@ -97,6 +125,13 @@ type RouteQuery = Record<string, unknown>;
 
 const DEFAULT_PAGE_SIZE = 12;
 
+// 筛选相关状态
+const minPrice = ref<number | null>(null);
+const maxPrice = ref<number | null>(null);
+const selectedAmenities = ref<string[]>([]);
+const currentSort = ref('id,desc');
+const amenityOptions = ref<Array<{ value: string; label: string }>>([]);
+
 const getQueryValue = (value: unknown): string | undefined => {
     if (Array.isArray(value)) return value[0] ? String(value[0]) : undefined;
     return value !== undefined && value !== null ? String(value) : undefined;
@@ -135,7 +170,11 @@ const buildSearchQuery = (params: SearchBarParams, page = 1, size = DEFAULT_PAGE
         checkIn: params.checkIn || undefined,
         checkOut: params.checkOut || undefined,
         guestCount: params.guestCount > 1 ? params.guestCount : undefined,
-        search: hasSearchTrigger(params) ? 'true' : undefined,
+        minPrice: minPrice.value !== null && minPrice.value !== undefined ? String(minPrice.value) : undefined,
+        maxPrice: maxPrice.value !== null && maxPrice.value !== undefined ? String(maxPrice.value) : undefined,
+        amenities: selectedAmenities.value.length ? selectedAmenities.value.join(',') : undefined,
+        sort: currentSort.value !== 'id,desc' ? currentSort.value : undefined,
+        search: (hasSearchTrigger(params) || minPrice.value || maxPrice.value || selectedAmenities.value.length > 0) ? 'true' : undefined,
         page: page > 1 ? page : undefined,
         size: size !== DEFAULT_PAGE_SIZE ? size : undefined
     });
@@ -148,6 +187,20 @@ const parseSearchParamsFromRoute = (): SearchBarParams => ({
     checkOut: getQueryValue(route.query.checkOut) || null,
     guestCount: getPositiveNumber(route.query.guestCount, 1)
 });
+
+const parseFiltersFromRoute = () => {
+    minPrice.value = route.query.minPrice ? Number(getQueryValue(route.query.minPrice)) : null;
+    maxPrice.value = route.query.maxPrice ? Number(getQueryValue(route.query.maxPrice)) : null;
+    selectedAmenities.value = getQueryValue(route.query.amenities)?.split(',').filter(Boolean) || [];
+    const sort = getQueryValue(route.query.sort);
+    if (sort) {
+        currentSort.value = sort;
+    } else {
+        const sortBy = getQueryValue(route.query.sortBy) || 'id';
+        const sortDirection = getQueryValue(route.query.sortDirection) || 'desc';
+        currentSort.value = `${sortBy},${sortDirection}`;
+    }
+};
 
 // 页面标题计算
 const pageTitle = computed(() => {
@@ -203,7 +256,10 @@ const groupOptions = ref<any[]>([]);
 const hasSearchConditions = () => {
     return getQueryValue(route.query.search) === 'true' ||
         Boolean(getQueryValue(route.query.keyword)) ||
-        Boolean(getQueryValue(route.query.region));
+        Boolean(getQueryValue(route.query.region)) ||
+        Boolean(getQueryValue(route.query.minPrice)) ||
+        Boolean(getQueryValue(route.query.maxPrice)) ||
+        Boolean(getQueryValue(route.query.amenities));
 };
 
 const buildSearchRequest = (): HomestaySearchRequest & { groupId?: number } => {
@@ -215,8 +271,7 @@ const buildSearchRequest = (): HomestaySearchRequest & { groupId?: number } => {
         requiredAmenities: getQueryValue(route.query.amenities)?.split(',').filter(Boolean),
         page: currentPage.value - 1,
         size: pageSize.value,
-        sortBy: getQueryValue(route.query.sortBy) || 'id',
-        sortDirection: getQueryValue(route.query.sortDirection) || 'desc'
+        sort: getQueryValue(route.query.sort) || `${getQueryValue(route.query.sortBy) || 'id'},${getQueryValue(route.query.sortDirection) || 'desc'}`
     };
 
     const queryType = getQueryValue(route.query.type);
@@ -312,9 +367,12 @@ const loadHomestays = async () => {
             });
         } else if (getQueryValue(route.query.personalized) === 'true') {
             // 加载个性化推荐民宿
+            if (!userStore.isAuthenticated) {
+                applyResponseData([]);
+                return;
+            }
             // 注意：个性化推荐目前没有分页API，使用简单版本
-            response = await getPersonalizedRecommendations(
-                Number(userStore.userInfo?.id || 0),
+            response = await getMyPersonalizedRecommendations(
                 50 // 获取更多结果用于前端分页
             );
         } else if (getQueryValue(route.query.status) === 'ACTIVE') {
@@ -489,10 +547,69 @@ const handleSearchBarReset = () => {
         guestCount: 1
     };
 
+    // 重置筛选条件
+    minPrice.value = null;
+    maxPrice.value = null;
+    selectedAmenities.value = [];
+    currentSort.value = 'id,desc';
+
     currentPage.value = 1;
     pageSize.value = DEFAULT_PAGE_SIZE;
 
     router.replace({ path: '/homestays' });
+};
+
+// 筛选条件变化处理
+const handleFilterChange = () => {
+    currentPage.value = 1;
+    const newQuery = buildSearchQuery(searchParams.value, 1, pageSize.value);
+    router.replace({
+        path: '/homestays',
+        query: newQuery
+    });
+    // 上报搜索埋点（筛选操作也是搜索意图的信号）
+    trackSearch({
+        keyword: searchParams.value.keyword.trim() || undefined,
+        cityCode: searchParams.value.selectedRegion[1] || searchParams.value.selectedRegion[0] || undefined
+    });
+};
+
+// 重置筛选条件（保留搜索栏条件）
+const handleFilterReset = () => {
+    minPrice.value = null;
+    maxPrice.value = null;
+    selectedAmenities.value = [];
+    currentSort.value = 'id,desc';
+    handleFilterChange();
+};
+
+// 加载设施选项
+const loadAmenities = async () => {
+    try {
+        const response = await getHomestayAmenities();
+        if (response && response.data) {
+            if (Array.isArray(response.data)) {
+                amenityOptions.value = response.data;
+            } else if (response.data.data && Array.isArray(response.data.data)) {
+                amenityOptions.value = response.data.data;
+            }
+        }
+    } catch (error) {
+        console.error('获取设施列表失败:', error);
+        // 使用默认设施选项兜底
+        amenityOptions.value = [
+            { value: 'WIFI', label: '无线网络' },
+            { value: 'AC', label: '空调' },
+            { value: 'TV', label: '电视' },
+            { value: 'KITCHEN', label: '厨房' },
+            { value: 'WASHER', label: '洗衣机' },
+            { value: 'PARKING', label: '停车位' },
+            { value: 'ELEVATOR', label: '电梯' },
+            { value: 'POOL', label: '游泳池' },
+            { value: 'GYM', label: '健身房' },
+            { value: 'BREAKFAST', label: '含早餐' }
+        ];
+    }
 };
 
 // 分页处理
@@ -519,6 +636,7 @@ const initializeFromRoute = () => {
     searchParams.value = parseSearchParamsFromRoute();
     currentPage.value = getPositiveNumber(route.query.page, 1);
     pageSize.value = getPositiveNumber(route.query.size, DEFAULT_PAGE_SIZE);
+    parseFiltersFromRoute();
 };
 
 // 监听路由变化
@@ -532,6 +650,7 @@ watch(() => route.fullPath, () => {
 onMounted(() => {
     loadHomestayTypes();
     loadGroups();
+    loadAmenities();
     console.log('路由查询参数:', route.query);
 });
 </script>
@@ -563,7 +682,43 @@ onMounted(() => {
     color: #717171;
 }
 
-/* 过滤相关样式已移除，现在使用 SearchBar 组件 */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding: 12px 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-label {
+    font-size: 14px;
+    color: #606266;
+    white-space: nowrap;
+}
+
+.filter-separator {
+    color: #909399;
+    font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .filter-bar {
+        gap: 12px;
+    }
+    .filter-group {
+        flex: 1 1 calc(50% - 12px);
+        min-width: 140px;
+    }
+}
 
 .loading-container {
     margin: 40px 0;

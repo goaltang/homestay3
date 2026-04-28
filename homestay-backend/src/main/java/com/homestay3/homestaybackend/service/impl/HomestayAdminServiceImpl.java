@@ -13,9 +13,11 @@ import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.HomestayAdminService;
 import com.homestay3.homestaybackend.service.HomestayCommandService;
+import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,10 +46,11 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
     private final HomestayMutationSupport homestayMutationSupport;
     private final HomestaySpecificationSupport homestaySpecificationSupport;
     private final HomestayCommandService homestayCommandService;
+    private final ObjectProvider<HomestayIndexingService> homestayIndexingServiceProvider;
 
     @Override
     public Page<HomestayDTO> getAdminHomestays(Pageable pageable, String title, String status, String type) {
-        Page<Homestay> homestaysPage = findAdminHomestays(pageable, title, status, type);
+        Page<Homestay> homestaysPage = findAdminHomestays(pageable, title, status, type, null, null, null, null);
         return homestayDtoAssembler.toDTOPage(homestaysPage, null);
     }
 
@@ -55,12 +59,17 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
             Pageable pageable,
             String title,
             String status,
-            String type) {
-        Page<Homestay> homestaysPage = findAdminHomestays(pageable, title, status, type);
+            String type,
+            String provinceCode,
+            String cityCode,
+            Integer minPrice,
+            Integer maxPrice) {
+        Page<Homestay> homestaysPage = findAdminHomestays(pageable, title, status, type, provinceCode, cityCode, minPrice, maxPrice);
         return homestayDtoAssembler.toAdminSummaryDTOPage(homestaysPage, null);
     }
 
-    private Page<Homestay> findAdminHomestays(Pageable pageable, String title, String status, String type) {
+    private Page<Homestay> findAdminHomestays(Pageable pageable, String title, String status, String type,
+                                               String provinceCode, String cityCode, Integer minPrice, Integer maxPrice) {
         Specification<Homestay> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -79,6 +88,24 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
 
             if (StringUtils.hasText(type)) {
                 predicates.add(criteriaBuilder.equal(root.get("type"), type));
+            }
+
+            if (StringUtils.hasText(provinceCode)) {
+                predicates.add(root.get("provinceCode")
+                        .in(homestaySpecificationSupport.getProvinceCodeCandidates(provinceCode)));
+            }
+
+            if (StringUtils.hasText(cityCode)) {
+                predicates.add(root.get("cityCode")
+                        .in(homestaySpecificationSupport.getCityCodeCandidates(cityCode)));
+            }
+
+            if (minPrice != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("price"), BigDecimal.valueOf(minPrice)));
+            }
+
+            if (maxPrice != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("price"), BigDecimal.valueOf(maxPrice)));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
@@ -105,9 +132,13 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + id));
 
         homestayMutationSupport.validateHomestayStatus(status);
-        homestay.setStatus(HomestayStatus.valueOf(status));
+        HomestayStatus newStatus = HomestayStatus.valueOf(status);
+        homestay.setStatus(newStatus);
         homestay.setUpdatedAt(LocalDateTime.now());
         homestayRepository.save(homestay);
+
+        // 同步 ES 索引
+        syncHomestayToElasticsearch(homestay, newStatus);
     }
 
     @Override
@@ -184,6 +215,9 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
         homestay.setUpdatedAt(LocalDateTime.now());
         homestayRepository.save(homestay);
 
+        // 强制下架后从 ES 删除
+        deleteHomestayFromElasticsearch(homestay.getId());
+
         User reviewer = null;
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getName() != null) {
@@ -209,5 +243,40 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
                 .build();
 
         homestayAuditLogRepository.save(auditLog);
+    }
+
+    private void syncHomestayToElasticsearch(Homestay homestay, HomestayStatus status) {
+        if (homestay == null || homestay.getId() == null) {
+            return;
+        }
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null) {
+                if (status == HomestayStatus.ACTIVE) {
+                    indexingService.syncHomestay(homestay.getId());
+                    log.debug("Synced homestay {} to ES after admin status update", homestay.getId());
+                } else {
+                    indexingService.deleteHomestay(homestay.getId());
+                    log.debug("Deleted homestay {} from ES after admin status update", homestay.getId());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync homestay {} to ES after admin status update: {}", homestay.getId(), e.getMessage());
+        }
+    }
+
+    private void deleteHomestayFromElasticsearch(Long homestayId) {
+        if (homestayId == null) {
+            return;
+        }
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null) {
+                indexingService.deleteHomestay(homestayId);
+                log.debug("Deleted homestay {} from ES after admin force delist", homestayId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete homestay {} from ES after admin force delist: {}", homestayId, e.getMessage());
+        }
     }
 }

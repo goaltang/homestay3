@@ -40,4 +40,6 @@ public class HomestaySearchRequest {
     private Integer size;
     private String sortBy;
     private String sortDirection;
+    /** 多字段排序字符串，格式：field,desc;field2,asc。优先于 sortBy + sortDirection */
+    private String sort;
 } 

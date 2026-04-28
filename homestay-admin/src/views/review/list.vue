@@ -1,27 +1,9 @@
 <template>
     <div class="review-container">
-        <div class="filter-container">
-            <el-form :inline="true" :model="query">
-                <el-form-item label="评分">
-                    <el-select v-model="query.rating" placeholder="全部评分" clearable>
-                        <el-option v-for="i in 5" :key="i" :label="`${i}星`" :value="i" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="状态">
-                    <el-select v-model="query.status" placeholder="全部状态" clearable>
-                        <el-option label="已回复" value="RESPONDED" />
-                        <el-option label="未回复" value="UNREPLIED" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="handleSearch" :icon="Search">筛选</el-button>
-                    <el-button @click="clearSearch" :icon="Refresh">重置</el-button>
-                </el-form-item>
-            </el-form>
-        </div>
+        <TableSearch :query="query" :options="searchOptions" :search="handleSearch" />
 
-        <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-            <el-table-column prop="id" label="ID" width="80" />
+        <el-table :data="tableData" border style="width: 100%" v-loading="loading" @sort-change="handleSortChange">
+            <el-table-column prop="id" label="ID" width="80" sortable="custom" />
             <el-table-column prop="userName" label="用户" width="120">
                 <template #default="scope">
                     <div class="user-info">
@@ -31,13 +13,13 @@
                 </template>
             </el-table-column>
             <el-table-column prop="homestayTitle" label="民宿" width="180" show-overflow-tooltip />
-            <el-table-column prop="rating" label="评分" width="100">
+            <el-table-column prop="rating" label="评分" width="100" sortable="custom">
                 <template #default="scope">
                     <el-rate :model-value="scope.row.rating" disabled size="small" />
                 </template>
             </el-table-column>
             <el-table-column prop="content" label="评价内容" show-overflow-tooltip />
-            <el-table-column prop="createTime" label="评价时间" width="160">
+            <el-table-column prop="createTime" label="评价时间" width="160" sortable="custom">
                 <template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template>
             </el-table-column>
             <el-table-column label="可见性" width="100" align="center">
@@ -102,9 +84,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Search, Refresh } from '@element-plus/icons-vue'
 import { useCrud } from '@/composables/useCrud'
 import { getAdminReviewList, deleteReview, setReviewVisibility } from '@/api/review'
+import TableSearch from '@/components/table-search.vue'
+import type { FormOptionList } from '@/types/form-option'
 import dayjs from 'dayjs'
 
 interface ReviewItem {
@@ -133,7 +116,7 @@ const wrappedListApi = async (params: any) => {
         size: params.size,
         rating: params.rating,
         status: params.status,
-        sort: 'createTime,desc',
+        sort: params.sort || 'createTime,desc',
     })
     const content = (res.content || []).map((r: ReviewItem) => ({ ...r, visibilityLoading: false }))
     return {
@@ -142,6 +125,31 @@ const wrappedListApi = async (params: any) => {
     }
 }
 
+// 筛选配置
+const searchOptions: FormOptionList[] = [
+    {
+        label: '评分',
+        prop: 'rating',
+        type: 'select',
+        opts: [
+            { label: '1星', value: 1 },
+            { label: '2星', value: 2 },
+            { label: '3星', value: 3 },
+            { label: '4星', value: 4 },
+            { label: '5星', value: 5 },
+        ],
+    },
+    {
+        label: '状态',
+        prop: 'status',
+        type: 'select',
+        opts: [
+            { label: '已回复', value: 'RESPONDED' },
+            { label: '未回复', value: 'UNREPLIED' },
+        ],
+    },
+]
+
 // 使用 useCrud：只有列表和删除
 const {
     loading, tableData, query, pagination,
@@ -149,7 +157,7 @@ const {
 } = useCrud<ReviewItem>({
     listApi: wrappedListApi,
     deleteApi: deleteReview,
-    defaultQuery: { rating: null, status: null, page: 0, size: 10 } as any,
+    defaultQuery: { rating: null, status: null, sort: 'createTime,desc', page: 0, size: 10 } as any,
     pagination: true,
 })
 
@@ -165,9 +173,14 @@ const handleSearch = () => {
     getList()
 }
 
-const clearSearch = () => {
-    query.rating = null
-    query.status = null
+// 排序变化
+const handleSortChange = ({ prop, order }: any) => {
+    if (!prop || !order) {
+        query.sort = 'createTime,desc'
+    } else {
+        const direction = order === 'descending' ? 'desc' : 'asc'
+        query.sort = `${prop},${direction}`
+    }
     pagination.page = 0
     getList()
 }

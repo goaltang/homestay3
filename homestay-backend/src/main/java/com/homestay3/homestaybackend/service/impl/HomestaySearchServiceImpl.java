@@ -20,6 +20,7 @@ import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.HomestaySearchService;
 import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
 import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
+import com.homestay3.homestaybackend.util.SortUtils;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -265,7 +266,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
 
         // JPA 路径：数据库层排序 + 分页
         Specification<Homestay> specification = buildSearchSpecification(request, typeCodeToSearch);
-        Sort sort = buildJpaSort(request.getSortBy(), request.getSortDirection());
+        Sort sort = buildJpaSort(request);
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Homestay> homestayPage = homestayRepository.findAll(
                 homestaySpecificationSupport.withDetailFetch(specification), pageable);
@@ -404,19 +405,19 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
         return criteriaFromSearch.isEmpty() ? null : Collections.unmodifiableList(criteriaFromSearch);
     }
 
-    private Sort buildJpaSort(String sortBy, String sortDirection) {
-        if (!StringUtils.hasText(sortBy)) {
-            return Sort.by(Sort.Direction.DESC, "id");
-        }
-        Sort.Direction direction = isDescending(sortDirection) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        String property = switch (sortBy.toLowerCase()) {
-            case "price", "pricepernight" -> "price";
-            case "createdat", "created_at" -> "createdAt";
-            case "id", "default" -> "id";
-            case "rating" -> "id"; // rating 走内存排序，数据库层用 id 兜底
-            default -> "id";
-        };
-        return Sort.by(direction, property);
+    private Sort buildJpaSort(HomestaySearchRequest request) {
+        String sortParam = StringUtils.hasText(request.getSort()) ? request.getSort()
+                : (StringUtils.hasText(request.getSortBy()) ? request.getSortBy() + "," + request.getSortDirection() : "");
+        Map<String, String> fieldMapping = Map.of(
+                "price", "price",
+                "pricepernight", "price",
+                "createdat", "createdAt",
+                "created_at", "createdAt",
+                "default", "id",
+                "rating", "id"
+        );
+        Set<String> allowedFields = Set.of("id", "price", "createdAt", "updatedAt", "title");
+        return SortUtils.parseSort(sortParam, fieldMapping, allowedFields);
     }
 
     private Page<HomestaySearchResultDTO> toSearchResultPage(List<HomestayDTO> dtos, int page, int size) {
@@ -801,15 +802,25 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
             filters.append(String.format("{\"term\":{\"type\":\"%s\"}},", jsonEscape(typeCode)));
         }
 
+        // 设施筛选：AND 语义（必须同时包含所有指定设施）
         if (request.getRequiredAmenities() != null && !request.getRequiredAmenities().isEmpty()) {
-            filters.append("{\"terms\":{\"amenities\":[");
-            boolean first = true;
             for (String a : request.getRequiredAmenities()) {
-                if (!first) filters.append(",");
-                filters.append("\"").append(jsonEscape(a)).append("\"");
-                first = false;
+                filters.append(String.format("{\"term\":{\"amenities\":\"%s\"}},", jsonEscape(a)));
             }
-            filters.append("]}},");
+        }
+
+        // location 文本筛选：匹配 addressDetail 或地区编码
+        if (StringUtils.hasText(request.getLocation())) {
+            String locationExact = jsonEscape(request.getLocation().trim());
+            String locationFuzzy = jsonEscape(request.getLocation().trim());
+            filters.append(String.format(
+                    "{\"bool\":{\"should\":[" +
+                    "{\"match\":{\"addressDetail\":\"%s\"}}," +
+                    "{\"term\":{\"provinceCode\":\"%s\"}}," +
+                    "{\"term\":{\"cityCode\":\"%s\"}}," +
+                    "{\"term\":{\"districtCode\":\"%s\"}}" +
+                    "],\"minimum_should_match\":1}},",
+                    locationFuzzy, locationExact, locationExact, locationExact));
         }
 
         if (Stream.of(request.getNorthEastLat(), request.getNorthEastLng(),

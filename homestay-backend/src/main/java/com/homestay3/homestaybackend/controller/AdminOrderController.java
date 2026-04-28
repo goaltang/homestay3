@@ -5,6 +5,7 @@ import com.homestay3.homestaybackend.service.DisputeService;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
+import com.homestay3.homestaybackend.util.SortUtils;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/orders")
@@ -62,28 +64,22 @@ public class AdminOrderController {
         logger.info("筛选条件 - orderNumber: {}, guestName: {}, homestayTitle: {}, status: {}, paymentStatus: {}, paymentMethod: {}, hostName: {}, checkInDateStart: {}, checkInDateEnd: {}, createTimeStart: {}, createTimeEnd: {}",
                 orderNumber, guestName, homestayTitle, status, paymentStatus, paymentMethod, hostName, checkInDateStart, checkInDateEnd, createTimeStart, createTimeEnd);
         
-        // 解析排序参数
-        String[] sortParams = sort.split(",");
-        Sort.Direction direction = sortParams.length > 1 && "desc".equalsIgnoreCase(sortParams[1]) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        String property = sortParams[0];
-        // 添加对DTO中字段的映射，例如将hostName映射到实体关联字段
-        if ("hostName".equals(property)) {
-            property = "homestay.owner.username"; // 假设按房东用户名排序
-        } else if ("guestName".equals(property)) {
-            property = "guest.username";
-        } else if ("createTime".equals(property)) {
-            property = "createdAt";
-        } else if ("checkInDate".equals(property)) {
-            property = "checkInDate";
-        } else if ("totalAmount".equals(property)) {
-            property = "totalAmount";
-        } else if ("orderNumber".equals(property)) {
-            property = "orderNumber";
-        } else if ("status".equals(property)) {
-            property = "status";
-        }
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, property));
+        // 使用 SortUtils 解析多字段排序，支持字段映射和白名单校验
+        Map<String, String> orderFieldMapping = Map.of(
+                "hostName", "homestay.owner.username",
+                "guestName", "guest.username",
+                "createTime", "createdAt",
+                "checkInDate", "checkInDate",
+                "totalAmount", "totalAmount",
+                "orderNumber", "orderNumber",
+                "status", "status"
+        );
+        Set<String> orderAllowedFields = Set.of(
+                "id", "createdAt", "updatedAt", "totalAmount", "status",
+                "orderNumber", "checkInDate", "checkOutDate",
+                "homestay", "guest"
+        );
+        Pageable pageable = SortUtils.buildPageable(page, size, sort, orderFieldMapping, orderAllowedFields);
         
         // 调用更新后的Service方法
         Page<OrderDTO> orders = orderService.getAdminOrders(
