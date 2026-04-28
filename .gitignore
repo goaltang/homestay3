@@ -72,6 +72,11 @@ homestay-backend/update_test_data.py
 homestay-backend/seed_homestays.sql
 homestay-backend/地图找房功能测试报告.md
 test_nearby.json
+homestay-backend/hash.txt
+homestay-backend/test_hash.py
+homestay-backend/test_hash.js
+homestay-backend/package.json
+homestay-backend/package-lock.json
 
 # --- 本地分析与知识库 ---
 .graphifyignore
