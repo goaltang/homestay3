@@ -264,12 +264,6 @@ export function getExceptionOrderStats() {
   });
 }
 
-
-    default:
-      return "0"; // 默认为待支付
-  }
-}
-
 // ========== 入住相关 API ==========
 
 // 入住凭证类型

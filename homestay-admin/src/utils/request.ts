@@ -1,12 +1,26 @@
 import axios from "axios";
+import type { AxiosInstance, AxiosRequestConfig } from "axios";
 import { ElMessage, ElNotification } from "element-plus";
 import { useUserStore } from "@/stores/user";
+
+interface UnwrappedRequest extends Omit<AxiosInstance, "request" | "get" | "delete" | "head" | "options" | "post" | "put" | "patch"> {
+  <T = any>(config: AxiosRequestConfig): Promise<T>;
+  <T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  request<T = any>(config: AxiosRequestConfig): Promise<T>;
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  head<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  options<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
+  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
+  patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>;
+}
 
 // 创建一个带类型的request实例
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
   timeout: 10000,
-});
+}) as UnwrappedRequest;
 
 // 日志级别
 const logLevels = {

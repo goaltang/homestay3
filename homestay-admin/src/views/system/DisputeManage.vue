@@ -114,15 +114,9 @@ const fetchData = () => {
         size: query.pageSize,
         orderId: query.orderNumber || undefined
     })
-        .then((res: any) => {
-            if (res.success) {
-                tableData.value = res.data?.content || [];
-                total.value = res.data?.totalElements || 0;
-            } else {
-                ElMessage.error(res.message || '获取争议记录失败');
-                tableData.value = [];
-                total.value = 0;
-            }
+        .then((res) => {
+            tableData.value = res.list || [];
+            total.value = res.total || 0;
         })
         .catch((error: any) => {
             console.error('获取争议记录出错:', error);

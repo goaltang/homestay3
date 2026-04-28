@@ -293,7 +293,7 @@ const fetchData = async () => {
             endDate: endDate.toISOString().split('T')[0]
         };
 
-        const { data } = await getStatisticsData(params);
+        const data: any = await getStatisticsData(params);
 
         // 更新概览数据
         if (data) {

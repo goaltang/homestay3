@@ -124,8 +124,8 @@ const getData = async () => {
       keyword: query.keyword || undefined,
       ownerId: query.ownerId,
     });
-    tableData.value = res.data.content || [];
-    pageTotal.value = res.data.totalElements || 0;
+    tableData.value = res.list || [];
+    pageTotal.value = res.total || 0;
   } catch (error) {
     console.error('获取分组列表失败:', error);
     ElMessage.error('获取分组列表失败');

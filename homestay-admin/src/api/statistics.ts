@@ -1,4 +1,5 @@
 import request from "@/utils/request";
+import { unwrapApiData } from "@/api/response";
 
 /**
  * 获取统计数据
@@ -9,7 +10,7 @@ export function getStatisticsData(params: any) {
     url: "/api/admin/statistics",
     method: "get",
     params,
-  });
+  }).then((res) => unwrapApiData<any>(res, {}));
 }
 
 /**
@@ -34,7 +35,7 @@ export function getOrderTrend(params: any) {
     url: "/api/admin/statistics/order-trend",
     method: "get",
     params,
-  });
+  }).then((res) => unwrapApiData<any>(res, {}));
 }
 
 /**
@@ -46,7 +47,7 @@ export function getIncomeTrend(params: any) {
     url: "/api/admin/statistics/income-trend",
     method: "get",
     params,
-  });
+  }).then((res) => unwrapApiData<any>(res, {}));
 }
 
 /**
@@ -58,7 +59,7 @@ export function getUserTrend(params: any) {
     url: "/api/admin/statistics/user-trend",
     method: "get",
     params,
-  });
+  }).then((res) => unwrapApiData<any>(res, {}));
 }
 
 /**
@@ -68,5 +69,5 @@ export function getHomestayDistribution() {
   return request({
     url: "/api/admin/statistics/homestay-distribution",
     method: "get",
-  });
+  }).then((res) => unwrapApiData<any>(res, {}));
 }

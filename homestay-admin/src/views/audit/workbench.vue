@@ -1774,9 +1774,9 @@ const loadViolationList = async () => {
             violationType: violationTypeFilter.value
         })
 
-        if (response.data && response.data.content) {
+        if (response.list.length > 0) {
             // 转换数据格式以匹配前端组件
-            violationList.value = response.data.content.map((item: any) => ({
+            violationList.value = response.list.map((item: any) => ({
                 id: item.id || item.homestayId,
                 title: item.homestayTitle || item.title,
                 ownerName: item.ownerName,
@@ -1794,7 +1794,7 @@ const loadViolationList = async () => {
             }))
 
             // 更新总数
-            violationTotal.value = response.data.totalElements || 0
+            violationTotal.value = response.total || 0
         } else {
             violationList.value = []
             violationTotal.value = 0
@@ -1858,11 +1858,11 @@ const scanAllHomestays = async () => {
         // 调用真实的违规扫描API
         const response = await scanForViolations()
 
-        if (response.data && response.data.length > 0) {
-            ElMessage.success(`违规扫描完成，发现 ${response.data.length} 个潜在违规房源`)
+        if (response.length > 0) {
+            ElMessage.success(`违规扫描完成，发现 ${response.length} 个潜在违规房源`)
 
             // 将扫描结果添加到违规列表中
-            const scanResults = response.data.map((item: any) => ({
+            const scanResults = response.map((item: any) => ({
                 id: item.id,
                 title: item.title,
                 ownerName: item.ownerName,
@@ -1903,8 +1903,8 @@ const showViolationStatistics = async () => {
     try {
         const response = await getViolationStatistics()
 
-        if (response.data) {
-            violationStats.value = response.data
+        if (response) {
+            violationStats.value = response
             violationStatisticsVisible.value = true
         }
     } catch (error) {

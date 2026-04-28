@@ -1,4 +1,5 @@
 import request from "@/utils/request";
+import { normalizeArrayResponse, normalizePageResponse, unwrapApiData } from "@/api/response";
 
 // 违规举报相关接口
 
@@ -16,7 +17,7 @@ export function getViolationReports(params: {
     url: "/api/admin/violations",
     method: "get",
     params,
-  });
+  }).then((res) => normalizePageResponse<any>(res));
 }
 
 /**
@@ -27,7 +28,7 @@ export function getPendingReports(params: { page?: number; size?: number }) {
     url: "/api/admin/violations/pending",
     method: "get",
     params,
-  });
+  }).then((res) => normalizePageResponse<any>(res));
 }
 
 /**
@@ -37,7 +38,7 @@ export function getReportDetail(id: number) {
   return request({
     url: `/api/admin/violations/${id}`,
     method: "get",
-  });
+  }).then((res) => unwrapApiData<any>(res));
 }
 
 /**
@@ -82,7 +83,7 @@ export function getHomestayReports(homestayId: number) {
   return request({
     url: `/api/admin/violations/homestay/${homestayId}`,
     method: "get",
-  });
+  }).then((res) => normalizeArrayResponse<any>(res));
 }
 
 /**
@@ -92,7 +93,7 @@ export function getViolationStatistics() {
   return request({
     url: "/api/admin/violations/statistics",
     method: "get",
-  });
+  }).then((res) => unwrapApiData<any>(res, {}));
 }
 
 /**
@@ -102,7 +103,7 @@ export function scanForViolations() {
   return request({
     url: "/api/admin/violations/scan",
     method: "post",
-  });
+  }).then((res) => normalizeArrayResponse<any>(res));
 }
 
 /**
@@ -128,5 +129,5 @@ export function getHomestaysWithMultipleReports(minReportCount = 2) {
     url: "/api/admin/violations/multiple-reports",
     method: "get",
     params: { minReportCount },
-  });
+  }).then((res) => normalizeArrayResponse<any>(res));
 }
