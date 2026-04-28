@@ -17,8 +17,9 @@ import java.util.List;
 public class NoOpHomestayIndexingService implements HomestayIndexingService {
 
     @Override
-    public void rebuildIndex() {
+    public int rebuildIndex() {
         log.info("ES is disabled, skip index rebuild");
+        return 0;
     }
 
     @Override

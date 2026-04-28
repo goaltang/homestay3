@@ -42,4 +42,7 @@ public class HomestaySearchRequest {
     private String sortDirection;
     /** 多字段排序字符串，格式：field,desc;field2,asc。优先于 sortBy + sortDirection */
     private String sort;
+
+    /** 当前用户ID（可选，用于搜索个性化） */
+    private Long userId;
 } 

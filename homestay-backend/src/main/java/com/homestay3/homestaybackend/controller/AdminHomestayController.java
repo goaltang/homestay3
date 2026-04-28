@@ -307,9 +307,10 @@ public class AdminHomestayController {
     public ResponseEntity<?> rebuildElasticsearchIndex() {
         logger.info("管理员请求重建 ES 房源索引");
         try {
-            homestayIndexingService.rebuildIndex();
+            int indexedCount = homestayIndexingService.rebuildIndex();
             return ResponseEntity.ok(Map.of(
                     "success", true,
+                    "indexedCount", indexedCount,
                     "message", "ES 房源索引重建成功"
             ));
         } catch (Exception e) {

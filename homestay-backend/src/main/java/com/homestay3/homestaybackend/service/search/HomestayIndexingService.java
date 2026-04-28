@@ -8,8 +8,9 @@ public interface HomestayIndexingService {
 
     /**
      * 全量重建 ES 索引
+     * @return 实际写入 ES 的文档数量
      */
-    void rebuildIndex();
+    int rebuildIndex();
 
     /**
      * 增量同步单个房源到 ES

@@ -40,7 +40,7 @@ public class HomestayIndexingServiceImpl implements HomestayIndexingService {
     private static final long AVAILABILITY_CACHE_MS = 30_000;
 
     @Override
-    public void rebuildIndex() {
+    public int rebuildIndex() {
         log.info("Starting full index rebuild for homestays...");
 
         IndexOperations indexOps = elasticsearchOperations.indexOps(IndexCoordinates.of("homestay_index"));
@@ -69,6 +69,7 @@ public class HomestayIndexingServiceImpl implements HomestayIndexingService {
             homestayDocumentRepository.saveAll(documents);
             log.info("Indexed {} homestays into ES", documents.size());
         }
+        return documents.size();
     }
 
     @Override

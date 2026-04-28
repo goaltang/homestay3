@@ -19,8 +19,10 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.HomestaySearchService;
 import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
+import com.homestay3.homestaybackend.service.search.SearchPersonalizationService;
 import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
 import com.homestay3.homestaybackend.util.SortUtils;
+import com.homestay3.homestaybackend.util.UserUtil;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -71,6 +73,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
     private final UserBehaviorTrackingService userBehaviorTrackingService;
     private final OrderRepository orderRepository;
     private final ReviewRepository reviewRepository;
+    private final SearchPersonalizationService searchPersonalizationService;
 
     @Override
     public List<HomestayDTO> searchHomestays(HomestaySearchRequest request) {
@@ -86,7 +89,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                                     null, null, request.getKeyword(),
                                     request.getCityCode(), request.getPropertyType());
                         } catch (Exception ignored) {}
-                        return applySearchSorting(esResults, request);
+                        return applyPersonalization(applySearchSorting(esResults, request), request);
                     }
                 }
             } catch (Exception e) {
@@ -221,7 +224,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                 : Collections.unmodifiableList(criteriaFromSearch);
 
         List<HomestayDTO> results = homestayDtoAssembler.toDTOs(homestays, finalCriteria);
-        return applySearchSorting(results, request);
+        return applyPersonalization(applySearchSorting(results, request), request);
     }
 
     @Override
@@ -243,7 +246,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                 HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
                 if (indexingService != null && indexingService.isElasticsearchAvailable()) {
                     List<HomestayDTO> esResults = searchByElasticsearch(request);
-                    esResults = applySearchSorting(esResults, request);
+                    esResults = applyPersonalization(applySearchSorting(esResults, request), request);
                     return toSearchResultPage(esResults, page, size);
                 }
             } catch (Exception e) {
@@ -260,7 +263,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                     homestaySpecificationSupport.withDetailFetch(specification));
             List<String> finalCriteria = buildFinalCriteria(request, typeCodeToSearch);
             List<HomestayDTO> dtos = homestayDtoAssembler.toDTOs(homestays, finalCriteria);
-            dtos = applySearchSorting(dtos, request);
+            dtos = applyPersonalization(applySearchSorting(dtos, request), request);
             return toSearchResultPage(dtos, page, size);
         }
 
@@ -272,8 +275,9 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                 homestaySpecificationSupport.withDetailFetch(specification), pageable);
 
         List<String> finalCriteria = buildFinalCriteria(request, typeCodeToSearch);
-        List<HomestaySearchResultDTO> content = homestayDtoAssembler.toDTOs(homestayPage.getContent(), finalCriteria)
-                .stream()
+        List<HomestayDTO> dtos = homestayDtoAssembler.toDTOs(homestayPage.getContent(), finalCriteria);
+        dtos = applyPersonalization(dtos, request);
+        List<HomestaySearchResultDTO> content = dtos.stream()
                 .map(homestayDtoAssembler::toSearchResultDTO)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
@@ -511,6 +515,26 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
     private double resolveClusterGridSize(int zoom) {
         int normalizedZoom = Math.max(1, Math.min(20, zoom));
         return Math.max(0.0005d, 180.0d / Math.pow(2.0d, normalizedZoom));
+    }
+
+    private List<HomestayDTO> applyPersonalization(List<HomestayDTO> results, HomestaySearchRequest request) {
+        if (results == null || results.isEmpty()) {
+            return results;
+        }
+        // 仅在未指定显式排序时应用个性化
+        if (StringUtils.hasText(request.getSortBy()) || StringUtils.hasText(request.getSort())) {
+            return results;
+        }
+        Long userId = request.getUserId();
+        if (userId == null) {
+            try {
+                userId = UserUtil.getCurrentUserId();
+            } catch (IllegalStateException e) {
+                // 未登录用户，跳过个性化
+                return results;
+            }
+        }
+        return searchPersonalizationService.boost(results, userId);
     }
 
     private List<HomestayDTO> applySearchSorting(List<HomestayDTO> results, HomestaySearchRequest request) {
