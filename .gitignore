@@ -78,6 +78,10 @@ homestay-backend/test_hash.js
 homestay-backend/package.json
 homestay-backend/package-lock.json
 
+# 忽略所有临时 txt/py 文件
+*.txt
+*.py
+
 # --- 本地分析与知识库 ---
 .graphifyignore
 graphify-out/

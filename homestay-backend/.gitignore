@@ -1,0 +1,30 @@
+# === Maven ===
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# === IDE ===
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# === Logs ===
+*.log
+mvn.log
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Uploads (generated files) ===
+uploads/
+
+# === Node (if any) ===
+node_modules/
+
+# === Environment ===
+.env
+.env.local

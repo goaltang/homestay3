@@ -42,8 +42,11 @@ const whiteList = [
   "/api/homestays/amenities", // 房源设施
   "/api/amenities/", // 设施相关API
   "/api/homestays/", // 房源详情、列表和不可用日期（GET请求）
-  "/api/recommendations/", // 推荐相关API
   "/api/locations/", // 地区信息API
+  "/api/recommendations/popular", // 热门推荐（公开）
+  "/api/recommendations/recommended", // 推荐民宿（公开）
+  "/api/recommendations/location", // 位置推荐（公开）
+  "/api/recommendations/similar", // 相似推荐（公开）
 ];
 
 // 请求拦截器
