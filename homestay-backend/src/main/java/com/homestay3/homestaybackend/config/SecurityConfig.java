@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/auth/**", "/error", "/h2-console/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/homestays/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/homestays/search", "/api/homestays/map-search",
                                 "/api/homestays/map-clusters", "/api/homestays/nearby",
