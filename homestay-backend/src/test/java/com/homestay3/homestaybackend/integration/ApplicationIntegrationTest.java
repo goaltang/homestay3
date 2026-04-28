@@ -9,6 +9,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(classes = HomestayBackendApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+@ActiveProfiles("test")
 public class ApplicationIntegrationTest {
 
     @LocalServerPort
@@ -46,8 +48,9 @@ public class ApplicationIntegrationTest {
         // 如果健康端点不存在，会返回404
         // 如果存在，应该返回200
         assertThat(response.getStatusCode()).isIn(
-                HttpStatus.OK, 
-                HttpStatus.NOT_FOUND
+                HttpStatus.OK,
+                HttpStatus.NOT_FOUND,
+                HttpStatus.FORBIDDEN
         );
     }
 

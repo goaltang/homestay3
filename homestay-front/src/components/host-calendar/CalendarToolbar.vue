@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { ArrowLeft, ArrowRight, Calendar, Refresh } from "@element-plus/icons-vue";
+import { ArrowLeft, ArrowRight, Calendar, Refresh, Download } from "@element-plus/icons-vue";
 import type { HostHomestayOption } from "@/composables/useHostCalendar";
 
 const props = defineProps<{
@@ -16,12 +16,17 @@ const emit = defineEmits<{
   next: [];
   today: [];
   refresh: [];
+  export: [];
 }>();
 
 const selectedValue = computed<number | null>({
   get: () => props.selectedHomestayId,
   set: (value) => emit("update:selectedHomestayId", value ?? null),
 });
+
+const selectOptions = computed(() =>
+  props.homestayOptions.map((item) => ({ label: item.title, value: item.id }))
+);
 </script>
 
 <template>
@@ -34,21 +39,16 @@ const selectedValue = computed<number | null>({
     </div>
 
     <div class="toolbar-actions">
-      <el-select
+      <el-select-v2
         v-model="selectedValue"
+        :options="selectOptions"
         clearable
         filterable
-        placeholder="全部房源"
+        placeholder="搜索并选择房源"
         class="homestay-select"
-      >
-        <el-option
-          v-for="item in homestayOptions"
-          :key="item.id"
-          :label="item.title"
-          :value="item.id"
-        />
-      </el-select>
+      />
       <el-button :icon="Refresh" :loading="loading" @click="emit('refresh')">刷新</el-button>
+      <el-button :icon="Download" @click="emit('export')">导出</el-button>
     </div>
   </div>
 </template>

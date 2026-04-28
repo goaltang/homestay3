@@ -19,6 +19,13 @@ public interface UserBehaviorEventRepository extends JpaRepository<UserBehaviorE
             Long userId, LocalDateTime since);
 
     /**
+     * 查询指定时间后有行为的登录用户ID
+     */
+    @Query("SELECT DISTINCT e.userId FROM UserBehaviorEvent e " +
+           "WHERE e.userId IS NOT NULL AND e.createdAt > :since")
+    List<Long> findActiveUserIdsSince(@Param("since") LocalDateTime since);
+
+    /**
      * 查询会话最近的行为事件
      */
     List<UserBehaviorEvent> findBySessionIdAndCreatedAtAfterOrderByCreatedAtDesc(
@@ -57,6 +64,16 @@ public interface UserBehaviorEventRepository extends JpaRepository<UserBehaviorE
            "WHERE e.userId = :userId AND e.type IS NOT NULL AND e.createdAt > :since " +
            "GROUP BY e.type ORDER BY cnt DESC")
     List<Object[]> aggregateTypePreferences(
+            @Param("userId") Long userId, @Param("since") LocalDateTime since);
+
+    /**
+     * 聚合用户偏好数据（设施）
+     */
+    @Query("SELECT a.value, COUNT(e) as cnt FROM UserBehaviorEvent e, Homestay h " +
+           "JOIN h.amenities a " +
+           "WHERE e.userId = :userId AND e.homestayId = h.id AND e.createdAt > :since " +
+           "GROUP BY a.value ORDER BY cnt DESC")
+    List<Object[]> aggregateAmenityPreferences(
             @Param("userId") Long userId, @Param("since") LocalDateTime since);
 
     /**

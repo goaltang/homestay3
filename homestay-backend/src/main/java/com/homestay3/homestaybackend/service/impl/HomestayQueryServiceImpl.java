@@ -20,6 +20,11 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -181,6 +186,46 @@ public class HomestayQueryServiceImpl implements HomestayQueryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<HomestaySummaryDTO> getHomestaySummaryPageByOwner(String username, String status, String type, Long groupId, Pageable pageable) {
+        try {
+            User owner = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+            log.debug("Found owner {} for username {}", owner.getId(), username);
+
+            Specification<Homestay> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("owner").get("username"), username));
+
+                if (StringUtils.hasText(status)) {
+                    try {
+                        predicates.add(cb.equal(root.get("status"), HomestayStatus.valueOf(status.toUpperCase())));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Invalid status filter: {}, ignoring", status);
+                    }
+                }
+                if (StringUtils.hasText(type)) {
+                    predicates.add(cb.equal(root.get("type"), type));
+                }
+                if (groupId != null && groupId > 0) {
+                    predicates.add(cb.equal(root.get("group").get("id"), groupId));
+                }
+
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+
+            Page<Homestay> page = homestayRepository.findAll(
+                    homestaySpecificationSupport.withOwnerAndGroupFetch(spec), pageable);
+            return homestayDtoAssembler.toSummaryDTOPage(page, null);
+        } catch (ResourceNotFoundException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.error("Failed to fetch homestay summary page by owner {}", username, exception);
+            throw new RuntimeException("获取房源列表失败: " + exception.getMessage(), exception);
+        }
+    }
+
+    @Override
     public boolean checkHomestayReadyForReview(Long homestayId) {
         Homestay homestay = homestayRepository.findById(homestayId)
                 .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + homestayId));
@@ -218,6 +263,18 @@ public class HomestayQueryServiceImpl implements HomestayQueryService {
         }
 
         return homestayMutationSupport.getHomestayReviewReadinessDetails(homestay);
+    }
+
+    @Override
+    public boolean isHomestayOwner(Long homestayId, String username) {
+        try {
+            return homestayRepository.findById(homestayId)
+                    .map(h -> h.getOwner() != null && username.equals(h.getOwner().getUsername()))
+                    .orElse(false);
+        } catch (Exception exception) {
+            log.error("Failed to check ownership for homestay {} and user {}", homestayId, username, exception);
+            return false;
+        }
     }
 
     @Override

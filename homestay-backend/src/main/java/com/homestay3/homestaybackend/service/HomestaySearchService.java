@@ -5,6 +5,8 @@ import com.homestay3.homestaybackend.dto.HomestaySearchRequest;
 import com.homestay3.homestaybackend.dto.HomestaySearchResultDTO;
 import com.homestay3.homestaybackend.dto.MapClusterDTO;
 
+import org.springframework.data.domain.Page;
+
 import java.util.List;
 
 public interface HomestaySearchService {
@@ -12,6 +14,8 @@ public interface HomestaySearchService {
     List<HomestayDTO> searchHomestays(HomestaySearchRequest request);
 
     List<HomestaySearchResultDTO> searchHomestayResults(HomestaySearchRequest request);
+
+    Page<HomestaySearchResultDTO> searchHomestayPage(HomestaySearchRequest request);
 
     List<MapClusterDTO> getMapClusters(HomestaySearchRequest request);
 

@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -77,6 +76,9 @@ class UserProfileServiceImplTest {
         cityAgg.add(new Object[]{"310000", 3L});
         java.util.List<Object[]> typeAgg = new java.util.ArrayList<>();
         typeAgg.add(new Object[]{"ENTIRE", 4L});
+        java.util.List<Object[]> amenityAgg = new java.util.ArrayList<>();
+        amenityAgg.add(new Object[]{"WIFI", 4L});
+        amenityAgg.add(new Object[]{"AIR_CONDITIONING", 2L});
         java.util.List<Object[]> priceAgg = new java.util.ArrayList<>();
         priceAgg.add(new Object[]{new BigDecimal("300"), new BigDecimal("800")});
 
@@ -84,6 +86,8 @@ class UserProfileServiceImplTest {
                 .thenReturn(cityAgg);
         when(userBehaviorEventRepository.aggregateTypePreferences(eq(TEST_USER_ID), any()))
                 .thenReturn(typeAgg);
+        when(userBehaviorEventRepository.aggregateAmenityPreferences(eq(TEST_USER_ID), any()))
+                .thenReturn(amenityAgg);
         when(userBehaviorEventRepository.findPriceRangeByUserId(eq(TEST_USER_ID), any()))
                 .thenReturn(priceAgg);
 
@@ -96,7 +100,29 @@ class UserProfileServiceImplTest {
         assertEquals(TEST_USER_ID, saved.getUserId());
         assertEquals(new BigDecimal("300"), saved.getMinPrice());
         assertEquals(new BigDecimal("800"), saved.getMaxPrice());
+        assertTrue(saved.getPreferredAmenityJson().contains("WIFI"));
         assertNotNull(saved.getLastActiveAt());
+    }
+
+    @Test
+    void aggregateAllActiveProfiles_shouldAggregateOnlyActiveUserIds() {
+        when(userBehaviorEventRepository.findActiveUserIdsSince(any()))
+                .thenReturn(List.of(TEST_USER_ID, 2L));
+        when(userPreferenceProfileRepository.findByUserId(any()))
+                .thenReturn(Optional.empty());
+        when(userBehaviorEventRepository.aggregateCityPreferences(any(), any()))
+                .thenReturn(List.of());
+        when(userBehaviorEventRepository.aggregateTypePreferences(any(), any()))
+                .thenReturn(List.of());
+        when(userBehaviorEventRepository.aggregateAmenityPreferences(any(), any()))
+                .thenReturn(List.of());
+        when(userBehaviorEventRepository.findPriceRangeByUserId(any(), any()))
+                .thenReturn(List.of());
+
+        userProfileService.aggregateAllActiveProfiles();
+
+        verify(userBehaviorEventRepository).findActiveUserIdsSince(any());
+        verify(userPreferenceProfileRepository, times(2)).save(any(UserPreferenceProfile.class));
     }
 
     @Test

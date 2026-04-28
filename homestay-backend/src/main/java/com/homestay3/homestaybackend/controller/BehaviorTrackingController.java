@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
+import com.homestay3.homestaybackend.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,6 +99,9 @@ public class BehaviorTrackingController {
             Object principal = auth.getPrincipal();
             if (principal instanceof com.homestay3.homestaybackend.entity.User) {
                 return ((com.homestay3.homestaybackend.entity.User) principal).getId();
+            }
+            if (principal instanceof CustomUserDetails) {
+                return ((CustomUserDetails) principal).getUserId();
             }
             if (principal instanceof UserDetails) {
                 String username = ((UserDetails) principal).getUsername();

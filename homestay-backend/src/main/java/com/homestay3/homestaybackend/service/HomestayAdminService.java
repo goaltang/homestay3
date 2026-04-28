@@ -14,7 +14,11 @@ public interface HomestayAdminService {
             Pageable pageable,
             String title,
             String status,
-            String type);
+            String type,
+            String provinceCode,
+            String cityCode,
+            Integer minPrice,
+            Integer maxPrice);
 
     HomestayDTO createHomestay(HomestayDTO homestayDTO);
 

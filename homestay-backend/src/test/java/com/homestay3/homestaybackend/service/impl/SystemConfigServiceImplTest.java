@@ -179,6 +179,7 @@ class SystemConfigServiceImplTest {
 
     @Test
     void testDeleteConfig() {
+        when(systemConfigRepository.findById(1L)).thenReturn(Optional.of(platformConfig));
         doNothing().when(systemConfigRepository).deleteById(1L);
 
         systemConfigService.deleteConfig(1L);
@@ -224,19 +225,9 @@ class SystemConfigServiceImplTest {
 
     @Test
     void testInitDefaultConfigs_SkipExisting() {
-        // 第一个配置已存在，跳过；其余都不存在，需要保存
-        when(systemConfigRepository.existsByConfigKey("platform.name")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("platform.logo")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("platform.hotline")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("policy.max_advance_days")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("policy.min_advance_hours")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("policy.cancel_free_hours")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("policy.max_stay_days")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("fee.platform_rate")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("fee.min_withdraw_amount")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("homestay.min_rating_visible")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("homestay.max_images")).thenReturn(true);
-        when(systemConfigRepository.existsByConfigKey("homestay.auto_confirm_hours")).thenReturn(true);
+        // 所有配置都已存在，跳过保存
+        when(systemConfigRepository.existsByConfigKey(any())).thenReturn(true);
+        when(systemConfigRepository.findByConfigKey(any())).thenReturn(Optional.of(platformConfig));
 
         systemConfigService.initDefaultConfigs();
 

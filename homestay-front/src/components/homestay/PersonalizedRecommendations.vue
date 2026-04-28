@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { getPersonalizedRecommendations } from '../../api/recommendation'
+import { getMyPersonalizedRecommendations } from '../../api/recommendation'
 import { useUserStore } from '../../stores/user'
 import HomestaySection from './HomestaySection.vue'
 
@@ -31,14 +31,14 @@ const emit = defineEmits<{
 // 加载个性化推荐数据
 const loadPersonalizedRecommendations = async () => {
     // 只有登录用户才加载个性化推荐
-    if (!userStore.isAuthenticated || !userStore.userInfo?.id) {
+    if (!userStore.isAuthenticated) {
         homestays.value = []
         return
     }
 
     loading.value = true
     try {
-        const homestaysResponse = await getPersonalizedRecommendations(userStore.userInfo.id, 6)
+        const homestaysResponse = await getMyPersonalizedRecommendations(6)
         const homestaysList = homestaysResponse.data?.content || homestaysResponse.data || []
         homestays.value = homestaysList.slice(0, 12)
     } catch (error) {
@@ -60,8 +60,8 @@ const handleViewAll = (route: string, query: Record<string, any>) => {
 }
 
 // 监听用户登录状态变化
-watch(() => [userStore.isAuthenticated, userStore.userInfo?.id] as const, ([isAuthenticated, userId]) => {
-    if (isAuthenticated && userId) {
+watch(() => userStore.isAuthenticated, (isAuthenticated) => {
+    if (isAuthenticated) {
         // 用户登录后加载个性化推荐
         loadPersonalizedRecommendations()
     } else {

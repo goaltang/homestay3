@@ -108,6 +108,7 @@ import { ElMessage } from 'element-plus'
 import { regionData } from 'element-china-area-data'
 import SearchSuggestions from './SearchSuggestions.vue'
 import { useSearchSuggestions } from '@/composables/useSearchSuggestions'
+import { trackSearch } from '@/api/tracking'
 
 // 搜索建议（热门目的地 + 最近搜索）
 const { addToRecentSearches } = useSearchSuggestions()
@@ -247,10 +248,18 @@ const selectSuggestion = (suggestion: { label: string; value: string[] }) => {
 const handleSearch = () => {
     if (!canSearch.value) return
 
+    const keyword = searchParams.keyword.trim()
+    const selectedRegion = [...searchParams.selectedRegion]
+
+    trackSearch({
+        keyword: keyword || undefined,
+        cityCode: selectedRegion[1] || selectedRegion[0]
+    })
+
     emit('search', {
         ...searchParams,
-        keyword: searchParams.keyword.trim(),
-        selectedRegion: [...searchParams.selectedRegion]
+        keyword,
+        selectedRegion
     })
 }
 

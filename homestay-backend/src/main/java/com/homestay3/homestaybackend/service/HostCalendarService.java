@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.CalendarAvailabilityUpdateRequest;
+import com.homestay3.homestaybackend.dto.CalendarPriceUpdateRequest;
 import com.homestay3.homestaybackend.dto.HostCalendarDayDTO;
 import com.homestay3.homestaybackend.dto.HostCalendarResponse;
 import com.homestay3.homestaybackend.dto.HostCalendarSummaryDTO;
@@ -16,6 +17,7 @@ import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +63,7 @@ public class HostCalendarService {
     private final HomestayAvailabilityRepository availabilityRepository;
     private final HomestayAvailabilityService availabilityService;
     private final OrderRepository orderRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional(readOnly = true)
     public HostCalendarResponse getCalendarDays(
@@ -180,7 +183,66 @@ public class HostCalendarService {
         result.put("startDate", request.getStartDate());
         result.put("endDate", request.getEndDate());
         result.put("status", targetStatus.name());
+
+        sendCalendarRefresh(host.getId(), "AVAILABILITY_UPDATED");
         return result;
+    }
+
+    @Transactional
+    public Map<String, Object> updatePrice(String username, CalendarPriceUpdateRequest request) {
+        if (request == null || request.getHomestayId() == null) {
+            throw new IllegalArgumentException("房源不能为空");
+        }
+        validateDateRange(request.getStartDate(), request.getEndDate());
+
+        User host = getHost(username);
+        Homestay homestay = homestayRepository.findById(request.getHomestayId())
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在"));
+        if (homestay.getOwner() == null || !host.getId().equals(homestay.getOwner().getId())) {
+            throw new AccessDeniedException("只能操作自己的房源日历");
+        }
+
+        int updated;
+        if (request.getCustomPrice() == null) {
+            updated = availabilityService.clearCustomPrice(
+                    request.getHomestayId(),
+                    request.getStartDate(),
+                    request.getEndDate()
+            );
+        } else {
+            if (request.getCustomPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("价格必须大于等于0");
+            }
+            updated = availabilityService.setCustomPrice(
+                    request.getHomestayId(),
+                    request.getStartDate(),
+                    request.getEndDate(),
+                    request.getCustomPrice()
+            );
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("updated", updated);
+        result.put("homestayId", request.getHomestayId());
+        result.put("startDate", request.getStartDate());
+        result.put("endDate", request.getEndDate());
+        result.put("customPrice", request.getCustomPrice());
+
+        sendCalendarRefresh(host.getId(), "PRICE_UPDATED");
+        return result;
+    }
+
+    private void sendCalendarRefresh(Long hostId, String type) {
+        if (messagingTemplate != null) {
+            try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("type", type);
+                payload.put("timestamp", java.time.Instant.now().toString());
+                messagingTemplate.convertAndSend("/topic/calendar/" + hostId, payload);
+            } catch (Exception e) {
+                // WebSocket 推送失败不影响主流程
+            }
+        }
     }
 
     private Map<String, HostCalendarDayDTO> buildBaseDays(List<Homestay> homestays, LocalDate startDate, LocalDate endDate) {
@@ -235,6 +297,10 @@ public class HostCalendarService {
             } else if (availability.getStatus() == HomestayAvailability.AvailabilityStatus.BOOKED) {
                 day.setStatus(STATUS_BOOKED);
                 day.setSource(availability.getSource() != null ? availability.getSource() : "ORDER");
+            }
+
+            if (availability.getCustomPrice() != null) {
+                day.setFinalPrice(availability.getCustomPrice());
             }
         }
     }
@@ -361,6 +427,38 @@ public class HostCalendarService {
         if (ChronoUnit.DAYS.between(startDate, endDate) > MAX_RANGE_DAYS) {
             throw new IllegalArgumentException("查询日期范围不能超过一年");
         }
+    }
+
+    public byte[] exportCalendarCsv(String username, Long homestayId, LocalDate startDate, LocalDate endDate) {
+        HostCalendarResponse response = getCalendarDays(username, homestayId, startDate, endDate);
+        StringBuilder csv = new StringBuilder();
+        csv.append("\uFEFF");
+        csv.append("日期,房源ID,房源名称,状态,来源,原因,订单号,客人名,入住,退房,基础价格,最终价格\n");
+
+        for (HostCalendarDayDTO day : response.getDays()) {
+            csv.append(day.getDate()).append(",");
+            csv.append(day.getHomestayId()).append(",");
+            csv.append(escapeCsv(day.getHomestayTitle())).append(",");
+            csv.append(day.getStatus()).append(",");
+            csv.append(day.getSource() != null ? day.getSource() : "").append(",");
+            csv.append(escapeCsv(day.getReason())).append(",");
+            csv.append(day.getOrderNumber() != null ? day.getOrderNumber() : "").append(",");
+            csv.append(escapeCsv(day.getGuestName())).append(",");
+            csv.append(Boolean.TRUE.equals(day.getCheckIn()) ? "是" : "否").append(",");
+            csv.append(Boolean.TRUE.equals(day.getCheckOut()) ? "是" : "否").append(",");
+            csv.append(day.getBasePrice() != null ? day.getBasePrice() : "").append(",");
+            csv.append(day.getFinalPrice() != null ? day.getFinalPrice() : "").append("\n");
+        }
+
+        return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private String resolveGuestName(Order order) {

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -96,6 +97,23 @@ public interface HomestayAvailabilityRepository extends JpaRepository<HomestayAv
             @Param("reason") String reason,
             @Param("note") String note,
             @Param("createdBy") Long createdBy);
+
+    @Modifying
+    @Query("UPDATE HomestayAvailability ha SET ha.customPrice = :customPrice " +
+           "WHERE ha.homestayId = :homestayId AND ha.date >= :startDate AND ha.date < :endDate")
+    int setCustomPrice(
+            @Param("homestayId") Long homestayId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("customPrice") BigDecimal customPrice);
+
+    @Modifying
+    @Query("UPDATE HomestayAvailability ha SET ha.customPrice = NULL " +
+           "WHERE ha.homestayId = :homestayId AND ha.date >= :startDate AND ha.date < :endDate")
+    int clearCustomPrice(
+            @Param("homestayId") Long homestayId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     @Query("SELECT COUNT(ha) > 0 FROM HomestayAvailability ha WHERE ha.homestayId = :homestayId " +
            "AND ha.date >= :startDate AND ha.date < :endDate AND ha.status = 'BOOKED' " +

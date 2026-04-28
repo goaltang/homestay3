@@ -9,6 +9,7 @@ import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.UserFavoriteRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.UserFavoriteService;
+import com.homestay3.homestaybackend.service.search.UserBehaviorTrackingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,16 +27,19 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
     private final HomestayRepository homestayRepository;
     private final UserRepository userRepository;
     private final HomestayMapper homestayMapper;
+    private final UserBehaviorTrackingService userBehaviorTrackingService;
 
     @Autowired
     public UserFavoriteServiceImpl(UserFavoriteRepository userFavoriteRepository,
                                    HomestayRepository homestayRepository,
                                    UserRepository userRepository,
-                                   HomestayMapper homestayMapper) {
+                                   HomestayMapper homestayMapper,
+                                   UserBehaviorTrackingService userBehaviorTrackingService) {
         this.userFavoriteRepository = userFavoriteRepository;
         this.homestayRepository = homestayRepository;
         this.userRepository = userRepository;
         this.homestayMapper = homestayMapper;
+        this.userBehaviorTrackingService = userBehaviorTrackingService;
     }
 
     @Override
@@ -49,9 +53,8 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
         }
         
         // 检查民宿是否存在
-        if (!homestayRepository.existsById(homestayId)) {
-            throw new IllegalArgumentException("民宿不存在: " + homestayId);
-        }
+        Homestay homestay = homestayRepository.findById(homestayId)
+                .orElseThrow(() -> new IllegalArgumentException("民宿不存在: " + homestayId));
         
         // 检查是否已收藏
         if (userFavoriteRepository.existsByUserIdAndHomestayId(userId, homestayId)) {
@@ -61,6 +64,18 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
         // 创建收藏记录
         UserFavorite userFavorite = new UserFavorite(userId, homestayId);
         userFavorite = userFavoriteRepository.save(userFavorite);
+
+        try {
+            userBehaviorTrackingService.trackFavorite(
+                    userId,
+                    null,
+                    homestayId,
+                    homestay.getCityCode(),
+                    homestay.getType(),
+                    homestay.getPrice());
+        } catch (Exception e) {
+            log.warn("记录收藏行为失败: userId={}, homestayId={}, error={}", userId, homestayId, e.getMessage());
+        }
         
         log.info("成功添加收藏: 用户 {} 收藏民宿 {}", userId, homestayId);
         
@@ -153,4 +168,4 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
                 .map(homestayId -> userFavoriteRepository.existsByUserIdAndHomestayId(userId, homestayId))
                 .collect(Collectors.toList());
     }
-} 
+}

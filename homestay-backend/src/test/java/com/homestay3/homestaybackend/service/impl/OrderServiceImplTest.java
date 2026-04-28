@@ -18,8 +18,12 @@ import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.BookingConflictService;
 import com.homestay3.homestaybackend.service.EarningService;
-import com.homestay3.homestaybackend.service.PaymentService;
 import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.service.OrderLifecycleService;
+import com.homestay3.homestaybackend.service.PaymentProcessingService;
+import com.homestay3.homestaybackend.service.PaymentService;
+import com.homestay3.homestaybackend.service.SystemConfigService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,6 +76,15 @@ class OrderServiceImplTest {
 
     @Mock
     private PaymentService paymentService;
+
+    @Mock
+    private OrderLifecycleService orderLifecycleService;
+
+    @Mock
+    private PaymentProcessingService paymentProcessingService;
+
+    @Mock
+    private ObjectProvider<SystemConfigService> systemConfigServiceProvider;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -130,6 +143,11 @@ class OrderServiceImplTest {
                 .checkOutDate(LocalDate.now().plusDays(3))
                 .guestCount(2)
                 .build();
+
+        SystemConfigService mockSystemConfigService = mock(SystemConfigService.class);
+        when(mockSystemConfigService.getConfigValue(eq("pricing.cleaning_fee"), any())).thenReturn("0.1");
+        when(mockSystemConfigService.getConfigValue(eq("pricing.service_fee"), any())).thenReturn("0.15");
+        when(systemConfigServiceProvider.getObject()).thenReturn(mockSystemConfigService);
     }
 
     private void mockSecurityContext() {
@@ -147,21 +165,20 @@ class OrderServiceImplTest {
     void getOrderById_Success() {
         // 准备
         mockSecurityContext();
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderLifecycleService.getOrderById(1L)).thenReturn(OrderDTO.builder().id(1L).orderNumber("ORD202401010001").build());
 
         // 执行
         OrderDTO result = orderService.getOrderById(1L);
 
         // 验证
         assertNotNull(result);
-        assertEquals(order.getId(), result.getId());
-        assertEquals(order.getOrderNumber(), result.getOrderNumber());
+        verify(orderLifecycleService, times(1)).getOrderById(1L);
     }
 
     @Test
     void getOrderById_OrderNotFound() {
         // 准备
-        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+        when(orderLifecycleService.getOrderById(999L)).thenThrow(new ResourceNotFoundException("订单不存在"));
 
         // 执行和验证
         assertThrows(ResourceNotFoundException.class, () -> {
@@ -173,47 +190,35 @@ class OrderServiceImplTest {
     void getOrderByOrderNumber_Success() {
         // 准备
         mockSecurityContext();
-        when(orderRepository.findByOrderNumber("ORD202401010001")).thenReturn(Optional.of(order));
+        when(orderLifecycleService.getOrderByOrderNumber("ORD202401010001")).thenReturn(OrderDTO.builder().id(1L).orderNumber("ORD202401010001").build());
 
         // 执行
         OrderDTO result = orderService.getOrderByOrderNumber("ORD202401010001");
 
         // 验证
         assertNotNull(result);
-        assertEquals(order.getOrderNumber(), result.getOrderNumber());
+        verify(orderLifecycleService, times(1)).getOrderByOrderNumber("ORD202401010001");
     }
 
     @Test
     void updateOrderStatus_Success_Confirmed() {
         // 准备
         mockSecurityContext();
-        when(userRepository.findByUsername(hostUser.getUsername())).thenReturn(Optional.of(hostUser));
-        order.setStatus(OrderStatus.PENDING.name());
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
-
-        // 模拟当前用户是房东
-        Authentication authentication = mock(Authentication.class);
-        when(authentication.getName()).thenReturn(hostUser.getUsername());
-        SecurityContext securityContext = mock(SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        SecurityContextHolder.setContext(securityContext);
+        when(orderLifecycleService.updateOrderStatus(1L, OrderStatus.CONFIRMED.name())).thenReturn(OrderDTO.builder().id(1L).status(OrderStatus.CONFIRMED.name()).build());
 
         // 执行
         OrderDTO result = orderService.updateOrderStatus(1L, OrderStatus.CONFIRMED.name());
 
         // 验证
         assertNotNull(result);
-        verify(orderRepository, times(1)).save(any(Order.class));
+        verify(orderLifecycleService, times(1)).updateOrderStatus(1L, OrderStatus.CONFIRMED.name());
     }
 
     @Test
     void cancelOrder_Success() {
         // 准备
         mockSecurityContext();
-        order.setGuest(currentUser);
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(orderLifecycleService.cancelOrderWithReason(1L, "CANCELLED_BY_USER", "用户取消订单")).thenReturn(OrderDTO.builder().id(1L).status(OrderStatus.CANCELLED_BY_USER.name()).build());
 
         // 使用 CANCELLED_BY_USER 类型，因为当前用户是 ROLE_USER，
         // 而 CANCELLED 类型需要管理员权限
@@ -221,24 +226,21 @@ class OrderServiceImplTest {
 
         // 验证
         assertNotNull(result);
-        assertTrue(result.getStatus().contains("CANCELLED") || result.getStatus().contains("REFUND_PENDING"));
+        verify(orderLifecycleService, times(1)).cancelOrderWithReason(1L, "CANCELLED_BY_USER", "用户取消订单");
     }
 
     @Test
     void payOrder_Success() {
         // 准备
         mockSecurityContext();
-        order.setStatus(OrderStatus.CONFIRMED.name());
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
-        when(earningService.generatePendingEarningForOrder(anyLong())).thenReturn(null);
+        when(paymentProcessingService.processPayment(1L)).thenReturn(OrderDTO.builder().id(1L).status(OrderStatus.PAID.name()).paymentStatus(PaymentStatus.PAID.name()).build());
 
         // 执行
         OrderDTO result = orderService.payOrder(1L);
 
         // 验证
         assertNotNull(result);
-        verify(orderRepository, times(1)).save(any(Order.class));
+        verify(paymentProcessingService, times(1)).processPayment(1L);
     }
 
     @Test
@@ -289,15 +291,14 @@ class OrderServiceImplTest {
     @Test
     void systemCancelOrder_Success() {
         // 准备
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenReturn(order);
+        when(orderLifecycleService.systemCancelOrder(1L, OrderStatus.CANCELLED_SYSTEM.name(), "系统超时自动取消")).thenReturn(OrderDTO.builder().id(1L).status(OrderStatus.CANCELLED_SYSTEM.name()).build());
 
         // 执行（系统取消不需要用户权限检查）
         OrderDTO result = orderService.systemCancelOrder(1L, OrderStatus.CANCELLED_SYSTEM.name(), "系统超时自动取消");
 
         // 验证
         assertNotNull(result);
-        verify(orderRepository, times(1)).save(any(Order.class));
+        verify(orderLifecycleService, times(1)).systemCancelOrder(1L, OrderStatus.CANCELLED_SYSTEM.name(), "系统超时自动取消");
     }
 
     // ============================================================
@@ -310,11 +311,14 @@ class OrderServiceImplTest {
     void requestUserRefund_Success() {
         // 准备 - 已支付订单
         mockSecurityContext();
-        order.setStatus(OrderStatus.PAID.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setTotalAmount(new BigDecimal("400"));
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentProcessingService.requestUserRefund(1L, "行程变更")).thenReturn(OrderDTO.builder()
+                .id(1L)
+                .status(OrderStatus.REFUND_PENDING.name())
+                .paymentStatus(PaymentStatus.REFUND_PENDING.name())
+                .refundType(RefundType.USER_REQUESTED.name())
+                .refundReason("行程变更")
+                .refundAmount(new BigDecimal("400"))
+                .build());
 
         // 执行
         OrderDTO result = orderService.requestUserRefund(1L, "行程变更");
@@ -326,18 +330,18 @@ class OrderServiceImplTest {
         assertEquals(RefundType.USER_REQUESTED.name(), result.getRefundType());
         assertEquals("行程变更", result.getRefundReason());
         assertNotNull(result.getRefundAmount());
-        verify(orderRepository, times(1)).save(any(Order.class));
+        verify(paymentProcessingService, times(1)).requestUserRefund(1L, "行程变更");
     }
 
     @Test
     void requestUserRefund_WithReason() {
         // 准备
         mockSecurityContext();
-        order.setStatus(OrderStatus.PAID.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setTotalAmount(new BigDecimal("400"));
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentProcessingService.requestUserRefund(1L, null)).thenReturn(OrderDTO.builder()
+                .id(1L)
+                .status(OrderStatus.REFUND_PENDING.name())
+                .refundReason("用户申请退款")
+                .build());
 
         // 执行 - 不提供原因
         OrderDTO result = orderService.requestUserRefund(1L, null);
@@ -345,15 +349,14 @@ class OrderServiceImplTest {
         // 验证 - 应该使用默认原因
         assertNotNull(result);
         assertEquals("用户申请退款", result.getRefundReason());
+        verify(paymentProcessingService, times(1)).requestUserRefund(1L, null);
     }
 
     @Test
     void requestUserRefund_NotPaid() {
         // 准备 - 未支付订单
         mockSecurityContext();
-        order.setStatus(OrderStatus.PENDING.name());
-        order.setPaymentStatus(PaymentStatus.UNPAID);
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentProcessingService.requestUserRefund(1L, "想退款")).thenThrow(new IllegalStateException("只有已支付的订单才能申请退款"));
 
         // 执行和验证 - 应抛出异常
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
@@ -365,10 +368,8 @@ class OrderServiceImplTest {
     @Test
     void requestUserRefund_AlreadyRefunding() {
         // 准备 - 订单已在退款流程中
-        // 注意：paymentStatus 是 PAID（通过第一个检查），但 status 是 REFUND_PENDING（触发第二个检查）
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        mockSecurityContext();
+        when(paymentProcessingService.requestUserRefund(1L, "再次申请")).thenThrow(new IllegalStateException("订单已在退款流程中"));
 
         // 执行和验证 - 应抛出异常
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
@@ -380,7 +381,7 @@ class OrderServiceImplTest {
     @Test
     void requestUserRefund_OrderNotFound() {
         // 准备
-        when(orderRepository.findById(999L)).thenReturn(Optional.empty());
+        when(paymentProcessingService.requestUserRefund(999L, "退款")).thenThrow(new ResourceNotFoundException("订单不存在"));
 
         // 执行和验证
         assertThrows(ResourceNotFoundException.class, () -> {
@@ -401,24 +402,12 @@ class OrderServiceImplTest {
     void approveRefund_Success() {
         // 准备 - 退款中的订单
         mockSecurityContext();
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-        order.setTotalAmount(new BigDecimal("400"));
-        order.setRefundAmount(new BigDecimal("400"));
-        order.setRefundReason("用户申请退款");
-        order.setRefundType(RefundType.USER_REQUESTED);
-        order.setPaymentMethod("alipay");
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        // mock 支付网关退款成功
-        RefundResponse successResponse = RefundResponse.builder()
-                .success(true)
-                .refundTradeNo("REFUND_TXN_001")
-                .refundAmount(new BigDecimal("400"))
-                .message("退款成功")
-                .build();
-        when(paymentService.processRefund(any(RefundRequest.class))).thenReturn(successResponse);
+        when(paymentProcessingService.approveRefund(1L, "同意退款")).thenReturn(OrderDTO.builder()
+                .id(1L)
+                .status(OrderStatus.REFUNDED.name())
+                .paymentStatus(PaymentStatus.REFUNDED.name())
+                .refundTransactionId("REFUND_TXN_001")
+                .build());
 
         // 执行
         OrderDTO result = orderService.approveRefund(1L, "同意退款");
@@ -427,26 +416,13 @@ class OrderServiceImplTest {
         assertNotNull(result);
         assertEquals(PaymentStatus.REFUNDED.name(), result.getPaymentStatus());
         assertEquals("REFUND_TXN_001", result.getRefundTransactionId());
-        verify(paymentService, times(1)).processRefund(any(RefundRequest.class));
+        verify(paymentProcessingService, times(1)).approveRefund(1L, "同意退款");
     }
 
     @Test
     void approveRefund_GatewayFailed() {
         // 准备 - 退款中的订单
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-        order.setTotalAmount(new BigDecimal("400"));
-        order.setRefundAmount(new BigDecimal("400"));
-        order.setPaymentMethod("alipay");
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-
-        // mock 支付网关退款失败
-        RefundResponse failResponse = RefundResponse.builder()
-                .success(false)
-                .message("余额不足")
-                .errorCode("INSUFFICIENT_BALANCE")
-                .build();
-        when(paymentService.processRefund(any(RefundRequest.class))).thenReturn(failResponse);
+        when(paymentProcessingService.approveRefund(1L, "同意退款")).thenThrow(new RuntimeException("退款失败：余额不足"));
 
         // 执行和验证 - 应抛出异常
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
@@ -458,8 +434,7 @@ class OrderServiceImplTest {
     @Test
     void approveRefund_NotRefundPending() {
         // 准备 - 非退款中状态
-        order.setPaymentStatus(PaymentStatus.PAID);
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentProcessingService.approveRefund(1L, "批准")).thenThrow(new IllegalStateException("订单不在退款中状态"));
 
         // 执行和验证
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
@@ -474,10 +449,11 @@ class OrderServiceImplTest {
     void rejectRefund_Success() {
         // 准备 - 退款中的订单
         mockSecurityContext();
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentProcessingService.rejectRefund(1L, "不符合退款条件")).thenReturn(OrderDTO.builder()
+                .id(1L)
+                .status(OrderStatus.PAID.name())
+                .paymentStatus(PaymentStatus.PAID.name())
+                .build());
 
         // 执行
         OrderDTO result = orderService.rejectRefund(1L, "不符合退款条件");
@@ -486,14 +462,13 @@ class OrderServiceImplTest {
         assertNotNull(result);
         assertEquals(PaymentStatus.PAID.name(), result.getPaymentStatus());
         assertEquals(OrderStatus.PAID.name(), result.getStatus());
-        verify(orderRepository, times(1)).save(any(Order.class));
+        verify(paymentProcessingService, times(1)).rejectRefund(1L, "不符合退款条件");
     }
 
     @Test
     void rejectRefund_NotRefundPending() {
         // 准备 - 非退款中状态
-        order.setPaymentStatus(PaymentStatus.PAID);
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(paymentProcessingService.rejectRefund(1L, "拒绝")).thenThrow(new IllegalStateException("订单不在退款中状态"));
 
         // 执行和验证
         IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
@@ -515,26 +490,13 @@ class OrderServiceImplTest {
     void refundFlow_UserRequest_AdminApprove() {
         // 准备
         mockSecurityContext();
-        order.setStatus(OrderStatus.PAID.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setTotalAmount(new BigDecimal("400"));
-        order.setPaymentMethod("alipay");
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentProcessingService.requestUserRefund(1L, "行程有变")).thenReturn(OrderDTO.builder().status(OrderStatus.REFUND_PENDING.name()).paymentStatus(PaymentStatus.REFUND_PENDING.name()).build());
+        when(paymentProcessingService.approveRefund(1L, "确认退款")).thenReturn(OrderDTO.builder().status(OrderStatus.REFUNDED.name()).paymentStatus(PaymentStatus.REFUNDED.name()).build());
 
         // 步骤1：用户申请退款
         OrderDTO step1Result = orderService.requestUserRefund(1L, "行程有变");
         assertEquals(OrderStatus.REFUND_PENDING.name(), step1Result.getStatus());
         assertEquals(PaymentStatus.REFUND_PENDING.name(), step1Result.getPaymentStatus());
-
-        // mock 支付网关退款成功
-        RefundResponse successResponse = RefundResponse.builder()
-                .success(true)
-                .refundTradeNo("REFUND_TXN_FLOW")
-                .refundAmount(new BigDecimal("400"))
-                .message("退款成功")
-                .build();
-        when(paymentService.processRefund(any(RefundRequest.class))).thenReturn(successResponse);
 
         // 步骤2：管理员批准退款
         OrderDTO step2Result = orderService.approveRefund(1L, "确认退款");
@@ -546,11 +508,8 @@ class OrderServiceImplTest {
     void refundFlow_UserRequest_AdminReject() {
         // 准备
         mockSecurityContext();
-        order.setStatus(OrderStatus.PAID.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setTotalAmount(new BigDecimal("400"));
-        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentProcessingService.requestUserRefund(1L, "不想住了")).thenReturn(OrderDTO.builder().status(OrderStatus.REFUND_PENDING.name()).build());
+        when(paymentProcessingService.rejectRefund(1L, "超过退款期限")).thenReturn(OrderDTO.builder().status(OrderStatus.PAID.name()).paymentStatus(PaymentStatus.PAID.name()).build());
 
         // 步骤1：用户申请退款
         OrderDTO step1Result = orderService.requestUserRefund(1L, "不想住了");

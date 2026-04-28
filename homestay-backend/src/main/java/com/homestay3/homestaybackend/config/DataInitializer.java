@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.homestay3.homestaybackend.service.impl.AmenityServiceImpl;
@@ -9,6 +10,7 @@ import com.homestay3.homestaybackend.service.impl.AmenityServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Profile("!test")
 @Slf4j
 public class DataInitializer implements CommandLineRunner {
     

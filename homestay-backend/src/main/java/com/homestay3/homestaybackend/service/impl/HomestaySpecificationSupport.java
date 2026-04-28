@@ -57,6 +57,20 @@ public class HomestaySpecificationSupport {
         return candidates;
     }
 
+    public Specification<Homestay> withOwnerAndGroupFetch(Specification<Homestay> delegate) {
+        return (root, query, criteriaBuilder) -> {
+            if (query != null && !isCountQuery(query)) {
+                root.fetch("owner", JoinType.LEFT);
+                root.fetch("group", JoinType.LEFT);
+                query.distinct(true);
+            }
+
+            return delegate == null
+                    ? criteriaBuilder.conjunction()
+                    : delegate.toPredicate(root, query, criteriaBuilder);
+        };
+    }
+
     private boolean isCountQuery(CriteriaQuery<?> query) {
         Class<?> resultType = query.getResultType();
         return Long.class.equals(resultType) || long.class.equals(resultType);

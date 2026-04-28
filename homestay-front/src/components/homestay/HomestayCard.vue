@@ -63,6 +63,7 @@ import { useUserStore } from '@/stores/user'
 import { codeToText } from 'element-china-area-data'
 import { formatPropertyType } from '@/utils/homestayUtils'
 import { getHomestayImageUrl } from '@/utils/image'
+import { trackClick } from '@/api/tracking'
 
 const HOMESTAY_IMAGE_FALLBACK =
     'data:image/svg+xml;utf8,' +
@@ -210,6 +211,10 @@ const handleHomestayImageError = (event: Event) => {
 }
 
 const handleCardClick = () => {
+    if (props.homestay?.id) {
+        trackClick(Number(props.homestay.id))
+    }
+
     if (props.navigateOnClick) {
         router.push(`/homestays/${props.homestay.id}`)
         return

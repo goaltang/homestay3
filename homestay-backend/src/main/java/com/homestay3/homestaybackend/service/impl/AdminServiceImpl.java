@@ -58,6 +58,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Bean
+    @org.springframework.context.annotation.Profile("!test")
     public CommandLineRunner initializeAdminAndUser() {
         return args -> {
             // 创建默认管理员（仅在不存在时创建，不重置密码）

@@ -60,7 +60,7 @@
             </el-alert>
         </div>
 
-        <el-table :data="homestays" stripe style="width: 100%" v-loading="loading" :empty-text="emptyText"
+        <el-table :data="homestays" stripe style="width: 100%" v-loading="loading"
             @selection-change="handleSelectionChange">
             <el-table-column type="selection" width="55" />
             <el-table-column prop="coverImage" label="房源图片" width="180">
@@ -267,13 +267,14 @@
                     </div>
                 </template>
             </el-table-column>
+            <template #empty>
+                <div class="empty-state">
+                    <el-empty :description="emptyText">
+                        <el-button type="primary" @click="handleCreateHomestay">添加新房源</el-button>
+                    </el-empty>
+                </div>
+            </template>
         </el-table>
-
-        <div class="empty-state" v-if="!loading && homestays.length === 0">
-            <el-empty description="暂无房源数据">
-                <el-button type="primary" @click="handleCreateHomestay">添加新房源</el-button>
-            </el-empty>
-        </div>
 
         <div class="pagination" v-if="total > 0">
             <el-pagination v-model:currentPage="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 30, 50]"
@@ -554,7 +555,7 @@ interface Homestay {
     maxGuests: number;
     status: HomestayStatus;
     description?: string;
-    address?: string;
+    addressDetail?: string;
     groupId?: number;
     groupName?: string;
     groupCode?: string;
@@ -995,7 +996,7 @@ const handleDelete = async (id: number) => {
             );
 
             if (shouldRetry) {
-                handleDelete(id);
+                await handleDelete(id);
             }
         } catch {
             // 用户取消重试，不做处理
@@ -1054,8 +1055,9 @@ const handleBatchActivate = async () => {
         await batchActivateHomestays(ids);
         ElMessage.success('批量上线成功');
         fetchHomestays();
-    } catch (error) {
+    } catch (error: any) {
         console.error('批量上线失败:', error);
+        ElMessage.error(error.response?.data?.message || error.message || '批量上线失败');
     }
 };
 
@@ -1077,8 +1079,9 @@ const handleBatchDeactivate = async () => {
         await batchDeactivateHomestays(ids);
         ElMessage.success('批量下架成功');
         fetchHomestays();
-    } catch (error) {
+    } catch (error: any) {
         console.error('批量下架失败:', error);
+        ElMessage.error(error.response?.data?.message || error.message || '批量下架失败');
     }
 };
 
@@ -1100,8 +1103,9 @@ const handleBatchDelete = async () => {
         await batchDeleteHomestays(ids);
         ElMessage.success('批量删除成功');
         fetchHomestays();
-    } catch (error) {
+    } catch (error: any) {
         console.error('批量删除失败:', error);
+        ElMessage.error(error.response?.data?.message || error.message || '批量删除失败');
     }
 };
 
@@ -1336,22 +1340,8 @@ const refreshCurrentAuditHistory = async () => {
             const response = await getHomestayAuditHistory(currentAuditHomestayId.value, 0, 10);
 
             if (response.data && response.data.content) {
-                // 过滤掉系统自动生成的迁移数据和测试数据
-                const filteredRecords = response.data.content.filter((record: any) => {
-                    // 过滤条件：排除明显的测试/迁移数据
-                    const isSystemMigration =
-                        record.reviewerName === 'tang' &&
-                        record.reviewReason === '系统数据迁移' &&
-                        record.reviewNotes === '从现有数据自动生成的审核记录';
-
-                    const isTestData = record.reviewerName?.includes('test') ||
-                        record.reviewerName?.includes('测试');
-
-                    return !isSystemMigration && !isTestData;
-                });
-
-                auditRecords.value = filteredRecords;
-                console.log('审核历史已加载，过滤后条目数:', filteredRecords.length);
+                auditRecords.value = response.data.content;
+                console.log('审核历史已加载，条目数:', response.data.content.length);
             } else {
                 auditRecords.value = [];
             }
@@ -1388,7 +1378,7 @@ const isHomestayComplete = (homestay: Homestay): boolean => {
         homestay.price && homestay.price > 0 &&
         homestay.maxGuests && homestay.maxGuests > 0 &&
         homestay.description && homestay.description.trim() !== '' &&
-        homestay.address && homestay.address.trim() !== ''
+        homestay.addressDetail && homestay.addressDetail.trim() !== ''
     );
 };
 
@@ -1410,7 +1400,7 @@ const getMissingFields = (homestay: Homestay): string[] => {
     if (!homestay.description || homestay.description.trim() === '') {
         missingFields.push('房源描述');
     }
-    if (!homestay.address || homestay.address.trim() === '') {
+    if (!homestay.addressDetail || homestay.addressDetail.trim() === '') {
         missingFields.push('详细地址');
     }
     return missingFields;

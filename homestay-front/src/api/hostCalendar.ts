@@ -51,6 +51,14 @@ export interface CalendarAvailabilityUpdateRequest {
   note?: string;
 }
 
+export interface CalendarPriceUpdateRequest {
+  homestayId: number;
+  startDate: string;
+  endDate: string;
+  // null 表示清除自定义价格
+  customPrice: number | null;
+}
+
 export interface HostCalendarResponse {
   days: HostCalendarDay[];
   summary: HostCalendarSummary;
@@ -69,5 +77,22 @@ export function updateHostCalendarAvailability(data: CalendarAvailabilityUpdateR
     url: "/api/host/calendar/availability",
     method: "patch",
     data,
+  });
+}
+
+export function updateHostCalendarPrice(data: CalendarPriceUpdateRequest) {
+  return request({
+    url: "/api/host/calendar/price",
+    method: "patch",
+    data,
+  });
+}
+
+export function exportHostCalendar(params: HostCalendarQuery) {
+  return request<Blob>({
+    url: "/api/host/calendar/export",
+    method: "get",
+    params,
+    responseType: "blob",
   });
 }

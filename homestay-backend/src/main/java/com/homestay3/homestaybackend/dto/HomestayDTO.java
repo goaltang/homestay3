@@ -66,6 +66,8 @@ public class HomestayDTO {
 
     private Boolean featured;
     private Boolean autoConfirm;
+    private Double rating;
+    private Integer reviewCount;
 
     private String checkInTime;
     private String checkOutTime;
@@ -79,4 +81,10 @@ public class HomestayDTO {
     private Double latitude;
     private Double longitude;
     private Double distanceKm;
+
+    // 房源分组信息
+    private Long groupId;
+    private String groupName;
+    private String groupCode;
+    private String groupColor;
 }

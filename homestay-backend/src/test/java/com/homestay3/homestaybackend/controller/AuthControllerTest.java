@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.homestay3.homestaybackend.dto.AuthRequest;
 import com.homestay3.homestaybackend.dto.RegisterRequest;
+import com.homestay3.homestaybackend.security.JwtTokenProvider;
 import com.homestay3.homestaybackend.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ class AuthControllerTest {
     @MockBean
     private AuthService authService;
 
+    @MockBean
+    private JwtTokenProvider jwtTokenProvider;
+
     @Test
     void loginEndpoint_Exists() throws Exception {
         // 准备请求
@@ -41,11 +45,11 @@ class AuthControllerTest {
                 .password("password123")
                 .build();
 
-        // 执行和验证 - 检查端点是否存在（返回400或其他状态码而非404）
+        // 执行和验证 - 端点已存在，mock service 返回 null 时返回 200
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound()); // 端点可能不存在或返回其他状态
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -57,32 +61,33 @@ class AuthControllerTest {
                 .password("password123")
                 .build();
 
-        // 执行和验证
+        // 执行和验证 - 端点已存在，mock service 返回 null 时返回 200
         mockMvc.perform(post("/api/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound()); // 端点可能不存在或返回其他状态
+                .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(username = "testuser", roles = "USER")
-    void getUserInfo_WithAuth() throws Exception {
-        // 执行和验证 - 检查需要认证的端点
-        mockMvc.perform(get("/api/auth/me"))
-                .andExpect(status().isNotFound()); // 端点可能不存在
+    void getUserInfo_WithoutAuth_Returns401() throws Exception {
+        // 执行和验证 - 未认证访问 /api/auth/current 返回 401
+        mockMvc.perform(get("/api/auth/current"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     void checkUsernameEndpoint() throws Exception {
         mockMvc.perform(get("/api/auth/check-username")
                 .param("username", "testuser"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exists").value(false));
     }
 
     @Test
     void checkEmailEndpoint() throws Exception {
         mockMvc.perform(get("/api/auth/check-email")
                 .param("email", "test@example.com"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exists").value(false));
     }
 }

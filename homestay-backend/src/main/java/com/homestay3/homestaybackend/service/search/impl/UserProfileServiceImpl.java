@@ -2,7 +2,6 @@ package com.homestay3.homestaybackend.service.search.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.homestay3.homestaybackend.entity.UserBehaviorEvent;
 import com.homestay3.homestaybackend.entity.UserPreferenceProfile;
 import com.homestay3.homestaybackend.repository.UserBehaviorEventRepository;
 import com.homestay3.homestaybackend.repository.UserPreferenceProfileRepository;
@@ -16,7 +15,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,6 +33,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     @Transactional
     public void aggregateProfile(Long userId) {
+        if (userId == null) {
+            return;
+        }
+
         LocalDateTime since = LocalDateTime.now().minus(90, ChronoUnit.DAYS);
 
         // 聚合城市偏好
@@ -44,6 +46,10 @@ public class UserProfileServiceImpl implements UserProfileService {
         // 聚合房型偏好
         Map<String, Double> typeWeights = aggregateWeights(
                 userBehaviorEventRepository.aggregateTypePreferences(userId, since));
+
+        // 聚合设施偏好
+        Map<String, Double> amenityWeights = aggregateWeights(
+                userBehaviorEventRepository.aggregateAmenityPreferences(userId, since));
 
         // 价格范围
         BigDecimal[] priceRange = resolvePriceRange(
@@ -57,6 +63,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         try {
             profile.setPreferredCityJson(objectMapper.writeValueAsString(cityWeights));
             profile.setPreferredTypeJson(objectMapper.writeValueAsString(typeWeights));
+            profile.setPreferredAmenityJson(objectMapper.writeValueAsString(amenityWeights));
             profile.setMinPrice(priceRange[0]);
             profile.setMaxPrice(priceRange[1]);
             profile.setLastActiveAt(LocalDateTime.now());
@@ -71,13 +78,11 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional
     public void aggregateAllActiveProfiles() {
         LocalDateTime since = LocalDateTime.now().minus(7, ChronoUnit.DAYS);
-        List<UserBehaviorEvent> recentEvents = userBehaviorEventRepository
-                .findByUserIdAndCreatedAtAfterOrderByCreatedAtDesc(null, since);
-
-        Set<Long> activeUserIds = recentEvents.stream()
-                .map(UserBehaviorEvent::getUserId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        List<Long> activeUserIdList = userBehaviorEventRepository.findActiveUserIdsSince(since);
+        if (activeUserIdList == null || activeUserIdList.isEmpty()) {
+            return;
+        }
+        Set<Long> activeUserIds = new LinkedHashSet<>(activeUserIdList);
 
         for (Long userId : activeUserIds) {
             try {
@@ -120,15 +125,21 @@ public class UserProfileServiceImpl implements UserProfileService {
         if (aggregates == null || aggregates.isEmpty()) {
             return Collections.emptyMap();
         }
-        long total = aggregates.stream().mapToLong(a -> (Long) a[1]).sum();
+        long total = aggregates.stream()
+                .filter(a -> a[0] != null && a[1] instanceof Number)
+                .mapToLong(a -> ((Number) a[1]).longValue())
+                .sum();
         if (total == 0) {
             return Collections.emptyMap();
         }
         Map<String, Double> weights = new LinkedHashMap<>();
         for (Object[] agg : aggregates) {
+            if (agg[0] == null || !(agg[1] instanceof Number)) {
+                continue;
+            }
             String key = (String) agg[0];
-            Long count = (Long) agg[1];
-            weights.put(key, count.doubleValue() / total);
+            long count = ((Number) agg[1]).longValue();
+            weights.put(key, (double) count / total);
         }
         return weights;
     }
@@ -151,7 +162,14 @@ public class UserProfileServiceImpl implements UserProfileService {
             return Collections.emptyMap();
         }
         try {
-            return objectMapper.readValue(json, Map.class);
+            Map<String, Object> raw = objectMapper.readValue(json, Map.class);
+            Map<String, Double> weights = new LinkedHashMap<>();
+            raw.forEach((key, value) -> {
+                if (key != null && value instanceof Number) {
+                    weights.put(key, ((Number) value).doubleValue());
+                }
+            });
+            return weights;
         } catch (Exception e) {
             log.warn("Failed to parse preference json: {}", json);
             return Collections.emptyMap();

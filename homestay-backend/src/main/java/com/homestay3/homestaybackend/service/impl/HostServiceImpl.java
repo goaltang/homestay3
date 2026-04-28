@@ -286,14 +286,27 @@ public class HostServiceImpl implements HostService {
     }
 
     private HomestayDTO convertToHomestayDTO(Homestay homestay) {
+        if (homestay == null) {
+            return null;
+        }
         return HomestayDTO.builder()
                 .id(homestay.getId())
                 .title(homestay.getTitle())
                 .description(homestay.getDescription())
-                .price(homestay.getPrice().toString())
+                .price(homestay.getPrice() != null ? homestay.getPrice().toString() : "0")
                 .addressDetail(homestay.getAddressDetail())
                 .type(homestay.getType())
-                .status(homestay.getStatus().name())
+                .status(homestay.getStatus() != null ? homestay.getStatus().name() : null)
+                .maxGuests(homestay.getMaxGuests())
+                .minNights(homestay.getMinNights())
+                .maxNights(homestay.getMaxNights())
+                .coverImage(homestay.getCoverImage())
+                .featured(homestay.getFeatured())
+                .provinceCode(homestay.getProvinceCode())
+                .cityCode(homestay.getCityCode())
+                .districtCode(homestay.getDistrictCode())
+                .createdAt(homestay.getCreatedAt())
+                .updatedAt(homestay.getUpdatedAt())
                 .build();
     }
     

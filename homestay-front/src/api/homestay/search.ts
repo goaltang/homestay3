@@ -27,6 +27,8 @@ export interface HomestaySearchRequest {
   size?: number;
   sortBy?: string;
   sortDirection?: string;
+  /** 多字段排序，格式：field,desc;field2,asc。优先于 sortBy+sortDirection */
+  sort?: string;
 }
 
 export interface MapCluster {

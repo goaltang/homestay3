@@ -136,7 +136,7 @@ class OrderNotificationServiceImplDisputeTest {
         verify(notificationService).createNotification(
                 eq(GUEST_ID), eq(HOST_ID), eq(NotificationType.REFUND_COMPLETED),
                 eq(EntityType.ORDER), eq(String.valueOf(ORDER_ID)), guestContentCaptor.capture());
-        assertTrue(guestContentCaptor.getValue().contains("批准") || guestContentCaptor.getValue().contains("APPROVED"));
+        assertTrue(guestContentCaptor.getValue().contains("已批准退款") || guestContentCaptor.getValue().contains("退款申请已被管理员仲裁"));
     }
 
     @Test

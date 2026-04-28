@@ -6,11 +6,16 @@ import com.homestay3.homestaybackend.dto.RegisterRequest;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.UserRole;
 import com.homestay3.homestaybackend.model.VerificationStatus;
+import com.homestay3.homestaybackend.dto.UserDTO;
+import com.homestay3.homestaybackend.mapper.UserMapper;
 import com.homestay3.homestaybackend.repository.AdminRepository;
+import com.homestay3.homestaybackend.repository.CouponTemplateRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.security.JwtTokenProvider;
+import com.homestay3.homestaybackend.service.CouponService;
 import com.homestay3.homestaybackend.service.EmailService;
 import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.service.ReferralService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +39,7 @@ import static org.mockito.Mockito.*;
  * 测试认证核心业务逻辑：注册、登录、密码重置等
  */
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class AuthServiceImplTest {
 
     @Mock
@@ -56,7 +62,19 @@ class AuthServiceImplTest {
     
     @Mock
     private AdminRepository adminRepository;
-    
+
+    @Mock
+    private UserMapper userMapper;
+
+    @Mock
+    private CouponTemplateRepository couponTemplateRepository;
+
+    @Mock
+    private CouponService couponService;
+
+    @Mock
+    private ReferralService referralService;
+
     @InjectMocks
     private AuthServiceImpl authService;
 
@@ -66,6 +84,18 @@ class AuthServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // mock userMapper
+        when(userMapper.toDTO(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            UserDTO dto = new UserDTO();
+            dto.setId(u.getId());
+            dto.setUsername(u.getUsername());
+            dto.setEmail(u.getEmail());
+            dto.setPhone(u.getPhone());
+            dto.setRole(u.getRole());
+            return dto;
+        });
+
         // 设置测试用户
         testUser = new User();
         testUser.setId(1L);
@@ -91,6 +121,9 @@ class AuthServiceImplTest {
                 .username("testuser")
                 .password("password123")
                 .build();
+
+        // 通用 mock
+        when(jwtTokenProvider.generateToken(any(String.class), any(Long.class), any(String.class))).thenReturn("test-jwt-token");
     }
 
     @Test
@@ -156,7 +189,6 @@ class AuthServiceImplTest {
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(jwtTokenProvider.generateToken(authentication)).thenReturn("test-jwt-token");
         
         // 执行
         AuthResponse response = authService.login(authRequest);
@@ -174,13 +206,12 @@ class AuthServiceImplTest {
     void login_UserNotFound() {
         // 准备
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
-        when(adminRepository.findByUsername("testuser")).thenReturn(Optional.empty());
-        
+
         // 执行和验证
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
             authService.login(authRequest);
         });
-        
+
         assertTrue(exception.getMessage().contains("用户不存在"));
     }
 

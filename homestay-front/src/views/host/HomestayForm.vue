@@ -444,10 +444,18 @@ const activeStep = ref(1);
 const showPreview = ref(true);
 const savingDraft = ref(false);
 
-// --- 新增：跳转到指定步骤 --- 
+// --- 步骤跳转控制 --- 
 const goToStep = (stepIndex: number) => {
-    // 简单的跳转，不进行验证
-    activeStep.value = stepIndex;
+    if (stepIndex < activeStep.value) {
+        // 允许回退到已完成的步骤
+        activeStep.value = stepIndex;
+    } else if (stepIndex === activeStep.value) {
+        // 无操作
+        return;
+    } else {
+        // 禁止通过点击标题跳过未验证的步骤
+        ElMessage.warning('请点击"下一步"按顺序完成表单');
+    }
 };
 
 // 上传文件相关
@@ -569,11 +577,9 @@ const nextStep = async () => {
                     validateSuccess = false;
                 }
             } else if (activeStep.value === 2) {
-                // 验证位置信息
+                // 验证位置信息（cityCode/districtCode 由级联选择器联动产生，无需单独校验）
                 try {
                     await formRef.value?.validateField('provinceCode');
-                    await formRef.value?.validateField('cityCode');
-                    await formRef.value?.validateField('districtCode');
                     await formRef.value?.validateField('addressDetail');
                 } catch (error) {
                     validateSuccess = false;
@@ -1347,6 +1353,22 @@ const initEditForm = async () => {
             if (homestayData.amenities && Array.isArray(homestayData.amenities)) { homestayForm.amenities = [...homestayData.amenities]; } else { homestayForm.amenities = []; }
             if (homestayData.images && Array.isArray(homestayData.images)) { const validImages = homestayData.images.filter((url: any) => url != null && url !== ''); homestayForm.images = [...validImages]; fileList.value = validImages.map((url: string) => ({ name: url.substring(url.lastIndexOf('/') + 1), url })); } else { homestayForm.images = []; fileList.value = []; }
 
+            // 如果 amenities 仍为空，尝试单独加载设施（兼容部分后端返回结构）
+            if (!homestayForm.amenities || homestayForm.amenities.length === 0) {
+                console.log('房源设施数据为空，尝试单独加载设施');
+                try {
+                    const { getHomestayAmenitiesApi } = await import('@/api/amenities');
+                    const amenitiesResponse = await getHomestayAmenitiesApi(Number(homestayId.value));
+                    if (amenitiesResponse.data && Array.isArray(amenitiesResponse.data)) {
+                        homestayForm.amenities = amenitiesResponse.data;
+                    } else if (amenitiesResponse.data && amenitiesResponse.data.data && Array.isArray(amenitiesResponse.data.data)) {
+                        homestayForm.amenities = amenitiesResponse.data.data;
+                    }
+                } catch (amenitiesError) {
+                    console.error('单独加载设施失败:', amenitiesError);
+                }
+            }
+
         } else {
             throw new Error('未获取到房源数据');
         }
@@ -1363,7 +1385,7 @@ const initEditForm = async () => {
 const loadDraft = () => {
     console.log('尝试加载草稿数据');
     try {
-        const draftData = localStorage.getItem('homestayFormDraft'); // 或者 homestayDraft ?
+        const draftData = localStorage.getItem('homestayDraft'); // 与 autoSaveDraft 保持一致
         if (draftData) {
             const parsed = JSON.parse(draftData);
             console.log('找到表单草稿数据:', parsed);
@@ -1396,9 +1418,6 @@ const loadDraft = () => {
         console.error('加载草稿失败:', e);
         ElMessage.warning('加载草稿失败，将使用默认值');
     }
-
-    // 每3分钟自动保存一次草稿
-    autoSaveInterval.value = window.setInterval(autoSaveDraft, 3 * 60 * 1000);
 };
 
 // 创建获取房源类型文本的函数 (使用动态获取的类型列表)
@@ -1604,97 +1623,6 @@ const checkEditPermission = async (homestayId: number) => {
         return false;
     }
 };
-
-// 修改onMounted函数的开头部分，添加权限检查
-onMounted(async () => {
-    // 初始化数据和选项
-    await fetchOptions()
-
-    // 如果是编辑模式则获取房源详情
-    if (isEdit.value && homestayId.value) {
-        // 检查编辑权限
-        const hasPermission = await checkEditPermission(Number(homestayId.value));
-        if (!hasPermission) {
-            return; // 如果没有权限，停止加载
-        }
-
-        // 有权限，继续加载数据
-        try {
-            loading.value = true
-            const { getHomestayById } = await import('@/api/homestay')
-            const res = await getHomestayById(Number(homestayId.value))
-
-            // 将API数据填充到表单
-            Object.assign(homestayForm, res.data);
-
-            // **处理地址回显**
-            if (res.data.provinceCode && res.data.cityCode) {
-                const codes = [res.data.provinceCode, res.data.cityCode];
-                if (res.data.districtCode) {
-                    codes.push(res.data.districtCode);
-                }
-                selectedAreaCodes.value = codes; // 设置级联选择器的值
-            }
-
-            // 检查设施数组是否为空，如果为空则尝试单独加载设施
-            if (!homestayForm.amenities || homestayForm.amenities.length === 0) {
-                console.log('房源设施数据为空，尝试单独加载设施');
-                try {
-                    // 导入设施相关API
-                    const { getHomestayAmenitiesApi } = await import('@/api/amenities');
-
-                    // 使用获取指定房源设施的API
-                    const amenitiesResponse = await getHomestayAmenitiesApi(Number(homestayId.value));
-                    console.log('单独加载设施响应:', amenitiesResponse);
-
-                    if (amenitiesResponse.data && Array.isArray(amenitiesResponse.data)) {
-                        console.log('单独加载设施成功:', amenitiesResponse.data);
-                        homestayForm.amenities = amenitiesResponse.data;
-                    } else if (amenitiesResponse.data && amenitiesResponse.data.data && Array.isArray(amenitiesResponse.data.data)) {
-                        console.log('从data字段加载设施成功:', amenitiesResponse.data.data);
-                        homestayForm.amenities = amenitiesResponse.data.data;
-                    } else {
-                        console.warn('单独加载设施返回的数据格式不正确');
-                    }
-                } catch (amenitiesError) {
-                    console.error('单独加载设施失败:', amenitiesError);
-                }
-            }
-
-            // --- 移除对 getProvinces 的残留调用 --- 
-            // const provinceRes = await getProvinces(); 
-            // console.log('省份数据响应:', provinceRes);
-            // if (provinceRes?.data?.data && Array.isArray(provinceRes.data.data)) {
-            //     provinces.value = provinceRes.data.data;
-            //     console.log('加载省份成功:', provinces.value.length);
-            // }
-            // --- 移除结束 ---
-
-            console.log('房源数据加载成功');
-            loading.value = false;
-            console.log('初始化完成，已设置自动保存');
-            // 设置自动保存
-            if (!autoSaveInterval.value) {
-                autoSaveInterval.value = window.setInterval(autoSaveDraft, 3 * 60 * 1000);
-            }
-
-        } catch (error) {
-            console.error('加载房源数据失败:', error);
-            ElMessage.error('加载房源数据失败，请稍后再试');
-            loading.value = false;
-        }
-    } else {
-        // 新增模式：加载草稿或设置默认值
-        console.log('新增模式，设置默认值');
-        loadDraft();
-    }
-
-    // 设置自动保存 (这段逻辑可能重复了，可以考虑整合)
-    if (!autoSaveInterval.value) {
-        autoSaveInterval.value = window.setInterval(autoSaveDraft, 3 * 60 * 1000);
-        console.log('已设置自动保存 (onMounted 末尾)');
-    }
-});
 
 // 监听级联选择器的变化，更新 homestayForm 中的编码字段
 watch(selectedAreaCodes, (newVal) => {

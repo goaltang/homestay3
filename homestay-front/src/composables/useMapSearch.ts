@@ -1198,7 +1198,7 @@ export function useMapSearch() {
   /**
    * 悬停房源卡片
    */
-  const hoverHomestay = (id: number | null, options?: { source?: 'card' | 'marker' }) => {
+  const hoverHomestay = (id: number | null, _options?: { source?: 'card' | 'marker' }) => {
     hoveredHomestayId.value = id;
     syncSearchContext();
     syncMarkerStateClasses();
@@ -1547,5 +1547,6 @@ export function useMapSearch() {
     destroyMap,
     getImageUrl,
     setOnViewDetail: (cb: (id: number) => void) => { onViewDetailCallback = cb; },
+    rememberNormalSearchSnapshot,
   };
 }

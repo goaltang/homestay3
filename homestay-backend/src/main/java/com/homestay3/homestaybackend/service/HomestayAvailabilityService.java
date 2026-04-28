@@ -164,4 +164,15 @@ public class HomestayAvailabilityService {
                                      AvailabilityStatus status, String reason, String note, Long createdBy) {
         return availabilityRepository.setManualAvailability(homestayId, startDate, endDate, status, reason, note, createdBy);
     }
+
+    @Transactional
+    public int setCustomPrice(Long homestayId, LocalDate startDate, LocalDate endDate,
+                              java.math.BigDecimal customPrice) {
+        return availabilityRepository.setCustomPrice(homestayId, startDate, endDate, customPrice);
+    }
+
+    @Transactional
+    public int clearCustomPrice(Long homestayId, LocalDate startDate, LocalDate endDate) {
+        return availabilityRepository.clearCustomPrice(homestayId, startDate, endDate);
+    }
 }

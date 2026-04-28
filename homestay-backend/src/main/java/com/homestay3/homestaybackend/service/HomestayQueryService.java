@@ -34,9 +34,13 @@ public interface HomestayQueryService {
 
     List<HomestaySummaryDTO> getHomestaySummariesByOwner(String username);
 
+    Page<HomestaySummaryDTO> getHomestaySummaryPageByOwner(String username, String status, String type, Long groupId, Pageable pageable);
+
     boolean checkHomestayReadyForReview(Long homestayId);
 
     String getHomestayReviewReadinessDetails(Long homestayId);
 
     List<LocalDate> getUnavailableDates(Long homestayId);
+
+    boolean isHomestayOwner(Long homestayId, String username);
 }

@@ -6,7 +6,7 @@
                 <el-icon class="check-icon">
                     <Check />
                 </el-icon>
-                <span class="amenity-label">{{ amenity.label || amenity.name || amenity.title || '设施项目' }}</span>
+                <span class="amenity-label">{{ amenity.label || '设施项目' }}</span>
             </div>
         </div>
 

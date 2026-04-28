@@ -57,6 +57,9 @@ public class HomestayAvailability {
     @Column(name = "note", length = 500)
     private String note;
 
+    @Column(name = "custom_price", precision = 10, scale = 2)
+    private java.math.BigDecimal customPrice;
+
     @Column(name = "created_by")
     private Long createdBy;
 

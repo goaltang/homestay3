@@ -81,6 +81,10 @@ export function getPersonalizedRecommendations(
   );
 }
 
+export function getMyPersonalizedRecommendations(limit: number = 6) {
+  return request.get(`/api/recommendations/personalized/me?limit=${limit}`);
+}
+
 /**
  * 获取基于位置的推荐民宿
  */

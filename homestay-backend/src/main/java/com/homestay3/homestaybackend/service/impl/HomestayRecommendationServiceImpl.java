@@ -6,7 +6,6 @@ import com.homestay3.homestaybackend.dto.UserRecommendationRequest;
 import com.homestay3.homestaybackend.entity.Amenity;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.Order;
-import com.homestay3.homestaybackend.entity.Review;
 import com.homestay3.homestaybackend.entity.UserFavorite;
 import com.homestay3.homestaybackend.model.HomestayStatus;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
@@ -14,6 +13,7 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserFavoriteRepository;
 import com.homestay3.homestaybackend.service.HomestayRecommendationService;
+import com.homestay3.homestaybackend.service.search.UserProfileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -21,6 +21,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -35,6 +36,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
     private final ReviewRepository reviewRepository;
     private final UserFavoriteRepository userFavoriteRepository;
     private final HomestayDtoAssembler homestayDtoAssembler;
+    private final UserProfileService userProfileService;
 
     // 算法权重配置
     private static final double WEIGHT_BOOKING_COUNT = 0.4; // 预订量权重
@@ -52,12 +54,14 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
             OrderRepository orderRepository,
             ReviewRepository reviewRepository,
             UserFavoriteRepository userFavoriteRepository,
-            HomestayDtoAssembler homestayDtoAssembler) {
+            HomestayDtoAssembler homestayDtoAssembler,
+            UserProfileService userProfileService) {
         this.homestayRepository = homestayRepository;
         this.orderRepository = orderRepository;
         this.reviewRepository = reviewRepository;
         this.userFavoriteRepository = userFavoriteRepository;
         this.homestayDtoAssembler = homestayDtoAssembler;
+        this.userProfileService = userProfileService;
     }
 
     @Override
@@ -256,7 +260,6 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
     }
 
     @Override
-    @Cacheable(value = "userRecommendations", key = "#userId + '_' + #limit")
     public List<HomestaySummaryDTO> getPersonalizedRecommendations(Long userId, int limit) {
         log.info("计算个性化推荐，用户ID: {}, 数量限制: {}", userId, limit);
 
@@ -399,7 +402,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     @Override
     @CacheEvict(value = { "popularHomestays", "popularHomestaysPage", "recommendedHomestays",
-            "recommendedHomestaysPage", "userRecommendations" }, allEntries = true)
+            "recommendedHomestaysPage" }, allEntries = true)
     public void refreshRecommendationCache() {
         log.info("刷新推荐缓存");
     }
@@ -544,18 +547,21 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     // 辅助方法
     private UserPreference analyzeUserPreference(Long userId) {
+        UserPreference preference = new UserPreference();
+        applyProfilePreferences(userId, preference);
+
         // 分析用户历史订单和行为
         List<Order> userOrders = orderRepository.findByGuest_IdOrderByCreatedAtDesc(userId);
-
-        UserPreference preference = new UserPreference();
 
         if (!userOrders.isEmpty()) {
             // 分析偏好价格范围
             DoubleSummaryStatistics priceStats = userOrders.stream()
                     .mapToDouble(order -> order.getHomestay().getPrice().doubleValue())
                     .summaryStatistics();
-            preference.setPreferredMinPrice((int) priceStats.getMin());
-            preference.setPreferredMaxPrice((int) priceStats.getMax());
+            if (preference.getPreferredMinPrice() == null || preference.getPreferredMaxPrice() == null) {
+                preference.setPreferredMinPrice((int) priceStats.getMin());
+                preference.setPreferredMaxPrice((int) priceStats.getMax());
+            }
 
             // 分析偏好位置 - 包含省份和城市权重
             Map<String, Long> cityFreq = userOrders.stream()
@@ -566,15 +572,15 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
                     .collect(Collectors.groupingBy(
                             order -> order.getHomestay().getProvinceCode(),
                             Collectors.counting()));
-            preference.setPreferredCities(new ArrayList<>(cityFreq.keySet()));
-            preference.setPreferredProvinces(new ArrayList<>(provinceFreq.keySet()));
+            preference.setPreferredCities(mergePreferences(preference.getPreferredCities(), cityFreq.keySet()));
+            preference.setPreferredProvinces(mergePreferences(preference.getPreferredProvinces(), provinceFreq.keySet()));
 
             // 分析偏好房型
             Map<String, Long> typeFreq = userOrders.stream()
                     .collect(Collectors.groupingBy(
                             order -> order.getHomestay().getType(),
                             Collectors.counting()));
-            preference.setPreferredPropertyTypes(new ArrayList<>(typeFreq.keySet()));
+            preference.setPreferredPropertyTypes(mergePreferences(preference.getPreferredPropertyTypes(), typeFreq.keySet()));
 
             // 分析设施偏好
             Map<String, Long> amenityFreq = new HashMap<>();
@@ -591,7 +597,7 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
                     .filter(entry -> entry.getValue() >= threshold)
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toList());
-            preference.setPreferredAmenities(preferredAmenities);
+            preference.setPreferredAmenities(mergePreferences(preference.getPreferredAmenities(), preferredAmenities));
 
             // 分析价格敏感度
             double priceVariance = calculatePriceVariance(userOrders);
@@ -618,12 +624,102 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
             log.warn("分析用户收藏偏好失败，用户ID: {}", userId, e);
         }
 
-        // 如果没有足够的历史数据，设置默认偏好
-        if (userOrders.isEmpty()) {
-            setDefaultPreferences(preference);
-        }
+        applyDefaultPreferenceFallbacks(preference);
 
         return preference;
+    }
+
+    private void applyProfilePreferences(Long userId, UserPreference preference) {
+        boolean loaded = applyStoredProfile(userId, preference);
+        if (loaded) {
+            return;
+        }
+
+        try {
+            userProfileService.aggregateProfile(userId);
+            applyStoredProfile(userId, preference);
+        } catch (Exception e) {
+            log.warn("聚合/读取用户画像失败，用户ID: {}", userId, e);
+        }
+    }
+
+    private boolean applyStoredProfile(Long userId, UserPreference preference) {
+        boolean hasProfileData = false;
+
+        Map<String, Double> preferredCities = userProfileService.getPreferredCities(userId);
+        if (!preferredCities.isEmpty()) {
+            List<String> cityCodes = sortedPreferenceKeys(preferredCities);
+            preference.setPreferredCities(mergePreferences(preference.getPreferredCities(), cityCodes));
+            preference.setPreferredProvinces(mergePreferences(preference.getPreferredProvinces(), deriveProvinceCandidates(cityCodes)));
+            hasProfileData = true;
+        }
+
+        Map<String, Double> preferredTypes = userProfileService.getPreferredTypes(userId);
+        if (!preferredTypes.isEmpty()) {
+            preference.setPreferredPropertyTypes(mergePreferences(
+                    preference.getPreferredPropertyTypes(), sortedPreferenceKeys(preferredTypes)));
+            hasProfileData = true;
+        }
+
+        Map<String, Double> preferredAmenities = userProfileService.getPreferredAmenities(userId);
+        if (!preferredAmenities.isEmpty()) {
+            preference.setPreferredAmenities(mergePreferences(
+                    preference.getPreferredAmenities(), sortedPreferenceKeys(preferredAmenities)));
+            hasProfileData = true;
+        }
+
+        BigDecimal[] priceRange = userProfileService.getPriceRange(userId);
+        if (priceRange[0] != null && priceRange[1] != null) {
+            preference.setPreferredMinPrice(priceRange[0].intValue());
+            preference.setPreferredMaxPrice(priceRange[1].intValue());
+            preference.setPriceSensitivity(resolvePriceSensitivity(priceRange[0].intValue(), priceRange[1].intValue()));
+            hasProfileData = true;
+        }
+
+        return hasProfileData;
+    }
+
+    private List<String> sortedPreferenceKeys(Map<String, Double> weights) {
+        return weights.entrySet().stream()
+                .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+    }
+
+    private List<String> mergePreferences(List<String> current, Collection<String> additions) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>();
+        if (current != null) {
+            current.stream().filter(Objects::nonNull).forEach(merged::add);
+        }
+        if (additions != null) {
+            additions.stream().filter(Objects::nonNull).forEach(merged::add);
+        }
+        return new ArrayList<>(merged);
+    }
+
+    private List<String> deriveProvinceCandidates(List<String> cityCodes) {
+        LinkedHashSet<String> provinces = new LinkedHashSet<>();
+        for (String cityCode : cityCodes) {
+            if (cityCode == null || cityCode.length() < 2) {
+                continue;
+            }
+            String prefix = cityCode.substring(0, 2);
+            provinces.add(prefix);
+            provinces.add(prefix + "0000");
+        }
+        return new ArrayList<>(provinces);
+    }
+
+    private String resolvePriceSensitivity(int minPrice, int maxPrice) {
+        int range = Math.max(0, maxPrice - minPrice);
+        if (range <= 300) {
+            return "HIGH";
+        }
+        if (range <= 1200) {
+            return "MEDIUM";
+        }
+        return "LOW";
     }
 
     private double calculatePriceVariance(List<Order> userOrders) {
@@ -701,15 +797,37 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         }
     }
 
-    private void setDefaultPreferences(UserPreference preference) {
-        // 为新用户设置合理的默认偏好
-        preference.setPreferredMinPrice(100);
-        preference.setPreferredMaxPrice(1000);
-        preference.setPriceSensitivity("MEDIUM");
-        preference.setMinRatingPreference(4.0);
-
-        // 设置常见的偏好设施
-        preference.setPreferredAmenities(Arrays.asList("WiFi", "空调", "热水器", "洗衣机"));
+    private void applyDefaultPreferenceFallbacks(UserPreference preference) {
+        if (preference.getPreferredMinPrice() == null) {
+            preference.setPreferredMinPrice(100);
+        }
+        if (preference.getPreferredMaxPrice() == null) {
+            preference.setPreferredMaxPrice(1000);
+        }
+        if (preference.getPreferredMinPrice() > preference.getPreferredMaxPrice()) {
+            int minPrice = preference.getPreferredMinPrice();
+            preference.setPreferredMinPrice(preference.getPreferredMaxPrice());
+            preference.setPreferredMaxPrice(minPrice);
+        }
+        if (preference.getPriceSensitivity() == null) {
+            preference.setPriceSensitivity(resolvePriceSensitivity(
+                    preference.getPreferredMinPrice(), preference.getPreferredMaxPrice()));
+        }
+        if (preference.getMinRatingPreference() <= 0) {
+            preference.setMinRatingPreference(4.0);
+        }
+        if (preference.getPreferredCities() == null) {
+            preference.setPreferredCities(Collections.emptyList());
+        }
+        if (preference.getPreferredProvinces() == null) {
+            preference.setPreferredProvinces(Collections.emptyList());
+        }
+        if (preference.getPreferredPropertyTypes() == null) {
+            preference.setPreferredPropertyTypes(Collections.emptyList());
+        }
+        if (preference.getPreferredAmenities() == null || preference.getPreferredAmenities().isEmpty()) {
+            preference.setPreferredAmenities(Arrays.asList("WiFi", "空调", "热水器", "洗衣机"));
+        }
     }
 
     private double calculateQualityScore(Homestay homestay) {
@@ -747,12 +865,33 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
             score = 1.0;
         }
         // 省份匹配（次优）
-        else if (preference.getPreferredProvinces() != null &&
-                preference.getPreferredProvinces().contains(homestay.getProvinceCode())) {
+        else if (matchesPreferredProvince(homestay, preference.getPreferredProvinces())) {
             score = 0.6;
         }
 
         return score;
+    }
+
+    private boolean matchesPreferredProvince(Homestay homestay, List<String> preferredProvinces) {
+        if (preferredProvinces == null || preferredProvinces.isEmpty()) {
+            return false;
+        }
+
+        String provinceCode = homestay.getProvinceCode();
+        String cityCode = homestay.getCityCode();
+
+        return preferredProvinces.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(preferredProvince -> Objects.equals(preferredProvince, provinceCode)
+                        || sharesAdministrativePrefix(preferredProvince, provinceCode)
+                        || sharesAdministrativePrefix(preferredProvince, cityCode));
+    }
+
+    private boolean sharesAdministrativePrefix(String preferredCode, String candidateCode) {
+        if (preferredCode == null || candidateCode == null || preferredCode.length() < 2 || candidateCode.length() < 2) {
+            return false;
+        }
+        return preferredCode.substring(0, 2).equals(candidateCode.substring(0, 2));
     }
 
     private double calculateEnhancedPriceMatch(Homestay homestay, UserPreference preference) {
@@ -763,14 +902,20 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         int price = homestay.getPrice().intValue();
         int minPrice = preference.getPreferredMinPrice();
         int maxPrice = preference.getPreferredMaxPrice();
+        if (minPrice > maxPrice) {
+            int temp = minPrice;
+            minPrice = maxPrice;
+            maxPrice = temp;
+        }
+        int preferredRange = maxPrice - minPrice;
 
         // 在偏好范围内
         if (price >= minPrice && price <= maxPrice) {
             // 根据价格敏感度调整分数
             double score = 1.0;
-            if ("HIGH".equals(preference.getPriceSensitivity())) {
+            if ("HIGH".equals(preference.getPriceSensitivity()) && preferredRange > 0) {
                 // 价格敏感用户偏好价格区间中的较低价格
-                double priceRatio = (double) (price - minPrice) / (maxPrice - minPrice);
+                double priceRatio = (double) (price - minPrice) / preferredRange;
                 score = 1.2 - 0.4 * priceRatio; // 价格越低分数越高
             }
             return Math.min(score, 1.0);
@@ -779,9 +924,9 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         // 超出范围的渐变处理
         double deviation;
         if (price < minPrice) {
-            deviation = (double) (minPrice - price) / minPrice;
+            deviation = (double) (minPrice - price) / Math.max(minPrice, 1);
         } else {
-            deviation = (double) (price - maxPrice) / maxPrice;
+            deviation = (double) (price - maxPrice) / Math.max(maxPrice, 1);
         }
 
         // 根据价格敏感度调整容忍度

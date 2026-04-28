@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.OrderDTO;
+import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
@@ -8,6 +9,7 @@ import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
+import com.homestay3.homestaybackend.service.DisputeRecordService;
 import com.homestay3.homestaybackend.service.DisputeService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
@@ -52,6 +54,9 @@ class DisputeServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private DisputeRecordService disputeRecordService;
+
     @InjectMocks
     private DisputeServiceImpl disputeService;
 
@@ -84,6 +89,9 @@ class DisputeServiceImplTest {
         testOrder.setTotalAmount(new BigDecimal("500.00"));
         testOrder.setRefundReason("用户申请取消");
         testOrder.setRefundAmount(new BigDecimal("500.00"));
+        testOrder.setGuest(currentUser);
+        Homestay testHomestay = new Homestay();
+        testOrder.setHomestay(testHomestay);
     }
 
     // ========== raiseDispute 测试 ==========

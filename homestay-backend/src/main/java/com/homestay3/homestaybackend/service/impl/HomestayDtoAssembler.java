@@ -272,6 +272,10 @@ public class HomestayDtoAssembler {
                 .updatedAt(dto.getUpdatedAt())
                 .latitude(dto.getLatitude())
                 .longitude(dto.getLongitude())
+                .groupId(dto.getGroupId())
+                .groupName(dto.getGroupName())
+                .groupCode(dto.getGroupCode())
+                .groupColor(dto.getGroupColor())
                 .build();
     }
 
@@ -409,6 +413,7 @@ public class HomestayDtoAssembler {
             enrichPropertyTypeName(dto, homestay, propertyTypeNameMap);
             normalizeImageUrls(dto, homestay);
             enrichOwnerInfo(dto, homestay);
+            enrichGroupInfo(dto, homestay);
             enrichAmenities(dto, homestay);
             enrichSuggestedFeatures(dto, homestay, referringSearchCriteria);
 
@@ -509,6 +514,19 @@ public class HomestayDtoAssembler {
             }
         } catch (Exception exception) {
             log.error("Failed to map owner information for homestay {}", homestay.getId(), exception);
+        }
+    }
+
+    private void enrichGroupInfo(HomestayDTO dto, Homestay homestay) {
+        try {
+            if (homestay.getGroup() != null) {
+                dto.setGroupId(homestay.getGroup().getId());
+                dto.setGroupName(homestay.getGroup().getName());
+                dto.setGroupCode(homestay.getGroup().getCode());
+                dto.setGroupColor(homestay.getGroup().getColor());
+            }
+        } catch (Exception exception) {
+            log.error("Failed to map group information for homestay {}", homestay.getId(), exception);
         }
     }
 

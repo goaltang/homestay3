@@ -10,14 +10,6 @@ import request from "./request";
 // 如果没有API Key，使用模拟模式
 const USE_MOCK_DATA = false; // 强制使用真实API，已有有效的API Key
 
-// 地理编码接口
-interface GeocodeResult {
-  lat: number;
-  lng: number;
-  address: string;
-  formattedAddress: string;
-}
-
 // 周边设施类型
 interface NearbyPlace {
   name: string;

@@ -4,12 +4,15 @@ import com.homestay3.homestaybackend.dto.HomestaySummaryDTO;
 import com.homestay3.homestaybackend.dto.PagedResponse;
 import com.homestay3.homestaybackend.dto.UserRecommendationRequest;
 import com.homestay3.homestaybackend.service.HomestayRecommendationService;
+import com.homestay3.homestaybackend.util.UserUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -86,13 +89,40 @@ public class HomestayRecommendationController {
     /**
      * 获取个性化推荐民宿
      */
+    @GetMapping("/personalized/me")
+    public ResponseEntity<List<HomestaySummaryDTO>> getMyPersonalizedRecommendations(
+            Authentication authentication,
+            @RequestParam(defaultValue = "6") int limit) {
+        try {
+            Long currentUserId = UserUtil.getCurrentUserId(authentication);
+            List<HomestaySummaryDTO> personalizedHomestays = recommendationService.getPersonalizedRecommendations(
+                    currentUserId, limit);
+            return ResponseEntity.ok(personalizedHomestays);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        } catch (Exception e) {
+            log.error("获取当前用户个性化推荐民宿失败", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * 获取个性化推荐民宿
+     */
     @GetMapping("/personalized/{userId}")
     public ResponseEntity<List<HomestaySummaryDTO>> getPersonalizedRecommendations(
             @PathVariable Long userId,
+            Authentication authentication,
             @RequestParam(defaultValue = "6") int limit) {
         try {
+            Long currentUserId = UserUtil.getCurrentUserId(authentication);
+            if (!currentUserId.equals(userId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
             List<HomestaySummaryDTO> personalizedHomestays = recommendationService.getPersonalizedRecommendations(userId, limit);
             return ResponseEntity.ok(personalizedHomestays);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         } catch (Exception e) {
             log.error("获取个性化推荐民宿失败，用户ID: {}", userId, e);
             return ResponseEntity.internalServerError().build();
@@ -138,10 +168,22 @@ public class HomestayRecommendationController {
      */
     @PostMapping("/custom")
     public ResponseEntity<List<HomestaySummaryDTO>> getRecommendationsByRequest(
-            @RequestBody UserRecommendationRequest request) {
+            @RequestBody UserRecommendationRequest request,
+            Authentication authentication) {
         try {
+            if (request.getUserId() != null
+                    || request.getRecommendationType() == UserRecommendationRequest.RecommendationType.PERSONALIZED) {
+                Long currentUserId = UserUtil.getCurrentUserId(authentication);
+                if (request.getUserId() == null) {
+                    request.setUserId(currentUserId);
+                } else if (!currentUserId.equals(request.getUserId())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                }
+            }
             List<HomestaySummaryDTO> customRecommendations = recommendationService.getRecommendationsByRequest(request);
             return ResponseEntity.ok(customRecommendations);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         } catch (Exception e) {
             log.error("根据用户请求获取推荐失败: {}", request, e);
             return ResponseEntity.internalServerError().build();

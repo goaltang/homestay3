@@ -262,6 +262,7 @@ import { searchAmapPoiSuggestions } from '@/utils/mapService';
 import { useMapSearch, type MapHomestay } from '@/composables/useMapSearch';
 import { useMapSearchQuerySync, type QuerySyncFormState, type HydratedQueryState } from '@/composables/useMapSearchQuerySync';
 import MapHomestayCard from '@/components/homestay/MapHomestayCard.vue';
+import { trackClick, trackSearch } from '@/api/tracking';
 import { regionData } from 'element-china-area-data';
 import { debounce } from 'lodash-es';
 
@@ -641,6 +642,10 @@ const handleSelectSuggestion = async (item: any) => {
   }
   
   globalSearchKeyword.value = item.name;
+  trackSearch({
+    keyword: item.name,
+    cityCode: getLandmarkSuggestionCity()
+  });
   landmarkLat.value = item.latitude;
   landmarkLng.value = item.longitude;
   resolvedLandmark.value = { ...item, name: item.name, secondaryText: item.secondaryText };
@@ -671,6 +676,10 @@ const handleSearchEnter = async () => {
 
   // 如果当前输入匹配已解析的地标，仅刷新筛选条件
   if (searchMode.value === 'landmark' && resolvedLandmarkName.value === keyword && hasResolvedLandmark.value) {
+    trackSearch({
+      keyword,
+      cityCode: getLandmarkSuggestionCity()
+    });
     await searchByLandmark(
       { latitude: landmarkLat.value!, longitude: landmarkLng.value!, name: keyword },
       { radius: nearbyRadius.value, filters: buildFiltersFromForm(), fitView: true }
@@ -687,6 +696,10 @@ const handleSearchEnter = async () => {
       const s = suggestions[0];
       await handleSelectSuggestion({ ...s, type: 'landmark', secondaryText: [s.district, s.address].filter(Boolean).join(' · ') });
     } else {
+      trackSearch({
+        keyword,
+        cityCode: getLandmarkSuggestionCity()
+      });
       ElMessage.warning('未找到匹配地点，请尝试其他关键词');
     }
   } catch (e) {
@@ -741,6 +754,7 @@ const handleRetrySearch = async () => {
 };
 
 const handleCardClick = (homestay: MapHomestay) => {
+  trackClick(homestay.id);
   selectHomestay(homestay.id);
   // 移动端自动收起列表，露出地图标记
   if (window.innerWidth <= 768) {
@@ -749,6 +763,7 @@ const handleCardClick = (homestay: MapHomestay) => {
 };
 
 const handleViewDetail = (id: number) => {
+  trackClick(id);
   void router.push(`/homestays/${id}`);
 };
 

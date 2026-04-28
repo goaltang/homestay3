@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import { ElMessage } from "element-plus";
 import {
   getHostCalendar,
@@ -95,6 +95,20 @@ export function useHostCalendar() {
       loading.value = false;
     }
   }
+
+  function handleCalendarUpdate() {
+    if (initialized.value) {
+      void loadCalendar();
+    }
+  }
+
+  onMounted(() => {
+    window.addEventListener("calendar-update", handleCalendarUpdate);
+  });
+
+  onUnmounted(() => {
+    window.removeEventListener("calendar-update", handleCalendarUpdate);
+  });
 
   async function initialize() {
     await loadHomestays();

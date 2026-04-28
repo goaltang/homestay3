@@ -10,8 +10,10 @@ import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.AmenityService;
 import com.homestay3.homestaybackend.service.HomestayCommandService;
+import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.security.access.AccessDeniedException;
@@ -42,6 +44,7 @@ public class HomestayCommandServiceImpl implements HomestayCommandService {
     private final AmenityService amenityService;
     private final HomestayDtoAssembler homestayDtoAssembler;
     private final HomestayMutationSupport homestayMutationSupport;
+    private final ObjectProvider<HomestayIndexingService> homestayIndexingServiceProvider;
 
     @Override
     @Transactional
@@ -173,6 +176,7 @@ public class HomestayCommandServiceImpl implements HomestayCommandService {
             }
         }
 
+        syncHomestayToElasticsearch(savedHomestay);
         return homestayDtoAssembler.toDTO(savedHomestay, null);
     }
 
@@ -264,6 +268,7 @@ public class HomestayCommandServiceImpl implements HomestayCommandService {
             }
 
             Homestay updatedHomestay = homestayRepository.save(homestay);
+            syncHomestayToElasticsearch(updatedHomestay);
             return homestayDtoAssembler.toDTO(updatedHomestay, null);
         } catch (Exception exception) {
             log.error("Failed to update homestay {}", id, exception);
@@ -298,6 +303,7 @@ public class HomestayCommandServiceImpl implements HomestayCommandService {
                 homestayRepository.save(homestay);
             }
 
+            deleteHomestayFromElasticsearch(homestay.getId());
             homestayRepository.delete(homestay);
         } catch (Exception exception) {
             log.error("Failed to delete homestay {}", id, exception);
@@ -323,10 +329,25 @@ public class HomestayCommandServiceImpl implements HomestayCommandService {
         }
 
         homestayMutationSupport.validateHomestayStatus(status);
-        homestay.setStatus(HomestayStatus.valueOf(status));
+        HomestayStatus newStatus = HomestayStatus.valueOf(status);
+
+        // 状态机校验：禁止非法状态转换
+        if (!homestay.getStatus().canTransitionTo(newStatus)) {
+            throw new IllegalArgumentException(
+                    String.format("无法将房源从'%s'状态变更为'%s'状态",
+                            homestay.getStatus().getDescription(),
+                            newStatus.getDescription()));
+        }
+
+        homestay.setStatus(newStatus);
         homestay.setUpdatedAt(LocalDateTime.now());
 
         Homestay updatedHomestay = homestayRepository.save(homestay);
+        if (newStatus == HomestayStatus.ACTIVE) {
+            syncHomestayToElasticsearch(updatedHomestay);
+        } else {
+            deleteHomestayFromElasticsearch(updatedHomestay.getId());
+        }
         return homestayDtoAssembler.toDTO(updatedHomestay, null);
     }
 
@@ -337,5 +358,35 @@ public class HomestayCommandServiceImpl implements HomestayCommandService {
             }
         }
         return false;
+    }
+
+    private void syncHomestayToElasticsearch(Homestay homestay) {
+        if (homestay == null || homestay.getId() == null) {
+            return;
+        }
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null) {
+                indexingService.syncHomestay(homestay.getId());
+                log.debug("Queued homestay {} for ES sync", homestay.getId());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to queue ES sync for homestay {}: {}", homestay.getId(), e.getMessage());
+        }
+    }
+
+    private void deleteHomestayFromElasticsearch(Long homestayId) {
+        if (homestayId == null) {
+            return;
+        }
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null) {
+                indexingService.deleteHomestay(homestayId);
+                log.debug("Queued homestay {} for ES deletion", homestayId);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to queue ES deletion for homestay {}: {}", homestayId, e.getMessage());
+        }
     }
 }

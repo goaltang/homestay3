@@ -41,4 +41,10 @@ public class HomestaySummaryDTO {
     private LocalDateTime updatedAt;
     private Double latitude;
     private Double longitude;
+
+    // 房源分组信息
+    private Long groupId;
+    private String groupName;
+    private String groupCode;
+    private String groupColor;
 }

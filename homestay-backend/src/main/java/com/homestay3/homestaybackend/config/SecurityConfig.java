@@ -64,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/locations/**", "/api/v1/locations/**").permitAll()
                         .requestMatchers("/api/homestay-types/**", "/api/v1/homestay-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/amenities/**", "/api/v1/amenities/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/recommendations/personalized/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/recommendations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/host/info/**").permitAll()
                         .requestMatchers("/api/system/**").permitAll()

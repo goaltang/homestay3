@@ -308,80 +308,45 @@ class CouponServiceImplTest {
     class PaymentWriteOffTests {
 
         @Test
-        @DisplayName("支付成功后，锁定状态的券被核销为 USED")
+        @DisplayName("支付成功后，批量核销原子操作被调用")
         void useCoupons_LockedCoupons_BecomeUsed() {
-            UserCoupon locked1 = TestDataFactory.createUserCoupon(USER_A, cashTemplate, "LOCKED");
-            locked1.setLockedOrderId(ORDER_1);
-            UserCoupon locked2 = TestDataFactory.createUserCoupon(USER_A, discountTemplate, "LOCKED");
-            locked2.setLockedOrderId(ORDER_1);
-            when(userCouponRepository.findAll()).thenReturn(Arrays.asList(locked1, locked2));
-            when(userCouponRepository.save(any(UserCoupon.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(userCouponRepository.useCouponsByOrderId(eq(ORDER_1), any(LocalDateTime.class)))
+                    .thenReturn(2);
 
             couponService.useCoupons(ORDER_1);
 
-            assertEquals("USED", locked1.getStatus());
-            assertEquals(ORDER_1, locked1.getUsedOrderId());
-            assertNotNull(locked1.getUsedAt());
-            assertEquals("USED", locked2.getStatus());
-            verify(userCouponRepository, times(2)).save(any(UserCoupon.class));
+            verify(userCouponRepository).useCouponsByOrderId(eq(ORDER_1), any(LocalDateTime.class));
         }
 
         @Test
-        @DisplayName("支付核销时，非当前订单锁定的券不被影响")
-        void useCoupons_DifferentOrderLocked_Skipped() {
-            Long otherOrderId = 999L;
-            UserCoupon otherLocked = TestDataFactory.createUserCoupon(USER_A, cashTemplate, "LOCKED");
-            otherLocked.setLockedOrderId(otherOrderId);
-            when(userCouponRepository.findAll()).thenReturn(Collections.singletonList(otherLocked));
+        @DisplayName("支付核销时无锁定券，不影响")
+        void useCoupons_NoLockedCoupons_NoOp() {
+            when(userCouponRepository.useCouponsByOrderId(eq(ORDER_1), any(LocalDateTime.class)))
+                    .thenReturn(0);
 
             couponService.useCoupons(ORDER_1);
 
-            assertEquals("LOCKED", otherLocked.getStatus());
-            assertEquals(otherOrderId, otherLocked.getLockedOrderId());
-            verify(userCouponRepository, never()).save(any(UserCoupon.class));
+            verify(userCouponRepository).useCouponsByOrderId(eq(ORDER_1), any(LocalDateTime.class));
         }
 
         @Test
-        @DisplayName("支付核销时，AVAILABLE 状态的券不被影响")
-        void useCoupons_AvailableCoupons_Skipped() {
-            UserCoupon available = TestDataFactory.createUserCoupon(USER_A, cashTemplate, "AVAILABLE");
-            when(userCouponRepository.findAll()).thenReturn(Collections.singletonList(available));
-
-            couponService.useCoupons(ORDER_1);
-
-            assertEquals("AVAILABLE", available.getStatus());
-            verify(userCouponRepository, never()).save(any(UserCoupon.class));
-        }
-
-        @Test
-        @DisplayName("取消订单后，锁定状态的券被释放为 AVAILABLE")
+        @DisplayName("取消订单后，批量释放原子操作被调用")
         void releaseCoupons_LockedCoupons_BecomeAvailable() {
-            UserCoupon locked = TestDataFactory.createUserCoupon(USER_A, cashTemplate, "LOCKED");
-            locked.setLockedOrderId(ORDER_1);
-            locked.setLockedAt(LocalDateTime.now());
-            when(userCouponRepository.findAll()).thenReturn(Collections.singletonList(locked));
-            when(userCouponRepository.save(any(UserCoupon.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(userCouponRepository.releaseCouponsByOrderId(ORDER_1)).thenReturn(1);
 
             couponService.releaseCoupons(ORDER_1);
 
-            assertEquals("AVAILABLE", locked.getStatus());
-            assertNull(locked.getLockedOrderId());
-            assertNull(locked.getLockedAt());
-            verify(userCouponRepository).save(locked);
+            verify(userCouponRepository).releaseCouponsByOrderId(ORDER_1);
         }
 
         @Test
-        @DisplayName("释放优惠券时，非当前订单锁定的券不被影响")
-        void releaseCoupons_DifferentOrderLocked_Skipped() {
-            Long otherOrderId = 999L;
-            UserCoupon otherLocked = TestDataFactory.createUserCoupon(USER_A, cashTemplate, "LOCKED");
-            otherLocked.setLockedOrderId(otherOrderId);
-            when(userCouponRepository.findAll()).thenReturn(Collections.singletonList(otherLocked));
+        @DisplayName("释放优惠券时无锁定券，不影响")
+        void releaseCoupons_NoLockedCoupons_NoOp() {
+            when(userCouponRepository.releaseCouponsByOrderId(ORDER_1)).thenReturn(0);
 
             couponService.releaseCoupons(ORDER_1);
 
-            assertEquals("LOCKED", otherLocked.getStatus());
-            verify(userCouponRepository, never()).save(any(UserCoupon.class));
+            verify(userCouponRepository).releaseCouponsByOrderId(ORDER_1);
         }
 
         @Test
@@ -394,7 +359,7 @@ class CouponServiceImplTest {
         @Test
         @DisplayName("使用空订单 ID 核销不抛异常")
         void useCoupons_NullOrderId_DoesNotThrow() {
-            when(userCouponRepository.findAll()).thenReturn(Collections.emptyList());
+            when(userCouponRepository.useCouponsByOrderId(isNull(), any(LocalDateTime.class))).thenReturn(0);
             assertDoesNotThrow(() -> couponService.useCoupons(null));
         }
     }

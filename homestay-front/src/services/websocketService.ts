@@ -97,6 +97,17 @@ export const initWebSocket = (userId: number | null) => {
           console.error('解析聊天消息失败:', error);
         }
       });
+
+      // 订阅房东日历更新主题
+      stompClient.subscribe(`/topic/calendar/${userId}`, function(calendarMessage: any) {
+        try {
+          const payload = JSON.parse(calendarMessage.body);
+          console.log('收到日历更新:', payload);
+          window.dispatchEvent(new CustomEvent('calendar-update', { detail: payload }));
+        } catch (error) {
+          console.error('解析日历更新消息失败:', error);
+        }
+      });
     }, function(error: any) {
       console.error('WebSocket连接错误:', error);
       isConnected.value = false;

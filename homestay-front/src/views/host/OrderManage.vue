@@ -573,7 +573,7 @@
                 <el-descriptions :column="1" border size="small" class="refund-order-info">
                     <el-descriptions-item label="退款原因">{{ currentOrder.refundReason || '无' }}</el-descriptions-item>
                     <el-descriptions-item label="退款金额">
-                        <span class="refund-amount-highlight">¥{{ formatAmount(currentOrder.refundAmount || currentOrder.totalAmount) }}
+                        <span class="refund-amount-highlight">¥{{ formatAmount(currentOrder.refundAmount || currentOrder.totalAmount) }}</span>
                     </el-descriptions-item>
                 </el-descriptions>
 
@@ -615,7 +615,7 @@
                     <el-descriptions-item label="订单号">{{ currentOrder.orderNumber || currentOrder.id }}</el-descriptions-item>
                     <el-descriptions-item label="退款原因">{{ currentOrder.refundReason || '无' }}</el-descriptions-item>
                     <el-descriptions-item label="退款金额">
-                        <span class="refund-amount-highlight">¥{{ formatAmount(currentOrder.refundAmount || currentOrder.totalAmount) }}
+                        <span class="refund-amount-highlight">¥{{ formatAmount(currentOrder.refundAmount || currentOrder.totalAmount) }}</span>
                     </el-descriptions-item>
                 </el-descriptions>
 

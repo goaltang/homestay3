@@ -158,6 +158,7 @@ import { formatLocation, parsePrice, processImages } from '@/utils/homestayUtils
 import { useReviews } from '@/composables/useReviews'
 import { useMap } from '@/composables/useMap'
 import { useBooking } from '@/composables/useBooking'
+import { trackView } from '@/api/tracking'
 import type { HomestayDetail } from '@/types/homestay'
 import type { HostDTO } from '@/types/host'
 
@@ -228,7 +229,7 @@ const keyFeatures = computed(() => {
         const specialServices = amenityList
             .filter((a) => a && a.categoryName === '特色服务' && a.label)
             .slice(0, 2)
-            .map((a) => a.label)
+            .map((a) => a.label!)
         features.push(...specialServices)
 
         // 补充便利设施
@@ -236,7 +237,7 @@ const keyFeatures = computed(() => {
             const convenience = amenityList
                 .filter((a) => a && a.categoryName === '便利设施' && a.label)
                 .slice(0, 2 - features.length)
-                .map((a) => a.label)
+                .map((a) => a.label!)
             features.push(...convenience)
         }
     } catch (e) {
@@ -312,6 +313,11 @@ const fetchData = async () => {
             throw new Error('未找到民宿信息')
         }
         homestay.value = homestayResponse.data as HomestayDetail
+        trackView(homestayId, {
+            cityCode: homestay.value.cityCode,
+            type: homestay.value.type,
+            price: homestay.value.price
+        })
 
         // 立刻提前结束全局骨架屏，加速首屏基础信息（标题、大图、价格等）的渲染
         loading.value = false
