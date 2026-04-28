@@ -37,6 +37,10 @@
                         <el-icon><Comment /></el-icon>
                         <span>我的评价</span>
                     </el-menu-item>
+                    <el-menu-item index="/user/invite">
+                        <el-icon><Present /></el-icon>
+                        <span>我的邀请</span>
+                    </el-menu-item>
                 </el-menu>
             </div>
 
@@ -89,6 +93,7 @@ import {
     Comment,
     Shop,
     SwitchButton,
+    Present,
 } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
 import { useRouter } from 'vue-router';
