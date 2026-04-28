@@ -15,5 +15,7 @@ public interface HolidayCalendarRepository extends JpaRepository<HolidayCalendar
 
     List<HolidayCalendar> findByDateBetweenAndRegionCodeAndIsHolidayTrue(LocalDate start, LocalDate end, String regionCode);
 
+    List<HolidayCalendar> findByDateBetweenAndRegionCode(LocalDate start, LocalDate end, String regionCode);
+
     boolean existsByDateAndRegionCode(LocalDate date, String regionCode);
 }

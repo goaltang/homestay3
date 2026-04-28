@@ -3,7 +3,7 @@
     <div class="handle-box">
       <el-row :gutter="20">
         <el-col :span="24" class="mb10">
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增规则</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleAddWithDateRange">新增规则</el-button>
           <el-select v-model="query.ruleType" placeholder="规则类型" clearable class="mr10" style="width:150px" @change="getList">
             <el-option label="全部" value=""></el-option>
             <el-option label="周末" value="WEEKEND"></el-option>
@@ -20,7 +20,7 @@
       <template #header>
         <div class="card-header">
           <span>价格规则</span>
-          <el-tag type="info">共 {{ total }} 项</el-tag>
+          <el-tag type="info">共 {{ pagination.total }} 项</el-tag>
         </div>
       </template>
 
@@ -42,12 +42,12 @@
         </el-table-column>
         <el-table-column prop="enabled" label="状态" width="80">
           <template #default="scope">
-            <el-switch v-model="scope.row.enabled" @change="(val: any) => handleToggle(scope.row)"></el-switch>
+            <el-switch v-model="scope.row.enabled" @change="() => handleToggle(scope.row)"></el-switch>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="scope">
-            <el-button type="primary" size="small" :icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
+            <el-button type="primary" size="small" :icon="Edit" @click="handleEditWithDateRange(scope.row)">编辑</el-button>
             <el-button type="danger" size="small" :icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
           </template>
         </el-table-column>
@@ -57,10 +57,10 @@
         class="pagination"
         background
         layout="total, prev, pager, next"
-        :total="total"
-        :page-size="query.size"
-        v-model:current-page="query.page"
-        @current-change="getList"
+        :total="pagination.total"
+        :page-size="pagination.size"
+        v-model:current-page="pagination.page"
+        @current-change="handlePageChange"
       />
     </el-card>
 
@@ -134,73 +134,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Edit, Delete } from '@element-plus/icons-vue'
-import { getPricingRules, createPricingRule, updatePricingRule, deletePricingRule, togglePricingRule } from '@/api/pricing'
+import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { useCrud } from '@/composables/useCrud'
+import {
+  getPricingRules, createPricingRule, updatePricingRule, deletePricingRule, togglePricingRule,
+} from '@/api/pricing'
 
-const loading = ref(false)
-const tableData = ref<any[]>([])
-const total = ref(0)
-const query = reactive({ page: 0, size: 20, ruleType: '' })
-const dialogVisible = ref(false)
-const editMode = ref(false)
-const formRef = ref()
+// 日期范围辅助（useCrud 不覆盖的特殊业务字段）
 const dateRange = ref<string[]>([])
-const form = reactive<any>({
-  name: '',
-  scopeType: 'GLOBAL',
-  scopeValueJson: '',
-  ruleType: 'WEEKEND',
-  adjustmentType: 'MULTIPLY',
-  adjustmentValue: 1.0,
-  priority: 0,
-  stackable: true,
-  startDate: null,
-  endDate: null,
-  minNights: null,
-  maxNights: null,
-  minAdvanceDays: null,
-  maxAdvanceDays: null,
-})
-const currentId = ref<number | null>(null)
-
-const rules = {
-  name: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
-  scopeType: [{ required: true, message: '请选择作用域', trigger: 'change' }],
-  ruleType: [{ required: true, message: '请选择规则类型', trigger: 'change' }],
-  adjustmentType: [{ required: true, message: '请选择调价方式', trigger: 'change' }],
-  adjustmentValue: [{ required: true, message: '请输入调价数值', trigger: 'blur' }],
-}
 
 watch(dateRange, (val) => {
   if (val && val.length === 2) {
-    form.startDate = val[0]
-    form.endDate = val[1]
+    Object.assign(form, { startDate: val[0], endDate: val[1] })
   } else {
-    form.startDate = null
-    form.endDate = null
+    Object.assign(form, { startDate: null, endDate: null })
   }
 })
 
-const getList = async () => {
-  loading.value = true
-  try {
-    const res: any = await getPricingRules({ page: query.page, size: query.size, ruleType: query.ruleType })
-    const pageData = res.data
-    tableData.value = pageData?.content || pageData || []
-    total.value = pageData?.totalElements || pageData?.length || 0
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleAdd = () => {
-  editMode.value = false
-  currentId.value = null
-  Object.assign(form, {
+// 使用 useCrud 封装通用逻辑
+const {
+  loading, tableData, query, pagination,
+  dialogVisible, editMode, formRef, form, rules,
+  getList, handleAdd, handleEdit, handleDelete, handleSubmit, handlePageChange,
+} = useCrud({
+  listApi: getPricingRules,
+  createApi: createPricingRule,
+  updateApi: updatePricingRule,
+  deleteApi: deletePricingRule,
+  defaultQuery: { page: 0, size: 20, ruleType: '' },
+  defaultForm: {
     name: '',
     scopeType: 'GLOBAL',
     scopeValueJson: '',
@@ -215,50 +179,36 @@ const handleAdd = () => {
     maxNights: null,
     minAdvanceDays: null,
     maxAdvanceDays: null,
-  })
-  dateRange.value = []
-  dialogVisible.value = true
-}
+  },
+  rules: {
+    name: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
+    scopeType: [{ required: true, message: '请选择作用域', trigger: 'change' }],
+    ruleType: [{ required: true, message: '请选择规则类型', trigger: 'change' }],
+    adjustmentType: [{ required: true, message: '请选择调价方式', trigger: 'change' }],
+    adjustmentValue: [{ required: true, message: '请输入调价数值', trigger: 'blur' }],
+  },
+})
 
-const handleEdit = (row: any) => {
-  editMode.value = true
-  currentId.value = row.id
-  Object.assign(form, row)
+// 编辑时同步日期范围
+// 覆盖 useCrud 的 handleEdit，增加日期范围同步
+const _rawHandleEdit = handleEdit
+const handleEditWithDateRange = (row: any) => {
+  _rawHandleEdit(row)
   if (row.startDate && row.endDate) {
     dateRange.value = [row.startDate, row.endDate]
   } else {
     dateRange.value = []
   }
-  dialogVisible.value = true
 }
 
-const handleSubmit = async () => {
-  await formRef.value.validate()
-  try {
-    if (editMode.value && currentId.value) {
-      await updatePricingRule(currentId.value, form)
-      ElMessage.success('更新成功')
-    } else {
-      await createPricingRule(form)
-      ElMessage.success('创建成功')
-    }
-    dialogVisible.value = false
-    getList()
-  } catch (e: any) {
-    ElMessage.error(e.response?.data || '操作失败')
-  }
+// 覆盖 useCrud 的 handleAdd，增加日期范围清空
+const _rawHandleAdd = handleAdd
+const handleAddWithDateRange = () => {
+  _rawHandleAdd()
+  dateRange.value = []
 }
 
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm(`确定删除规则「${row.name}」吗？`, '提示', { type: 'warning' })
-    .then(async () => {
-      await deletePricingRule(row.id)
-      ElMessage.success('删除成功')
-      getList()
-    })
-    .catch(() => {})
-}
-
+// 切换启用状态（特殊业务方法，useCrud 不覆盖）
 const handleToggle = async (row: any) => {
   try {
     await togglePricingRule(row.id)
@@ -267,8 +217,6 @@ const handleToggle = async (row: any) => {
     row.enabled = !row.enabled
   }
 }
-
-onMounted(getList)
 </script>
 
 <style scoped>

@@ -4,17 +4,17 @@
       <template #header>
         <div class="card-header">
           <span>优惠券模板管理</span>
-          <el-button type="primary" @click="handleCreate">创建模板</el-button>
+          <el-button type="primary" @click="handleAddClean">创建模板</el-button>
         </div>
       </template>
 
       <!-- 搜索筛选 -->
-      <el-form :model="searchForm" inline class="search-form">
+      <el-form :model="query" inline class="search-form">
         <el-form-item label="名称">
-          <el-input v-model="searchForm.name" placeholder="模板名称" clearable @keyup.enter="fetchData" />
+          <el-input v-model="query.name" placeholder="模板名称" clearable @keyup.enter="handleSearch" />
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="searchForm.status" placeholder="全部" clearable>
+          <el-select v-model="query.status" placeholder="全部" clearable>
             <el-option label="草稿" value="DRAFT" />
             <el-option label="已激活" value="ACTIVE" />
             <el-option label="已暂停" value="PAUSED" />
@@ -22,19 +22,19 @@
           </el-select>
         </el-form-item>
         <el-form-item label="承担方">
-          <el-select v-model="searchForm.subsidyBearer" placeholder="全部" clearable>
+          <el-select v-model="query.subsidyBearer" placeholder="全部" clearable>
             <el-option label="平台" value="PLATFORM" />
             <el-option label="房东" value="HOST" />
             <el-option label="混合" value="MIXED" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="fetchData">搜索</el-button>
-          <el-button @click="resetSearch">重置</el-button>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="clearSearch">重置</el-button>
         </el-form-item>
       </el-form>
 
-      <el-table :data="templateList" v-loading="loading" stripe>
+      <el-table :data="tableData" v-loading="loading" stripe>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="模板名称" min-width="150" />
         <el-table-column label="类型" width="100">
@@ -82,26 +82,26 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button v-if="row.status === 'DRAFT'" type="danger" size="small" @click="handleDelete(row.id)">删除</el-button>
+            <el-button size="small" @click="handleEditWithDate(row)">编辑</el-button>
+            <el-button v-if="row.status === 'DRAFT'" type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
 
       <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="size"
-        :total="total"
+        v-model:current-page="pageUI"
+        v-model:page-size="pagination.size"
+        :total="pagination.total"
         layout="total, prev, pager, next"
-        @current-change="fetchData"
+        @current-change="handlePageChange"
         class="pagination"
       />
     </el-card>
 
     <!-- 创建/编辑模板对话框 -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑模板' : '创建优惠券模板'" width="600px">
-      <el-form :model="form" label-width="120px">
-        <el-form-item label="模板名称">
+    <el-dialog v-model="dialogVisible" :title="editMode ? '编辑模板' : '创建优惠券模板'" width="600px">
+      <el-form ref="formRef" :model="form" label-width="120px">
+        <el-form-item label="模板名称" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item label="券类型">
@@ -140,88 +140,80 @@
           <el-input-number v-model="form.perUserLimit" :min="1" :precision="0" />
         </el-form-item>
         <el-form-item label="有效期">
-          <el-date-picker v-model="dateRange" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" />
+          <el-date-picker
+            v-model="dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useCrud } from '@/composables/useCrud'
 import {
   getCouponTemplates, createCouponTemplate,
-  updateCouponTemplate, deleteCouponTemplate
-} from '@/api/marketing';
+  updateCouponTemplate, deleteCouponTemplate,
+} from '@/api/marketing'
 
-const loading = ref(false);
-const templateList = ref<any[]>([]);
-const page = ref(1);
-const size = ref(20);
-const total = ref(0);
+const submitLoading = ref(false)
+const dateRange = ref<[Date, Date] | null>(null)
 
-const searchForm = reactive({
-  name: '',
-  status: '',
-  subsidyBearer: '',
-});
-
-const dialogVisible = ref(false);
-const isEdit = ref(false);
-const editId = ref<number | null>(null);
-const dateRange = ref<[Date, Date] | null>(null);
-const form = reactive({
-  name: '',
-  couponType: 'CASH',
-  subsidyBearer: 'PLATFORM',
-  isNewUserCoupon: false as boolean,
-  faceValue: 0,
-  discountRate: 0,
-  thresholdAmount: 0,
-  maxDiscount: 0,
-  totalStock: 100,
-  perUserLimit: 1,
-  validType: 'FIXED_TIME',
-  status: 'ACTIVE',
-  validStartAt: '',
-  validEndAt: '',
-});
-
-const resetSearch = () => {
-  searchForm.name = '';
-  searchForm.status = '';
-  searchForm.subsidyBearer = '';
-  fetchData();
-};
-
-const fetchData = async () => {
-  loading.value = true;
-  try {
-    const params: any = { page: page.value - 1, size: size.value };
-    if (searchForm.name) params.name = searchForm.name;
-    if (searchForm.status) params.status = searchForm.status;
-    if (searchForm.subsidyBearer) params.subsidyBearer = searchForm.subsidyBearer;
-
-    const res: any = await getCouponTemplates(params);
-    const data = res.data || res;
-    templateList.value = data.content || data || [];
-    total.value = data.totalElements || data.length || 0;
-  } catch (e) {
-    ElMessage.error('获取模板列表失败');
-  } finally {
-    loading.value = false;
+// 包装列表 API：前端 page 从 1 开始，后端从 0 开始
+const wrappedListApi = async (params: any) => {
+  const res: any = await getCouponTemplates({
+    page: params.page,
+    size: params.size,
+    name: params.name,
+    status: params.status,
+    subsidyBearer: params.subsidyBearer,
+  })
+  const data = res.data || res
+  return {
+    content: data.content || data || [],
+    totalElements: data.totalElements || data.total || 0,
   }
-};
+}
 
-const handleCreate = () => {
-  isEdit.value = false;
-  editId.value = null;
-  Object.assign(form, {
+// 包装提交 API：把 dateRange 转成 ISO 字符串
+const wrapPayload = (formData: any) => {
+  const payload = { ...formData }
+  if (dateRange.value && dateRange.value.length === 2) {
+    payload.validStartAt = dateRange.value[0].toISOString()
+    payload.validEndAt = dateRange.value[1].toISOString()
+  }
+  return payload
+}
+
+const wrappedCreateApi = async (data: any) => {
+  return createCouponTemplate(wrapPayload(data))
+}
+
+const wrappedUpdateApi = async (id: number | string, data: any) => {
+  return updateCouponTemplate(Number(id), wrapPayload(data))
+}
+
+const {
+  loading, tableData, query, pagination,
+  dialogVisible, editMode, formRef, form,
+  getList, handleAdd, handleDelete, handlePageChange,
+} = useCrud({
+  listApi: wrappedListApi,
+  createApi: wrappedCreateApi,
+  updateApi: wrappedUpdateApi,
+  deleteApi: deleteCouponTemplate,
+  defaultQuery: { name: '', status: '', subsidyBearer: '' },
+  defaultForm: {
     name: '',
     couponType: 'CASH',
     subsidyBearer: 'PLATFORM',
@@ -236,14 +228,45 @@ const handleCreate = () => {
     status: 'ACTIVE',
     validStartAt: '',
     validEndAt: '',
-  });
-  dateRange.value = null;
-  dialogVisible.value = true;
-};
+  },
+})
 
-const handleEdit = (row: any) => {
-  isEdit.value = true;
-  editId.value = row.id;
+// UI 分页显示（+1）
+const pageUI = computed({
+  get: () => pagination.page + 1,
+  set: (val: number) => { pagination.page = val - 1 },
+})
+
+// 搜索
+const handleSearch = () => {
+  pagination.page = 0
+  getList()
+}
+
+const clearSearch = () => {
+  query.name = ''
+  query.status = ''
+  query.subsidyBearer = ''
+  pagination.page = 0
+  getList()
+}
+
+// 覆盖 handleAdd，清空日期范围
+const _rawAdd = handleAdd
+const handleAddClean = () => {
+  _rawAdd()
+  dateRange.value = null
+}
+
+// 覆盖 handleEdit，同步日期范围
+const _rawEdit = (row: any) => {
+  // useCrud 的 handleEdit 会把整行赋给 form
+  // 但日期范围需要单独处理
+}
+
+const handleEditWithDate = (row: any) => {
+  // 手动处理编辑
+  editMode.value = true
   Object.assign(form, {
     name: row.name,
     couponType: row.couponType,
@@ -257,80 +280,55 @@ const handleEdit = (row: any) => {
     perUserLimit: row.perUserLimit || 1,
     validType: row.validType || 'FIXED_TIME',
     status: row.status || 'ACTIVE',
-  });
+  })
   if (row.validStartAt && row.validEndAt) {
-    dateRange.value = [new Date(row.validStartAt), new Date(row.validEndAt)];
-    form.validStartAt = row.validStartAt;
-    form.validEndAt = row.validEndAt;
+    dateRange.value = [new Date(row.validStartAt), new Date(row.validEndAt)]
   } else {
-    dateRange.value = null;
-    form.validStartAt = '';
-    form.validEndAt = '';
+    dateRange.value = null
   }
-  dialogVisible.value = true;
-};
+  dialogVisible.value = true
+}
 
-const submitForm = async () => {
-  try {
-    const payload = { ...form };
-    if (dateRange.value && dateRange.value.length === 2) {
-      payload.validStartAt = dateRange.value[0].toISOString();
-      payload.validEndAt = dateRange.value[1].toISOString();
+// 覆盖 handleSubmit，增加 submitLoading 和日期范围处理
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  await formRef.value.validate(async (valid: boolean) => {
+    if (!valid) return
+    submitLoading.value = true
+    try {
+      if (editMode.value && (form as any).id) {
+        await wrappedUpdateApi((form as any).id, form)
+        ElMessage.success('更新成功')
+      } else {
+        await wrappedCreateApi(form)
+        ElMessage.success('创建成功')
+      }
+      dialogVisible.value = false
+      dateRange.value = null
+      await getList()
+    } catch (e: any) {
+      ElMessage.error(e?.response?.data || '操作失败')
+    } finally {
+      submitLoading.value = false
     }
-    if (isEdit.value && editId.value) {
-      await updateCouponTemplate(editId.value, payload);
-      ElMessage.success('更新成功');
-    } else {
-      await createCouponTemplate(payload);
-      ElMessage.success('创建成功');
-    }
-    dialogVisible.value = false;
-    fetchData();
-  } catch (e) {
-    ElMessage.error(isEdit.value ? '更新失败' : '创建失败');
-  }
-};
+  })
+}
 
-const handleDelete = async (id: number) => {
-  try {
-    await ElMessageBox.confirm('确定要删除该模板吗？', '提示', { type: 'warning' });
-    await deleteCouponTemplate(id);
-    ElMessage.success('删除成功');
-    fetchData();
-  } catch (e) {
-    // 取消
-  }
-};
-
+// 格式化函数
 const formatType = (type: string) => {
-  const map: Record<string, string> = {
-    CASH: '现金券',
-    DISCOUNT: '折扣券',
-    FULL_REDUCTION: '满减券',
-  };
-  return map[type] || type;
-};
+  const map: Record<string, string> = { CASH: '现金券', DISCOUNT: '折扣券', FULL_REDUCTION: '满减券' }
+  return map[type] || type
+}
 
 const formatBearer = (bearer: string) => {
-  const map: Record<string, string> = {
-    PLATFORM: '平台',
-    HOST: '房东',
-    MIXED: '混合',
-  };
-  return map[bearer] || bearer;
-};
+  const map: Record<string, string> = { PLATFORM: '平台', HOST: '房东', MIXED: '混合' }
+  return map[bearer] || bearer
+}
 
 const formatStatusType = (status: string) => {
-  const map: Record<string, any> = {
-    ACTIVE: 'success',
-    PAUSED: 'warning',
-    DRAFT: 'info',
-    EXPIRED: 'danger',
-  };
-  return map[status] || 'info';
-};
-
-onMounted(fetchData);
+  const map: Record<string, any> = { ACTIVE: 'success', PAUSED: 'warning', DRAFT: 'info', EXPIRED: 'danger' }
+  return map[status] || 'info'
+}
 </script>
 
 <style scoped>

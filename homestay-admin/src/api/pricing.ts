@@ -1,4 +1,5 @@
 import request from "@/utils/request";
+import { normalizeArrayResponse, normalizePageResponse, unwrapApiData } from "@/api/response";
 
 // ========== 节假日管理 ==========
 
@@ -10,7 +11,7 @@ export function getHolidays(params?: {
     url: "/api/admin/holidays",
     method: "get",
     params,
-  });
+  }).then((res) => normalizeArrayResponse<any>(res));
 }
 
 export function createHoliday(data: any) {
@@ -47,7 +48,7 @@ export function getPricingRules(params?: {
     url: "/api/admin/pricing-rules",
     method: "get",
     params,
-  });
+  }).then((res) => normalizePageResponse<any>(res));
 }
 
 export function createPricingRule(data: any) {
@@ -78,4 +79,21 @@ export function togglePricingRule(id: number) {
     url: `/api/admin/pricing-rules/${id}/toggle`,
     method: "patch",
   });
+}
+
+// ========== 节假日批量操作 ==========
+
+export function generateHolidays(year: number) {
+  return request({
+    url: `/api/admin/holidays/generate/${year}`,
+    method: "post",
+  }).then((res) => unwrapApiData(res, {}));
+}
+
+export function batchCreateHolidays(data: any[]) {
+  return request({
+    url: "/api/admin/holidays/batch",
+    method: "post",
+    data,
+  }).then((res) => unwrapApiData(res, {}));
 }

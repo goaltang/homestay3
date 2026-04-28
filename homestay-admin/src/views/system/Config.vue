@@ -7,11 +7,11 @@
             <el-button type="primary" :icon="Plus" @click="handleAdd">新增配置</el-button>
             <el-button type="success" :icon="Lightning" @click="handleInitDefaults">初始化默认配置</el-button>
             <el-tooltip content="刷新配置列表" placement="top">
-              <el-button :icon="Refresh" circle @click="getConfigs"></el-button>
+              <el-button :icon="Refresh" circle @click="getList"></el-button>
             </el-tooltip>
           </el-col>
           <el-col :span="24">
-            <el-select v-model="query.category" placeholder="选择分类" clearable class="handle-select mr10" @change="handleSearch">
+            <el-select v-model="query.category" placeholder="选择分类" clearable class="handle-select mr10" @change="applyFilter">
               <el-option label="全部分类" value=""></el-option>
               <el-option label="平台配置" value="platform"></el-option>
               <el-option label="政策配置" value="policy"></el-option>
@@ -19,9 +19,9 @@
               <el-option label="房源配置" value="homestay"></el-option>
               <el-option label="其他配置" value="other"></el-option>
             </el-select>
-            <el-input v-model="query.keyword" placeholder="配置名称/键" class="handle-input mr10" @keyup.enter="handleSearch">
+            <el-input v-model="query.keyword" placeholder="配置名称/键" class="handle-input mr10" @keyup.enter="applyFilter">
               <template #append>
-                <el-button :icon="Search" @click="handleSearch"></el-button>
+                <el-button :icon="Search" @click="applyFilter"></el-button>
               </template>
             </el-input>
             <el-button :icon="Delete" @click="clearSearch" :disabled="!query.keyword && !query.category">清除筛选</el-button>
@@ -121,7 +121,7 @@
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取 消</el-button>
-          <el-button type="primary" @click="saveConfig" :loading="submitLoading">确 定</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确 定</el-button>
         </div>
       </template>
     </el-dialog>
@@ -129,223 +129,178 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { ElMessage, ElMessageBox, FormInstance } from 'element-plus';
-import { Delete, Edit, Search, Plus, Lightning, Refresh, Lock } from '@element-plus/icons-vue';
+import { ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Edit, Search, Plus, Lightning, Refresh, Lock } from '@element-plus/icons-vue'
+import { useCrud } from '@/composables/useCrud'
 import {
   getAllConfigsApi,
   createConfigApi,
   updateConfigApi,
   initDefaultConfigsApi,
-  SystemConfig
-} from '@/api/systemConfig';
+  type SystemConfig,
+} from '@/api/systemConfig'
 
 const categoryMap: Record<string, string> = {
   platform: '平台配置',
   policy: '政策配置',
   fee: '费用配置',
   homestay: '房源配置',
-  other: '其他配置'
-};
+  other: '其他配置',
+}
 
-const tableData = ref<SystemConfig[]>([]);
-const allConfigs = ref<SystemConfig[]>([]);
-const loading = ref(false);
-const submitLoading = ref(false);
-const dialogVisible = ref(false);
-const editMode = ref(false);
+const allConfigs = ref<SystemConfig[]>([])
+const submitLoading = ref(false)
+const operator = ref(localStorage.getItem('homestay_admin_username') || localStorage.getItem('username') || 'admin')
 
-const query = reactive({
-  keyword: '',
-  category: ''
-});
+// 包装列表 API：先获取全部，前端做筛选
+const wrappedListApi = async () => {
+  const res = await getAllConfigsApi()
+  if (!res.success) throw new Error(res.message || '获取配置失败')
+  allConfigs.value = res.data || []
+  // 前端筛选逻辑在 getList 后执行
+  return {
+    content: res.data || [],
+    totalElements: res.data?.length || 0,
+  }
+}
 
-const form = reactive<SystemConfig>({
-  configKey: '',
-  configName: '',
-  configValue: '',
-  category: 'other',
-  description: ''
-});
+const wrappedCreateApi = async (data: any) => {
+  const res = await createConfigApi(data, operator.value)
+  if (!res.success) throw new Error(res.message || '创建失败')
+  return res
+}
 
-const formRef = ref<FormInstance>();
+const wrappedUpdateApi = async (_id: number | string, data: any) => {
+  const res = await updateConfigApi(data.configKey, data, operator.value)
+  if (!res.success) throw new Error(res.message || '更新失败')
+  return res
+}
 
-const rules = reactive({
-  configKey: [
-    { required: true, message: '请输入配置键', trigger: 'blur' },
-    { pattern: /^[a-z_0-9.]+$/, message: '配置键只能包含小写字母、下划线和点', trigger: 'blur' }
-  ],
-  configName: [
-    { required: true, message: '请输入配置名称', trigger: 'blur' }
-  ],
-  category: [
-    { required: true, message: '请选择分类', trigger: 'change' }
-  ]
-});
+// 使用 useCrud，但关闭分页（Config 是前端筛选）
+const {
+  loading, tableData, query, formRef, form, rules,
+  dialogVisible, editMode, getList, handleAdd, handleEdit, resetForm,
+} = useCrud<SystemConfig>({
+  listApi: wrappedListApi,
+  createApi: wrappedCreateApi,
+  updateApi: wrappedUpdateApi,
+  pagination: false,
+  defaultQuery: { keyword: '', category: '' } as any,
+  defaultForm: {
+    configKey: '',
+    configName: '',
+    configValue: '',
+    category: 'other',
+    description: '',
+  } as any,
+  rules: {
+    configKey: [
+      { required: true, message: '请输入配置键', trigger: 'blur' },
+      { pattern: /^[a-z_0-9.]+$/, message: '配置键只能包含小写字母、下划线和点', trigger: 'blur' },
+    ],
+    configName: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
+    category: [{ required: true, message: '请选择分类', trigger: 'change' }],
+  },
+})
 
-onMounted(() => {
-  getConfigs();
-});
+// 覆盖 getList，增加前端筛选
+const _rawGetList = getList
+const getListWithFilter = async () => {
+  await _rawGetList()
+  applyFilter()
+}
 
-const getConfigs = () => {
-  loading.value = true;
-  getAllConfigsApi()
-    .then(response => {
-      if (response.success) {
-        allConfigs.value = response.data || [];
-        filterConfigs();
-      } else {
-        ElMessage.error(response.message || '获取配置数据失败');
-        tableData.value = [];
-      }
-    })
-    .catch(error => {
-      console.error('获取配置数据出错:', error);
-      ElMessage.error('获取配置数据出错');
-      tableData.value = [];
-    })
-    .finally(() => {
-      loading.value = false;
-    });
-};
-
-const filterConfigs = () => {
-  let filtered = [...allConfigs.value];
+// 前端筛选
+const applyFilter = () => {
+  let filtered = [...allConfigs.value]
   if (query.category) {
-    filtered = filtered.filter(c => c.category === query.category);
+    filtered = filtered.filter((c: any) => c.category === query.category)
   }
   if (query.keyword) {
-    const keyword = query.keyword.toLowerCase();
-    filtered = filtered.filter(c =>
-      c.configKey.toLowerCase().includes(keyword) ||
-      c.configName.toLowerCase().includes(keyword)
-    );
+    const keyword = (query.keyword as string).toLowerCase()
+    filtered = filtered.filter((c: any) =>
+      c.configKey?.toLowerCase().includes(keyword) ||
+      c.configName?.toLowerCase().includes(keyword)
+    )
   }
-  tableData.value = filtered;
-};
-
-const handleSearch = () => {
-  filterConfigs();
-};
+  tableData.value = filtered
+}
 
 const clearSearch = () => {
-  query.keyword = '';
-  query.category = '';
-  filterConfigs();
-};
+  query.keyword = ''
+  query.category = ''
+  applyFilter()
+}
 
-const resetForm = () => {
-  if (formRef.value) {
-    formRef.value.resetFields();
-  }
-  form.configKey = '';
-  form.configName = '';
-  form.configValue = '';
-  form.category = 'other';
-  form.description = '';
-};
-
-const handleAdd = () => {
-  editMode.value = false;
-  resetForm();
-  dialogVisible.value = true;
-};
-
-const handleEdit = (row: SystemConfig) => {
-  editMode.value = true;
-  Object.assign(form, {
-    configKey: row.configKey,
-    configName: row.configName,
-    configValue: row.configValue || '',
-    category: row.category || 'other',
-    description: row.description || ''
-  });
-  dialogVisible.value = true;
-};
-
-const saveConfig = () => {
-  if (!formRef.value) return;
-  formRef.value.validate((valid) => {
-    if (valid) {
-      submitLoading.value = true;
-      const operator = localStorage.getItem('homestay_admin_username') || localStorage.getItem('username') || 'admin';
-      const savePromise = editMode.value
-        ? updateConfigApi(form.configKey, form, operator)
-        : createConfigApi(form, operator);
-
-      savePromise
-        .then(response => {
-          if (response.success) {
-            ElMessage.success(response.message || (editMode.value ? '更新成功' : '创建成功'));
-            dialogVisible.value = false;
-            getConfigs();
-          } else {
-            ElMessage.error(response.message || (editMode.value ? '更新失败' : '创建失败'));
-          }
-        })
-        .catch(error => {
-          console.error('保存配置出错:', error);
-          ElMessage.error('保存配置出错');
-        })
-        .finally(() => {
-          submitLoading.value = false;
-        });
-    } else {
-      ElMessage.warning('请填写完整有效的表单信息');
+// 覆盖 handleSubmit，增加 submitLoading 和 operator
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  await formRef.value.validate(async (valid: boolean) => {
+    if (!valid) return
+    submitLoading.value = true
+    try {
+      if (editMode.value) {
+        await wrappedUpdateApi(form.configKey as string, form)
+        ElMessage.success('更新成功')
+      } else {
+        await wrappedCreateApi(form)
+        ElMessage.success('创建成功')
+      }
+      dialogVisible.value = false
+      resetForm()
+      await getListWithFilter()
+    } catch (e: any) {
+      ElMessage.error(e.message || '操作失败')
+    } finally {
+      submitLoading.value = false
     }
-  });
-};
+  })
+}
 
+// 初始化默认配置（特殊业务按钮）
 const handleInitDefaults = () => {
   ElMessageBox.confirm('确定要初始化默认配置吗？这将添加系统预设的配置项。', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    type: 'warning'
+    type: 'warning',
   })
-    .then(() => {
-      loading.value = true;
-      initDefaultConfigsApi()
-        .then(response => {
-          if (response.success) {
-            ElMessage.success(response.message || '初始化成功');
-            getConfigs();
-          } else {
-            ElMessage.error(response.message || '初始化失败');
-          }
-        })
-        .finally(() => {
-          loading.value = false;
-        });
+    .then(async () => {
+      loading.value = true
+      try {
+        const res = await initDefaultConfigsApi()
+        if (res.success) {
+          ElMessage.success(res.message || '初始化成功')
+          await getListWithFilter()
+        } else {
+          ElMessage.error(res.message || '初始化失败')
+        }
+      } finally {
+        loading.value = false
+      }
     })
-    .catch(() => {});
-};
+    .catch(() => {})
+}
 
-const getCategoryName = (category?: string) => {
-  return category ? (categoryMap[category] || category) : '其他';
-};
+const getCategoryName = (category?: string) => categoryMap[category || ''] || category || '其他'
 
 const getCategoryType = (category?: string) => {
   const typeMap: Record<string, string> = {
-    platform: 'primary',
-    policy: 'success',
-    fee: 'warning',
-    homestay: 'danger',
-    other: 'info'
-  };
-  return typeMap[category || 'other'] || 'info';
-};
+    platform: 'primary', policy: 'success', fee: 'warning', homestay: 'danger', other: 'info',
+  }
+  return typeMap[category || 'other'] || 'info'
+}
 
 const formatDate = (dateStr?: string) => {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
   return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+// 初始化加载
+getListWithFilter()
 </script>
 
 <style scoped>

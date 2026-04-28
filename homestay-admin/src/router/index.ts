@@ -217,6 +217,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/marketing/MarketingDashboard.vue"),
       },
       {
+        path: "/pricing/rules",
+        name: "pricingRules",
+        meta: {
+          title: "价格规则",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/pricing/PricingRuleManage.vue"),
+      },
+      {
+        path: "/pricing/holidays",
+        name: "pricingHolidays",
+        meta: {
+          title: "节假日管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/pricing/HolidayManage.vue"),
+      },
+      {
         path: "/system/config",
         name: "systemConfig",
         meta: {

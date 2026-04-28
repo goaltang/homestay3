@@ -1,26 +1,26 @@
 <template>
     <div class="review-container">
         <div class="filter-container">
-            <el-form :inline="true" :model="filterForm">
+            <el-form :inline="true" :model="query">
                 <el-form-item label="评分">
-                    <el-select v-model="filterForm.rating" placeholder="全部评分" clearable>
+                    <el-select v-model="query.rating" placeholder="全部评分" clearable>
                         <el-option v-for="i in 5" :key="i" :label="`${i}星`" :value="i" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="状态">
-                    <el-select v-model="filterForm.status" placeholder="全部状态" clearable>
+                    <el-select v-model="query.status" placeholder="全部状态" clearable>
                         <el-option label="已回复" value="RESPONDED" />
                         <el-option label="未回复" value="UNREPLIED" />
                     </el-select>
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="handleFilter" :icon="Search">筛选</el-button>
-                    <el-button @click="resetFilter" :icon="Refresh">重置</el-button>
+                    <el-button type="primary" @click="handleSearch" :icon="Search">筛选</el-button>
+                    <el-button @click="clearSearch" :icon="Refresh">重置</el-button>
                 </el-form-item>
             </el-form>
         </div>
 
-        <el-table :data="reviewList" border style="width: 100%" v-loading="loading">
+        <el-table :data="tableData" border style="width: 100%" v-loading="loading">
             <el-table-column prop="id" label="ID" width="80" />
             <el-table-column prop="userName" label="用户" width="120">
                 <template #default="scope">
@@ -49,19 +49,25 @@
             <el-table-column label="操作" width="180" fixed="right" align="center">
                 <template #default="scope">
                     <el-button size="small" @click="handleDetail(scope.row)">查看</el-button>
-                    <el-button size="small" type="danger" @click="handleDelete(scope.row.id)">删除</el-button>
+                    <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>
 
         <div class="pagination-container">
-            <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize"
-                :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" :total="total"
-                @size-change="handleSizeChange" @current-change="handleCurrentChange" />
+            <el-pagination
+                v-model:current-page="pageUI"
+                v-model:page-size="pagination.size"
+                :page-sizes="[10, 20, 50, 100]"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="pagination.total"
+                @size-change="handleSizeChange"
+                @current-change="handlePageChange"
+            />
         </div>
 
         <!-- 评价详情弹窗 -->
-        <el-dialog title="评价详情" v-model="dialogVisible" width="600px">
+        <el-dialog title="评价详情" v-model="detailVisible" width="600px">
             <div class="review-detail" v-if="currentReview">
                 <div class="review-header">
                     <div class="user-info">
@@ -94,16 +100,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { getAdminReviewList, deleteReview, setReviewVisibility } from '@/api/review'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Search, Refresh } from '@element-plus/icons-vue'
+import { useCrud } from '@/composables/useCrud'
+import { getAdminReviewList, deleteReview, setReviewVisibility } from '@/api/review'
 import dayjs from 'dayjs'
-
-interface ReviewFilterForm {
-    rating: number | null;
-    status: string | null;
-}
 
 interface ReviewItem {
     id: number;
@@ -120,132 +122,83 @@ interface ReviewItem {
     images?: string[];
 }
 
-const filterForm = reactive<ReviewFilterForm>({
-    rating: null,
-    status: null,
-})
-
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
-const loading = ref(true)
-
-const reviewList = ref<ReviewItem[]>([])
-
-const dialogVisible = ref(false)
+// 详情弹窗状态（useCrud 的 dialog 用于表单，这里用单独的详情弹窗）
+const detailVisible = ref(false)
 const currentReview = ref<ReviewItem | null>(null)
 
-const fetchReviews = async () => {
-    loading.value = true
-    try {
-        const params = {
-            page: currentPage.value - 1,
-            size: pageSize.value,
-            rating: filterForm.rating,
-            status: filterForm.status,
-            sort: 'createTime,desc'
-        }
-        const response = await getAdminReviewList(params)
-
-        console.log("[DEBUG] Received Data (response variable):", response);
-        console.log("[DEBUG] Type of response:", typeof response);
-
-        if (response && response.content) {
-            reviewList.value = response.content.map((r: ReviewItem) => ({ ...r, visibilityLoading: false }))
-            total.value = response.totalElements || 0
-        } else {
-            reviewList.value = []
-            total.value = 0
-            console.warn("获取管理员评价列表数据无效或为空")
-        }
-    } catch (error) {
-        console.error('获取评价列表失败:', error)
-        ElMessage.error('获取评价列表失败')
-        reviewList.value = []
-        total.value = 0
-    } finally {
-        loading.value = false
+// 包装列表 API：给每行加 visibilityLoading，page 从 0 开始
+const wrappedListApi = async (params: any) => {
+    const res: any = await getAdminReviewList({
+        page: params.page,
+        size: params.size,
+        rating: params.rating,
+        status: params.status,
+        sort: 'createTime,desc',
+    })
+    const content = (res.content || []).map((r: ReviewItem) => ({ ...r, visibilityLoading: false }))
+    return {
+        content,
+        totalElements: res.totalElements || 0,
     }
 }
 
+// 使用 useCrud：只有列表和删除
+const {
+    loading, tableData, query, pagination,
+    getList, handleDelete, handlePageChange, handleSizeChange,
+} = useCrud<ReviewItem>({
+    listApi: wrappedListApi,
+    deleteApi: deleteReview,
+    defaultQuery: { rating: null, status: null, page: 0, size: 10 } as any,
+    pagination: true,
+})
+
+// UI 分页显示（+1）
+const pageUI = computed({
+    get: () => pagination.page + 1,
+    set: (val: number) => { pagination.page = val - 1 },
+})
+
+// 搜索
+const handleSearch = () => {
+    pagination.page = 0
+    getList()
+}
+
+const clearSearch = () => {
+    query.rating = null
+    query.status = null
+    pagination.page = 0
+    getList()
+}
+
+// 可见性切换
 const handleVisibilityChange = async (review: ReviewItem) => {
     const newVisibility = review.isPublic
     const actionText = newVisibility ? '显示' : '隐藏'
     review.visibilityLoading = true
-
     try {
         await setReviewVisibility(review.id, newVisibility)
-        ElMessage.success(`评价 ${actionText} 成功`)
+        ElMessage.success(`评价${actionText}成功`)
     } catch (error: any) {
-        console.error(`设置评价可见性失败 (ID: ${review.id}):`, error)
-        ElMessage.error(`设置评价可见性失败: ${error?.response?.data?.message || error.message}`)
+        ElMessage.error(`设置失败: ${error?.response?.data?.message || error.message}`)
         review.isPublic = !newVisibility
     } finally {
         review.visibilityLoading = false
     }
 }
 
-const handleFilter = () => {
-    currentPage.value = 1
-    fetchReviews()
-}
-
-const resetFilter = () => {
-    filterForm.rating = null
-    filterForm.status = null
-    handleFilter()
-}
-
-const handleCurrentChange = (val: number) => {
-    currentPage.value = val
-    fetchReviews()
-}
-
-const handleSizeChange = (val: number) => {
-    pageSize.value = val
-    currentPage.value = 1
-    fetchReviews()
-}
-
+// 详情
 const handleDetail = (row: ReviewItem) => {
     currentReview.value = row
-    dialogVisible.value = true
+    detailVisible.value = true
 }
 
-const handleDelete = (id: number) => {
-    ElMessageBox.confirm('确定要删除该评价吗？删除后不可恢复。', '警告', {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-    }).then(async () => {
-        loading.value = true
-        try {
-            await deleteReview(id)
-            ElMessage.success('删除成功')
-            const remainingItems = reviewList.value.length - 1
-            if (remainingItems === 0 && currentPage.value > 1) {
-                currentPage.value -= 1
-            }
-            fetchReviews()
-        } catch (error: any) {
-            console.error('删除评价失败:', error)
-            ElMessage.error(`删除评价失败: ${error?.response?.data?.message || error.message}`)
-        } finally {
-            loading.value = false
-        }
-    }).catch(() => {
-        ElMessage.info('已取消删除')
-    })
-}
-
+// 格式化
 const formatDateTime = (dateString?: string | null) => {
     if (!dateString) return ''
     return dayjs(dateString).format('YYYY-MM-DD HH:mm')
 }
-
-onMounted(() => {
-    fetchReviews()
-})
 </script>
 
 <style scoped lang="scss">
