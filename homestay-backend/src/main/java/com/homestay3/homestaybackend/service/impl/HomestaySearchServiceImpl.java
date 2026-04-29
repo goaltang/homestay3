@@ -34,6 +34,19 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.StringQuery;
 import org.springframework.data.jpa.domain.Specification;
+import co.elastic.clients.elasticsearch._types.DistanceUnit;
+import co.elastic.clients.elasticsearch._types.GeoHashPrecision;
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.GeoHashGridAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.GeoHashGridBucket;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregation;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchAggregations;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -48,6 +61,7 @@ import org.springframework.data.domain.Sort;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,18 +91,26 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
 
     @Override
     public List<HomestayDTO> searchHomestays(HomestaySearchRequest request) {
-        // 尝试 ES 全文搜索（仅限有 keyword 时）
-        if (StringUtils.hasText(request.getKeyword())) {
+        boolean hasKeyword = StringUtils.hasText(request.getKeyword());
+        boolean hasViewport = Stream.of(request.getNorthEastLat(), request.getNorthEastLng(),
+                request.getSouthWestLat(), request.getSouthWestLng()).allMatch(Objects::nonNull);
+
+        // 尝试 ES 路径（有 keyword 或 有视口边界时）
+        if (hasKeyword || hasViewport) {
             try {
                 HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
                 if (indexingService != null && indexingService.isElasticsearchAvailable()) {
-                    List<HomestayDTO> esResults = searchByElasticsearch(request);
+                    List<HomestayDTO> esResults = hasKeyword
+                            ? searchByElasticsearch(request)
+                            : searchViewportByElasticsearch(request);
                     if (esResults != null && !esResults.isEmpty()) {
-                        try {
-                            userBehaviorTrackingService.trackSearch(
-                                    null, null, request.getKeyword(),
-                                    request.getCityCode(), request.getPropertyType());
-                        } catch (Exception ignored) {}
+                        if (hasKeyword) {
+                            try {
+                                userBehaviorTrackingService.trackSearch(
+                                        null, null, request.getKeyword(),
+                                        request.getCityCode(), request.getPropertyType());
+                            } catch (Exception ignored) {}
+                        }
                         return applyPersonalization(applySearchSorting(esResults, request), request);
                     }
                 }
@@ -240,12 +262,18 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
         int page = request.getPage() != null && request.getPage() >= 0 ? request.getPage() : 0;
         int size = request.getSize() != null && request.getSize() > 0 ? request.getSize() : 12;
 
-        // ES 路径：暂全量查询后内存分页
-        if (StringUtils.hasText(request.getKeyword())) {
+        // ES 路径：有 keyword 或 有视口边界时
+        boolean hasKeyword = StringUtils.hasText(request.getKeyword());
+        boolean hasViewport = Stream.of(request.getNorthEastLat(), request.getNorthEastLng(),
+                request.getSouthWestLat(), request.getSouthWestLng()).allMatch(Objects::nonNull);
+
+        if (hasKeyword || hasViewport) {
             try {
                 HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
                 if (indexingService != null && indexingService.isElasticsearchAvailable()) {
-                    List<HomestayDTO> esResults = searchByElasticsearch(request);
+                    List<HomestayDTO> esResults = hasKeyword
+                            ? searchByElasticsearch(request)
+                            : searchViewportByElasticsearch(request);
                     esResults = applyPersonalization(applySearchSorting(esResults, request), request);
                     return toSearchResultPage(esResults, page, size);
                 }
@@ -440,6 +468,20 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
 
     @Override
     public List<MapClusterDTO> getMapClusters(HomestaySearchRequest request) {
+        // 优先尝试 ES geohash_grid 聚合路径
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null && indexingService.isElasticsearchAvailable()) {
+                List<MapClusterDTO> esResults = getMapClustersByElasticsearch(request);
+                if (esResults != null && !esResults.isEmpty()) {
+                    return esResults;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("ES map clusters failed, falling back to JPA: {}", e.getMessage());
+        }
+
+        // JPA 降级路径：内存网格聚合
         int zoom = request.getZoom() != null ? request.getZoom() : 12;
         double gridSize = resolveClusterGridSize(zoom);
 
@@ -464,9 +506,108 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                 .collect(Collectors.toList());
     }
 
+    private List<MapClusterDTO> getMapClustersByElasticsearch(HomestaySearchRequest request) {
+        ElasticsearchOperations elasticsearchOperations = elasticsearchOperationsProvider.getIfAvailable();
+        if (elasticsearchOperations == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            String queryJson = buildViewportElasticsearchQueryJson(request);
+            int geohashPrecision = resolveGeohashPrecision(request.getZoom());
+
+            NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
+            queryBuilder.withQuery(Query.of(q -> q.wrapper(w -> w.query(queryJson))));
+            queryBuilder.withMaxResults(0);
+            queryBuilder.withAggregation("clusters", Aggregation.of(a -> a
+                    .geohashGrid(ghg -> ghg
+                            .field("location")
+                            .precision(GeoHashPrecision.of(ghp -> ghp.geohashLength(geohashPrecision)))
+                    )
+                    .aggregations("avg_lat", Aggregation.of(sub -> sub.avg(avg -> avg.field("location.lat"))))
+                    .aggregations("avg_lon", Aggregation.of(sub -> sub.avg(avg -> avg.field("location.lon"))))
+            ));
+
+            NativeQuery nativeQuery = queryBuilder.build();
+            SearchHits<HomestayDocument> searchHits = elasticsearchOperations.search(nativeQuery, HomestayDocument.class);
+
+            if (!searchHits.hasAggregations()) {
+                return Collections.emptyList();
+            }
+
+            ElasticsearchAggregations aggregations = (ElasticsearchAggregations) searchHits.getAggregations();
+            ElasticsearchAggregation clusterAgg = aggregations.get("clusters");
+            if (clusterAgg == null) {
+                return Collections.emptyList();
+            }
+
+            Aggregate aggregate = clusterAgg.aggregation().getAggregate();
+            if (!aggregate.isGeohashGrid()) {
+                return Collections.emptyList();
+            }
+
+            GeoHashGridAggregate geoHashGrid = aggregate.geohashGrid();
+            if (geoHashGrid.buckets() == null || !geoHashGrid.buckets().isArray()) {
+                return Collections.emptyList();
+            }
+
+            List<MapClusterDTO> clusters = new ArrayList<>();
+            for (GeoHashGridBucket bucket : geoHashGrid.buckets().array()) {
+                double avgLat = 0.0;
+                double avgLon = 0.0;
+
+                Map<String, Aggregate> subAggs = bucket.aggregations();
+                if (subAggs != null) {
+                    if (subAggs.containsKey("avg_lat") && subAggs.get("avg_lat").isAvg()) {
+                        avgLat = subAggs.get("avg_lat").avg().value();
+                    }
+                    if (subAggs.containsKey("avg_lon") && subAggs.get("avg_lon").isAvg()) {
+                        avgLon = subAggs.get("avg_lon").avg().value();
+                    }
+                }
+
+                clusters.add(MapClusterDTO.builder()
+                        .latitude(Math.round(avgLat * 1_000_000d) / 1_000_000d)
+                        .longitude(Math.round(avgLon * 1_000_000d) / 1_000_000d)
+                        .count((int) bucket.docCount())
+                        .build());
+            }
+
+            return clusters.stream()
+                    .sorted(Comparator.comparing(MapClusterDTO::getCount).reversed())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("ES map clusters query failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private int resolveGeohashPrecision(Integer zoom) {
+        if (zoom == null) return 5;
+        if (zoom <= 5) return 2;
+        if (zoom <= 8) return 3;
+        if (zoom <= 11) return 4;
+        if (zoom <= 14) return 5;
+        return 6;
+    }
+
     @Override
     public List<HomestayDTO> getNearbyHomestays(HomestaySearchRequest request) {
         int limit = request.getLimit() != null ? request.getLimit() : 20;
+
+        // 优先尝试 ES geo_distance 路径
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null && indexingService.isElasticsearchAvailable()) {
+                List<HomestayDTO> esResults = searchNearbyByElasticsearch(request);
+                if (esResults != null && !esResults.isEmpty()) {
+                    return esResults;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("ES nearby search failed, falling back to JPA: {}", e.getMessage());
+        }
+
         return searchHomestaysWithinRadius(request, limit);
     }
 
@@ -480,6 +621,19 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
 
     @Override
     public List<HomestayDTO> searchHomestaysNearLandmark(HomestaySearchRequest request) {
+        // 优先尝试 ES geo_distance 路径
+        try {
+            HomestayIndexingService indexingService = homestayIndexingServiceProvider.getIfAvailable();
+            if (indexingService != null && indexingService.isElasticsearchAvailable()) {
+                List<HomestayDTO> esResults = searchNearbyByElasticsearch(request);
+                if (esResults != null && !esResults.isEmpty()) {
+                    return esResults;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("ES landmark search failed, falling back to JPA: {}", e.getMessage());
+        }
+
         return searchHomestaysWithinRadius(request, request.getLimit());
     }
 
@@ -722,6 +876,151 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
                 (a, b) -> a));
     }
 
+    private List<HomestayDTO> searchNearbyByElasticsearch(HomestaySearchRequest request) {
+        ElasticsearchOperations elasticsearchOperations = elasticsearchOperationsProvider.getIfAvailable();
+        if (elasticsearchOperations == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            String queryJson = buildNearbyElasticsearchQueryJson(request);
+            int limit = request.getLimit() != null ? request.getLimit() : 20;
+            // 多取一些以应对后续日期冲突过滤
+            int fetchSize = Math.max(limit * 3, 100);
+            double centerLat = request.getLatitude().doubleValue();
+            double centerLon = request.getLongitude().doubleValue();
+
+            NativeQueryBuilder queryBuilder = new NativeQueryBuilder();
+            queryBuilder.withQuery(Query.of(q -> q.wrapper(w -> w.query(queryJson))));
+            queryBuilder.withMaxResults(fetchSize);
+            queryBuilder.withSort(SortOptions.of(s -> s
+                    .geoDistance(gd -> gd
+                            .field("location")
+                            .location(l -> l.latlon(ll -> ll.lat(centerLat).lon(centerLon)))
+                            .order(SortOrder.Asc)
+                            .unit(DistanceUnit.Kilometers)
+                    )
+            ));
+
+            NativeQuery nativeQuery = queryBuilder.build();
+            SearchHits<HomestayDocument> searchHits = elasticsearchOperations.search(
+                    nativeQuery, HomestayDocument.class);
+
+            if (searchHits == null || searchHits.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<Long> homestayIds = new ArrayList<>();
+            Map<Long, Double> distanceMap = new HashMap<>();
+            for (org.springframework.data.elasticsearch.core.SearchHit<HomestayDocument> hit : searchHits.getSearchHits()) {
+                Long id = hit.getContent().getId();
+                homestayIds.add(id);
+                List<Object> sortValues = hit.getSortValues();
+                if (sortValues != null && !sortValues.isEmpty() && sortValues.get(0) instanceof Number) {
+                    distanceMap.put(id, ((Number) sortValues.get(0)).doubleValue());
+                }
+            }
+
+            if (homestayIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<Homestay> homestays = homestayRepository.findAllById(homestayIds);
+            Map<Long, Homestay> homestayMap = homestays.stream()
+                    .collect(Collectors.toMap(Homestay::getId, h -> h, (a, b) -> a));
+            List<Homestay> orderedHomestays = homestayIds.stream()
+                    .map(homestayMap::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            // 日期可用性冲突过滤（ES 路径暂无法前置）
+            if (request.getCheckInDate() != null && request.getCheckOutDate() != null) {
+                List<Long> conflictIds = orderRepository.findConflictingHomestayIds(
+                        homestayIds, request.getCheckInDate(), request.getCheckOutDate());
+                if (conflictIds != null && !conflictIds.isEmpty()) {
+                    orderedHomestays = orderedHomestays.stream()
+                            .filter(h -> !conflictIds.contains(h.getId()))
+                            .collect(Collectors.toList());
+                }
+            }
+
+            List<String> finalCriteria = buildFinalCriteria(request, resolveTypeCode(request.getPropertyType()));
+            List<HomestayDTO> dtos = homestayDtoAssembler.toDTOs(orderedHomestays, finalCriteria);
+
+            // 从 ES _geo_distance sort 获取精确距离
+            for (HomestayDTO dto : dtos) {
+                Double distance = distanceMap.get(dto.getId());
+                if (distance != null) {
+                    dto.setDistanceKm(roundDistance(distance));
+                }
+            }
+
+            // 日期冲突过滤可能破坏 ES 排序，重新按距离排序（null-safe，无距离排最后）
+            dtos.sort(Comparator.comparing(HomestayDTO::getDistanceKm,
+                    Comparator.nullsLast(Comparator.naturalOrder())));
+
+            if (dtos.size() > limit) {
+                return dtos.subList(0, limit);
+            }
+            return dtos;
+        } catch (Exception e) {
+            log.warn("ES nearby search failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private List<HomestayDTO> searchViewportByElasticsearch(HomestaySearchRequest request) {
+        ElasticsearchOperations elasticsearchOperations = elasticsearchOperationsProvider.getIfAvailable();
+        if (elasticsearchOperations == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            String queryJson = buildViewportElasticsearchQueryJson(request);
+            StringQuery stringQuery = new StringQuery(queryJson, PageRequest.of(0, 10000));
+            SearchHits<HomestayDocument> searchHits = elasticsearchOperations.search(
+                    stringQuery, HomestayDocument.class);
+
+            if (searchHits == null || searchHits.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<Long> homestayIds = searchHits.getSearchHits().stream()
+                    .map(hit -> hit.getContent().getId())
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (homestayIds.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<Homestay> homestays = homestayRepository.findAllById(homestayIds);
+            Map<Long, Homestay> homestayMap = homestays.stream()
+                    .collect(Collectors.toMap(Homestay::getId, h -> h, (a, b) -> a));
+            List<Homestay> orderedHomestays = homestayIds.stream()
+                    .map(homestayMap::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            // 日期可用性冲突过滤（ES 路径暂无法前置）
+            if (request.getCheckInDate() != null && request.getCheckOutDate() != null) {
+                List<Long> conflictIds = orderRepository.findConflictingHomestayIds(
+                        homestayIds, request.getCheckInDate(), request.getCheckOutDate());
+                if (conflictIds != null && !conflictIds.isEmpty()) {
+                    orderedHomestays = orderedHomestays.stream()
+                            .filter(h -> !conflictIds.contains(h.getId()))
+                            .collect(Collectors.toList());
+                }
+            }
+
+            List<String> finalCriteria = buildFinalCriteria(request, resolveTypeCode(request.getPropertyType()));
+            return homestayDtoAssembler.toDTOs(orderedHomestays, finalCriteria);
+        } catch (Exception e) {
+            log.warn("ES viewport search failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
     private List<HomestayDTO> searchByElasticsearch(HomestaySearchRequest request) {
         String keyword = request.getKeyword();
         if (!StringUtils.hasText(keyword)) {
@@ -782,8 +1081,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
         }
     }
 
-    private String buildElasticsearchQueryJson(HomestaySearchRequest request) {
-        String keyword = jsonEscape(request.getKeyword());
+    private StringBuilder buildCommonElasticsearchFilters(HomestaySearchRequest request) {
         double minPrice = request.getMinPrice() != null ? request.getMinPrice().doubleValue() : 0.0;
         double maxPrice = request.getMaxPrice() != null ? request.getMaxPrice().doubleValue() : Double.MAX_VALUE;
         int minGuests = request.getMinGuests() != null ? request.getMinGuests() : 1;
@@ -803,7 +1101,6 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
             }
             filters.append("]}},");
         }
-
         if (StringUtils.hasText(request.getCityCode())) {
             Set<String> candidates = homestaySpecificationSupport.getCityCodeCandidates(request.getCityCode());
             filters.append("{\"terms\":{\"cityCode\":[");
@@ -815,23 +1112,25 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
             }
             filters.append("]}},");
         }
-
         if (StringUtils.hasText(request.getDistrictCode())) {
             filters.append(String.format("{\"term\":{\"districtCode\":\"%s\"}},",
                     jsonEscape(request.getDistrictCode().trim())));
         }
-
         String typeCode = resolveTypeCode(request.getPropertyType());
         if (typeCode != null) {
             filters.append(String.format("{\"term\":{\"type\":\"%s\"}},", jsonEscape(typeCode)));
         }
-
-        // 设施筛选：AND 语义（必须同时包含所有指定设施）
         if (request.getRequiredAmenities() != null && !request.getRequiredAmenities().isEmpty()) {
             for (String a : request.getRequiredAmenities()) {
                 filters.append(String.format("{\"term\":{\"amenities\":\"%s\"}},", jsonEscape(a)));
             }
         }
+        return filters;
+    }
+
+    private String buildElasticsearchQueryJson(HomestaySearchRequest request) {
+        String keyword = jsonEscape(request.getKeyword());
+        StringBuilder filters = buildCommonElasticsearchFilters(request);
 
         // location 文本筛选：匹配 addressDetail 或地区编码
         if (StringUtils.hasText(request.getLocation())) {
@@ -866,6 +1165,66 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
         return String.format(
                 "{\"function_score\":{\"query\":{\"bool\":{\"must\":[{\"match\":{\"status\":\"ACTIVE\"}},{\"multi_match\":{\"query\":\"%s\",\"fields\":[\"title^3\",\"description^2\",\"addressDetail^2\",\"amenities\"],\"type\":\"best_fields\",\"fuzziness\":\"AUTO\"}}],\"filter\":[%s]}},\"functions\":[{\"field_value_factor\":{\"field\":\"rating\",\"factor\":0.20,\"modifier\":\"log1p\",\"missing\":0}},{\"field_value_factor\":{\"field\":\"bookingCount\",\"factor\":0.075,\"modifier\":\"log1p\",\"missing\":0}},{\"field_value_factor\":{\"field\":\"favoriteCount\",\"factor\":0.075,\"modifier\":\"log1p\",\"missing\":0}},{\"gauss\":{\"createdAt\":{\"origin\":\"now\",\"scale\":\"30d\",\"decay\":0.5}}}],\"score_mode\":\"sum\",\"boost_mode\":\"multiply\"}}",
                 keyword, filterStr);
+    }
+
+    private String buildNearbyElasticsearchQueryJson(HomestaySearchRequest request) {
+        StringBuilder filters = buildCommonElasticsearchFilters(request);
+
+        // geo_distance: 圆形范围过滤
+        double lat = request.getLatitude().doubleValue();
+        double lon = request.getLongitude().doubleValue();
+        double radiusKm = request.getRadiusKm() != null ? request.getRadiusKm().doubleValue() : 20.0;
+        filters.append(String.format(
+                "{\"geo_distance\":{\"distance\":\"%.2fkm\",\"location\":{\"lat\":%.6f,\"lon\":%.6f}}},",
+                radiusKm, lat, lon));
+
+        String filterStr = filters.toString();
+        if (filterStr.endsWith(",")) {
+            filterStr = filterStr.substring(0, filterStr.length() - 1);
+        }
+
+        return String.format(
+                "{\"bool\":{\"must\":[{\"match\":{\"status\":\"ACTIVE\"}}],\"filter\":[%s]}}",
+                filterStr);
+    }
+
+    private String buildViewportElasticsearchQueryJson(HomestaySearchRequest request) {
+        StringBuilder filters = buildCommonElasticsearchFilters(request);
+
+        // location 文本筛选
+        if (StringUtils.hasText(request.getLocation())) {
+            String locationExact = jsonEscape(request.getLocation().trim());
+            String locationFuzzy = jsonEscape(request.getLocation().trim());
+            filters.append(String.format(
+                    "{\"bool\":{\"should\":[" +
+                    "{\"match\":{\"addressDetail\":\"%s\"}}," +
+                    "{\"term\":{\"provinceCode\":\"%s\"}}," +
+                    "{\"term\":{\"cityCode\":\"%s\"}}," +
+                    "{\"term\":{\"districtCode\":\"%s\"}}" +
+                    "],\"minimum_should_match\":1}},",
+                    locationFuzzy, locationExact, locationExact, locationExact));
+        }
+
+        // geo_bounding_box: 视口范围过滤
+        if (Stream.of(request.getNorthEastLat(), request.getNorthEastLng(),
+                request.getSouthWestLat(), request.getSouthWestLng()).allMatch(Objects::nonNull)) {
+            double topLat = request.getNorthEastLat().max(request.getSouthWestLat()).doubleValue();
+            double bottomLat = request.getNorthEastLat().min(request.getSouthWestLat()).doubleValue();
+            double leftLng = request.getNorthEastLng().min(request.getSouthWestLng()).doubleValue();
+            double rightLng = request.getNorthEastLng().max(request.getSouthWestLng()).doubleValue();
+            filters.append(String.format(
+                    "{\"geo_bounding_box\":{\"location\":{\"top_left\":{\"lat\":%.6f,\"lon\":%.6f},\"bottom_right\":{\"lat\":%.6f,\"lon\":%.6f}}}},",
+                    topLat, leftLng, bottomLat, rightLng));
+        }
+
+        String filterStr = filters.toString();
+        if (filterStr.endsWith(",")) {
+            filterStr = filterStr.substring(0, filterStr.length() - 1);
+        }
+
+        return String.format(
+                "{\"bool\":{\"must\":[{\"match\":{\"status\":\"ACTIVE\"}}],\"filter\":[%s]}}",
+                filterStr);
     }
 
     private static String jsonEscape(String value) {
