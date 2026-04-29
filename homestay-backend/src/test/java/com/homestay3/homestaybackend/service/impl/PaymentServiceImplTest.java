@@ -19,6 +19,7 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.PaymentRecordRepository;
 import com.homestay3.homestaybackend.repository.RefundRecordRepository;
 import com.homestay3.homestaybackend.service.OrderService;
+import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.service.gateway.AlipayGateway;
 import com.homestay3.homestaybackend.util.RedisLock;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,9 @@ class PaymentServiceImplTest {
 
     @Mock
     private OrderService orderService;
+
+    @Mock
+    private PaymentProcessingService paymentProcessingService;
 
     @Mock
     private AlipayGateway alipayGateway;
@@ -122,6 +126,7 @@ class PaymentServiceImplTest {
         // 手动注入 @Autowired @Lazy 的 orderService（Mockito @InjectMocks 不处理 field
         // injection）
         ReflectionTestUtils.setField(paymentService, "orderService", orderService);
+        ReflectionTestUtils.setField(paymentService, "paymentProcessingService", paymentProcessingService);
     }
 
     // ============================================================
@@ -194,6 +199,7 @@ class PaymentServiceImplTest {
             // mock 订单查询（updateOrderPaymentStatus 内部用到）
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(orderRepository.save(any(Order.class))).thenReturn(order);
+            doNothing().when(paymentProcessingService).handleOrderPaidSuccess(anyLong());
 
             boolean isPaid = paymentService.checkPaymentStatus(1L);
 
@@ -204,6 +210,8 @@ class PaymentServiceImplTest {
             verify(paymentRecordRepository).save(paymentRecord);
             // 确认更新了订单状态
             verify(orderRepository).save(any(Order.class));
+            // 确认触发统一支付成功后置处理
+            verify(paymentProcessingService).handleOrderPaidSuccess(1L);
         }
 
         @Test
@@ -474,6 +482,7 @@ class PaymentServiceImplTest {
             when(paymentRecordRepository.save(any(PaymentRecord.class))).thenReturn(paymentRecord);
             when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
             when(orderRepository.save(any(Order.class))).thenReturn(order);
+            doNothing().when(paymentProcessingService).handleOrderPaidSuccess(anyLong());
 
             assertDoesNotThrow(() -> paymentService.handlePaymentNotify(result));
 
@@ -481,6 +490,7 @@ class PaymentServiceImplTest {
             assertEquals("ALIPAY_TXN_456", paymentRecord.getTransactionId());
             verify(paymentRecordRepository).save(paymentRecord);
             verify(orderRepository).save(any(Order.class));
+            verify(paymentProcessingService).handleOrderPaidSuccess(1L);
         }
 
         @Test

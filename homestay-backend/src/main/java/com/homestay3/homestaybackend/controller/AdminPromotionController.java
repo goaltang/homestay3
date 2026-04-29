@@ -207,13 +207,33 @@ public class AdminPromotionController {
 
     @PutMapping("/templates/{id}")
     public ResponseEntity<?> updateTemplate(@PathVariable Long id, @RequestBody CouponTemplate template) {
-        Optional<CouponTemplate> existing = couponTemplateRepository.findById(id);
-        if (existing.isEmpty()) {
-            return ResponseEntity.notFound().build();
+        try {
+            Optional<CouponTemplate> existing = couponTemplateRepository.findById(id);
+            if (existing.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            CouponTemplate target = existing.get();
+
+            // 安全校验：ACTIVE 且已发放的模板，禁止修改关键计价字段
+            if ("ACTIVE".equals(target.getStatus()) && target.getIssuedCount() != null && target.getIssuedCount() > 0) {
+                // 只允许修改白名单字段：name, validStartAt, validEndAt, status, totalStock, perUserLimit
+                // 其他关键字段保留原值
+                target.setName(template.getName());
+                target.setValidStartAt(template.getValidStartAt());
+                target.setValidEndAt(template.getValidEndAt());
+                target.setStatus(template.getStatus());
+                target.setTotalStock(template.getTotalStock());
+                target.setPerUserLimit(template.getPerUserLimit());
+                // 禁止修改：couponType, faceValue, discountRate, thresholdAmount, maxDiscount, scopeType, scopeValueJson, subsidyBearer, isNewUserCoupon, autoIssueTrigger, stackGroup, hostId, validDays, validType
+            } else {
+                copyTemplateEditableFields(target, template);
+            }
+
+            CouponTemplate updated = couponService.createTemplate(target);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
-        template.setId(id);
-        CouponTemplate updated = couponTemplateRepository.save(template);
-        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/templates/{id}")
@@ -422,6 +442,29 @@ public class AdminPromotionController {
         if (start == null) start = LocalDateTime.now().minusDays(30);
         if (end == null) end = LocalDateTime.now();
         return ResponseEntity.ok(couponAnalyticsService.getChannelStats(templateId, start, end));
+    }
+
+    private void copyTemplateEditableFields(CouponTemplate target, CouponTemplate source) {
+        target.setName(source.getName());
+        target.setCouponType(source.getCouponType());
+        target.setFaceValue(source.getFaceValue());
+        target.setDiscountRate(source.getDiscountRate());
+        target.setThresholdAmount(source.getThresholdAmount());
+        target.setMaxDiscount(source.getMaxDiscount());
+        target.setTotalStock(source.getTotalStock());
+        target.setPerUserLimit(source.getPerUserLimit());
+        target.setValidType(source.getValidType());
+        target.setValidDays(source.getValidDays());
+        target.setValidStartAt(source.getValidStartAt());
+        target.setValidEndAt(source.getValidEndAt());
+        target.setScopeType(source.getScopeType());
+        target.setScopeValueJson(source.getScopeValueJson());
+        target.setSubsidyBearer(source.getSubsidyBearer());
+        target.setHostId(source.getHostId());
+        target.setIsNewUserCoupon(source.getIsNewUserCoupon());
+        target.setAutoIssueTrigger(source.getAutoIssueTrigger());
+        target.setStackGroup(source.getStackGroup());
+        target.setStatus(source.getStatus());
     }
 
     private LocalDateTime parseDateTime(String dateStr, boolean startOfDay) {

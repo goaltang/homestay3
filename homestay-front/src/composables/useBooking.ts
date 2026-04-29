@@ -209,6 +209,7 @@ export function useBooking(
       activityDiscountAmount: priceDetails.value?.activityDiscountAmount || 0,
       couponDiscountAmount: priceDetails.value?.couponDiscountAmount || 0,
       appliedPromotions: priceDetails.value?.appliedPromotions || [],
+      availableCoupons: priceDetails.value?.availableCoupons || [],
     };
 
     console.log("准备跳转到订单确认页，传递数据:", bookingDetails);

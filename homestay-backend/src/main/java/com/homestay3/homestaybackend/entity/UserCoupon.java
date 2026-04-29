@@ -52,6 +52,29 @@ public class UserCoupon {
     @Column(name = "expire_at", nullable = false)
     private LocalDateTime expireAt;
 
+    // --- 领取快照字段（防止后台修改模板后追溯影响已发放券）---
+    @Column(name = "snapshot_face_value", precision = 12, scale = 2)
+    private java.math.BigDecimal snapshotFaceValue;
+
+    @Column(name = "snapshot_discount_rate", precision = 3, scale = 2)
+    private java.math.BigDecimal snapshotDiscountRate;
+
+    @Column(name = "snapshot_threshold_amount", precision = 12, scale = 2)
+    private java.math.BigDecimal snapshotThresholdAmount;
+
+    @Column(name = "snapshot_max_discount", precision = 12, scale = 2)
+    private java.math.BigDecimal snapshotMaxDiscount;
+
+    @Column(name = "snapshot_scope_type", length = 50)
+    private String snapshotScopeType;
+
+    @Column(name = "snapshot_scope_value_json", columnDefinition = "TEXT")
+    private String snapshotScopeValueJson;
+
+    @Column(name = "snapshot_subsidy_bearer", length = 50)
+    private String snapshotSubsidyBearer;
+    // --------------------------------------------------------
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

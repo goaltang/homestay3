@@ -55,11 +55,25 @@ public class ReferralServiceImpl implements ReferralService {
             return false;
         }
 
-        ReferralRecord record = referralRecordRepository
+        // 自用拦截
+        ReferralRecord checkRecord = referralRecordRepository
                 .findByReferralCodeAndStatusAndExpireAtAfter(referralCode, "ACTIVE", LocalDateTime.now())
                 .orElse(null);
-        if (record == null) {
+        if (checkRecord == null) {
             log.info("邀请码无效或已过期，code={}", referralCode);
+            return false;
+        }
+        if (inviteeId.equals(checkRecord.getInviterId())) {
+            log.info("邀请码不能自用，inviteeId={}, inviterId={}", inviteeId, checkRecord.getInviterId());
+            return false;
+        }
+
+        // 行级锁查询，防止并发超发
+        ReferralRecord record = referralRecordRepository
+                .findByReferralCodeAndStatusAndExpireAtAfterForUpdate(referralCode, "ACTIVE", LocalDateTime.now())
+                .orElse(null);
+        if (record == null) {
+            log.info("邀请码无效或已过期（加锁后），code={}", referralCode);
             return false;
         }
 
@@ -70,32 +84,41 @@ public class ReferralServiceImpl implements ReferralService {
             return false;
         }
 
-        // 给被邀请人发券
+        boolean anyClaimed = false;
+
+        // 给被邀请人发券（核心奖励，失败应阻断）
         if (record.getTemplateIdForInvitee() != null) {
             try {
                 couponService.claimCoupon(inviteeId, record.getTemplateIdForInvitee());
                 log.info("被邀请人得券成功，inviteeId={}, templateId={}", inviteeId, record.getTemplateIdForInvitee());
+                anyClaimed = true;
             } catch (Exception e) {
-                log.warn("被邀请人得券失败，inviteeId={}, 原因={}", inviteeId, e.getMessage());
+                log.error("被邀请人得券失败，邀请码使用中断，code={}, inviteeId={}", referralCode, inviteeId, e);
+                throw new RuntimeException("邀请奖励发放失败: " + e.getMessage());
             }
         }
 
-        // 给邀请人发券
+        // 给邀请人发券（附属奖励，失败不影响主流程）
         if (record.getTemplateIdForInviter() != null) {
             try {
                 couponService.claimCoupon(record.getInviterId(), record.getTemplateIdForInviter());
                 log.info("邀请人得券成功，inviterId={}, templateId={}", record.getInviterId(), record.getTemplateIdForInviter());
+                anyClaimed = true;
             } catch (Exception e) {
                 log.warn("邀请人得券失败，inviterId={}, 原因={}", record.getInviterId(), e.getMessage());
             }
         }
 
-        record.setUsedCount(record.getUsedCount() + 1);
-        if (record.getUsedCount() >= record.getMaxUses()) {
-            record.setStatus("USED");
+        // 只有实际成功发放了券，才增加使用次数
+        if (anyClaimed) {
+            record.setUsedCount(record.getUsedCount() + 1);
+            if (record.getUsedCount() >= record.getMaxUses()) {
+                record.setStatus("USED");
+            }
+            referralRecordRepository.save(record);
+            return true;
         }
-        referralRecordRepository.save(record);
-        return true;
+        return false;
     }
 
     @Override

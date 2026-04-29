@@ -24,6 +24,8 @@ public class PricingResult {
     private BigDecimal activityDiscountAmount;
     private BigDecimal fullReductionAmount;
     private BigDecimal couponDiscountAmount;
+    private BigDecimal couponPlatformDiscountAmount;
+    private BigDecimal couponHostDiscountAmount;
     private BigDecimal platformDiscountAmount;
     private BigDecimal hostDiscountAmount;
     private BigDecimal discountedRoomAmount;
@@ -32,6 +34,7 @@ public class PricingResult {
     private BigDecimal payableAmount;
     private BigDecimal hostReceivableAmount;
     private List<AppliedPromotionDTO> appliedPromotions;
+    private List<Long> effectiveCouponIds;
     private PriceCalculationResponse.PriceDetails priceDetails;
     private List<AppliedPricingRuleDTO> appliedPricingRules;
 }

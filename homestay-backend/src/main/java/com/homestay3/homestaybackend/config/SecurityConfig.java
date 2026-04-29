@@ -69,6 +69,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/recommendations/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/host/info/**").permitAll()
                         .requestMatchers("/api/system/**").permitAll()
+                        .requestMatchers("/api/tracking/**").permitAll()
                         .requestMatchers("/api/payment/*/notify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/payment/*/status").permitAll()
                         .requestMatchers("/api/payment/**").authenticated()

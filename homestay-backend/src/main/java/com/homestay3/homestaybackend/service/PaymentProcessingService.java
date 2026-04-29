@@ -63,4 +63,11 @@ public interface PaymentProcessingService {
      * @return 申请退款后的订单DTO
      */
     OrderDTO requestUserRefund(Long orderId, String reason);
+
+    /**
+     * 统一订单支付成功后置处理（核销优惠券、更新活动流水、生成收益、发送通知等）
+     * 所有支付成功路径（真实支付回调、查单成功、mock成功、手动确认）必须调用此统一入口
+     * @param orderId 已支付订单ID
+     */
+    void handleOrderPaidSuccess(Long orderId);
 }

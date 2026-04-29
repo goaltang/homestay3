@@ -172,7 +172,7 @@ class CouponServiceImplTest {
             // 准备：库存有限，已发 99/100
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
             template.setIssuedCount(99);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(0L);
             when(templateRepository.incrementIssuedCount(template.getId())).thenReturn(0);
 
@@ -187,7 +187,7 @@ class CouponServiceImplTest {
         void claimCoupon_StockJustExhausted_ThrowsExhausted() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
             template.setIssuedCount(100);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(0L);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
@@ -210,7 +210,7 @@ class CouponServiceImplTest {
         void claimCoupon_UnlimitedStock_NoStockCheck() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 0, 1);
             template.setIssuedCount(999);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(0L);
             when(userCouponRepository.save(any(UserCoupon.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -234,7 +234,7 @@ class CouponServiceImplTest {
         void claimCoupon_LimitedStockExhausted_ThrowsExhausted() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 1, 1);
             template.setIssuedCount(1);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(0L);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
@@ -246,7 +246,7 @@ class CouponServiceImplTest {
         @DisplayName("单用户限领 1 张，已领 1 张后再次领取应失败")
         void claimCoupon_PerUserLimitReached_ThrowsLimit() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(1L);
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
@@ -258,7 +258,7 @@ class CouponServiceImplTest {
         @DisplayName("单用户限领 2 张，已领 1 张后仍可领取")
         void claimCoupon_PerUserLimitNotReached_Success() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 2);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(1L);
             when(templateRepository.incrementIssuedCount(template.getId())).thenReturn(1);
             when(userCouponRepository.save(any(UserCoupon.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -275,7 +275,7 @@ class CouponServiceImplTest {
         void claimCoupon_LastStock_IncrementProtects() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
             template.setIssuedCount(99);
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
             when(userCouponRepository.countByUserIdAndTemplateId(USER_A, template.getId())).thenReturn(0L);
             when(templateRepository.incrementIssuedCount(template.getId())).thenReturn(1);
             when(userCouponRepository.save(any(UserCoupon.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -291,7 +291,7 @@ class CouponServiceImplTest {
         void claimCoupon_InactiveTemplate_ThrowsInactive() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
             template.setStatus("DRAFT");
-            when(templateRepository.findById(template.getId())).thenReturn(Optional.of(template));
+            when(templateRepository.findByIdForUpdate(template.getId())).thenReturn(Optional.of(template));
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
                     couponService.claimCoupon(USER_A, template.getId()));
@@ -442,14 +442,80 @@ class CouponServiceImplTest {
         void calculateDiscount_NotExceedOriginalAmount() {
             CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
             template.setFaceValue(new BigDecimal("500"));
-            template.setMaxDiscount(null); // 取消封顶，只受原始金额限制
             UserCoupon coupon = TestDataFactory.createUserCoupon(USER_A, template, "AVAILABLE");
+            template.setMaxDiscount(null); // 取消封顶，只受原始金额限制
             when(userCouponRepository.findById(coupon.getId())).thenReturn(Optional.of(coupon));
 
             CouponDiscountResult result = couponService.calculateCouponDiscount(
                     coupon.getId(), HOMESTAY_1, new BigDecimal("200"));
 
             assertEquals(0, new BigDecimal("200.00").compareTo(result.getDiscountAmount()));
+        }
+
+        @Test
+        @DisplayName("批量券按承担方拆分金额，避免 MIXED 双记")
+        void calculateDiscount_Batch_SplitsBearerAmounts() {
+            CouponTemplate platformTemplate = TestDataFactory.createCouponTemplate("CASH", 100, 1);
+            platformTemplate.setFaceValue(new BigDecimal("30"));
+            platformTemplate.setSubsidyBearer("PLATFORM");
+            CouponTemplate hostTemplate = TestDataFactory.createCouponTemplate("CASH", 100, 1);
+            hostTemplate.setFaceValue(new BigDecimal("20"));
+            hostTemplate.setSubsidyBearer("HOST");
+            UserCoupon platformCoupon = TestDataFactory.createUserCoupon(USER_A, platformTemplate, "AVAILABLE");
+            UserCoupon hostCoupon = TestDataFactory.createUserCoupon(USER_A, hostTemplate, "AVAILABLE");
+            when(userCouponRepository.findByIdAndUserId(platformCoupon.getId(), USER_A))
+                    .thenReturn(Optional.of(platformCoupon));
+            when(userCouponRepository.findByIdAndUserId(hostCoupon.getId(), USER_A))
+                    .thenReturn(Optional.of(hostCoupon));
+
+            CouponDiscountResult result = couponService.calculateCouponDiscount(
+                    List.of(platformCoupon.getId(), hostCoupon.getId()), HOMESTAY_1, new BigDecimal("200"), USER_A);
+
+            assertEquals(0, new BigDecimal("50.00").compareTo(result.getDiscountAmount()));
+            assertEquals(0, new BigDecimal("30.00").compareTo(result.getPlatformDiscountAmount()));
+            assertEquals(0, new BigDecimal("20.00").compareTo(result.getHostDiscountAmount()));
+            assertEquals("MIXED", result.getSubsidyBearer());
+            assertEquals(List.of(platformCoupon.getId(), hostCoupon.getId()), result.getEffectiveCouponIds());
+        }
+
+        @Test
+        @DisplayName("同一互斥组只保留优惠最大的券")
+        void calculateDiscount_Batch_StackGroupKeepsBestCoupon() {
+            CouponTemplate smallTemplate = TestDataFactory.createCouponTemplate("CASH", 100, 1);
+            smallTemplate.setFaceValue(new BigDecimal("20"));
+            smallTemplate.setStackGroup("GROUP_A");
+            CouponTemplate largeTemplate = TestDataFactory.createCouponTemplate("CASH", 100, 1);
+            largeTemplate.setFaceValue(new BigDecimal("50"));
+            largeTemplate.setStackGroup("GROUP_A");
+            UserCoupon smallCoupon = TestDataFactory.createUserCoupon(USER_A, smallTemplate, "AVAILABLE");
+            UserCoupon largeCoupon = TestDataFactory.createUserCoupon(USER_A, largeTemplate, "AVAILABLE");
+            when(userCouponRepository.findByIdAndUserId(smallCoupon.getId(), USER_A))
+                    .thenReturn(Optional.of(smallCoupon));
+            when(userCouponRepository.findByIdAndUserId(largeCoupon.getId(), USER_A))
+                    .thenReturn(Optional.of(largeCoupon));
+
+            CouponDiscountResult result = couponService.calculateCouponDiscount(
+                    List.of(smallCoupon.getId(), largeCoupon.getId()), HOMESTAY_1, new BigDecimal("200"), USER_A);
+
+            assertEquals(0, new BigDecimal("50.00").compareTo(result.getDiscountAmount()));
+            assertEquals(List.of(largeCoupon.getId()), result.getEffectiveCouponIds());
+        }
+
+        @Test
+        @DisplayName("MIXED 承担方按默认 50/50 拆分")
+        void calculateDiscount_MixedBearer_SplitsEvenly() {
+            CouponTemplate template = TestDataFactory.createCouponTemplate("CASH", 100, 1);
+            template.setFaceValue(new BigDecimal("50"));
+            template.setSubsidyBearer("MIXED");
+            UserCoupon coupon = TestDataFactory.createUserCoupon(USER_A, template, "AVAILABLE");
+            when(userCouponRepository.findById(coupon.getId())).thenReturn(Optional.of(coupon));
+
+            CouponDiscountResult result = couponService.calculateCouponDiscount(
+                    coupon.getId(), HOMESTAY_1, new BigDecimal("200"));
+
+            assertEquals(0, new BigDecimal("25.00").compareTo(result.getPlatformDiscountAmount()));
+            assertEquals(0, new BigDecimal("25.00").compareTo(result.getHostDiscountAmount()));
+            assertEquals("MIXED", result.getSubsidyBearer());
         }
     }
 }

@@ -41,7 +41,7 @@ public class CouponController {
     public ResponseEntity<?> getMyCoupons(Authentication authentication) {
         try {
             User currentUser = getCurrentUser(authentication);
-            List<UserCoupon> coupons = couponService.getAvailableCoupons(currentUser.getId());
+            List<AvailableCouponDTO> coupons = couponService.getAvailableCouponDTOs(currentUser.getId());
             return ResponseEntity.ok(coupons);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

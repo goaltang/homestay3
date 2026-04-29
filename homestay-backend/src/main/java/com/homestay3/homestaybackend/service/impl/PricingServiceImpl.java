@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -78,10 +79,29 @@ public class PricingServiceImpl implements PricingService {
             log.warn("报价缓存写入 Redis 失败: {}", e.getMessage());
         }
 
-        // 查询用户可用优惠券（用于前端展示切换）
-        List<AvailableCouponDTO> availableCoupons = userId != null
-                ? couponService.getAvailableCouponDTOs(userId)
-                : Collections.emptyList();
+        // 查询用户可用优惠券（用于前端展示切换），按当前房源和金额过滤
+        List<AvailableCouponDTO> availableCoupons;
+        if (userId != null) {
+            availableCoupons = couponService.getAvailableCouponDTOs(userId).stream()
+                    .filter(dto -> {
+                        // 门槛金额过滤
+                        if (dto.getThresholdAmount() != null
+                                && result.getRoomOriginalAmount().compareTo(dto.getThresholdAmount()) < 0) {
+                            return false;
+                        }
+                        // 房源范围过滤：调用计算接口，若优惠为 0 则不适配
+                        try {
+                            CouponDiscountResult dr = couponService.calculateCouponDiscount(
+                                    dto.getId(), request.getHomestayId(), result.getRoomOriginalAmount());
+                            return dr.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0;
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    })
+                    .collect(Collectors.toList());
+        } else {
+            availableCoupons = Collections.emptyList();
+        }
 
         return PricingQuoteResponse.builder()
                 .quoteToken(quoteToken)
@@ -92,6 +112,8 @@ public class PricingServiceImpl implements PricingService {
                 .activityDiscountAmount(result.getActivityDiscountAmount())
                 .fullReductionAmount(result.getFullReductionAmount())
                 .couponDiscountAmount(result.getCouponDiscountAmount())
+                .couponPlatformDiscountAmount(result.getCouponPlatformDiscountAmount())
+                .couponHostDiscountAmount(result.getCouponHostDiscountAmount())
                 .platformDiscountAmount(result.getPlatformDiscountAmount())
                 .hostDiscountAmount(result.getHostDiscountAmount())
                 .cleaningFee(result.getCleaningFee())
@@ -101,6 +123,7 @@ public class PricingServiceImpl implements PricingService {
                 .dailyPrices(result.getDailyPrices())
                 .appliedPromotions(result.getAppliedPromotions())
                 .availableCoupons(availableCoupons)
+                .effectiveCouponIds(result.getEffectiveCouponIds())
                 .priceDetails(result.getPriceDetails())
                 .build();
     }
@@ -192,16 +215,22 @@ public class PricingServiceImpl implements PricingService {
         if (couponIds != null && !couponIds.isEmpty()) {
             couponResult = couponService.calculateCouponDiscount(couponIds, homestayId, roomOriginalAmount, userId);
         }
-        BigDecimal couponDiscount = couponResult.getDiscountAmount();
-        String couponBearer = couponResult.getSubsidyBearer();
+        BigDecimal couponDiscount = defaultMoney(couponResult.getDiscountAmount());
+        BigDecimal couponPlatformDiscount = defaultMoney(couponResult.getPlatformDiscountAmount());
+        BigDecimal couponHostDiscount = defaultMoney(couponResult.getHostDiscountAmount());
 
-        BigDecimal couponPlatformDiscount = BigDecimal.ZERO;
-        BigDecimal couponHostDiscount = BigDecimal.ZERO;
-        if ("PLATFORM".equals(couponBearer) || "MIXED".equals(couponBearer)) {
-            couponPlatformDiscount = couponDiscount;
-        }
-        if ("HOST".equals(couponBearer) || "MIXED".equals(couponBearer)) {
-            couponHostDiscount = couponDiscount;
+        BigDecimal maxCouponDiscount = afterActivityDiscount.max(BigDecimal.ZERO);
+        if (couponDiscount.compareTo(maxCouponDiscount) > 0) {
+            BigDecimal ratio = maxCouponDiscount.divide(couponDiscount, 8, RoundingMode.HALF_UP);
+            couponPlatformDiscount = couponPlatformDiscount.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
+            couponHostDiscount = couponHostDiscount.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
+            couponDiscount = maxCouponDiscount.setScale(2, RoundingMode.HALF_UP);
+            BigDecimal splitDiff = couponDiscount.subtract(couponPlatformDiscount.add(couponHostDiscount));
+            if (couponHostDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                couponHostDiscount = couponHostDiscount.add(splitDiff);
+            } else {
+                couponPlatformDiscount = couponPlatformDiscount.add(splitDiff);
+            }
         }
 
         // 9. 计算清洁费和服务费
@@ -217,7 +246,7 @@ public class PricingServiceImpl implements PricingService {
         BigDecimal totalHostDiscount = homestayDiscountAmount;
         totalHostDiscount = totalHostDiscount.add(tempResult.getHostDiscountAmount() != null ? tempResult.getHostDiscountAmount() : BigDecimal.ZERO);
         totalHostDiscount = totalHostDiscount.add(couponHostDiscount);
-        BigDecimal hostReceivable = roomOriginalAmount.subtract(totalHostDiscount);
+        BigDecimal hostReceivable = roomOriginalAmount.subtract(totalHostDiscount).max(BigDecimal.ZERO);
 
         // 平台补贴 = 活动优惠中平台承担的部分 + 优惠券平台承担部分
         BigDecimal platformSubsidy = tempResult.getPlatformDiscountAmount() != null ? tempResult.getPlatformDiscountAmount() : BigDecimal.ZERO;
@@ -225,6 +254,8 @@ public class PricingServiceImpl implements PricingService {
 
         return resultBuilder
                 .couponDiscountAmount(couponDiscount)
+                .couponPlatformDiscountAmount(couponPlatformDiscount)
+                .couponHostDiscountAmount(couponHostDiscount)
                 .platformDiscountAmount(platformSubsidy)
                 .hostDiscountAmount(totalHostDiscount)
                 .discountedRoomAmount(discountedRoomAmount)
@@ -232,6 +263,7 @@ public class PricingServiceImpl implements PricingService {
                 .serviceFee(serviceFee)
                 .payableAmount(payableAmount)
                 .hostReceivableAmount(hostReceivable)
+                .effectiveCouponIds(couponResult.getEffectiveCouponIds())
                 .appliedPricingRules(stayDiscount.appliedRules())
                 .priceDetails(PriceCalculationResponse.PriceDetails.builder()
                         .cleaningFeeAmount(cleaningFeeRate)
@@ -396,5 +428,9 @@ public class PricingServiceImpl implements PricingService {
             }
         }
         return null;
+    }
+
+    private BigDecimal defaultMoney(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 }

@@ -111,63 +111,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             Order paidOrder = orderRepository.save(order);
             log.info("订单 {} 状态已成功更新为 PAID 并保存。", paidOrder.getOrderNumber());
 
-            // --- 核销优惠券与活动流水 ---
-            try {
-                couponService.useCoupons(paidOrder.getId());
-                promotionUsageRepository.updateStatusByOrderId(paidOrder.getId(), "USED");
-                log.info("订单 {} 优惠券与活动流水已核销。", paidOrder.getOrderNumber());
-                // 转化漏斗埋点：核销
-                try {
-                    var lockedCoupons = userCouponRepository.findByLockedOrderIdAndStatus(paidOrder.getId(), "LOCKED");
-                    for (var uc : lockedCoupons) {
-                        if (uc.getTemplate() != null) {
-                            couponAnalyticsService.track(uc.getTemplate().getId(), null, "ORDER_PAY", "USE",
-                                    paidOrder.getGuest() != null ? paidOrder.getGuest().getId() : null,
-                                    null, paidOrder.getId());
-                        }
-                    }
-                } catch (Exception trackEx) {
-                    log.warn("订单 {} 优惠券核销埋点失败: {}", paidOrder.getOrderNumber(), trackEx.getMessage());
-                }
-            } catch (Exception writeOffEx) {
-                log.error("订单 {} 核销优惠券或活动流水失败: {}", paidOrder.getOrderNumber(), writeOffEx.getMessage(), writeOffEx);
-            }
-            // --- 核销结束 ---
-
-            // --- 发送支付成功通知给房东和房客 ---
-            try {
-                User host = paidOrder.getHomestay().getOwner();
-                User guest = paidOrder.getGuest();
-                orderNotificationService.sendOrderPaymentSuccessNotification(
-                        host.getId(), guest.getId(), paidOrder.getId(),
-                        host.getUsername(), guest.getUsername(),
-                        paidOrder.getHomestay().getTitle(),
-                        paidOrder.getOrderNumber(),
-                        paymentMethod);
-            } catch (Exception notifyEx) {
-                log.error("发送订单 {} 支付成功通知失败: {}", paidOrder.getOrderNumber(), notifyEx.getMessage(), notifyEx);
-            }
-            // --- 通知发送结束 ---
-
-            // --- 添加：自动生成待结算收益记录 ---
-            log.info("订单 {} 支付成功，准备调用 EarningService 生成收益记录...", paidOrder.getOrderNumber());
-            EarningDTO generatedEarning = null;
-            try {
-                // 调用重命名后的方法
-                generatedEarning = earningService.generatePendingEarningForOrder(paidOrder.getId());
-                if (generatedEarning != null) {
-                    log.info("为订单 {} 成功生成或获取收益记录 ID: {}", paidOrder.getOrderNumber(), generatedEarning.getId());
-                } else {
-                    log.warn("订单 {} 的收益记录生成调用返回为空，可能已存在或生成失败（详见 EarningService 日志）。", paidOrder.getOrderNumber());
-                }
-            } catch (Exception earningEx) {
-                // 记录收益生成失败的错误，但不应中断支付成功流程
-                log.error("为订单 {} 调用 generatePendingEarningForOrder 时发生异常: {}", paidOrder.getOrderNumber(),
-                        earningEx.getMessage(), earningEx);
-                // 这里可以选择是否需要额外的错误处理，比如标记订单需要人工处理收益等
-            }
-            log.info("EarningService 调用结束，订单 {} 的支付流程完成。", paidOrder.getOrderNumber());
-            // --- 收益生成结束 ---
+            // 统一支付成功后置处理
+            handleOrderPaidSuccess(paidOrder.getId());
 
             return convertToDTO(paidOrder);
         } catch (InterruptedException e) {
@@ -222,8 +167,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         log.info("订单 {} 已创建手动确认支付记录，不需要真实退款", orderId);
         log.info("订单 {} 已手动确认支付", orderId);
 
-        // 触发支付成功后的逻辑（如生成收益）
-        earningService.generatePendingEarningForOrder(updatedOrder.getId());
+        // 统一支付成功后置处理
+        handleOrderPaidSuccess(updatedOrder.getId());
 
         return convertToDTO(updatedOrder);
     }
@@ -522,6 +467,74 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         return userRepository.findByUsername(
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName())
                 .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
+    }
+
+    @Override
+    @Transactional
+    public void handleOrderPaidSuccess(Long orderId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            log.warn("支付成功后置处理：订单不存在，orderId={}", orderId);
+            return;
+        }
+        if (!OrderStatus.PAID.name().equals(order.getStatus())) {
+            log.warn("支付成功后置处理：订单状态不是PAID，orderId={}, status={}", orderId, order.getStatus());
+            return;
+        }
+
+        // --- 核销优惠券与活动流水 ---
+        try {
+            var lockedCoupons = userCouponRepository.findByLockedOrderIdAndStatus(order.getId(), "LOCKED");
+            couponService.useCoupons(order.getId());
+            promotionUsageRepository.updateStatusByOrderId(order.getId(), "USED");
+            log.info("订单 {} 优惠券与活动流水已核销。", order.getOrderNumber());
+            // 转化漏斗埋点：核销
+            try {
+                for (var uc : lockedCoupons) {
+                    if (uc.getTemplate() != null) {
+                        couponAnalyticsService.track(uc.getTemplate().getId(), null, "ORDER_PAY", "USE",
+                                order.getGuest() != null ? order.getGuest().getId() : null,
+                                null, order.getId());
+                    }
+                }
+            } catch (Exception trackEx) {
+                log.warn("订单 {} 优惠券核销埋点失败: {}", order.getOrderNumber(), trackEx.getMessage());
+            }
+        } catch (Exception writeOffEx) {
+            log.error("订单 {} 核销优惠券或活动流水失败: {}", order.getOrderNumber(), writeOffEx.getMessage(), writeOffEx);
+        }
+        // --- 核销结束 ---
+
+        // --- 发送支付成功通知给房东和房客 ---
+        try {
+            User host = order.getHomestay().getOwner();
+            User guest = order.getGuest();
+            orderNotificationService.sendOrderPaymentSuccessNotification(
+                    host.getId(), guest.getId(), order.getId(),
+                    host.getUsername(), guest.getUsername(),
+                    order.getHomestay().getTitle(),
+                    order.getOrderNumber(),
+                    order.getPaymentMethod() != null ? order.getPaymentMethod() : "UNKNOWN");
+        } catch (Exception notifyEx) {
+            log.error("发送订单 {} 支付成功通知失败: {}", order.getOrderNumber(), notifyEx.getMessage(), notifyEx);
+        }
+        // --- 通知发送结束 ---
+
+        // --- 自动生成待结算收益记录 ---
+        log.info("订单 {} 支付成功，准备调用 EarningService 生成收益记录...", order.getOrderNumber());
+        try {
+            EarningDTO generatedEarning = earningService.generatePendingEarningForOrder(order.getId());
+            if (generatedEarning != null) {
+                log.info("为订单 {} 成功生成或获取收益记录 ID: {}", order.getOrderNumber(), generatedEarning.getId());
+            } else {
+                log.warn("订单 {} 的收益记录生成调用返回为空，可能已存在或生成失败（详见 EarningService 日志）。", order.getOrderNumber());
+            }
+        } catch (Exception earningEx) {
+            log.error("为订单 {} 调用 generatePendingEarningForOrder 时发生异常: {}", order.getOrderNumber(),
+                    earningEx.getMessage(), earningEx);
+        }
+        log.info("EarningService 调用结束，订单 {} 的支付流程完成。", order.getOrderNumber());
+        // --- 收益生成结束 ---
     }
 
     // 辅助方法：计算退款金额（纯计算，不修改order）

@@ -48,6 +48,10 @@ public class PaymentServiceImpl implements PaymentService {
     @Lazy
     private OrderService orderService;
 
+    @Autowired
+    @Lazy
+    private com.homestay3.homestaybackend.service.PaymentProcessingService paymentProcessingService;
+
     private final AlipayGateway alipayGateway;
     private final com.homestay3.homestaybackend.util.RedisLock redisLock;
 
@@ -194,6 +198,9 @@ public class PaymentServiceImpl implements PaymentService {
                 // 更新订单状态
                 updateOrderPaymentStatus(orderId, PaymentStatus.PAID);
 
+                // 统一支付成功后置处理
+                paymentProcessingService.handleOrderPaidSuccess(orderId);
+
                 log.info("支付状态查询成功，订单已支付，订单ID: {}", orderId);
                 return true;
             }
@@ -225,7 +232,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new IllegalArgumentException("订单状态不正确，无法支付");
         }
 
-        // 更新订单状态为已支付
+        // 更新订单状态为已支付（updateOrderStatus 内部会触发统一支付成功后置处理）
         return orderService.updateOrderStatus(orderId, OrderStatus.PAID.name());
     }
 
@@ -266,6 +273,9 @@ public class PaymentServiceImpl implements PaymentService {
 
             // 更新订单状态
             updateOrderPaymentStatus(paymentRecord.getOrderId(), PaymentStatus.PAID);
+
+            // 统一支付成功后置处理
+            paymentProcessingService.handleOrderPaidSuccess(paymentRecord.getOrderId());
 
             log.debug("支付回调处理成功: orderId={}, outTradeNo={}",
                     paymentRecord.getOrderId(), result.getOutTradeNo());

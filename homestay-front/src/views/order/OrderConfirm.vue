@@ -299,6 +299,7 @@ interface OrderData {
     activityDiscountAmount?: number
     couponDiscountAmount?: number
     appliedPromotions?: any[]
+    availableCoupons?: any[]
 }
 
 // 定义旅客信息类型
@@ -834,7 +835,8 @@ const initOrderData = () => {
                 roomOriginalAmount: bookingDetails.roomOriginalAmount,
                 activityDiscountAmount: bookingDetails.activityDiscountAmount,
                 couponDiscountAmount: bookingDetails.couponDiscountAmount,
-                appliedPromotions: bookingDetails.appliedPromotions
+                appliedPromotions: bookingDetails.appliedPromotions,
+                availableCoupons: bookingDetails.availableCoupons
             } as OrderData;
         } catch (error) {
             console.error('解析session storage数据失败:', error);
@@ -949,7 +951,7 @@ onMounted(async () => {
         if (initialData) {
             orderData.value = initialData
             selectedCouponIds.value = initialData.couponIds || []
-            availableCoupons.value = initialData.appliedPromotions || []
+            availableCoupons.value = initialData.availableCoupons || []
             console.log('订单数据已初始化:', orderData.value)
 
             // 获取用户信息和房东信息

@@ -87,6 +87,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     private final com.homestay3.homestaybackend.service.CouponAnalyticsService couponAnalyticsService;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
     private final UserBehaviorTrackingService userBehaviorTrackingService;
+    private final com.homestay3.homestaybackend.service.PaymentProcessingService paymentProcessingService;
 
     // Note: Payment processing is handled by PaymentProcessingService, not here
 
@@ -150,6 +151,9 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 currentUser.getId()
         );
         BigDecimal totalAmount = pricingResult.getPayableAmount();
+        List<Long> effectiveCouponIds = pricingResult.getEffectiveCouponIds() != null
+                ? pricingResult.getEffectiveCouponIds()
+                : Collections.emptyList();
         log.info("统一计价结果: payableAmount={}, roomOriginalAmount={}, activityDiscount={}, couponDiscount={}",
                 totalAmount, pricingResult.getRoomOriginalAmount(),
                 pricingResult.getActivityDiscountAmount(), pricingResult.getCouponDiscountAmount());
@@ -190,9 +194,9 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
 
             // 8.2 锁定优惠券（失败抛异常，事务回滚，避免订单落库但券未锁定）
             if (orderDTO.getCouponIds() != null && !orderDTO.getCouponIds().isEmpty()) {
-                couponService.lockCoupons(orderDTO.getCouponIds(), savedOrder.getId(), currentUser.getId());
+                couponService.lockCoupons(effectiveCouponIds, savedOrder.getId(), currentUser.getId());
                 // 转化漏斗埋点：锁定（下单）
-                for (Long couponId : orderDTO.getCouponIds()) {
+                for (Long couponId : effectiveCouponIds) {
                     try {
                         com.homestay3.homestaybackend.entity.UserCoupon uc = userCouponRepository.findById(couponId).orElse(null);
                         if (uc != null && uc.getTemplate() != null) {
@@ -235,18 +239,33 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                         : BigDecimal.ZERO;
                 if (!lockedCoupons.isEmpty() && totalCouponDiscount.compareTo(BigDecimal.ZERO) > 0) {
                     // 取第一张锁定券的承担方作为代表（多券叠加时承担方已在 CouponService 中计算）
-                    String couponBearer = lockedCoupons.get(0).getTemplate() != null
-                            ? lockedCoupons.get(0).getTemplate().getSubsidyBearer()
-                            : "PLATFORM";
-                    PromotionUsage usage = PromotionUsage.builder()
-                            .orderId(savedOrder.getId())
-                            .userId(currentUser.getId())
-                            .couponId(lockedCoupons.get(0).getId())
-                            .discountAmount(totalCouponDiscount)
-                            .bearer(couponBearer)
-                            .status("LOCKED")
-                            .build();
-                    promotionUsageRepository.save(usage);
+                    Long usageCouponId = lockedCoupons.get(0).getId();
+                    BigDecimal couponPlatformDiscount = pricingResult.getCouponPlatformDiscountAmount() != null
+                            ? pricingResult.getCouponPlatformDiscountAmount()
+                            : BigDecimal.ZERO;
+                    BigDecimal couponHostDiscount = pricingResult.getCouponHostDiscountAmount() != null
+                            ? pricingResult.getCouponHostDiscountAmount()
+                            : BigDecimal.ZERO;
+                    if (couponPlatformDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                        promotionUsageRepository.save(PromotionUsage.builder()
+                                .orderId(savedOrder.getId())
+                                .userId(currentUser.getId())
+                                .couponId(usageCouponId)
+                                .discountAmount(couponPlatformDiscount)
+                                .bearer("PLATFORM")
+                                .status("LOCKED")
+                                .build());
+                    }
+                    if (couponHostDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                        promotionUsageRepository.save(PromotionUsage.builder()
+                                .orderId(savedOrder.getId())
+                                .userId(currentUser.getId())
+                                .couponId(usageCouponId)
+                                .discountAmount(couponHostDiscount)
+                                .bearer("HOST")
+                                .status("LOCKED")
+                                .build());
+                    }
                 }
             }
 
@@ -730,11 +749,11 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         // 根据目标状态执行特定逻辑
         if (targetStatus == OrderStatus.PAID) {
             order.setPaymentStatus(PaymentStatus.PAID);
-            // 支付成功，核销优惠券
+            // 统一支付成功后置处理（核销优惠券、更新活动流水、生成收益、发送通知等）
             try {
-                couponService.useCoupons(order.getId());
+                paymentProcessingService.handleOrderPaidSuccess(order.getId());
             } catch (Exception e) {
-                log.error("核销优惠券失败，订单: {}", order.getId(), e);
+                log.error("订单支付成功后置处理失败，订单: {}", order.getId(), e);
             }
         } else if (targetStatus == OrderStatus.CONFIRMED) {
             if (!isOrderOwner(order, currentUser)) {

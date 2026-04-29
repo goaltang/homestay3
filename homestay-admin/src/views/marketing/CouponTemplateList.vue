@@ -133,11 +133,11 @@
         <el-form-item label="新人专属">
           <el-switch v-model="form.isNewUserCoupon" active-text="注册自动发放" />
         </el-form-item>
-        <el-form-item label="面值/折扣率">
+        <el-form-item v-if="form.couponType !== 'DISCOUNT'" label="面值">
           <el-input-number v-model="form.faceValue" :min="0" :precision="2" />
         </el-form-item>
-        <el-form-item label="折扣率(0-1)">
-          <el-input-number v-model="form.discountRate" :min="0" :max="1" :precision="2" />
+        <el-form-item v-if="form.couponType === 'DISCOUNT'" label="折扣率(0-1)">
+          <el-input-number v-model="form.discountRate" :min="0.01" :max="0.99" :precision="2" />
         </el-form-item>
         <el-form-item label="使用门槛">
           <el-input-number v-model="form.thresholdAmount" :min="0" :precision="2" />
@@ -181,6 +181,11 @@ import {
 const submitLoading = ref(false)
 const dateRange = ref<[Date, Date] | null>(null)
 
+const formatLocalDateTime = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 // 包装列表 API：前端 page 从 1 开始，后端从 0 开始
 const wrappedListApi = async (params: any) => {
   const res: any = await getCouponTemplates({
@@ -201,8 +206,8 @@ const wrappedListApi = async (params: any) => {
 const wrapPayload = (formData: any) => {
   const payload = { ...formData }
   if (dateRange.value && dateRange.value.length === 2) {
-    payload.validStartAt = dateRange.value[0].toISOString()
-    payload.validEndAt = dateRange.value[1].toISOString()
+    payload.validStartAt = formatLocalDateTime(dateRange.value[0])
+    payload.validEndAt = formatLocalDateTime(dateRange.value[1])
   }
   return payload
 }
@@ -245,6 +250,32 @@ const {
   },
 })
 
+const validateCouponForm = () => {
+  if (!form.name?.trim()) {
+    ElMessage.warning('请填写模板名称')
+    return false
+  }
+  if (form.couponType === 'DISCOUNT') {
+    const rate = Number(form.discountRate)
+    if (!rate || rate <= 0 || rate >= 1) {
+      ElMessage.warning('折扣率必须大于 0 且小于 1')
+      return false
+    }
+  } else if (!Number(form.faceValue) || Number(form.faceValue) <= 0) {
+    ElMessage.warning('面值必须大于 0')
+    return false
+  }
+  if (form.couponType === 'FULL_REDUCTION' && (!Number(form.thresholdAmount) || Number(form.thresholdAmount) <= 0)) {
+    ElMessage.warning('满减券必须设置大于 0 的使用门槛')
+    return false
+  }
+  if (form.validType !== 'AFTER_CLAIM_DAYS' && (!dateRange.value || dateRange.value.length !== 2)) {
+    ElMessage.warning('请选择有效期')
+    return false
+  }
+  return true
+}
+
 // UI 分页显示（+1）
 const pageUI = computed({
   get: () => pagination.page + 1,
@@ -269,6 +300,7 @@ const clearSearch = () => {
 const _rawAdd = handleAdd
 const handleAddClean = () => {
   _rawAdd()
+  delete (form as any).id
   dateRange.value = null
 }
 
@@ -282,6 +314,7 @@ const handleEditWithDate = (row: any) => {
   // 手动处理编辑
   editMode.value = true
   Object.assign(form, {
+    id: row.id,
     name: row.name,
     couponType: row.couponType,
     subsidyBearer: row.subsidyBearer || 'PLATFORM',
@@ -310,6 +343,7 @@ const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate(async (valid: boolean) => {
     if (!valid) return
+    if (!validateCouponForm()) return
     submitLoading.value = true
     try {
       if (editMode.value && (form as any).id) {
@@ -323,7 +357,7 @@ const handleSubmit = async () => {
       dateRange.value = null
       await getList()
     } catch (e: any) {
-      ElMessage.error(e?.response?.data || '操作失败')
+      ElMessage.error(e?.response?.data?.error || e?.response?.data || '操作失败')
     } finally {
       submitLoading.value = false
     }

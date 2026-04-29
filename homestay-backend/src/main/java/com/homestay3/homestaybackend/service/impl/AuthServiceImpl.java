@@ -133,9 +133,7 @@ public class AuthServiceImpl implements AuthService {
             // 自动发放新人专属优惠券
             try {
                 LocalDateTime now = LocalDateTime.now();
-                var newUserTemplates = couponTemplateRepository
-                        .findByIsNewUserCouponTrueAndStatusAndValidStartAtLessThanEqualAndValidEndAtGreaterThanEqual(
-                                "ACTIVE", now, now);
+                var newUserTemplates = couponTemplateRepository.findActiveNewUserTemplates("ACTIVE", now);
                 if (!newUserTemplates.isEmpty()) {
                     for (var template : newUserTemplates) {
                         try {

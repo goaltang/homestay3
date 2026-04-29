@@ -233,18 +233,21 @@ public class OrderController {
     }
 
     /**
-     * 模拟支付成功（仅用于测试）
+     * 模拟支付成功（仅用于测试，仅限管理员）
      */
     @PostMapping("/{orderId}/payment/mock")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> mockPayment(@PathVariable Long orderId) {
         try {
-            // 直接查询订单并更新状态，跳过权限检查
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
 
             order.setStatus(OrderStatus.PAID.name());
             order.setPaymentStatus(PaymentStatus.PAID);
             Order updatedOrder = orderRepository.save(order);
+
+            // 触发统一支付成功后置处理（核销优惠券、生成收益等）
+            paymentProcessingService.handleOrderPaidSuccess(updatedOrder.getId());
 
             OrderDTO orderDTO = convertToDTO(updatedOrder);
 

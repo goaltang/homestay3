@@ -4,6 +4,7 @@ import com.homestay3.homestaybackend.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -95,9 +96,10 @@ public class PaymentController {
     }
 
     /**
-     * 模拟支付成功（仅用于测试）
+     * 模拟支付成功（仅用于测试，仅限管理员）
      */
     @PostMapping("/{orderId}/mock-success")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> mockPaymentSuccess(@PathVariable Long orderId) {
         try {
             log.info("模拟支付成功，订单ID: {}", orderId);

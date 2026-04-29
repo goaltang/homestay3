@@ -26,6 +26,8 @@ public class PricingQuoteResponse {
     private BigDecimal activityDiscountAmount;
     private BigDecimal fullReductionAmount;
     private BigDecimal couponDiscountAmount;
+    private BigDecimal couponPlatformDiscountAmount;
+    private BigDecimal couponHostDiscountAmount;
     private BigDecimal platformDiscountAmount;
     private BigDecimal hostDiscountAmount;
     private BigDecimal cleaningFee;
@@ -35,5 +37,6 @@ public class PricingQuoteResponse {
     private List<PriceCalculationResponse.DailyPrice> dailyPrices;
     private List<AppliedPromotionDTO> appliedPromotions;
     private List<AvailableCouponDTO> availableCoupons;
+    private List<Long> effectiveCouponIds;
     private PriceCalculationResponse.PriceDetails priceDetails;
 }
