@@ -24,26 +24,26 @@
                     <p class="amount">支付金额: <span class="price">¥{{ orderData.totalAmount }}</span></p>
                     <p class="order-number">订单号: {{ orderData.orderNumber }}</p>
                     <el-tag
-                        :type="orderData.status === 'PENDING_PAYMENT' || orderData.status === 'CONFIRMED' || orderData.status === 'PAYMENT_PENDING' ? 'warning' : 'success'">
+                        :type="orderData.status === 'PAID' ? 'success' : (orderData.status === 'CANCELLED' ? 'info' : 'warning')">
                         {{ getStatusText(orderData.status) }}
                     </el-tag>
                 </div>
             </div>
 
             <!-- 添加订单超时倒计时提醒 -->
-            <div class="order-timeout-alert" :class="{ 'urgent': isTimeUrgent(orderData.updateTime, 2) }">
+            <div class="order-timeout-alert" :class="{ 'urgent': isTimeoutUrgent }">
                 <el-alert title="请在限定时间内完成支付" type="warning" description="超过2小时未完成支付，订单将被自动取消" show-icon
                     :closable="false">
                     <template #default>
                         <div class="timeout-countdown">
                             <span>支付倒计时：</span>
-                            <span class="countdown-time">{{ getCountdownTime(orderData.updateTime, 2) }}</span>
+                            <span class="countdown-time">{{ orderTimeoutDisplay }}</span>
                         </div>
                     </template>
                 </el-alert>
             </div>
 
-            <div class="payment-section">
+            <div class="payment-section" v-if="['PENDING_PAYMENT', 'PAYMENT_PENDING', 'CONFIRMED'].includes(orderData.status)">
                 <!-- 如果已经跳转支付宝页面，显示提示信息 -->
                 <div class="payment-redirect-notice" v-if="qrCodeGenerated && paymentMethod === 'alipay' && !qrCode">
                     <div class="redirect-content">
@@ -125,7 +125,7 @@
                 </div>
             </div>
 
-            <div class="actions">
+            <div class="actions" v-if="['PENDING_PAYMENT', 'PAYMENT_PENDING', 'CONFIRMED'].includes(orderData.status)">
                 <el-button @click="cancelOrder" plain>取消订单</el-button>
                 <el-button type="primary" @click="checkPaymentStatus" :disabled="!qrCodeGenerated">
                     我已完成支付
@@ -140,11 +140,7 @@
                     v-if="qrCodeGenerated && paymentMethod === 'alipay' && lastPaymentUrl">
                     手动跳转支付宝
                 </el-button>
-                <!-- 开发环境下显示测试按钮 -->
-                <el-button type="success" plain @click="handleMockPaymentSuccess"
-                    v-if="isDev && orderData.status !== 'PAID'">
-                    【测试】模拟支付成功
-                </el-button>
+
             </div>
 
             <!-- 支付说明 -->
@@ -169,7 +165,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Promotion } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
-import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder, mockPaymentSuccess } from '../../api/order'
+import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder } from '../../api/order'
 
 interface OrderData {
     id: number
@@ -193,11 +189,10 @@ const paymentMethod = ref(route.query.method?.toString() || '')
 const qrCode = ref('')
 const countdown = ref(900) // 15分钟倒计时
 const qrCodeGenerated = ref(false) // 新增状态变量，标记二维码是否已生成
-const isDev = ref(import.meta.env.DEV) // 开发环境标识
 const lastPaymentUrl = ref('') // 保存最后一次生成的支付URL
 const paymentLoading = ref(false) // 支付按钮加载状态
-let timer: NodeJS.Timeout | null = null
-let paymentStatusPollTimer: NodeJS.Timeout | null = null
+let timer: ReturnType<typeof setInterval> | null = null
+let paymentStatusPollTimer: ReturnType<typeof setInterval> | null = null
 let pollCount = 0
 const MAX_POLL_COUNT = 120 // 最多轮询 120 次（约 6 分钟）
 
@@ -452,7 +447,7 @@ const startPaymentStatusPoll = () => {
         if (pollCount > MAX_POLL_COUNT) {
             clearInterval(paymentStatusPollTimer!)
             paymentStatusPollTimer = null
-            console.log('支付状态轮询已达上限，停止轮询')
+            ElMessage.warning('支付状态查询超时，请点击"我已完成支付"手动确认')
             return
         }
         
@@ -574,27 +569,6 @@ const cancelOrder = async () => {
     }
 }
 
-// 新增：处理模拟支付成功的函数
-const handleMockPaymentSuccess = async () => {
-    if (!orderData.value) return;
-
-    const loadingInstance = ElMessage({
-        message: '正在模拟支付成功...',
-        type: 'info',
-        duration: 0,
-    });
-    try {
-        await mockPaymentSuccess(orderData.value.id);
-        loadingInstance.close();
-        ElMessage.success('模拟支付成功！正在检查最终状态...');
-        // 模拟成功后，立即检查支付状态，这会确认状态并可能导航离开
-        await checkPaymentStatus();
-    } catch (error) {
-        loadingInstance.close();
-        // 错误已在 api/order.ts 中处理并提示，这里可以不再重复提示
-        console.error('模拟支付成功失败:', error);
-    }
-}
 
 // 重置支付状态，用于重新选择支付方式
 const resetPayment = () => {
@@ -606,6 +580,7 @@ const resetPayment = () => {
         clearInterval(timer)
         timer = null
     }
+    stopPaymentStatusPoll()
     countdown.value = 900
 }
 
@@ -709,7 +684,17 @@ const isTimeUrgent = (startTimeStr: string, hoursLimit: number) => {
 }
 
 // 自动刷新倒计时
-let autoRefreshTimer: NodeJS.Timeout | null = null;
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+const orderTimeoutDisplay = ref('获取中...')
+const isTimeoutUrgent = ref(false)
+
+const updateOrderTimeoutDisplay = () => {
+    if (orderData.value?.updateTime) {
+        orderTimeoutDisplay.value = getCountdownTime(orderData.value.updateTime, 2)
+        isTimeoutUrgent.value = isTimeUrgent(orderData.value.updateTime, 2)
+    }
+}
 
 onMounted(async () => {
     // 重置支付状态，避免上次访问遗留的状态导致页面显示异常
@@ -723,6 +708,7 @@ onMounted(async () => {
     stopPaymentStatusPoll()
 
     await fetchOrderDetail();
+    updateOrderTimeoutDisplay();
 
     // 为自动确认订单提供更流畅的支付体验
     if (route.query.autoConfirm === 'true') {
@@ -739,8 +725,7 @@ onMounted(async () => {
     // 每秒刷新倒计时显示
     autoRefreshTimer = setInterval(() => {
         if (orderData.value?.updateTime) {
-            // 强制更新页面
-            orderData.value = { ...orderData.value };
+            updateOrderTimeoutDisplay()
         }
     }, 1000);
 
@@ -752,12 +737,9 @@ onMounted(async () => {
              orderData.value.status === 'PENDING_PAYMENT' ||
              orderData.value.status === 'CONFIRMED' ||
              orderData.value.paymentStatus === 'PENDING')) {
-            // 只有在已有二维码或支付链接时才自动轮询
-            if (qrCode.value || lastPaymentUrl.value) {
-                ElMessage.info('检测到您有未完成的支付，正在查询支付状态...')
-                qrCodeGenerated.value = true
-                startPaymentStatusPoll()
-            }
+            ElMessage.info('检测到您有未完成的支付，正在查询支付状态...')
+            qrCodeGenerated.value = true
+            startPaymentStatusPoll()
         }
     }, 1000);
 });
