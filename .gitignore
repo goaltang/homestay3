@@ -87,3 +87,8 @@ homestay-backend/package-lock.json
 graphify-out/
 obsidian-vault/
 
+
+# --- Agent Skills ---
+.agents/
+skills/
+skills-lock.json
