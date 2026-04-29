@@ -8,6 +8,7 @@ import App from "./App.vue";
 import router from "./router";
 import "./assets/main.css";
 import "./assets/input-styles.css";
+import "./styles/design-system.css";
 import { useUserStore } from "./stores/user";
 import { initWebSocket } from "./services/websocketService";
 

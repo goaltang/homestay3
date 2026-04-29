@@ -1,0 +1,30 @@
+/* ============================================
+   Spacing Tokens — 4pt / 8dp Grid System
+   ============================================ */
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Container */
+  --container-max: 1200px;
+  --container-padding-mobile: var(--space-4);
+  --container-padding-desktop: var(--space-6);
+
+  /* Breakpoints (for reference in JS) */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+}

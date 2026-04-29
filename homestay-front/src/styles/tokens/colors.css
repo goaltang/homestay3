@@ -1,0 +1,57 @@
+/* ============================================
+   Color Tokens — Homestay Design System v1.0
+   主色：陶土赤褐 Terracotta
+   辅色：鼠尾草绿 Sage
+   中性色：暖灰 Warm Gray
+   ============================================ */
+
+:root {
+  /* Primary — Terracotta */
+  --color-primary-50:  #fdf2ec;
+  --color-primary-100: #f9e0d2;
+  --color-primary-200: #f3c1a5;
+  --color-primary-300: #ea9a6e;
+  --color-primary-400: #e07a47;
+  --color-primary-500: #d45f2e;
+  --color-primary-600: #c44e26;
+  --color-primary-700: #a33d22;
+  --color-primary-800: #833320;
+  --color-primary-900: #6a2d1e;
+
+  /* Secondary — Sage */
+  --color-secondary-50:  #f4f7f4;
+  --color-secondary-100: #e3ebe3;
+  --color-secondary-200: #c7d8c7;
+  --color-secondary-300: #9ebf9e;
+  --color-secondary-400: #76a176;
+  --color-secondary-500: #558555;
+  --color-secondary-600: #426a42;
+  --color-secondary-700: #365436;
+  --color-secondary-800: #2d432d;
+  --color-secondary-900: #263826;
+
+  /* Neutral — Warm Gray */
+  --color-neutral-0:   #ffffff;
+  --color-neutral-50:  #faf9f7;
+  --color-neutral-100: #f2f0ec;
+  --color-neutral-200: #e6e2db;
+  --color-neutral-300: #d1ccc2;
+  --color-neutral-400: #b0a99c;
+  --color-neutral-500: #8a8276;
+  --color-neutral-600: #6b6459;
+  --color-neutral-700: #524c43;
+  --color-neutral-800: #3a3530;
+  --color-neutral-900: #1f1c19;
+
+  /* Functional */
+  --color-success: #2d7a46;
+  --color-warning: #c9872c;
+  --color-error:   #b53a2a;
+  --color-info:    #3a6ea5;
+
+  /* Surfaces */
+  --color-surface:         var(--color-neutral-0);
+  --color-surface-elevated: #ffffff;
+  --color-background:      var(--color-neutral-50);
+  --color-background-warm: #f7f4f0;
+}

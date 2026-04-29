@@ -1,0 +1,110 @@
+/* ============================================
+   Homestay Design System — Entry Point
+   引入全部 token + Element Plus 映射
+   在 main.ts 中 import './styles/design-system.css'
+   ============================================ */
+
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/motion.css';
+
+/* ============================================
+   Element Plus Theme Mapping
+   将 Element Plus 的 CSS 变量映射到我们的设计系统
+   从而避免大量的 :deep() 覆盖
+   ============================================ */
+
+:root {
+  /* Primary color mapping */
+  --el-color-primary: var(--color-primary-500);
+  --el-color-primary-light-3: var(--color-primary-300);
+  --el-color-primary-light-5: var(--color-primary-200);
+  --el-color-primary-light-7: var(--color-primary-100);
+  --el-color-primary-light-8: var(--color-primary-50);
+  --el-color-primary-light-9: var(--color-primary-50);
+  --el-color-primary-dark-2: var(--color-primary-700);
+
+  /* Text colors */
+  --el-text-color-primary: var(--color-neutral-900);
+  --el-text-color-regular: var(--color-neutral-700);
+  --el-text-color-secondary: var(--color-neutral-500);
+  --el-text-color-placeholder: var(--color-neutral-400);
+
+  /* Border colors */
+  --el-border-color: var(--color-neutral-200);
+  --el-border-color-light: var(--color-neutral-100);
+  --el-border-color-lighter: var(--color-neutral-100);
+  --el-border-color-extra-light: var(--color-neutral-50);
+
+  /* Fill colors */
+  --el-fill-color: var(--color-neutral-100);
+  --el-fill-color-light: var(--color-neutral-50);
+  --el-fill-color-lighter: var(--color-neutral-50);
+  --el-fill-color-extra-light: var(--color-neutral-0);
+
+  /* Background */
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-page: var(--color-background);
+  --el-bg-color-overlay: var(--color-surface-elevated);
+
+  /* Border radius */
+  --el-border-radius-base: var(--radius-md);
+  --el-border-radius-small: var(--radius-sm);
+  --el-border-radius-round: var(--radius-full);
+
+  /* Box shadow */
+  --el-box-shadow: var(--shadow-md);
+  --el-box-shadow-light: var(--shadow-sm);
+  --el-box-shadow-lighter: var(--shadow-sm);
+  --el-box-shadow-dark: var(--shadow-lg);
+
+  /* Font family */
+  --el-font-family: var(--font-body);
+}
+
+/* ============================================
+   Element Plus Component Overrides
+   全局覆盖特定组件的默认样式
+   ============================================ */
+
+/* Cascader: remove default border/shadow for inline usage */
+.el-cascader .el-input__wrapper {
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.el-cascader .el-input__inner {
+  color: var(--color-neutral-700) !important;
+  font-family: var(--font-body) !important;
+  font-size: var(--text-body) !important;
+}
+
+/* DatePicker: same treatment */
+.el-date-picker .el-input__wrapper {
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.el-date-picker .el-input__inner {
+  color: var(--color-neutral-700) !important;
+  font-family: var(--font-body) !important;
+  font-size: var(--text-body) !important;
+  text-align: left !important;
+}
+
+/* Popover used in search */
+.el-popover.search-popover {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-neutral-200);
+  padding: var(--space-5);
+}
+
+/* Message / Notification styling */
+.el-message {
+  border-radius: var(--radius-lg);
+  font-family: var(--font-body);
+}

@@ -37,11 +37,39 @@
             <el-button link size="small" type="primary" @click="handleFilterReset">重置筛选</el-button>
         </div>
 
+        <!-- 已选筛选条件标签 -->
+        <div v-if="activeFilterChips.length > 0" class="filter-chips">
+            <span class="chips-label">已选条件：</span>
+            <div class="chips-list">
+                <span
+                    v-for="chip in activeFilterChips"
+                    :key="chip.key"
+                    class="filter-chip"
+                    @click="chip.onRemove"
+                >
+                    {{ chip.label }}
+                    <svg class="chip-close" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </span>
+            </div>
+        </div>
+
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-container">
             <el-skeleton :rows="3" animated />
             <el-skeleton :rows="3" animated />
             <el-skeleton :rows="3" animated />
+        </div>
+
+        <!-- 错误状态 -->
+        <div v-else-if="searchError" class="error-container">
+            <el-result icon="error" title="加载失败" :sub-title="searchError">
+                <template #extra>
+                    <el-button type="primary" @click="loadHomestays">重新加载</el-button>
+                    <el-button @click="handleSearchBarReset">重置搜索</el-button>
+                </template>
+            </el-result>
         </div>
 
         <!-- 空状态 -->
@@ -202,6 +230,56 @@ const parseFiltersFromRoute = () => {
     }
 };
 
+// 已选筛选条件标签（与 search store 的 hasSearchConditions 对齐）
+const activeFilterChips = computed(() => {
+    const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+
+    if (minPrice.value !== null && minPrice.value !== undefined) {
+        const max = maxPrice.value;
+        const label = max !== null && max !== undefined
+            ? `¥${minPrice.value} - ¥${max}`
+            : `¥${minPrice.value} 起`;
+        chips.push({
+            key: 'price',
+            label,
+            onRemove: () => { minPrice.value = null; maxPrice.value = null; handleFilterChange(); }
+        });
+    } else if (maxPrice.value !== null && maxPrice.value !== undefined) {
+        chips.push({
+            key: 'price',
+            label: `¥${maxPrice.value} 以下`,
+            onRemove: () => { maxPrice.value = null; handleFilterChange(); }
+        });
+    }
+
+    selectedAmenities.value.forEach((val) => {
+        const option = amenityOptions.value.find(o => o.value === val);
+        chips.push({
+            key: `amenity-${val}`,
+            label: option?.label || val,
+            onRemove: () => {
+                selectedAmenities.value = selectedAmenities.value.filter(v => v !== val);
+                handleFilterChange();
+            }
+        });
+    });
+
+    if (currentSort.value !== 'id,desc') {
+        const sortMap: Record<string, string> = {
+            'price,asc': '价格低到高',
+            'price,desc': '价格高到低',
+            'rating,desc': '评分高到低'
+        };
+        chips.push({
+            key: 'sort',
+            label: `排序：${sortMap[currentSort.value] || currentSort.value}`,
+            onRemove: () => { currentSort.value = 'id,desc'; handleFilterChange(); }
+        });
+    }
+
+    return chips;
+});
+
 // 页面标题计算
 const pageTitle = computed(() => {
     const type = getQueryValue(route.query.type);
@@ -243,6 +321,9 @@ const total = ref(0);
 // 加载状态
 const loading = ref(false);
 
+// 错误状态
+const searchError = ref<string | null>(null);
+
 // 房源列表数据
 const homestays = ref<Homestay[]>([]);
 
@@ -252,14 +333,19 @@ const homestayTypes = ref<any[]>([]);
 // 分组数据
 const groupOptions = ref<any[]>([]);
 
-// 检查是否有搜索条件
+// 检查是否有搜索条件（与 search store 的 isSearchMode 逻辑对齐）
 const hasSearchConditions = () => {
     return getQueryValue(route.query.search) === 'true' ||
-        Boolean(getQueryValue(route.query.keyword)) ||
+        Boolean(getQueryValue(route.query.keyword)?.trim()) ||
         Boolean(getQueryValue(route.query.region)) ||
+        Boolean(getQueryValue(route.query.checkIn)) ||
+        Boolean(getQueryValue(route.query.checkOut)) ||
         Boolean(getQueryValue(route.query.minPrice)) ||
         Boolean(getQueryValue(route.query.maxPrice)) ||
-        Boolean(getQueryValue(route.query.amenities));
+        Boolean(getQueryValue(route.query.amenities)) ||
+        Boolean(getQueryValue(route.query.type)) ||
+        Boolean(getQueryValue(route.query.minRating)) ||
+        Boolean(getQueryValue(route.query.groupId));
 };
 
 const buildSearchRequest = (): HomestaySearchRequest & { groupId?: number } => {
@@ -343,6 +429,7 @@ const loadHomestays = async () => {
     console.log('loadHomestays 调用 - 搜索参数:', searchParams.value);
     console.log('是否有搜索条件:', hasSearchConditions());
 
+    searchError.value = null;
     try {
         let response;
 
@@ -395,99 +482,12 @@ const loadHomestays = async () => {
         });
         console.log(`列表数据处理: 第${currentPage.value}页，共${total.value}条，当前显示${homestays.value.length}条`);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('加载民宿数据失败:', error);
-
-        // 使用模拟数据
-        const mockData: Homestay[] = [
-            {
-                id: 1,
-                title: '精美湖畔小屋',
-                description: '美丽的湖畔小屋，宁静舒适',
-                pricePerNight: 488,
-                maxGuests: 2,
-                bedrooms: 1,
-                beds: 1,
-                bathrooms: 1,
-                amenities: ['WiFi', '空调', '厨房', '停车位'],
-                images: ['https://picsum.photos/800/600?random=1'],
-                rating: 4.9,
-                reviewCount: 128,
-                type: 'SHARED',
-                status: 'ACTIVE',
-                featured: true,
-                propertyType: '小屋',
-                distanceFromCenter: 1.5,
-                latitude: 30.2636,
-                longitude: 120.1686,
-                hostName: '张三',
-                hostId: 1001,
-                coverImage: 'https://picsum.photos/800/600?random=1',
-                provinceCode: '330000',
-                cityCode: '330100',
-                districtCode: '330106',
-                addressDetail: '西湖区某街道'
-            },
-            {
-                id: 2,
-                title: '海景公寓',
-                description: '一线海景，舒适公寓',
-                pricePerNight: 688,
-                maxGuests: 4,
-                bedrooms: 2,
-                beds: 2,
-                bathrooms: 1,
-                amenities: ['WiFi', '空调', '厨房', '停车位', '游泳池'],
-                images: ['https://picsum.photos/800/600?random=2'],
-                rating: 4.8,
-                reviewCount: 92,
-                type: 'ENTIRE',
-                status: 'ACTIVE',
-                featured: true,
-                propertyType: '公寓',
-                distanceFromCenter: 2.0,
-                latitude: 24.4459,
-                longitude: 118.0657,
-                hostName: '李四',
-                hostId: 1002,
-                coverImage: 'https://picsum.photos/800/600?random=2',
-                provinceCode: '350000',
-                cityCode: '350200',
-                districtCode: '350203',
-                addressDetail: '思明区某街道'
-            },
-            {
-                id: 3,
-                title: '山间木屋',
-                description: '清新的山间小木屋，远离城市喧嚣',
-                pricePerNight: 588,
-                maxGuests: 3,
-                bedrooms: 1,
-                beds: 2,
-                bathrooms: 1,
-                amenities: ['WiFi', '空调', '厨房', '停车位', '烧烤架'],
-                images: ['https://picsum.photos/800/600?random=3'],
-                rating: 4.7,
-                reviewCount: 78,
-                type: 'PRIVATE',
-                status: 'ACTIVE',
-                featured: false,
-                propertyType: '木屋',
-                distanceFromCenter: 5.0,
-                latitude: 30.5603,
-                longitude: 119.8808,
-                hostName: '王五',
-                hostId: 1003,
-                coverImage: 'https://picsum.photos/800/600?random=3',
-                provinceCode: '330000',
-                cityCode: '330500',
-                districtCode: '330523',
-                addressDetail: '德清县某街道'
-            }
-        ];
-
-        homestays.value = mockData;
-        total.value = mockData.length;
+        const msg = error?.response?.data?.message || '搜索失败，请检查网络后重试';
+        searchError.value = msg;
+        homestays.value = [];
+        total.value = 0;
     } finally {
         loading.value = false;
     }
@@ -739,5 +739,82 @@ onMounted(() => {
     margin-top: 20px;
     display: flex;
     justify-content: center;
+}
+
+.error-container {
+    margin: 40px 0;
+    padding: 20px;
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+/* ─── 已选筛选条件标签 ─── */
+.filter-chips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-neutral-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-neutral-200);
+}
+
+.chips-label {
+    font-family: var(--font-body);
+    font-size: var(--text-body-sm);
+    font-weight: var(--weight-medium);
+    color: var(--color-neutral-600);
+    white-space: nowrap;
+}
+
+.chips-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+    border: 1px solid var(--color-primary-200);
+    border-radius: var(--radius-full);
+    font-family: var(--font-body);
+    font-size: var(--text-body-sm);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    transition:
+        background-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        border-color var(--duration-fast) var(--ease-out),
+        transform var(--duration-normal) var(--ease-spring);
+}
+
+.filter-chip:hover {
+    background: var(--color-primary-100);
+    border-color: var(--color-primary-300);
+    transform: translateY(-1px);
+}
+
+.chip-close {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.filter-chip:hover .chip-close {
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .filter-chips {
+        padding: var(--space-2) var(--space-3);
+    }
 }
 </style>

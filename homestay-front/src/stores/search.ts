@@ -77,13 +77,14 @@ export const useSearchStore = defineStore('search', () => {
   const searchError = ref<SearchError | null>(null)
   const hasError = computed(() => searchError.value !== null)
 
-  // 计算属性：是否为搜索模式
-  const isSearchMode = computed(() => {
+  // 计算属性：是否有搜索条件（与 HomestayListView 的 hasSearchConditions 逻辑对齐）
+  const hasSearchConditions = () => {
     return (
       searchParams.keyword.trim() !== '' ||
       searchParams.selectedRegion.length > 0 ||
       searchParams.checkIn !== null ||
       searchParams.checkOut !== null ||
+      searchParams.guestCount > 1 ||
       searchParams.propertyType !== null ||
       searchParams.minPrice !== null ||
       searchParams.maxPrice !== null ||
@@ -91,7 +92,10 @@ export const useSearchStore = defineStore('search', () => {
       searchParams.minRating !== null ||
       searchParams.groupId !== null
     )
-  })
+  }
+
+  // 计算属性：是否为搜索模式
+  const isSearchMode = computed(() => hasSearchConditions())
 
   // 计算属性：是否有活跃搜索
   const hasActiveSearch = computed(() => isSearchMode.value)
@@ -299,6 +303,9 @@ export const useSearchStore = defineStore('search', () => {
     // 计算属性
     isSearchMode,
     hasActiveSearch,
+
+    // 方法
+    hasSearchConditions,
 
     // 方法
     clearError,
