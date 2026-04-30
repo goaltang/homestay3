@@ -834,6 +834,10 @@ const scrollToSelectedCard = () => {
 watch(selectedHomestayId, (newId) => {
   if (newId) {
     scrollToSelectedCard();
+    // 移动端：当点击地图锚点时，自动弹出一半抽屉展示详情
+    if (window.innerWidth <= 768) {
+      isMobileListExpanded.value = true;
+    }
   }
 });
 
@@ -909,11 +913,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
   z-index: 10;
   flex-shrink: 0;
   flex-wrap: wrap;
+  box-shadow: 0 4px 20px -8px rgba(0, 0, 0, 0.05);
 }
 
 .search-wrapper {
@@ -1274,10 +1281,12 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     width: 100%;
-    height: 70vh;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-    transform: translateY(calc(100% - 60px));
+    height: 75vh;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(calc(100% - 70px));
+    z-index: 30;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
   .left-list.is-mobile-expanded {
@@ -1325,7 +1334,7 @@ onUnmounted(() => {
   font-weight: 600;
   color: #222;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
   border: 2px solid transparent;
 }

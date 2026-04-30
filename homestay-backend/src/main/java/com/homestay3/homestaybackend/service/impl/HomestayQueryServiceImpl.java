@@ -278,6 +278,28 @@ public class HomestayQueryServiceImpl implements HomestayQueryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<HomestaySummaryDTO> getActiveHomestaySummaryPage(Boolean featured, Pageable pageable) {
+        try {
+            Specification<Homestay> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("status"), HomestayStatus.ACTIVE));
+                if (featured != null) {
+                    predicates.add(cb.equal(root.get("featured"), featured));
+                }
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+
+            Page<Homestay> homestayPage = homestayRepository.findAll(
+                    homestaySpecificationSupport.withDetailFetch(spec), pageable);
+            return homestayDtoAssembler.toSummaryDTOPage(homestayPage, null);
+        } catch (Exception exception) {
+            log.error("Failed to fetch active homestay summary page", exception);
+            throw new RuntimeException("获取房源列表失败: " + exception.getMessage(), exception);
+        }
+    }
+
+    @Override
     public List<LocalDate> getUnavailableDates(Long homestayId) {
         try {
             if (!homestayRepository.existsById(homestayId)) {

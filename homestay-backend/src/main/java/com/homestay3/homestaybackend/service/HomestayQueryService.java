@@ -36,6 +36,8 @@ public interface HomestayQueryService {
 
     Page<HomestaySummaryDTO> getHomestaySummaryPageByOwner(String username, String status, String type, Long groupId, Pageable pageable);
 
+    Page<HomestaySummaryDTO> getActiveHomestaySummaryPage(Boolean featured, Pageable pageable);
+
     boolean checkHomestayReadyForReview(Long homestayId);
 
     String getHomestayReviewReadinessDetails(Long homestayId);

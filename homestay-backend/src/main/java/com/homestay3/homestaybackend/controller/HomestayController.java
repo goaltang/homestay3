@@ -634,31 +634,18 @@ public class HomestayController {
         logger.info("获取ACTIVE状态的房源，页码: {}, 每页数量: {}, 是否推荐: {}", page, size, featured);
 
         try {
-            // 获取所有状态为ACTIVE的房源
-            List<HomestaySummaryDTO> homestays = homestayQueryService.getAllHomestaySummaries();
+            Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                    page, size, org.springframework.data.domain.Sort.by(
+                            org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
 
-            // 根据featured过滤
-            if (featured != null) {
-                homestays = homestays.stream()
-                        .filter(h -> h.getFeatured() == featured)
-                        .collect(Collectors.toList());
-            }
-
-            // 分页处理
-            int total = homestays.size();
-            int fromIndex = page * size;
-            int toIndex = Math.min(fromIndex + size, total);
-
-            List<HomestaySummaryDTO> pagedResults = fromIndex < total
-                ? homestays.subList(fromIndex, toIndex)
-                : List.of();
+            Page<HomestaySummaryDTO> result = homestayQueryService.getActiveHomestaySummaryPage(featured, pageable);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("data", pagedResults);
-            response.put("total", total);
-            response.put("page", page);
-            response.put("size", size);
-            response.put("pages", (int) Math.ceil((double) total / size));
+            response.put("data", result.getContent());
+            response.put("total", result.getTotalElements());
+            response.put("page", result.getNumber());
+            response.put("size", result.getSize());
+            response.put("pages", result.getTotalPages());
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

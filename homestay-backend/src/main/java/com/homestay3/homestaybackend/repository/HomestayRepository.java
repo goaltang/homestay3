@@ -94,6 +94,13 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
      * @return 房源列表
      */
     List<Homestay> findByStatusOrderByCreatedAtDesc(HomestayStatus status);
+
+    /**
+     * 根据状态查找前500条房源并按创建时间倒序排列（用于热门/推荐分页，避免全量扫描）
+     * @param status 状态
+     * @return 房源列表
+     */
+    List<Homestay> findTop500ByStatusOrderByCreatedAtDesc(HomestayStatus status);
     
     /**
      * 根据省份、城市和状态查找房源

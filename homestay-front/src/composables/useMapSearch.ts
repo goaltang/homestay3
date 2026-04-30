@@ -1116,7 +1116,9 @@ export function useMapSearch() {
     container.appendChild(contentDiv);
 
     infoWindow.value.setContent(container);
-    infoWindow.value.open(mapInstance.value, [markerLng, markerLat]);
+    if (window.innerWidth > 768) {
+      infoWindow.value.open(mapInstance.value, [markerLng, markerLat]);
+    }
 
     // 移动地图中心
     focusHomestayOnMap(homestay, { reason: 'select', force: true });

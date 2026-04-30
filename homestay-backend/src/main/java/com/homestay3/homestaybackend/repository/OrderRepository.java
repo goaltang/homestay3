@@ -259,6 +259,13 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         List<Object[]> countByHomestayIds(@Param("ids") List<Long> ids);
 
         /**
+         * 批量统计房源在指定时间后的订单数量
+         */
+        @Query("SELECT o.homestay.id, COUNT(o) FROM Order o WHERE o.homestay.id IN :ids AND o.createdAt > :createdAtAfter GROUP BY o.homestay.id")
+        List<Object[]> countByHomestayIdsAndCreatedAtAfter(@Param("ids") List<Long> ids,
+                        @Param("createdAtAfter") LocalDateTime createdAtAfter);
+
+        /**
          * 房东日历视图 —— 查询指定房东（或指定房源）在日期范围内的所有占用订单。
          */
         @Query("SELECT o FROM Order o JOIN o.homestay h WHERE h.owner.id = :hostId " +

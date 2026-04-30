@@ -20,6 +20,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -95,14 +96,19 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     @Override
     @Cacheable(value = "popularHomestaysPage", key = "#pageable.pageNumber + '_' + #pageable.pageSize")
+    @Transactional(readOnly = true)
     public PagedResponse<HomestaySummaryDTO> getPopularHomestaysPage(Pageable pageable) {
         log.info("计算热门民宿（分页），页码: {}, 页大小: {}", pageable.getPageNumber(), pageable.getPageSize());
 
-        List<Homestay> activeHomestays = homestayRepository.findByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
+        // 直接查询前500条，避免数据库全量返回
+        List<Homestay> activeHomestays = homestayRepository.findTop500ByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
+
+        // 批量预加载统计数据，消除 N+1 查询
+        Map<Long, HomestayStats> statsMap = batchLoadStats(activeHomestays);
 
         // 计算所有热门民宿的分数
         List<PopularityScore> allScores = activeHomestays.stream()
-                .map(this::calculatePopularityScore)
+                .map(h -> calculatePopularityScore(h, statsMap.get(h.getId())))
                 .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
                 .collect(Collectors.toList());
 
@@ -236,14 +242,19 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
 
     @Override
     @Cacheable(value = "recommendedHomestaysPage", key = "#pageable.pageNumber + '_' + #pageable.pageSize")
+    @Transactional(readOnly = true)
     public PagedResponse<HomestaySummaryDTO> getRecommendedHomestaysPage(Pageable pageable) {
         log.info("计算推荐民宿（分页），页码: {}, 页大小: {}", pageable.getPageNumber(), pageable.getPageSize());
 
-        List<Homestay> activeHomestays = homestayRepository.findByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
+        // 直接查询前500条，避免数据库全量返回
+        List<Homestay> activeHomestays = homestayRepository.findTop500ByStatusOrderByCreatedAtDesc(HomestayStatus.ACTIVE);
+
+        // 批量预加载统计数据，消除 N+1 查询
+        Map<Long, HomestayStats> statsMap = batchLoadStats(activeHomestays);
 
         // 计算所有推荐民宿的分数
         List<RecommendationScore> allScores = activeHomestays.stream()
-                .map(this::calculateRecommendationScore)
+                .map(h -> calculateRecommendationScore(h, statsMap.get(h.getId())))
                 .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
                 .collect(Collectors.toList());
 
@@ -257,6 +268,131 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
                 .collect(Collectors.toList());
 
         return new PagedResponse<>(pageContent, pageable.getPageNumber(), pageable.getPageSize(), totalElements);
+    }
+
+    /**
+     * 批量预加载房源统计数据，消除 N+1 查询问题
+     */
+    private Map<Long, HomestayStats> batchLoadStats(List<Homestay> homestays) {
+        Map<Long, HomestayStats> statsMap = new HashMap<>();
+        for (Homestay h : homestays) {
+            statsMap.put(h.getId(), new HomestayStats());
+        }
+
+        List<Long> ids = homestays.stream().map(Homestay::getId).collect(Collectors.toList());
+        if (ids.isEmpty()) {
+            return statsMap;
+        }
+
+        LocalDateTime cutoff30 = LocalDateTime.now().minus(30, ChronoUnit.DAYS);
+        LocalDateTime cutoff7 = LocalDateTime.now().minus(7, ChronoUnit.DAYS);
+
+        // 批量查询30天内订单数
+        try {
+            List<Object[]> recentCounts = orderRepository.countByHomestayIdsAndCreatedAtAfter(ids, cutoff30);
+            for (Object[] row : recentCounts) {
+                Long id = ((Number) row[0]).longValue();
+                Long count = ((Number) row[1]).longValue();
+                HomestayStats stats = statsMap.get(id);
+                if (stats != null) {
+                    stats.recentBookings = count;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量查询30天订单数失败", e);
+        }
+
+        // 批量查询7天内订单数
+        try {
+            List<Object[]> weeklyCounts = orderRepository.countByHomestayIdsAndCreatedAtAfter(ids, cutoff7);
+            for (Object[] row : weeklyCounts) {
+                Long id = ((Number) row[0]).longValue();
+                Long count = ((Number) row[1]).longValue();
+                HomestayStats stats = statsMap.get(id);
+                if (stats != null) {
+                    stats.weeklyBookings = count;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量查询7天订单数失败", e);
+        }
+
+        // 批量查询平均评分和评论数（合并为一次查询）
+        try {
+            List<Object[]> ratingsAndReviews = reviewRepository.getRatingAndReviewCountByHomestayIds(ids);
+            for (Object[] row : ratingsAndReviews) {
+                Long id = ((Number) row[0]).longValue();
+                Double rating = ((Number) row[1]).doubleValue();
+                Long count = ((Number) row[2]).longValue();
+                HomestayStats stats = statsMap.get(id);
+                if (stats != null) {
+                    stats.avgRating = rating;
+                    stats.reviewCount = count;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量查询评分和评论数失败", e);
+        }
+
+        return statsMap;
+    }
+
+    /**
+     * 使用预加载统计数据计算热门度评分（避免 N+1）
+     */
+    private PopularityScore calculatePopularityScore(Homestay homestay, HomestayStats stats) {
+        if (stats == null) {
+            stats = new HomestayStats();
+        }
+
+        double avgRating = stats.avgRating != null ? stats.avgRating : 3.0;
+        long recentBookings = stats.recentBookings != null ? stats.recentBookings : 0L;
+        long weeklyBookings = stats.weeklyBookings != null ? stats.weeklyBookings : 0L;
+        long reviewCount = stats.reviewCount != null ? stats.reviewCount : 0L;
+
+        double hotScore = weeklyBookings * 5.0 + recentBookings * 2.0 + avgRating * 0.3
+                + Math.sqrt(Math.min(reviewCount, 100)) * 0.2;
+
+        if (recentBookings == 0 && weeklyBookings == 0) {
+            hotScore = avgRating * 0.1 + Math.sqrt(reviewCount) * 0.05;
+        }
+
+        return new PopularityScore(homestay, hotScore);
+    }
+
+    /**
+     * 使用预加载统计数据计算推荐评分（避免 N+1）
+     */
+    private RecommendationScore calculateRecommendationScore(Homestay homestay, HomestayStats stats) {
+        if (stats == null) {
+            stats = new HomestayStats();
+        }
+
+        double avgRating = stats.avgRating != null ? stats.avgRating : 0.0;
+        long reviewCount = stats.reviewCount != null ? stats.reviewCount : 0L;
+        long recentBookings = stats.recentBookings != null ? stats.recentBookings : 0L;
+
+        double qualityScore = avgRating * Math.sqrt(Math.min(reviewCount, 100)) / 10.0;
+        double activityScore = Math.min(recentBookings, 20) / 20.0;
+        double valueScore = avgRating / (1.0 + Math.min(homestay.getPrice().doubleValue() / 500.0, 2.0));
+
+        long daysSinceCreated = ChronoUnit.DAYS.between(homestay.getCreatedAt(), LocalDateTime.now());
+        double newHouseBonus = daysSinceCreated <= 7 ? 1.5
+                : daysSinceCreated <= 30 ? 1.0
+                : daysSinceCreated <= 90 ? 0.5 : 0.0;
+
+        double specialBonus = 0.0;
+        if (homestay.getPrice().doubleValue() < 200) {
+            specialBonus += 0.3;
+        }
+        if (homestay.getAmenities() != null && homestay.getAmenities().size() >= 8) {
+            specialBonus += 0.2;
+        }
+
+        double totalScore = qualityScore * 0.5 + valueScore * 0.2 + activityScore * 0.1
+                + newHouseBonus + specialBonus;
+
+        return new RecommendationScore(homestay, totalScore);
     }
 
     @Override
@@ -1276,6 +1412,14 @@ public class HomestayRecommendationServiceImpl implements HomestayRecommendation
         public double getScore() {
             return score;
         }
+    }
+
+    // 房源统计数据类（用于批量预加载，消除 N+1）
+    private static class HomestayStats {
+        Long recentBookings = 0L;   // 30天内订单数
+        Long weeklyBookings = 0L;   // 7天内订单数
+        Double avgRating = 0.0;     // 平均评分
+        Long reviewCount = 0L;      // 总评论数
     }
 
     // 用户偏好数据类
