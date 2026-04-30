@@ -96,6 +96,9 @@ public class User {
     @Column(name = "companions", columnDefinition = "TEXT")
     private String companions;
     
+    @Column(name = "frequent_guests", columnDefinition = "TEXT")
+    private String frequentGuests;
+    
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status")
     private VerificationStatus verificationStatus;

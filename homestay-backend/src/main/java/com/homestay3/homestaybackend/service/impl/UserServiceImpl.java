@@ -303,6 +303,13 @@ public class UserServiceImpl implements UserService {
         user.setPhone(request.getPhone());
         user.setRealName(request.getRealName());
         user.setIdCard(request.getIdCard());
+        user.setNickname(request.getNickname());
+        user.setGender(request.getGender());
+        user.setBirthday(request.getBirthday());
+        user.setOccupation(request.getOccupation());
+        user.setIntroduction(request.getIntroduction());
+        user.setLanguages(request.getLanguages());
+        user.setFrequentGuests(request.getFrequentGuests());
 
         user = userRepository.save(user);
 

@@ -29,6 +29,11 @@ public interface CouponService {
     List<AvailableCouponDTO> getAvailableCouponDTOs(Long userId);
 
     /**
+     * 按状态获取用户的优惠券列表（用于"我的优惠券"页面）
+     */
+    List<AvailableCouponDTO> getMyCoupons(Long userId, String status);
+
+    /**
      * 计算指定优惠券的优惠金额及承担方
      *
      * @param userCouponId 用户优惠券ID

@@ -49,6 +49,11 @@ public interface UserCouponRepository extends JpaRepository<UserCoupon, Long> {
     List<UserCoupon> findCouponsExpiringBetween(@Param("now") LocalDateTime now, @Param("deadline") LocalDateTime deadline);
 
     /**
+     * 统计用户指定状态且未过期的优惠券数量
+     */
+    long countByUserIdAndStatusAndExpireAtAfter(Long userId, String status, LocalDateTime now);
+
+    /**
      * 按锁定订单ID和状态查询优惠券（避免全表扫描）
      */
     List<UserCoupon> findByLockedOrderIdAndStatus(Long lockedOrderId, String status);

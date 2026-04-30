@@ -140,6 +140,33 @@ public class CouponServiceImpl implements CouponService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<AvailableCouponDTO> getMyCoupons(Long userId, String status) {
+        List<UserCoupon> coupons;
+        if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+            // 查询全部：可用 + 已使用 + 已过期
+            LocalDateTime now = LocalDateTime.now();
+            userCouponRepository.expireOutdatedCoupons(now);
+            coupons = userCouponRepository.findByUserIdAndStatusOrderByExpireAtAsc(userId, "AVAILABLE");
+            coupons.addAll(userCouponRepository.findByUserIdAndStatusOrderByExpireAtAsc(userId, "USED"));
+            coupons.addAll(userCouponRepository.findByUserIdAndStatusOrderByExpireAtAsc(userId, "EXPIRED"));
+        } else {
+            // 按指定状态查询
+            if ("AVAILABLE".equalsIgnoreCase(status)) {
+                LocalDateTime now = LocalDateTime.now();
+                userCouponRepository.expireOutdatedCoupons(now);
+                coupons = userCouponRepository.findByUserIdAndStatusAndExpireAtAfterOrderByExpireAtAsc(
+                        userId, "AVAILABLE", now);
+            } else {
+                coupons = userCouponRepository.findByUserIdAndStatusOrderByExpireAtAsc(userId, status.toUpperCase());
+            }
+        }
+        return coupons.stream()
+                .map(this::toAvailableCouponDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CouponDiscountResult calculateCouponDiscount(Long userCouponId, Long homestayId, BigDecimal originalAmount) {
         return calculateCouponDiscountInternal(userCouponId, homestayId, originalAmount, null);
     }

@@ -198,6 +198,12 @@ export const menuData: Menus[] = [
         index: "/system/announcements",
       },
       {
+        id: "banners",
+        pid: "system",
+        title: "Banner 管理",
+        index: "/system/banners",
+      },
+      {
         id: "dispute-manage",
         pid: "system",
         title: "争议管理",

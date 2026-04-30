@@ -303,7 +303,12 @@ const guestDisplayText = computed(() => {
 })
 
 const canSearch = computed(() => {
-  return searchParams.keyword.trim().length > 0 || searchParams.selectedRegion.length > 0
+  return (
+    searchParams.keyword.trim().length > 0 ||
+    searchParams.selectedRegion.length > 0 ||
+    searchParams.checkIn !== null ||
+    searchParams.checkOut !== null
+  )
 })
 
 /* ─── Watchers ─── */

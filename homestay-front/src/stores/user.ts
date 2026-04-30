@@ -15,6 +15,13 @@ export interface UserInfo {
   avatar?: string;
   verificationStatus?: string;
   authorities?: { authority: string }[];
+  nickname?: string;
+  gender?: string;
+  birthday?: string;
+  occupation?: string;
+  introduction?: string;
+  languages?: string;
+  frequentGuests?: string;
 }
 
 // 添加新的类型定义
@@ -24,7 +31,14 @@ interface ProfileUpdateRequest {
   phone?: string;
   realName?: string;
   idCard?: string;
-  avatar?: string; // 添加头像字段
+  avatar?: string;
+  nickname?: string;
+  gender?: string;
+  birthday?: string;
+  occupation?: string;
+  introduction?: string;
+  languages?: string;
+  frequentGuests?: string;
 }
 
 interface PasswordChangeRequest {

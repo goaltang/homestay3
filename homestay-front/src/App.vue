@@ -76,12 +76,12 @@ const showFooter = computed(() => {
 <style>
 /* 全局样式可以保留 */
 :root {
-  --primary-color: #ff385c;
-  --secondary-color: #00a699;
-  --text-color: #222222;
-  --text-light: #717171;
-  --border-color: #dddddd;
-  --background-light: #f7f7f7;
+  --primary-color: var(--color-primary-500, #d45f2e);
+  --secondary-color: var(--color-secondary-500, #558555);
+  --text-color: var(--color-neutral-900, #1f1c19);
+  --text-light: var(--color-neutral-500, #8a8276);
+  --border-color: var(--color-neutral-200, #e6e2db);
+  --background-light: var(--color-background, #faf9f7);
 }
 
 * {
@@ -91,7 +91,7 @@ const showFooter = computed(() => {
 }
 
 body {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--font-body, 'Helvetica Neue', Helvetica, Arial, sans-serif);
   color: var(--text-color);
   line-height: 1.5;
 }

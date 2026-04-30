@@ -1,7 +1,8 @@
 <template>
-    <HomestaySection title="推荐民宿" :homestays="homestays" :loading="loading" empty-text="暂无推荐民宿"
-        :max-display="6" view-all-route="/homestays" :view-all-query="{ featured: 'true' }"
-        @homestay-click="handleHomestayClick" @view-all="handleViewAll" />
+    <HomestaySection title="推荐民宿" :homestays="homestays" :loading="loading" :error="error"
+        empty-text="暂无推荐民宿" error-text="加载推荐失败，点击重试" :max-display="6" view-all-route="/homestays"
+        :view-all-query="{ featured: 'true' }" @homestay-click="handleHomestayClick" @view-all="handleViewAll"
+        @retry="loadRecommendedHomestays" />
 </template>
 
 <script setup lang="ts">
@@ -11,6 +12,7 @@ import HomestaySection from './HomestaySection.vue'
 
 const homestays = ref<any[]>([])
 const loading = ref(false)
+const error = ref(false)
 
 const emit = defineEmits<{
     homestayClick: [homestay: any]
@@ -20,11 +22,13 @@ const emit = defineEmits<{
 // 加载推荐民宿数据（使用通用推荐算法）
 const loadRecommendedHomestays = async () => {
     loading.value = true
+    error.value = false
     try {
         const homestaysResponse = await getRecommendedHomestays(6)
         homestays.value = homestaysResponse.data || []
-    } catch (error) {
-        console.error('加载推荐民宿失败:', error)
+    } catch (err) {
+        console.error('加载推荐民宿失败:', err)
+        error.value = true
         homestays.value = []
     } finally {
         loading.value = false

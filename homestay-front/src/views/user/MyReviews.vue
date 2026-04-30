@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getUserReviews, deleteReview } from '@/api/review'; // 导入 deleteReview API
@@ -251,28 +251,24 @@ const goToHomepage = () => {
     router.push('/');
 };
 
+// 监听用户信息加载完成后自动获取评价
+watch(() => userStore.userInfo, (info) => {
+    if (info && !loading.value && reviews.value.length === 0) {
+        fetchReviews();
+    }
+}, { immediate: true });
+
 // 初始化加载
 onMounted(() => {
-    // 确保用户信息加载后再获取评价
-    if (userStore.userInfo) { // 检查 userInfo
-        fetchReviews();
-    } else {
-        // 可以添加一个 watcher 或者等待用户信息加载完成的逻辑
-        console.warn("用户信息尚未加载，无法获取评价列表");
-        loading.value = false; // 停止加载状态
-        // ElMessage.warning("请先登录"); // 或者提示登录
-    }
+    fetchReviews();
 });
 </script>
 
 <style scoped>
 .my-reviews-container {
     max-width: 900px;
-    margin: 20px auto;
-    padding: 30px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    margin: 0 auto;
+    padding: 20px;
 }
 
 .page-header {

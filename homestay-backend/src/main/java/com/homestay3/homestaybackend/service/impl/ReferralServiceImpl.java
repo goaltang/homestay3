@@ -123,9 +123,7 @@ public class ReferralServiceImpl implements ReferralService {
 
     @Override
     public Map<String, Object> getReferralStats(Long inviterId) {
-        List<ReferralRecord> records = referralRecordRepository.findAll().stream()
-                .filter(r -> r.getInviterId().equals(inviterId))
-                .toList();
+        List<ReferralRecord> records = referralRecordRepository.findByInviterIdOrderByCreatedAtDesc(inviterId);
 
         int totalCodes = records.size();
         int totalUsed = records.stream().mapToInt(ReferralRecord::getUsedCount).sum();
@@ -136,6 +134,22 @@ public class ReferralServiceImpl implements ReferralService {
         result.put("totalUsed", totalUsed);
         result.put("activeCodes", activeCodes);
         return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> getMyReferralCodes(Long inviterId) {
+        List<ReferralRecord> records = referralRecordRepository.findByInviterIdOrderByCreatedAtDesc(inviterId);
+        return records.stream().map(r -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", r.getId());
+            map.put("referralCode", r.getReferralCode());
+            map.put("status", r.getStatus());
+            map.put("usedCount", r.getUsedCount());
+            map.put("maxUses", r.getMaxUses());
+            map.put("expireAt", r.getExpireAt());
+            map.put("createdAt", r.getCreatedAt());
+            return map;
+        }).toList();
     }
 
     private String generateUniqueCode() {

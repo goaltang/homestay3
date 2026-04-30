@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -139,6 +140,26 @@ public class HomestayAdminServiceImpl implements HomestayAdminService {
 
         // 同步 ES 索引
         syncHomestayToElasticsearch(homestay, newStatus);
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "homestayDetails", key = "#id"),
+            @CacheEvict(value = "homestayList", allEntries = true),
+            @CacheEvict(value = "recommendedHomestays", allEntries = true),
+            @CacheEvict(value = "recommendedHomestaysPage", allEntries = true)
+    })
+    public HomestayDTO updateHomestayFeatured(Long id, Boolean featured) {
+        Homestay homestay = homestayRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("房源不存在，ID: " + id));
+
+        homestay.setFeatured(Boolean.TRUE.equals(featured));
+        homestay.setUpdatedAt(LocalDateTime.now());
+        Homestay saved = homestayRepository.save(homestay);
+
+        syncHomestayToElasticsearch(saved, saved.getStatus());
+        return homestayDtoAssembler.toDTO(saved, null);
     }
 
     @Override

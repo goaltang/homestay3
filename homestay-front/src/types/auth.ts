@@ -23,6 +23,13 @@ export interface UserInfo {
   role: string;
   verificationStatus?: string;
   avatar?: string;
+  nickname?: string;
+  gender?: string;
+  birthday?: string;
+  occupation?: string;
+  introduction?: string;
+  languages?: string;
+  frequentGuests?: string;
 }
 
 export interface AuthResponse {

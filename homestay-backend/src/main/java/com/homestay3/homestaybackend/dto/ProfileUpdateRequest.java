@@ -29,4 +29,18 @@ public class ProfileUpdateRequest {
     private String realName;
     
     private String idCard;
+    
+    private String nickname;
+    
+    private String gender;
+    
+    private String birthday;
+    
+    private String occupation;
+    
+    private String introduction;
+    
+    private String languages;
+    
+    private String frequentGuests;
 } 

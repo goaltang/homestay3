@@ -1,5 +1,6 @@
 package com.homestay3.homestaybackend.service;
 
+import java.util.List;
 import java.util.Map;
 
 public interface ReferralService {
@@ -20,4 +21,9 @@ public interface ReferralService {
      * 查询用户的邀请记录
      */
     Map<String, Object> getReferralStats(Long inviterId);
+
+    /**
+     * 查询用户的邀请码列表
+     */
+    List<Map<String, Object>> getMyReferralCodes(Long inviterId);
 }

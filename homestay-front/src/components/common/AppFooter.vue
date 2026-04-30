@@ -5,32 +5,32 @@
                 <h3>关于我们</h3>
                 <ul>
                     <li><router-link to="/about">公司简介</router-link></li>
-                    <li>加入我们</li>
-                    <li>新闻中心</li>
+                    <li><router-link to="/about">加入我们</router-link></li>
+                    <li><span class="link-disabled">新闻中心</span></li>
                 </ul>
             </div>
             <div class="footer-section">
                 <h3>帮助中心</h3>
                 <ul>
-                    <li>预订指南</li>
-                    <li>常见问题</li>
-                    <li>联系客服</li>
+                    <li><router-link to="/homestays">预订指南</router-link></li>
+                    <li><span class="link-disabled">常见问题</span></li>
+                    <li><span class="link-disabled">联系客服</span></li>
                 </ul>
             </div>
             <div class="footer-section">
                 <h3>商务合作</h3>
                 <ul>
-                    <li>房东申请</li>
-                    <li>广告合作</li>
-                    <li>战略合作</li>
+                    <li><router-link to="/host/onboarding">房东申请</router-link></li>
+                    <li><span class="link-disabled">广告合作</span></li>
+                    <li><span class="link-disabled">战略合作</span></li>
                 </ul>
             </div>
             <div class="footer-section">
                 <h3>法律声明</h3>
                 <ul>
-                    <li>隐私政策</li>
-                    <li>用户协议</li>
-                    <li>Cookie政策</li>
+                    <li><span class="link-disabled">隐私政策</span></li>
+                    <li><span class="link-disabled">用户协议</span></li>
+                    <li><span class="link-disabled">Cookie 政策</span></li>
                 </ul>
             </div>
         </div>
@@ -80,6 +80,20 @@
 
 .footer-section li:hover {
     text-decoration: underline;
+}
+
+.footer-section li a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.footer-section li a:hover {
+    text-decoration: underline;
+}
+
+.link-disabled {
+    color: #bbb;
+    cursor: not-allowed;
 }
 
 .footer-bottom {

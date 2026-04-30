@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 
@@ -24,4 +25,6 @@ public interface ReferralRecordRepository extends JpaRepository<ReferralRecord, 
             @Param("code") String referralCode,
             @Param("status") String status,
             @Param("now") LocalDateTime now);
+
+    List<ReferralRecord> findByInviterIdOrderByCreatedAtDesc(Long inviterId);
 }

@@ -11,7 +11,7 @@
                 @error="handleHomestayImageError" />
 
             <div v-if="isUserLoggedIn" class="favorite-button" @click.stop="toggleFavorite">
-                <el-icon :size="iconSize" :color="isFavorite ? '#ff385c' : '#fff'">
+                <el-icon :size="iconSize" :color="isFavorite ? 'var(--color-primary-500)' : '#fff'">
                     <component :is="favoriteIcon" />
                 </el-icon>
             </div>
@@ -148,12 +148,29 @@ const location = computed(() => {
     if (props.homestay.location) return props.homestay.location
 
     const parts = []
-    if (props.homestay.provinceCode && codeToText[props.homestay.provinceCode]) {
-        parts.push(codeToText[props.homestay.provinceCode])
+    // 优先使用后端返回的文本字段
+    if (props.homestay.provinceText) {
+        parts.push(props.homestay.provinceText)
     }
-    if (props.homestay.cityCode && codeToText[props.homestay.cityCode]) {
-        if (!parts.includes(codeToText[props.homestay.cityCode])) {
-            parts.push(codeToText[props.homestay.cityCode])
+    if (props.homestay.cityText) {
+        if (!parts.includes(props.homestay.cityText)) {
+            parts.push(props.homestay.cityText)
+        }
+    }
+    if (props.homestay.districtText) {
+        if (!parts.includes(props.homestay.districtText)) {
+            parts.push(props.homestay.districtText)
+        }
+    }
+    // fallback：用 code 通过 codeToText 转换
+    if (parts.length === 0) {
+        if (props.homestay.provinceCode && codeToText[props.homestay.provinceCode]) {
+            parts.push(codeToText[props.homestay.provinceCode])
+        }
+        if (props.homestay.cityCode && codeToText[props.homestay.cityCode]) {
+            if (!parts.includes(codeToText[props.homestay.cityCode])) {
+                parts.push(codeToText[props.homestay.cityCode])
+            }
         }
     }
     return parts.length > 0 ? parts.join(' · ') : '位置待更新'
@@ -241,12 +258,16 @@ const handleCardClick = () => {
     position: relative;
     height: 220px;
     cursor: pointer;
+    background-color: #f0f0f0;
+    overflow: hidden;
 }
 
 .homestay-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
+    transition: opacity 0.3s ease;
 }
 
 .favorite-button {

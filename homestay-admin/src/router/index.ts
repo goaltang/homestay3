@@ -307,6 +307,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/system/Announcement.vue"),
       },
       {
+        path: "/system/banners",
+        name: "banners",
+        meta: {
+          title: "Banner 管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/system/Banner.vue"),
+      },
+      {
         path: "/system/disputes",
         name: "disputeManage",
         meta: {

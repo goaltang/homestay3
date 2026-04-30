@@ -401,4 +401,15 @@ public interface HomestayRepository extends JpaRepository<Homestay, Long>, JpaSp
 
     @Query("SELECT h FROM Homestay h WHERE h.group.id = :groupId AND h.owner.id = :ownerId")
     Page<Homestay> findByGroupIdAndOwnerId(@Param("groupId") Long groupId, @Param("ownerId") Long ownerId, Pageable pageable);
+
+    /**
+     * 统计指定状态的房源数量
+     */
+    Long countByStatus(HomestayStatus status);
+
+    /**
+     * 统计指定状态下覆盖的不同城市数量
+     */
+    @Query("SELECT COUNT(DISTINCT h.cityText) FROM Homestay h WHERE h.status = :status AND h.cityText IS NOT NULL AND h.cityText <> ''")
+    Long countDistinctCityTextByStatus(@Param("status") HomestayStatus status);
 } 

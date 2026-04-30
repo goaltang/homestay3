@@ -1,7 +1,8 @@
 <template>
-    <HomestaySection title="热门民宿" :homestays="homestays" :loading="loading" empty-text="暂无热门民宿"
-        :max-display="6" view-all-route="/homestays" :view-all-query="{ type: 'popular' }"
-        @homestay-click="handleHomestayClick" @view-all="handleViewAll" />
+    <HomestaySection title="热门民宿" :homestays="homestays" :loading="loading" :error="error"
+        empty-text="暂无热门民宿" error-text="加载热门失败，点击重试" :max-display="6" view-all-route="/homestays"
+        :view-all-query="{ type: 'popular' }" @homestay-click="handleHomestayClick" @view-all="handleViewAll"
+        @retry="loadPopularHomestays" />
 </template>
 
 <script setup lang="ts">
@@ -11,6 +12,7 @@ import HomestaySection from './HomestaySection.vue'
 
 const homestays = ref<any[]>([])
 const loading = ref(false)
+const error = ref(false)
 
 const emit = defineEmits<{
     homestayClick: [homestay: any]
@@ -20,11 +22,13 @@ const emit = defineEmits<{
 // 加载热门民宿数据
 const loadPopularHomestays = async () => {
     loading.value = true
+    error.value = false
     try {
         const response = await getPopularHomestays()
         homestays.value = response.data || []
-    } catch (error) {
-        console.error('加载热门民宿失败:', error)
+    } catch (err) {
+        console.error('加载热门民宿失败:', err)
+        error.value = true
         homestays.value = []
     } finally {
         loading.value = false

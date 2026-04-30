@@ -24,7 +24,7 @@
             <transition name="el-fade-in">
                 <div class="search-tabs" v-show="isSearchExpanded">
                     <span class="tab active">住宿</span>
-                    <span class="tab">体验</span>
+                    <span class="tab tab-disabled" title="即将上线">体验</span>
                 </div>
             </transition>
 
@@ -61,7 +61,7 @@
         <!-- 展开的全局搜索面板 -->
         <transition name="el-fade-in">
             <div class="expanded-search-container" v-show="isSearchExpanded">
-                <SearchBar @search="handleGlobalSearch" @reset="isSearchExpanded = false" />
+                <SearchBar :initial-params="searchStore.searchParams" @search="handleGlobalSearch" @reset="isSearchExpanded = false" />
             </div>
         </transition>
     </header>
@@ -79,6 +79,7 @@ import { ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem, ElAvatar, ElIcon
 import { Menu, Search, Location } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
 import { useAuthStore } from '@/stores/auth';
+import { useSearchStore } from '@/stores/search';
 import { getAvatarUrl, handleImageError } from '@/utils/image';
 import NotificationBell from '@/components/NotificationBell.vue';
 import SearchBar from '@/components/SearchBar.vue';
@@ -87,6 +88,7 @@ const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
 const authStore = useAuthStore();
+const searchStore = useSearchStore();
 
 const isLoggedIn = computed(() => userStore.token !== null || authStore.isAuthenticated);
 const isHome = computed(() => route.path === '/');
@@ -113,7 +115,16 @@ const handleMiniSearchClick = () => {
 
 const handleGlobalSearch = (params: any) => {
     isSearchExpanded.value = false;
-    
+
+    // 同步到全局搜索 store，保证各搜索栏状态一致
+    searchStore.setSearchState({
+        keyword: params.keyword || '',
+        selectedRegion: params.selectedRegion || [],
+        checkIn: params.checkIn || null,
+        checkOut: params.checkOut || null,
+        guestCount: params.guestCount || 1
+    });
+
     // Convert to query params format expected by the backend and homestay list view
     const newQuery: any = {
         keyword: params.keyword || undefined,
@@ -267,6 +278,11 @@ const handleAvatarError = (e: Event) => {
 .search-tabs .tab.active {
     color: var(--text-primary, #222);
     border-bottom: 2px solid var(--text-primary, #222);
+}
+
+.search-tabs .tab.tab-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .expanded-search-container {

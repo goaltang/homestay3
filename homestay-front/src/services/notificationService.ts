@@ -11,16 +11,19 @@ interface PageParams {
 
 /**
  * 获取通知列表
- * @param params - 查询参数，包含分页和可选的 isRead 状态
+ * @param params - 查询参数，包含分页、isRead 状态和可选的 type
  */
 export const getNotifications = (
-  params: PageParams & { isRead?: boolean }
+  params: PageParams & { isRead?: boolean; type?: string }
 ): Promise<NotificationApiResponse> => {
   // 后端分页是从0开始，前端通常从1开始，这里进行转换
-  const adjustedParams = {
+  const adjustedParams: any = {
     ...params,
     page: params.page > 0 ? params.page - 1 : 0, // 页码转为0-based
   };
+  // 移除 undefined 的参数
+  if (!adjustedParams.type) delete adjustedParams.type;
+  if (adjustedParams.isRead === undefined) delete adjustedParams.isRead;
   return request({
     url: "/api/notifications",
     method: "get",

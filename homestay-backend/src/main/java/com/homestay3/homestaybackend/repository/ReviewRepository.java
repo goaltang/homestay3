@@ -159,4 +159,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
      */
     @Query("SELECT r.homestay.id, AVG(r.rating), COUNT(r) FROM Review r WHERE r.homestay.id IN :ids AND r.isPublic = true AND r.deleted = false GROUP BY r.homestay.id")
     List<Object[]> getRatingAndReviewCountByHomestayIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 统计所有公开且未删除的评价总数
+     */
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.isPublic = true AND r.deleted = false")
+    Long countPublicReviews();
+
+    /**
+     * 统计评分大于等于指定值的公开评价数量
+     */
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.isPublic = true AND r.deleted = false AND r.rating >= :minRating")
+    Long countPublicPositiveReviews(@Param("minRating") int minRating);
 }

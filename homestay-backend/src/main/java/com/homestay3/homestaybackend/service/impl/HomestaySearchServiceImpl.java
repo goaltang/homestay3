@@ -312,12 +312,13 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
             return null;
         }
         String normalized = propertyType.trim();
-        Optional<HomestayType> typeOpt = homestayTypeRepository.findByCode(normalized.toUpperCase());
+        // 数据库 homestays.type 存的是中文名称，所以返回 name 用于匹配
+        Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(normalized);
         if (typeOpt.isPresent()) {
-            return typeOpt.get().getCode();
+            return typeOpt.get().getName();
         }
-        typeOpt = homestayTypeRepository.findByNameIgnoreCase(normalized);
-        return typeOpt.map(HomestayType::getCode).orElse(null);
+        typeOpt = homestayTypeRepository.findByCode(normalized.toUpperCase());
+        return typeOpt.map(HomestayType::getName).orElse(null);
     }
 
     private Specification<Homestay> buildSearchSpecification(HomestaySearchRequest request, String typeCodeToSearch) {

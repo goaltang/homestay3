@@ -311,6 +311,18 @@ const router = createRouter({
           component: () => import("@/views/user/MyInvite.vue"),
           meta: { title: "我的邀请" },
         },
+        {
+          path: "coupons",
+          name: "UserCoupons",
+          component: () => import("@/views/user/MyCoupons.vue"),
+          meta: { title: "我的优惠券" },
+        },
+        {
+          path: "companions",
+          name: "UserCompanions",
+          component: () => import("@/views/user/Companions.vue"),
+          meta: { title: "常用入住人" },
+        },
       ],
     },
   ],

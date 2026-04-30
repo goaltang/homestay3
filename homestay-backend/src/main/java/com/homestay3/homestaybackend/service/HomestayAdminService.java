@@ -24,6 +24,8 @@ public interface HomestayAdminService {
 
     void updateHomestayStatus(Long id, String status);
 
+    HomestayDTO updateHomestayFeatured(Long id, Boolean featured);
+
     int batchPopulateCoordinates(int batchSize);
 
     HomestayDTO getHomestayWithOwnerDetails(Long id);

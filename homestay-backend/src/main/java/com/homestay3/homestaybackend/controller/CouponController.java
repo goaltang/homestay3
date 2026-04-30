@@ -38,10 +38,12 @@ public class CouponController {
     }
 
     @GetMapping("/mine")
-    public ResponseEntity<?> getMyCoupons(Authentication authentication) {
+    public ResponseEntity<?> getMyCoupons(
+            @RequestParam(required = false) String status,
+            Authentication authentication) {
         try {
             User currentUser = getCurrentUser(authentication);
-            List<AvailableCouponDTO> coupons = couponService.getAvailableCouponDTOs(currentUser.getId());
+            List<AvailableCouponDTO> coupons = couponService.getMyCoupons(currentUser.getId(), status);
             return ResponseEntity.ok(coupons);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -84,6 +86,16 @@ public class CouponController {
         try {
             User currentUser = getCurrentUser(authentication);
             return ResponseEntity.ok(referralService.getReferralStats(currentUser.getId()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/referral/my-codes")
+    public ResponseEntity<?> getMyReferralCodes(Authentication authentication) {
+        try {
+            User currentUser = getCurrentUser(authentication);
+            return ResponseEntity.ok(referralService.getMyReferralCodes(currentUser.getId()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

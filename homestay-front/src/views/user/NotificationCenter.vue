@@ -1,5 +1,5 @@
 <template>
-    <div class="notification-center container mx-auto p-4 md:p-6">
+    <div class="notification-center">
         <h1 class="text-2xl font-semibold mb-6">通知中心</h1>
 
         <!-- 操作与筛选 -->
@@ -15,40 +15,53 @@
             </el-button>
         </div>
 
-        <!-- 通知列表表格 -->
-        <el-table :data="notifications" v-loading="loading" style="width: 100%" empty-text="暂无通知" row-key="id">
-            <el-table-column label="状态" width="100">
-                <template #default="{ row }">
-                    <el-tag :type="row.read ? 'info' : 'warning'" size="small">
-                        {{ row.read ? '已读' : '未读' }}
-                    </el-tag>
-                </template>
-            </el-table-column>
-            <el-table-column label="内容">
-                <template #default="{ row }">
-                    <span @click="handleNotificationClick(row)" class="cursor-pointer hover:text-blue-600"
-                        :class="{ 'font-semibold': !row.read }">
-                        {{ row.content }}
-                    </span>
-                </template>
-            </el-table-column>
-            <el-table-column label="时间" width="180">
-                <template #default="{ row }">
-                    {{ formatDate(row.createdAt, 'YYYY-MM-DD HH:mm') }}
-                </template>
-            </el-table-column>
-            <el-table-column label="操作" width="150" align="center">
-                <template #default="{ row }">
-                    <el-button v-if="!row.read" type="success" link size="small" @click="handleMarkRead(row.id)"
-                        :disabled="loading">
+        <!-- 加载状态 -->
+        <div v-if="loading" class="loading-container">
+            <el-skeleton :rows="4" animated v-for="i in 3" :key="i" />
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else-if="notifications.length === 0" class="empty-container">
+            <el-empty :description="emptyText" />
+        </div>
+
+        <!-- 通知卡片列表 -->
+        <div v-else class="notification-list">
+            <div v-for="notification in notifications" :key="notification.id"
+                class="notification-card"
+                :class="{ 'notification-unread': !notification.read }"
+                @click="handleNotificationClick(notification)">
+
+                <div class="notification-icon" :class="`icon-${getCategory(notification.type)}`">
+                    <el-icon :size="22">
+                        <component :is="getIcon(notification.type)" />
+                    </el-icon>
+                </div>
+
+                <div class="notification-body">
+                    <div class="notification-header">
+                        <el-tag size="small" :type="getTagType(notification.type)" effect="plain">
+                            {{ formatType(notification.type) }}
+                        </el-tag>
+                        <span class="notification-time">{{ formatDate(notification.createdAt, 'YYYY-MM-DD HH:mm') }}</span>
+                    </div>
+                    <div class="notification-content" :class="{ 'font-semibold': !notification.read }">
+                        {{ notification.content }}
+                    </div>
+                </div>
+
+                <div class="notification-actions" @click.stop>
+                    <el-button v-if="!notification.read" type="success" link size="small"
+                        @click="handleMarkRead(notification.id)" :loading="markingIds.has(notification.id)">
                         标记已读
                     </el-button>
-                    <el-button type="danger" link size="small" @click="handleDelete(row.id)" :disabled="loading">
+                    <el-button type="danger" link size="small" @click="handleDelete(notification.id)"
+                        :loading="deletingIds.has(notification.id)">
                         删除
                     </el-button>
-                </template>
-            </el-table-column>
-        </el-table>
+                </div>
+            </div>
+        </div>
 
         <!-- 分页 -->
         <div class="mt-6 flex justify-center" v-if="totalNotifications > pageSize">
@@ -60,49 +73,114 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import {
-    ElRadioGroup,
-    ElRadioButton,
-    ElTable,
-    ElTableColumn,
-    ElTag,
-    ElButton,
-    ElPagination,
-    ElMessage,
-    ElMessageBox,
-    vLoading, // 导入 v-loading 指令
-} from 'element-plus';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    getNotifications,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
+    ElRadioGroup, ElRadioButton, ElTag, ElButton, ElPagination,
+    ElMessage, ElMessageBox, ElSkeleton, ElEmpty, ElIcon,
+} from 'element-plus';
+import {
+    Bell, ChatDotRound, Goods, House, Star, Tickets
+} from '@element-plus/icons-vue';
+import { useUserStore } from '@/stores/user';
+import { formatDate } from '@/utils/format';
+import {
+    getNotifications, markAsRead, markAllAsRead, deleteNotification,
 } from '@/services/notificationService';
 import type { NotificationDto } from '@/types/notification';
-import { useUserStore } from '@/stores/user';
-import { formatDate } from '@/utils/format'; // 使用现有的 format.ts
 
 const router = useRouter();
 const userStore = useUserStore();
 
-// --- 状态定义 ---
 const notifications = ref<NotificationDto[]>([]);
 const loading = ref(true);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const totalNotifications = ref(0);
 const filterStatus = ref<'all' | 'read' | 'unread'>('all');
+const markingIds = ref<Set<number>>(new Set());
+const deletingIds = ref<Set<number>>(new Set());
 
-// --- 计算属性 ---
-// (可以添加一个 getter 来访问 store 中的 unreadCount，如果模板中多处使用)
-// const unreadCount = computed(() => userStore.unreadNotificationCount);
+const emptyText = computed(() => {
+    const map = { all: '暂无通知', unread: '暂无未读通知', read: '暂无已读通知' };
+    return map[filterStatus.value];
+});
+
+// --- 通知分类与图标映射 ---
+const getCategory = (type?: string) => {
+    if (!type) return 'system';
+    if (type.startsWith('BOOKING') || type.startsWith('ORDER') || type.startsWith('REFUND') || type.startsWith('PAYMENT')) return 'order';
+    if (type.startsWith('NEW_MESSAGE')) return 'message';
+    if (type.startsWith('NEW_REVIEW') || type.startsWith('REVIEW')) return 'review';
+    if (type.startsWith('HOMESTAY')) return 'homestay';
+    if (type.startsWith('COUPON')) return 'coupon';
+    return 'system';
+};
+
+const getIcon = (type?: string) => {
+    const category = getCategory(type);
+    const iconMap: Record<string, any> = {
+        order: Tickets,
+        message: ChatDotRound,
+        review: Star,
+        homestay: House,
+        coupon: Goods,
+        system: Bell,
+    };
+    return iconMap[category] || Bell;
+};
+
+const getTagType = (type?: string): any => {
+    const category = getCategory(type);
+    const typeMap: Record<string, any> = {
+        order: 'primary',
+        message: 'success',
+        review: 'warning',
+        homestay: 'info',
+        coupon: 'danger',
+        system: '',
+    };
+    return typeMap[category] || '';
+};
+
+const formatType = (type?: string) => {
+    if (!type) return '系统';
+    const map: Record<string, string> = {
+        BOOKING_REQUEST: '预订请求',
+        BOOKING_ACCEPTED: '预订确认',
+        BOOKING_REJECTED: '预订被拒',
+        BOOKING_CANCELLED: '预订取消',
+        BOOKING_REMINDER: '入住提醒',
+        REVIEW_REMINDER: '评价提醒',
+        ORDER_CONFIRMED: '订单确认',
+        PAYMENT_RECEIVED: '收款通知',
+        ORDER_CANCELLED_BY_HOST: '订单取消',
+        ORDER_CANCELLED_BY_GUEST: '订单取消',
+        ORDER_COMPLETED: '订单完成',
+        ORDER_STATUS_CHANGED: '订单状态',
+        REFUND_REQUESTED: '退款申请',
+        REFUND_APPROVED: '退款通过',
+        REFUND_REJECTED: '退款被拒',
+        REFUND_COMPLETED: '退款完成',
+        NEW_MESSAGE: '新消息',
+        NEW_REVIEW: '新评价',
+        REVIEW_REPLIED: '评价回复',
+        HOMESTAY_APPROVED: '房源通过',
+        HOMESTAY_REJECTED: '房源被拒',
+        HOMESTAY_SUBMITTED: '房源审核',
+        PASSWORD_CHANGED: '账号安全',
+        EMAIL_VERIFIED: '账号安全',
+        SYSTEM_ANNOUNCEMENT: '系统公告',
+        WELCOME_MESSAGE: '欢迎',
+        COUPON_EXPIRING: '优惠券',
+        COUPON_ISSUED: '优惠券',
+    };
+    return map[type] || '系统';
+};
 
 // --- API 调用与逻辑 ---
 const fetchNotifications = async () => {
     if (!userStore.isAuthenticated) {
-        console.warn('用户未登录，无法获取通知');
         loading.value = false;
         return;
     }
@@ -116,13 +194,8 @@ const fetchNotifications = async () => {
             params.isRead = filterStatus.value === 'read';
         }
         const response = await getNotifications(params);
-        console.log('[UserNotificationCenter] getNotifications API 响应:', response);
-
-        // 修复 Linter 错误：从 response.data 获取数据
         notifications.value = response.data.content;
         totalNotifications.value = response.data.totalElements;
-
-        console.log('[UserNotificationCenter] fetchNotifications 成功，赋值后的 notifications.value:', JSON.stringify(notifications.value));
     } catch (error) {
         console.error('获取通知失败:', error);
         ElMessage.error('加载通知失败，请稍后重试');
@@ -134,95 +207,76 @@ const fetchNotifications = async () => {
 };
 
 const handleMarkRead = async (id: number) => {
-    console.log(`[UserNotificationCenter] handleMarkRead called for id: ${id}`);
-    loading.value = true; // 开始时设置 loading
+    markingIds.value.add(id);
     try {
-        console.log(`[UserNotificationCenter] Calling markAsRead API for id: ${id}`);
         await markAsRead(id);
-        console.log(`[UserNotificationCenter] markAsRead API success for id: ${id}`);
-        ElMessage.success('已标记为已读');
-
-        console.log(`[UserNotificationCenter] Calling fetchUnreadCount`);
+        const idx = notifications.value.findIndex(n => n.id === id);
+        if (idx !== -1) {
+            notifications.value[idx].read = true;
+        }
         await userStore.fetchUnreadCount();
-        console.log(`[UserNotificationCenter] fetchUnreadCount finished`);
-
-        console.log(`[UserNotificationCenter] Reloading notifications after marking as read...`);
-        // fetchNotifications 内部会管理自己的 loading 状态，但外层需要确保最后重置
-        await fetchNotifications();
-        console.log(`[UserNotificationCenter] Reload notifications finished`);
-
+        ElMessage.success('已标记为已读');
     } catch (error) {
-        console.error('[UserNotificationCenter] 标记已读失败 (catch block):', error);
-        ElMessage.error('操作失败，请稍后重试');
-        // 错误时也需要重置 loading，由 finally 处理
+        console.error('标记已读失败:', error);
+        ElMessage.error('操作失败');
     } finally {
-        loading.value = false; // 确保无论成功或失败都重置 loading
-        console.log(`[UserNotificationCenter] handleMarkRead finished for id: ${id}, loading set to false`); // 添加日志
+        markingIds.value.delete(id);
     }
 };
 
 const handleMarkAllRead = async () => {
-    loading.value = true;
     try {
         const response = await markAllAsRead();
         ElMessage.success(`成功标记 ${response.markedCount} 条通知为已读`);
-        await fetchNotifications();
-        await userStore.fetchUnreadCount(); // 更新 store
+        notifications.value.forEach(n => n.read = true);
+        await userStore.fetchUnreadCount();
     } catch (error) {
         console.error('全部标记已读失败:', error);
-        ElMessage.error('操作失败，请稍后重试');
-        loading.value = false;
+        ElMessage.error('操作失败');
     }
 };
 
 const handleDelete = async (id: number) => {
     try {
-        await ElMessageBox.confirm(
-            '确定要删除这条通知吗？此操作不可恢复。',
-            '确认删除',
-            {
-                confirmButtonText: '确定',
-                cancelButtonText: '取消',
-                type: 'warning',
-            }
-        );
-
-        loading.value = true; // 可以在 confirm 后再设置 loading
+        await ElMessageBox.confirm('确定要删除这条通知吗？此操作不可恢复。', '确认删除', {
+            confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
+        });
+        deletingIds.value.add(id);
         await deleteNotification(id);
+        notifications.value = notifications.value.filter(n => n.id !== id);
+        totalNotifications.value = Math.max(0, totalNotifications.value - 1);
+        await userStore.fetchUnreadCount();
         ElMessage.success('通知已删除');
-        await fetchNotifications();
-        await userStore.fetchUnreadCount(); // 更新 store
-
     } catch (error: any) {
-        if (error !== 'cancel') { // 用户点击取消时不显示错误
+        if (error !== 'cancel') {
             console.error('删除通知失败:', error);
-            ElMessage.error('删除失败，请稍后重试');
+            ElMessage.error('删除失败');
         }
-        loading.value = false; // 确保 loading 状态被重置
+    } finally {
+        deletingIds.value.delete(id);
     }
 };
 
 const handleNotificationClick = async (notification: NotificationDto) => {
-    console.log('点击通知:', notification);
-
+    // 标记已读
     if (!notification.read) {
-        // 不直接调用 handleMarkRead，避免重复的 loading 和 message
         try {
             await markAsRead(notification.id);
-            const index = notifications.value.findIndex(n => n.id === notification.id);
-            if (index !== -1) {
-                notifications.value[index].read = true;
-            }
-            await userStore.fetchUnreadCount(); // 更新 store
-        } catch (error) {
-            console.error('点击时标记已读失败:', error);
-            // 这里可以不提示错误，避免干扰跳转
-        }
+            notification.read = true;
+            await userStore.fetchUnreadCount();
+        } catch (e) { /* ignore */ }
     }
 
-    // 根据类型和ID跳转
-    const { entityType, entityId } = notification;
-    if (!entityType || !entityId) return;
+    // 跳转
+    const { entityType, entityId, type } = notification;
+    if (!entityType || !entityId) {
+        // 无跳转目标的类型，根据 type 推断
+        if (type?.startsWith('NEW_MESSAGE')) {
+            router.push('/user/notifications'); // 暂留在通知中心
+            return;
+        }
+        return;
+    }
 
     let path = '';
     try {
@@ -231,62 +285,163 @@ const handleNotificationClick = async (notification: NotificationDto) => {
 
         switch (entityType) {
             case 'BOOKING':
-            case 'ORDER': // 兼容可能的类型名
-                path = `/orders/${id}`; // 跳转到订单详情
+            case 'ORDER':
+                path = `/orders/${id}`;
                 break;
             case 'HOMESTAY':
-                path = `/homestays/${id}`; // 跳转到房源详情
+                path = `/homestays/${id}`;
                 break;
             case 'REVIEW':
-                // 可能跳转到房源详情的评论区，或者单独的评价页面
-                // path = `/homestays/${relatedHomestayId}?tab=reviews`; // 示例，需要额外信息
-                console.warn('评论通知的跳转链接暂未实现');
+                path = `/homestays/${id}`; // 跳到房源详情，用户自行看评价
                 break;
             case 'USER':
-                // 可能跳转到用户资料页？
-                // path = `/user/profile/${id}`; // 示例
-                console.warn('用户相关通知的跳转链接暂未实现');
+                path = '/user/profile';
                 break;
             case 'MESSAGE':
-                // 可能跳转到聊天/消息页面
-                // path = '/messages/${id}'; // 示例
-                console.warn('消息通知的跳转链接暂未实现');
+                // 如果有消息中心页面，跳过去
+                path = '/user/notifications';
                 break;
             default:
-                console.log(`未知实体类型 ${entityType}，无法跳转`);
+                console.log(`未知实体类型 ${entityType}，不跳转`);
         }
 
-        if (path) {
-            router.push(path);
-        }
+        if (path) router.push(path);
     } catch (e) {
         console.error('无法解析跳转链接:', e);
     }
 };
 
-// --- 事件处理 ---
 const handlePageChange = (newPage: number) => {
     currentPage.value = newPage;
     fetchNotifications();
 };
 
 const handleFilterChange = () => {
-    currentPage.value = 1; // 切换筛选时回到第一页
+    currentPage.value = 1;
     fetchNotifications();
 };
 
-// --- 生命周期钩子 ---
 onMounted(() => {
-    console.log('Notification Center mounted');
     fetchNotifications();
     userStore.fetchUnreadCount();
 });
-
 </script>
 
 <style scoped>
-/* 可以在这里添加更多自定义样式 */
-.el-table .el-button+.el-button {
-    margin-left: 8px;
+.notification-center {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.loading-container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.empty-container {
+    padding: 48px 0;
+    text-align: center;
+}
+
+.notification-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.notification-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notification-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+
+.notification-unread {
+    background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
+    border-color: #ffe4c4;
+}
+
+.notification-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.icon-order { background: linear-gradient(135deg, #409eff 0%, #79bbff 100%); }
+.icon-message { background: linear-gradient(135deg, #67c23a 0%, #95d475 100%); }
+.icon-review { background: linear-gradient(135deg, #e6a23c 0%, #f3d19e 100%); }
+.icon-homestay { background: linear-gradient(135deg, #909399 0%, #b1b3b8 100%); }
+.icon-coupon { background: linear-gradient(135deg, #f56c6c 0%, #fab6b6 100%); }
+.icon-system { background: linear-gradient(135deg, #a0cfff 0%, #c6e2ff 100%); }
+
+.notification-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.notification-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.notification-time {
+    font-size: 12px;
+    color: #c0c4cc;
+    flex-shrink: 0;
+}
+
+.notification-content {
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.6;
+    word-break: break-all;
+}
+
+.notification-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.notification-actions :deep(.el-button) {
+    padding: 4px 0;
+}
+
+@media (max-width: 768px) {
+    .notification-card {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .notification-actions {
+        flex-direction: row;
+        width: 100%;
+        justify-content: flex-end;
+    }
 }
 </style>

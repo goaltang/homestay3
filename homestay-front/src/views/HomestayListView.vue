@@ -26,6 +26,19 @@
                 </el-select>
             </div>
             <div class="filter-group">
+                <span class="filter-label">房源类型</span>
+                <el-select v-model="selectedType" placeholder="全部类型" clearable size="small" style="width: 140px" @change="handleFilterChange">
+                    <el-option label="合住房间" value="合住房间" />
+                    <el-option label="独立房间" value="独立房间" />
+                    <el-option label="别墅" value="别墅" />
+                    <el-option label="酒店式公寓" value="酒店式公寓" />
+                    <el-option label="客栈房间" value="客栈房间" />
+                    <el-option label="Loft公寓" value="Loft公寓" />
+                    <el-option label="整套房子" value="整套房子" />
+                    <el-option label="整套公寓" value="整套公寓" />
+                </el-select>
+            </div>
+            <div class="filter-group">
                 <span class="filter-label">排序</span>
                 <el-select v-model="currentSort" placeholder="排序方式" size="small" style="width: 140px" @change="handleFilterChange">
                     <el-option label="最新发布" value="id,desc" />
@@ -100,7 +113,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { getActiveHomestays, getHomestayTypes, getHomestayGroups, searchHomestays, type HomestaySearchRequest } from '@/api/homestay';
 import { getHomestayAmenities } from '@/api/homestay/meta';
-import { getPopularHomestaysPage, getRecommendedHomestaysPage, getMyPersonalizedRecommendations } from '@/api/recommendation';
+import { getPopularHomestaysPage, getMyPersonalizedRecommendations } from '@/api/recommendation';
 import { trackSearch } from '@/api/tracking';
 import HomestayCard from '@/components/homestay/HomestayCard.vue';
 import SearchBar from '@/components/SearchBar.vue';
@@ -157,6 +170,7 @@ const DEFAULT_PAGE_SIZE = 12;
 const minPrice = ref<number | null>(null);
 const maxPrice = ref<number | null>(null);
 const selectedAmenities = ref<string[]>([]);
+const selectedType = ref<string>('');
 const currentSort = ref('id,desc');
 const amenityOptions = ref<Array<{ value: string; label: string }>>([]);
 
@@ -198,11 +212,12 @@ const buildSearchQuery = (params: SearchBarParams, page = 1, size = DEFAULT_PAGE
         checkIn: params.checkIn || undefined,
         checkOut: params.checkOut || undefined,
         guestCount: params.guestCount > 1 ? params.guestCount : undefined,
+        type: selectedType.value || undefined,
         minPrice: minPrice.value !== null && minPrice.value !== undefined ? String(minPrice.value) : undefined,
         maxPrice: maxPrice.value !== null && maxPrice.value !== undefined ? String(maxPrice.value) : undefined,
         amenities: selectedAmenities.value.length ? selectedAmenities.value.join(',') : undefined,
         sort: currentSort.value !== 'id,desc' ? currentSort.value : undefined,
-        search: (hasSearchTrigger(params) || minPrice.value || maxPrice.value || selectedAmenities.value.length > 0) ? 'true' : undefined,
+        search: (hasSearchTrigger(params) || selectedType.value || minPrice.value || maxPrice.value || selectedAmenities.value.length > 0) ? 'true' : undefined,
         page: page > 1 ? page : undefined,
         size: size !== DEFAULT_PAGE_SIZE ? size : undefined
     });
@@ -220,6 +235,7 @@ const parseFiltersFromRoute = () => {
     minPrice.value = route.query.minPrice ? Number(getQueryValue(route.query.minPrice)) : null;
     maxPrice.value = route.query.maxPrice ? Number(getQueryValue(route.query.maxPrice)) : null;
     selectedAmenities.value = getQueryValue(route.query.amenities)?.split(',').filter(Boolean) || [];
+    selectedType.value = getQueryValue(route.query.type) || '';
     const sort = getQueryValue(route.query.sort);
     if (sort) {
         currentSort.value = sort;
@@ -249,6 +265,15 @@ const activeFilterChips = computed(() => {
             key: 'price',
             label: `¥${maxPrice.value} 以下`,
             onRemove: () => { maxPrice.value = null; handleFilterChange(); }
+        });
+    }
+
+    if (selectedType.value) {
+        const typeLabel = homestayTypes.value.find(t => (t.code || t.value) === selectedType.value)?.name || selectedType.value;
+        chips.push({
+            key: 'type',
+            label: `类型：${typeLabel}`,
+            onRemove: () => { selectedType.value = ''; handleFilterChange(); }
         });
     }
 
@@ -290,9 +315,13 @@ const pageTitle = computed(() => {
     const region = getQueryValue(route.query.region);
 
     if (type === 'popular') return '热门民宿';
-    if (featured === 'true') return '推荐民宿';
+    if (featured === 'true') return '精选房源';
     if (personalized === 'true') return '猜你喜欢';
     if (status === 'ACTIVE') return '最新上架';
+    if (type) {
+        const typeLabel = homestayTypes.value.find(t => (t.code || t.value) === type)?.name || type;
+        return `${typeLabel}民宿`;
+    }
     if (keyword) return `"${keyword}" 的搜索结果`;
     if (region) {
         // 将地区代码转换为地名
@@ -361,9 +390,8 @@ const buildSearchRequest = (): HomestaySearchRequest & { groupId?: number } => {
         sort: getQueryValue(route.query.sort) || `${getQueryValue(route.query.sortBy) || 'id'},${getQueryValue(route.query.sortDirection) || 'desc'}`
     };
 
-    const queryType = getQueryValue(route.query.type);
-    if (getQueryValue(route.query.search) === 'true' && queryType && queryType !== 'popular') {
-        request.propertyType = queryType;
+    if (selectedType.value && selectedType.value !== 'popular') {
+        request.propertyType = selectedType.value;
     }
 
     const groupId = getQueryValue(route.query.groupId);
@@ -450,9 +478,10 @@ const loadHomestays = async () => {
             });
         } else if (getQueryValue(route.query.featured) === 'true') {
             // 加载推荐民宿（使用分页API）
-            response = await getRecommendedHomestaysPage({
+            response = await getActiveHomestays({
                 page: currentPage.value - 1,
-                size: pageSize.value
+                size: pageSize.value,
+                featured: true
             });
         } else if (getQueryValue(route.query.personalized) === 'true') {
             // 加载个性化推荐民宿
@@ -584,6 +613,7 @@ const handleFilterChange = () => {
 
 // 重置筛选条件（保留搜索栏条件）
 const handleFilterReset = () => {
+    selectedType.value = '';
     minPrice.value = null;
     maxPrice.value = null;
     selectedAmenities.value = [];

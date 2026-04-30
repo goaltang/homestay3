@@ -26,6 +26,7 @@ public class AuthResponse {
     private String role;
     private String avatar;
     private String verificationStatus;
+    private String frequentGuests;
     private UserDTO user;
     
     private List<String> authorities;
@@ -42,6 +43,7 @@ public class AuthResponse {
         this.avatar = user.getAvatar();
         this.verificationStatus = user.getVerificationStatus() != null ? 
                                   user.getVerificationStatus().toString() : null;
+        this.frequentGuests = user.getFrequentGuests();
     }
     
     public AuthResponse(User user, String token) {
