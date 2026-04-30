@@ -46,6 +46,24 @@
                 </template>
             </el-table-column>
 
+            <el-table-column label="精选" width="110" align="center">
+                <template #default="scope">
+                    <el-tooltip
+                        :content="scope.row.status === 'ACTIVE' ? '控制首页精选房源展示' : '仅已上架房源会在首页展示'"
+                        placement="top"
+                    >
+                        <el-switch
+                            :model-value="Boolean(scope.row.featured)"
+                            :loading="isFeaturedUpdating(scope.row.id)"
+                            active-text="是"
+                            inactive-text="否"
+                            inline-prompt
+                            @change="value => handleFeaturedChange(scope.row, Boolean(value))"
+                        />
+                    </el-tooltip>
+                </template>
+            </el-table-column>
+
             <el-table-column label="操作" width="300" fixed="right">
                 <template #default="scope">
                     <!-- 待审核状态 - 引导到审核工作台 -->
@@ -256,7 +274,8 @@ import {
     batchUpdateHomestayStatus,
     getHomestayDetail,
     getHomestayAuditLogs,
-    forceDelistHomestay
+    forceDelistHomestay,
+    updateHomestayFeatured
 } from '@/api/homestay'
 import { getHomestayReports } from '@/api/violation'
 import type { Homestay } from '@/types'
@@ -316,6 +335,7 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const selectedRows = ref<Homestay[]>([])
+const featuredUpdatingIds = ref<Set<number>>(new Set())
 
 // 详情对话框
 const detailDialogVisible = ref(false)
@@ -434,6 +454,38 @@ const handleViewDetail = async (row: Homestay) => {
     } catch (error) {
         console.error('获取房源详情失败:', error);
         ElMessage.error('获取房源详情失败');
+    }
+}
+
+const setFeaturedUpdating = (id: number, updating: boolean) => {
+    const next = new Set(featuredUpdatingIds.value)
+    if (updating) {
+        next.add(id)
+    } else {
+        next.delete(id)
+    }
+    featuredUpdatingIds.value = next
+}
+
+const isFeaturedUpdating = (id: number) => featuredUpdatingIds.value.has(id)
+
+const handleFeaturedChange = async (row: Homestay, featured: boolean) => {
+    if (!row.id) {
+        ElMessage.error('无效的房源ID')
+        return
+    }
+
+    setFeaturedUpdating(row.id, true)
+    try {
+        const updated = await updateHomestayFeatured(row.id, featured)
+        row.featured = updated.featured ?? featured
+        const suffix = row.status === 'ACTIVE' ? '' : '，上架后会在首页展示'
+        ElMessage.success(featured ? `已设为首页精选${suffix}` : '已取消首页精选')
+    } catch (error) {
+        console.error('更新精选状态失败:', error)
+        ElMessage.error('更新精选状态失败')
+    } finally {
+        setFeaturedUpdating(row.id, false)
     }
 }
 

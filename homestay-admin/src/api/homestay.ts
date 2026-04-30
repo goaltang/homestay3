@@ -198,6 +198,15 @@ export function updateHomestayStatus(id: number, status: string) {
   });
 }
 
+// 更新首页精选状态
+export function updateHomestayFeatured(id: number, featured: boolean): Promise<Homestay> {
+  return request<any>({
+    url: `/api/admin/homestays/${id}/featured`,
+    method: "put",
+    data: { featured },
+  }).then((response) => adaptHomestayItem(response.data || response));
+}
+
 // 新增: 批量删除房源
 export function batchDeleteHomestays(ids: number[]) {
   return request({

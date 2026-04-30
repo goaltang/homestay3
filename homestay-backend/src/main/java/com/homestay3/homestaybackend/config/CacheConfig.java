@@ -107,6 +107,12 @@ public class CacheConfig {
         // 用户推荐缓存 - 1小时
         cacheConfigurations.put("userRecommendations", createCacheConfiguration(Duration.ofHours(1)));
 
+        // 首页统计数据缓存 - 5分钟
+        cacheConfigurations.put("homeStats", createCacheConfiguration(Duration.ofMinutes(5)));
+
+        // 首页横幅缓存 - 5分钟
+        cacheConfigurations.put("homeBanners", createCacheConfiguration(Duration.ofMinutes(5)));
+
         return RedisCacheManager
                 .builder(connectionFactory)
                 .cacheDefaults(config)

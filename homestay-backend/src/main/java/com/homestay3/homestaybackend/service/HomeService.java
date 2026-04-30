@@ -10,6 +10,8 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +33,7 @@ public class HomeService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
 
+    @Cacheable("homeStats")
     public HomeStatsDTO getStats() {
         Long homestayCount = homestayRepository.countByStatus(HomestayStatus.ACTIVE);
         Long cityCount = homestayRepository.countDistinctCityTextByStatus(HomestayStatus.ACTIVE);
@@ -55,6 +58,7 @@ public class HomeService {
                 .build();
     }
 
+    @Cacheable("homeBanners")
     public List<BannerDTO> getActiveBanners() {
         return bannerRepository.findByEnabledTrueOrderBySortOrderAsc()
                 .stream()
@@ -91,6 +95,7 @@ public class HomeService {
     }
 
     @Transactional
+    @CacheEvict(value = "homeBanners", allEntries = true)
     public BannerDTO createBanner(Banner banner) {
         if (banner.getSortOrder() == null) {
             banner.setSortOrder(0);
@@ -103,6 +108,7 @@ public class HomeService {
     }
 
     @Transactional
+    @CacheEvict(value = "homeBanners", allEntries = true)
     public BannerDTO updateBanner(Long id, Banner update) {
         Banner existing = bannerRepository.findById(id).orElse(null);
         if (existing == null) {
@@ -120,11 +126,13 @@ public class HomeService {
     }
 
     @Transactional
+    @CacheEvict(value = "homeBanners", allEntries = true)
     public void deleteBanner(Long id) {
         bannerRepository.deleteById(id);
     }
 
     @Transactional
+    @CacheEvict(value = "homeBanners", allEntries = true)
     public BannerDTO toggleBannerEnabled(Long id) {
         Banner existing = bannerRepository.findById(id).orElse(null);
         if (existing == null) {

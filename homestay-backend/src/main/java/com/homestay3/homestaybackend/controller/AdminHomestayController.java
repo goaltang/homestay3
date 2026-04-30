@@ -183,6 +183,26 @@ public class AdminHomestayController {
     }
 
     /**
+     * 更新房源首页精选状态
+     */
+    @PutMapping("/{id}/featured")
+    public ResponseEntity<HomestayWriteResponse> updateHomestayFeatured(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> featuredData
+    ) {
+        Object rawFeatured = featuredData.get("featured");
+        Boolean featured = rawFeatured instanceof Boolean
+                ? (Boolean) rawFeatured
+                : Boolean.parseBoolean(String.valueOf(rawFeatured));
+
+        logger.info("管理员更新房源精选状态，ID: {}, featured: {}", id, featured);
+        HomestayWriteResponse updatedHomestay = homestayResponseAdapter.toWriteResponse(
+                homestayAdminService.updateHomestayFeatured(id, featured)
+        );
+        return ResponseEntity.ok(updatedHomestay);
+    }
+
+    /**
      * 批量删除房源
      */
     @DeleteMapping("/batch")

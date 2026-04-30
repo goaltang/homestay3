@@ -67,25 +67,23 @@
 
         <!-- 猜你喜欢 -->
         <div v-if="activeTab === 'personalized'" class="tab-panel">
-          <div v-if="!userStore.isAuthenticated" class="login-prompt">
-            <el-icon :size="48" color="#ccc"><Star /></el-icon>
-            <p>登录后获取专属推荐</p>
-            <el-button type="primary" @click="router.push('/login')">立即登录</el-button>
+          <div v-if="!userStore.isAuthenticated" class="login-prompt-compact">
+            <p>登录后获取更精准的专属推荐</p>
+            <el-button type="primary" size="small" @click="router.push('/login')">立即登录</el-button>
           </div>
           <HomestaySection
-            v-else
-            :homestays="personalizedHomestays"
-            :loading="personalizedLoading"
-            :error="personalizedError"
-            empty-text="暂无个性化推荐，多浏览和收藏房源来获得更精准的推荐"
+            :homestays="userStore.isAuthenticated ? personalizedHomestays : popularHomestays"
+            :loading="userStore.isAuthenticated ? personalizedLoading : popularLoading"
+            :error="userStore.isAuthenticated ? personalizedError : popularError"
+            :empty-text="userStore.isAuthenticated ? '暂无个性化推荐，多浏览和收藏房源来获得更精准的推荐' : '暂无热门房源'"
             error-text="加载失败，点击重试"
             :max-display="12"
             :show-view-all="false"
             view-all-route="/homestays"
-            :view-all-query="{ personalized: 'true' }"
+            :view-all-query="userStore.isAuthenticated ? { personalized: 'true' } : { type: 'popular' }"
             @homestay-click="handleHomestayClick"
             @view-all="handleViewAll"
-            @retry="loadPersonalized"
+            @retry="userStore.isAuthenticated ? loadPersonalized : loadPopular"
           />
         </div>
 
@@ -148,7 +146,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Star, User, House, School, OfficeBuilding, CoffeeCup, Sunny, Moon, HomeFilled } from '@element-plus/icons-vue'
+import { User, House, School, OfficeBuilding, CoffeeCup, Sunny, Moon, HomeFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useSearchStore } from '@/stores/search'
 import SearchBar from '@/components/SearchBar.vue'
@@ -305,7 +303,10 @@ const loadPopular = async () => {
 
 // Tab 切换时懒加载
 watch(activeTab, (tab) => {
-  if (tab === 'personalized' && personalizedHomestays.value.length === 0) loadPersonalized()
+  if (tab === 'personalized') {
+    if (userStore.isAuthenticated && personalizedHomestays.value.length === 0) loadPersonalized()
+    if (!userStore.isAuthenticated && popularHomestays.value.length === 0) loadPopular()
+  }
   if (tab === 'recommended' && recommendedHomestays.value.length === 0) loadRecommended()
   if (tab === 'popular' && popularHomestays.value.length === 0) loadPopular()
 }, { immediate: true })
@@ -532,19 +533,22 @@ onMounted(() => {
 }
 
 /* 登录提示 */
-.login-prompt {
-  text-align: center;
-  padding: var(--space-16) var(--space-5);
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-neutral-200);
+.login-prompt-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-4);
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-200);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  color: var(--color-primary-700);
 }
 
-.login-prompt p {
-  margin: var(--space-4) 0;
-  color: var(--color-neutral-600);
-  font-size: 15px;
+.login-prompt-compact p {
+  margin: 0;
 }
 
 /* Tab 面板 */
