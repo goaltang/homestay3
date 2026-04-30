@@ -326,6 +326,7 @@ const searchError = ref<string | null>(null);
 
 // 房源列表数据
 const homestays = ref<Homestay[]>([]);
+let latestLoadRequestId = 0;
 
 // 房源类型数据
 const homestayTypes = ref<any[]>([]);
@@ -424,6 +425,7 @@ const applyResponseData = (data: any, options: { paginateArrayFallback?: boolean
 
 // 数据加载方法
 const loadHomestays = async () => {
+    const requestId = ++latestLoadRequestId;
     loading.value = true;
     console.log('loadHomestays 调用 - 路由参数:', route.query);
     console.log('loadHomestays 调用 - 搜索参数:', searchParams.value);
@@ -477,6 +479,10 @@ const loadHomestays = async () => {
         }
 
         // 后端分页对象优先直接使用；仅数组老接口走前端分页兼容。
+        if (requestId !== latestLoadRequestId) {
+            return;
+        }
+
         applyResponseData(response.data, {
             paginateArrayFallback: hasSearchConditions() || getQueryValue(route.query.personalized) === 'true'
         });
@@ -489,7 +495,9 @@ const loadHomestays = async () => {
         homestays.value = [];
         total.value = 0;
     } finally {
-        loading.value = false;
+        if (requestId === latestLoadRequestId) {
+            loading.value = false;
+        }
     }
 };
 

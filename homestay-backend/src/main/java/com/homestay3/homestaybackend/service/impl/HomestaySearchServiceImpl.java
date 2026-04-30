@@ -119,13 +119,7 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
             }
         }
 
-        final String typeCodeToSearch;
-        if (StringUtils.hasText(request.getPropertyType())) {
-            Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(request.getPropertyType());
-            typeCodeToSearch = typeOpt.map(HomestayType::getCode).orElse(null);
-        } else {
-            typeCodeToSearch = null;
-        }
+        final String typeCodeToSearch = resolveTypeCode(request.getPropertyType());
 
         Specification<Homestay> specification = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -317,7 +311,12 @@ public class HomestaySearchServiceImpl implements HomestaySearchService {
         if (!StringUtils.hasText(propertyType)) {
             return null;
         }
-        Optional<HomestayType> typeOpt = homestayTypeRepository.findByNameIgnoreCase(propertyType);
+        String normalized = propertyType.trim();
+        Optional<HomestayType> typeOpt = homestayTypeRepository.findByCode(normalized.toUpperCase());
+        if (typeOpt.isPresent()) {
+            return typeOpt.get().getCode();
+        }
+        typeOpt = homestayTypeRepository.findByNameIgnoreCase(normalized);
         return typeOpt.map(HomestayType::getCode).orElse(null);
     }
 

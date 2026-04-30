@@ -6,6 +6,8 @@ import type {
 } from "../../types/homestay";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+let homestayTypesCache: Promise<HomestayType[]> | null = null;
+let homestayAmenitiesCache: Promise<any> | null = null;
 
 export interface AdministrativeDivisionOption {
   code: string;
@@ -17,7 +19,11 @@ export interface AdministrativeDivisionOption {
  * 获取房源类型列表
  */
 export function getHomestayTypes(): Promise<HomestayType[]> {
-  return request({
+  if (homestayTypesCache) {
+    return homestayTypesCache;
+  }
+
+  homestayTypesCache = request({
     url: "/api/homestay-types",
     method: "get",
   })
@@ -33,8 +39,11 @@ export function getHomestayTypes(): Promise<HomestayType[]> {
     })
     .catch((error) => {
       console.error("获取房源类型失败 (API):", error);
+      homestayTypesCache = null;
       return [];
     });
+
+  return homestayTypesCache;
 }
 
 /**
@@ -85,7 +94,11 @@ export const getHomestayTypesForFilter = () => {
  * 获取房源设施列表
  */
 export function getHomestayAmenities() {
-  return request({
+  if (homestayAmenitiesCache) {
+    return homestayAmenitiesCache;
+  }
+
+  homestayAmenitiesCache = request({
     url: "/api/homestays/amenities",
     method: "get",
   }).catch((error) => {
@@ -94,8 +107,13 @@ export function getHomestayAmenities() {
     return request({
       url: "/api/v1/homestays/amenities",
       method: "get",
+    }).catch((fallbackError) => {
+      homestayAmenitiesCache = null;
+      throw fallbackError;
     });
   });
+
+  return homestayAmenitiesCache;
 }
 
 /**
