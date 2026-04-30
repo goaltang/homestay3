@@ -61,6 +61,12 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         @Query("SELECT COUNT(o) FROM Order o WHERE o.guest.id = :guestId")
         long countByGuestId(@Param("guestId") Long guestId);
 
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.guest.id = :userId AND o.status = :status")
+        Long countByGuestIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+
+        @Query("SELECT COUNT(o) FROM Order o WHERE o.guest.id = :userId AND o.status = 'COMPLETED' AND o.id NOT IN (SELECT r.order.id FROM Review r WHERE r.deleted = false)")
+        Long countPendingReviewOrders(@Param("userId") Long userId);
+
         // 根据状态获取用户的订单
         @Query("SELECT o FROM Order o WHERE o.guest.id = :guestId AND o.status = :status")
         Page<Order> findByGuestIdAndStatus(@Param("guestId") Long guestId, @Param("status") String status,
@@ -278,4 +284,9 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
                 @Param("startDate") LocalDate startDate,
                 @Param("endDate") LocalDate endDate,
                 @Param("statuses") List<String> statuses);
+
+        /**
+         * 根据状态列表和入住日期查询订单（用于入住提醒定时任务）
+         */
+        List<Order> findByStatusInAndCheckInDate(List<String> statuses, LocalDate checkInDate);
 }

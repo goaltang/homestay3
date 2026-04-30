@@ -35,6 +35,7 @@ public class DisputeServiceImpl implements DisputeService {
     private final OrderNotificationService orderNotificationService;
     private final DisputeRecordService disputeRecordService;
     private final UserRepository userRepository;
+    private final OrderStatusUpdater orderStatusUpdater;
 
     @Override
     @Transactional
@@ -57,8 +58,7 @@ public class DisputeServiceImpl implements DisputeService {
         User currentUser = getCurrentUser();
 
         // 更新订单状态为争议待处理，同时更新支付状态为争议中
-        order.setStatus(OrderStatus.DISPUTE_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.DISPUTED);
+        orderStatusUpdater.markDisputePending(order, "用户发起争议: " + reason);
 
         // 设置争议相关信息
         order.setDisputeReason(reason);
@@ -157,8 +157,7 @@ public class DisputeServiceImpl implements DisputeService {
             return updatedOrderDTO;
         } else {
             // 拒绝退款 - 恢复订单状态为已支付
-            order.setStatus(OrderStatus.PAID.name());
-            order.setPaymentStatus(PaymentStatus.PAID);
+            orderStatusUpdater.markPaid(order, "争议仲裁拒绝，恢复订单");
             order.setRefundProcessedBy(currentUser.getId());
             order.setRefundProcessedAt(LocalDateTime.now());
 

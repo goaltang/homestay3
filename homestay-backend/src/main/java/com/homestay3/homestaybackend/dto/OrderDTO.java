@@ -37,6 +37,7 @@ public class OrderDTO {
     private String remark;
     private Long hostId;
     private String hostName;
+    private String imageUrl;
     private String paymentStatus;
     private String paymentMethod;
     private LocalDateTime createTime;

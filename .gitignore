@@ -27,7 +27,7 @@ vite.config.ts.timestamp-*
 .factorypath
 .project
 .settings/
-.springBeans
+.springBeans/
 .sts4-cache/
 **/uploads/
 homestay-backend/src/main/resources/application.properties
@@ -43,6 +43,8 @@ homestay-backend/src/main/resources/application-*.properties
 
 # --- 构建日志与临时产物 ---
 *.log
+*.err
+logs/
 test_output*.txt
 compile_output*.txt
 build_output*.txt

@@ -59,6 +59,7 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private final com.homestay3.homestaybackend.repository.UserCouponRepository userCouponRepository;
     private final com.homestay3.homestaybackend.service.CouponAnalyticsService couponAnalyticsService;
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
+    private final OrderStatusUpdater orderStatusUpdater;
 
     @Override
     @Transactional
@@ -98,9 +99,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             Thread.sleep(500);
             log.debug("模拟支付处理完成，准备更新订单 {} 状态为 PAID。", order.getOrderNumber());
 
-            // 支付成功，更新订单状态
-            order.setStatus(OrderStatus.PAID.name());
-            order.setPaymentStatus(PaymentStatus.PAID);
+            // 支付成功，统一更新订单状态
+            orderStatusUpdater.markPaid(order);
 
             // 添加支付备注
             String remark = (order.getRemark() != null && !order.getRemark().isEmpty()) ? order.getRemark() + "\n" : "";
@@ -120,10 +120,9 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             log.error("订单 {} 支付处理被中断", order.getOrderNumber(), e);
             throw new RuntimeException("支付处理中断");
         } catch (Exception e) {
-            // 支付失败，更新订单状态为支付失败
+            // 支付失败，统一更新订单状态为支付失败
             log.error("订单 {} 支付过程中发生意外错误，尝试将状态更新为 PAYMENT_FAILED: {}", order.getOrderNumber(), e.getMessage(), e);
-            order.setStatus(OrderStatus.PAYMENT_FAILED.name());
-            order.setPaymentStatus(PaymentStatus.UNPAID);
+            orderStatusUpdater.markPaymentFailed(order);
             orderRepository.save(order);
             // 支付失败不应该生成收益，也不需要发通知
             throw new RuntimeException("支付失败: " + e.getMessage());
@@ -143,9 +142,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             throw new IllegalStateException("只有未支付的订单才能被确认支付");
         }
 
-        // 更新状态
-        order.setStatus(OrderStatus.PAID.name());
-        order.setPaymentStatus(PaymentStatus.PAID);
+        // 统一更新订单状态
+        orderStatusUpdater.markManualConfirmedPaid(order);
         // 可选：记录支付方式为手动确认
         if (order.getPaymentMethod() == null || order.getPaymentMethod().isEmpty()) {
             order.setPaymentMethod("MANUAL_CONFIRM");
@@ -234,9 +232,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             refundTradeNo = "MOCK_REFUND_" + System.currentTimeMillis();
         }
 
-        // 直接设置为已退款（不需要中间状态）
-        order.setStatus(OrderStatus.REFUNDED.name());
-        order.setPaymentStatus(PaymentStatus.REFUNDED);
+        // 统一更新为已退款状态
+        orderStatusUpdater.markRefunded(order);
         order.setRefundTransactionId(refundTradeNo);
         order.setRefundProcessedBy(currentUser.getId());
         order.setRefundProcessedAt(LocalDateTime.now());
@@ -325,9 +322,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
         }
         order.setRefundTransactionId(refundTradeNo);
 
-        // 更新订单状态
-        order.setStatus(OrderStatus.REFUNDED.name());
-        order.setPaymentStatus(PaymentStatus.REFUNDED);
+        // 统一更新为已退款状态
+        orderStatusUpdater.markRefunded(order);
         order.setRefundProcessedBy(getCurrentUser().getId());
         order.setRefundProcessedAt(LocalDateTime.now());
 
@@ -373,9 +369,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             throw new IllegalStateException("只有退款中的订单才能拒绝退款");
         }
 
-        // 更新订单状态
-        order.setStatus(OrderStatus.PAID.name()); // 退款拒绝后恢复到已支付状态
-        order.setPaymentStatus(PaymentStatus.PAID);
+        // 退款拒绝后统一恢复到已支付状态
+        orderStatusUpdater.markRefundRejected(order);
 
         // 添加退款拒绝原因
         if (order.getRemark() != null && !order.getRemark().isEmpty()) {
@@ -421,9 +416,8 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
             throw new IllegalStateException("订单已在退款流程中，请勿重复申请");
         }
 
-        // 更新订单状态为退款中
-        order.setStatus(OrderStatus.REFUND_PENDING.name());
-        order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+        // 统一更新订单状态为退款中
+        orderStatusUpdater.markRefundPending(order);
 
         // 设置退款相关信息
         User currentUser = getCurrentUser();

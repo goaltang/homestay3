@@ -32,7 +32,7 @@
 
             <!-- 添加订单超时倒计时提醒 -->
             <div class="order-timeout-alert" :class="{ 'urgent': isTimeoutUrgent }">
-                <el-alert title="请在限定时间内完成支付" type="warning" description="超过2小时未完成支付，订单将被自动取消" show-icon
+                <el-alert title="请在限定时间内完成支付" type="warning" :description="`超过${store.timeoutConfig?.confirmedTimeoutHours ?? 2}小时未完成支付，订单将被自动取消`" show-icon
                     :closable="false">
                     <template #default>
                         <div class="timeout-countdown">
@@ -160,31 +160,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Promotion } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
-import { getOrderDetail, generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder } from '../../api/order'
-
-interface OrderData {
-    id: number
-    orderNumber: string
-    homestayTitle: string
-    checkInDate: string
-    checkOutDate: string
-    guestCount: number
-    totalAmount: number
-    status: string
-    paymentStatus: string
-    updateTime: string
-}
+import { generatePaymentQRCode, checkPayment, cancelOrder as apiCancelOrder } from '../../api/order'
+import { useOrderStore } from '@/stores/order'
 
 const route = useRoute()
 const router = useRouter()
+const store = useOrderStore()
 
 const loading = ref(true)
-const orderData = ref<OrderData | null>(null)
+const orderData = computed(() => store.currentOrder)
 const paymentMethod = ref(route.query.method?.toString() || '')
 const qrCode = ref('')
 const countdown = ref(900) // 15分钟倒计时
@@ -200,21 +189,7 @@ const MAX_POLL_COUNT = 120 // 最多轮询 120 次（约 6 分钟）
 const fetchOrderDetail = async () => {
     try {
         const orderId = Number(route.params.id)
-        const response = await getOrderDetail(orderId)
-        // 确保数据符合OrderData接口
-        const data = response.data
-        orderData.value = {
-            id: data.id,
-            orderNumber: data.orderNumber,
-            homestayTitle: data.homestayTitle,
-            checkInDate: data.checkInDate,
-            checkOutDate: data.checkOutDate,
-            guestCount: data.guestCount,
-            totalAmount: data.totalAmount,
-            status: data.status,
-            paymentStatus: data.paymentStatus || 'UNPAID', // 从后端获取真实支付状态
-            updateTime: data.updateTime
-        }
+        await store.fetchOrderDetail(orderId)
     } catch (error: any) {
         console.error('获取订单详情失败:', error)
         ElMessage.error(error.response?.data?.message || '获取订单详情失败')
@@ -457,6 +432,9 @@ const startPaymentStatusPoll = () => {
                 clearInterval(paymentStatusPollTimer!)
                 paymentStatusPollTimer = null
                 ElMessage.success('支付成功！')
+                // 刷新 Store 订单数据，确保列表同步
+                store.fetchOrders()
+                store.fetchStatsOrders()
                 router.push(`/orders/${orderData.value.id}/pay-success`)
             }
         } catch (error) {
@@ -493,6 +471,9 @@ const checkPaymentStatus = async () => {
         if (response.data.success) {
             if (response.data.isPaid) {
                 ElMessage.success('支付成功！')
+                // 刷新 Store 订单数据，确保列表同步
+                store.fetchOrders()
+                store.fetchStatsOrders()
                 // 跳转到支付成功页面
                 router.push(`/orders/${orderData.value.id}/pay-success`)
             } else {
@@ -534,6 +515,10 @@ const cancelOrder = async () => {
 
         try {
             await apiCancelOrder(orderData.value.id)
+
+            // 刷新 Store 数据，确保订单列表同步
+            store.fetchOrders()
+            store.fetchStatsOrders()
 
             // 关闭加载消息
             ElMessage.closeAll()
@@ -691,8 +676,9 @@ const isTimeoutUrgent = ref(false)
 
 const updateOrderTimeoutDisplay = () => {
     if (orderData.value?.updateTime) {
-        orderTimeoutDisplay.value = getCountdownTime(orderData.value.updateTime, 2)
-        isTimeoutUrgent.value = isTimeUrgent(orderData.value.updateTime, 2)
+        const hours = store.timeoutConfig?.confirmedTimeoutHours ?? 2
+        orderTimeoutDisplay.value = getCountdownTime(orderData.value.updateTime, hours)
+        isTimeoutUrgent.value = isTimeUrgent(orderData.value.updateTime, hours)
     }
 }
 
@@ -706,6 +692,11 @@ onMounted(async () => {
     if (timer) clearInterval(timer)
     timer = null
     stopPaymentStatusPoll()
+
+    // 确保超时配置已加载
+    if (!store.timeoutConfig) {
+        await store.fetchTimeoutConfig()
+    }
 
     await fetchOrderDetail();
     updateOrderTimeoutDisplay();

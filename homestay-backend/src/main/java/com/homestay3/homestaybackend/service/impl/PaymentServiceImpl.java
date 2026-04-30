@@ -54,6 +54,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final AlipayGateway alipayGateway;
     private final com.homestay3.homestaybackend.util.RedisLock redisLock;
+    private final OrderStatusUpdater orderStatusUpdater;
 
     @Override
     @Transactional
@@ -138,7 +139,7 @@ public class PaymentServiceImpl implements PaymentService {
                 savePaymentRecord(orderId, method, outTradeNo, request, response);
 
                 // 更新订单状态为待支付
-                order.setStatus(OrderStatus.PAYMENT_PENDING.name());
+                orderStatusUpdater.markPaymentPending(order);
                 orderRepository.save(order);
 
                 // 返回二维码或页面跳转URL
@@ -335,8 +336,7 @@ public class PaymentServiceImpl implements PaymentService {
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
 
-            order.setPaymentStatus(paymentStatus);
-            order.setStatus(OrderStatus.PAID.name());
+            orderStatusUpdater.markPaid(order);
             orderRepository.save(order);
 
             log.info("订单支付状态更新成功，订单ID: {}, 支付状态: {}", orderId, paymentStatus);

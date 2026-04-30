@@ -151,7 +151,7 @@
                 <div class="receipt-body">
                     <div class="price-item">
                         <span class="item-name">每晚价格 x {{ orderData.nights }}晚</span>
-                        <span class="item-price">¥{{ Math.round(orderData.price * orderData.nights * 100) / 100 }}</span>
+                        <span class="item-price">¥{{ Math.round((orderData.price ?? 0) * orderData.nights * 100) / 100 }}</span>
                     </div>
                     <div class="price-item" v-if="orderData.cleaningFee">
                         <span class="item-name">清洁费</span>
@@ -451,29 +451,18 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, Clock, CircleCheck, CircleClose, Location, Calendar, User, UserFilled, PhoneFilled, EditPen } from '@element-plus/icons-vue'
 import QrcodeVue from 'qrcode.vue'
-import { getOrderDetail, cancelOrder, generatePaymentQRCode, checkPayment, payOrder, getCheckInCredential, selfCheckIn, confirmArrival } from '../../api/order'
+import { cancelOrder, generatePaymentQRCode, checkPayment, payOrder, getCheckInCredential, selfCheckIn, confirmArrival } from '../../api/order'
 import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
 import { deleteReview } from '@/api/review'
 import { requestRefund, getRefundPreview, raiseDispute } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
+import { useOrderStore, type ReviewItem } from '@/stores/order'
 import ReviewEditModal from '@/components/ReviewEditModal.vue'
 import ReviewForm from '@/components/ReviewForm.vue'
 import OrderTimeoutIndicator from '@/components/order/OrderTimeoutIndicator.vue'
 import { OrderStatus } from '@/types/order'
-
-// 定义评价数据接口
-interface ReviewItem {
-    id: number;
-    userId?: number; // 后端DTO可能没有，但前端获取用户评价列表时可能有
-    rating: number;
-    content: string;
-    response?: string;
-    createTime: string;
-    responseTime?: string;
-    // 添加其他需要的字段...
-}
 
 // --- Add type for editable data ---
 interface EditableReviewData {
@@ -483,58 +472,13 @@ interface EditableReviewData {
 }
 // --- End type ---
 
-interface OrderData {
-    id: number
-    orderNumber: string
-    homestayId: number
-    homestayTitle: string
-    imageUrl?: string
-    address?: string
-    guestId: number
-    guestName: string
-    guestPhone: string
-    checkInDate: string
-    checkOutDate: string
-    nights: number
-    guestCount: number
-    price: number
-    cleaningFee?: number
-    serviceFee?: number
-    totalAmount: number
-    status: string
-    paymentStatus?: string
-    remark?: string
-    createTime: string
-    updateTime: string
-    reviewed?: boolean; // 保留 reviewed 字段
-    review?: ReviewItem | null; // 添加 review 字段
-    // 退款相关字段
-    refundType?: string
-    refundReason?: string
-    refundAmount?: number
-    refundInitiatedBy?: number
-    refundInitiatedByName?: string
-    refundInitiatedAt?: string
-    refundProcessedBy?: number
-    refundProcessedByName?: string
-    refundProcessedAt?: string
-    refundTransactionId?: string
-    refundRejectionReason?: string  // 退款被拒绝时的原因
-    // 争议相关字段
-    disputeReason?: string
-    disputeRaisedBy?: number
-    disputeRaisedAt?: string
-    disputeResolvedAt?: string
-    disputeResolution?: string
-    disputeResolutionNote?: string
-}
-
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const store = useOrderStore()
 
 const loading = ref(true)
-const orderData = ref<OrderData | null>(null)
+const orderData = computed(() => store.currentOrder)
 const isDeletingReview = ref(false)
 
 // --- Add state for payment dialog ---
@@ -560,6 +504,8 @@ const openReviewModal = () => {
 const handleSubmitReview = (success: boolean) => {
     if (success) {
         fetchOrderDetail();
+        store.fetchOrders();
+        store.fetchStatsOrders();
     }
 };
 // --- End state ---
@@ -596,6 +542,8 @@ const submitSelfCheckIn = async () => {
         ElMessage.success('自助入住成功')
         selfCheckInDialogVisible.value = false
         fetchOrderDetail()
+        store.fetchOrders()
+        store.fetchStatsOrders()
     } catch (error: any) {
         ElMessage.error(error.message || '自助入住失败')
     } finally {
@@ -616,6 +564,8 @@ const handleConfirmArrival = async () => {
             await confirmArrival(orderData.value!.id)
             ElMessage.success('已通知房东您已到达')
             fetchOrderDetail()
+            store.fetchOrders()
+            store.fetchStatsOrders()
         } catch (error: any) {
             ElMessage.error(error.message || '确认到达失败')
         } finally {
@@ -630,7 +580,7 @@ const currentUserId = userStore.userInfo?.id
 
 // 获取订单详情
 const fetchOrderDetail = async () => {
-    loading.value = true; // 开始时设置加载状态
+    loading.value = true;
     try {
         const orderId = Number(route.params.id)
         if (isNaN(orderId)) {
@@ -638,24 +588,20 @@ const fetchOrderDetail = async () => {
             return;
         }
 
-        const response = await getOrderDetail(orderId)
+        await store.fetchOrderDetail(orderId)
+        console.log('获取到的订单详情数据:', store.currentOrder);
 
-        // 直接将后端返回的 data 赋值给 orderData
-        // 假设 response.data 的结构与 OrderData 接口匹配 (包括 review)
-        orderData.value = response.data;
-        console.log('获取到的订单详情数据:', orderData.value);
-
-        // 获取房源详情，更新房源图片 (这部分逻辑保持不变)
-        if (orderData.value && orderData.value.homestayId && !orderData.value.imageUrl) {
+        // 获取房源详情，更新房源图片
+        if (store.currentOrder && store.currentOrder.homestayId && !store.currentOrder.imageUrl) {
             try {
-                const homestayResponse = await getHomestayById(orderData.value.homestayId)
+                const homestayResponse = await getHomestayById(store.currentOrder.homestayId)
                 if (homestayResponse && homestayResponse.data) {
                     const coverImage = homestayResponse.data.coverImage ||
                         (homestayResponse.data.images && homestayResponse.data.images.length > 0 ?
                             homestayResponse.data.images[0] : null);
 
-                    if (coverImage && orderData.value) { // Check orderData again
-                        orderData.value.imageUrl = coverImage;
+                    if (coverImage && store.currentOrder) {
+                        store.currentOrder.imageUrl = coverImage;
                     }
                 }
             } catch (error) {
@@ -666,7 +612,6 @@ const fetchOrderDetail = async () => {
     } catch (error: any) {
         console.error('获取订单详情失败:', error);
         ElMessage.error('获取订单详情失败，请重试');
-        orderData.value = null; // 清空数据
     } finally {
         loading.value = false;
     }
@@ -928,6 +873,10 @@ const confirmCancel = async () => {
             // 使用cancelOrder API方法，确保它使用正确的/status接口
             await cancelOrder(orderData.value.id);
 
+            // 刷新 Store，确保订单列表同步
+            store.fetchOrders();
+            store.fetchStatsOrders();
+
             // 关闭加载消息
             ElMessage.closeAll();
 
@@ -1135,6 +1084,8 @@ const handleManualPay = async () => {
             // 延迟刷新以确保后端数据已同步更新
             setTimeout(() => {
                 fetchOrderDetail()
+                store.fetchOrders()
+                store.fetchStatsOrders()
             }, 500)
         } else {
             ElMessage.error(response.data.message || '操作失败')
@@ -1228,8 +1179,10 @@ const confirmRequestRefund = async () => {
             ElMessage.closeAll()
             ElMessage.success('退款申请已提交，预计1-3个工作日内处理')
 
-            // 刷新订单详情
+            // 刷新订单详情和列表
             fetchOrderDetail()
+            store.fetchOrders()
+            store.fetchStatsOrders()
         } catch (error: any) {
             ElMessage.closeAll()
             console.error('申请退款失败:', error)
@@ -1282,8 +1235,10 @@ const confirmRaiseDispute = async () => {
             ElMessage.closeAll()
             ElMessage.success('争议申请已提交，平台将在1-3个工作日内处理')
 
-            // 刷新订单详情
+            // 刷新订单详情和列表
             fetchOrderDetail()
+            store.fetchOrders()
+            store.fetchStatsOrders()
         } catch (error: any) {
             ElMessage.closeAll()
             console.error('发起争议失败:', error)
@@ -1345,11 +1300,12 @@ const handleDeleteReview = async (reviewId: number) => {
         isDeletingReview.value = true;
         await deleteReview(reviewId);
         ElMessage.success('评价删除成功');
-        // 从订单数据中移除评价信息或重新加载订单详情
+        // 从订单数据中移除评价信息并刷新列表
         if (orderData.value) {
-            orderData.value.review = null; // 直接置空
-            // 或者重新获取订单详情: fetchOrderDetail();
+            orderData.value.review = null;
         }
+        store.fetchOrders();
+        store.fetchStatsOrders();
 
     } catch (error: any) {
         if (error !== 'cancel') {
@@ -1400,6 +1356,9 @@ const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
 // --- End functions ---
 
 onMounted(() => {
+    if (!store.timeoutConfig) {
+        store.fetchTimeoutConfig()
+    }
     fetchOrderDetail()
 })
 

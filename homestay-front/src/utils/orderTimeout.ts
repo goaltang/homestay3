@@ -5,23 +5,17 @@ import { ElMessage, ElNotification } from "element-plus";
 /**
  * 订单超时处理工具 - 优化版
  * 用于处理订单在各个状态的超时情况，增加服务器时间同步和实时通知
+ *
+ * 注意：超时配置已迁移到 useOrderStore，本工具接收外部传入的配置，
+ * 不再维护独立的硬编码超时时间。
  */
 
-// 超时配置（单位：毫秒）
-export const timeoutConfig: Record<string, number> = {
-  // 待确认状态超时时间（24小时）
-  [OrderStatus.PENDING]: 24 * 60 * 60 * 1000,
-
-  // 已确认未支付状态超时时间（2小时）
+// 默认超时配置（单位：毫秒）——作为 fallback，当外部未传入配置时使用
+const DEFAULT_TIMEOUT_MS: Record<string, number> = {
+  [OrderStatus.PENDING]: 2 * 60 * 60 * 1000,
   [OrderStatus.CONFIRMED]: 2 * 60 * 60 * 1000,
-
-  // 支付中状态超时时间（2小时）
   [OrderStatus.PAYMENT_PENDING]: 2 * 60 * 60 * 1000,
-
-  // 已支付未入住状态超时时间（无限制）
   [OrderStatus.PAID]: Infinity,
-
-  // 其他状态无超时限制
   [OrderStatus.CHECKED_IN]: Infinity,
   [OrderStatus.COMPLETED]: Infinity,
   [OrderStatus.CANCELLED_BY_USER]: Infinity,
@@ -35,10 +29,10 @@ export const timeoutConfig: Record<string, number> = {
   [OrderStatus.READY_FOR_CHECKIN]: Infinity,
 };
 
-// 预警配置（单位：毫秒）
-export const warningConfig: Record<string, number[]> = {
-  [OrderStatus.PENDING]: [60 * 60 * 1000, 30 * 60 * 1000], // 1小时、30分钟前预警
-  [OrderStatus.CONFIRMED]: [30 * 60 * 1000, 10 * 60 * 1000, 5 * 60 * 1000], // 30分钟、10分钟、5分钟前预警
+// 预警配置（单位：毫秒）——默认配置
+const DEFAULT_WARNING_MS: Record<string, number[]> = {
+  [OrderStatus.PENDING]: [60 * 60 * 1000, 30 * 60 * 1000],
+  [OrderStatus.CONFIRMED]: [30 * 60 * 1000, 10 * 60 * 1000, 5 * 60 * 1000],
   [OrderStatus.PAYMENT_PENDING]: [
     30 * 60 * 1000,
     10 * 60 * 1000,
@@ -87,33 +81,31 @@ function getCurrentTime(): number {
  * @param createTime 订单创建时间
  * @param confirmTime 订单确认时间
  * @param updateTime 订单更新时间
+ * @param customTimeoutConfig 自定义超时配置（单位：毫秒），不传则使用默认配置
  */
 export function calculateRemainingTime(
   orderStatus: OrderStatus,
   createTime: string,
   confirmTime?: string,
-  updateTime?: string
+  updateTime?: string,
+  customTimeoutConfig?: Record<string, number>
 ): number {
-  // 获取状态对应的超时时间
-  const timeout = timeoutConfig[orderStatus] || Infinity;
+  const timeoutConfig = customTimeoutConfig || DEFAULT_TIMEOUT_MS;
+  const timeout = timeoutConfig[orderStatus] ?? Infinity;
 
-  // 如果无超时限制，返回Infinity
   if (timeout === Infinity) {
     return Infinity;
   }
 
-  // 根据不同的状态，计算开始计时的时间点
   let startTime: number;
 
   switch (orderStatus) {
     case OrderStatus.PENDING:
-      // 待确认状态从创建时间开始计时
       startTime = new Date(createTime).getTime();
       break;
 
     case OrderStatus.CONFIRMED:
     case OrderStatus.PAYMENT_PENDING:
-      // 已确认和支付中状态从确认时间或更新时间开始计时
       startTime = confirmTime
         ? new Date(confirmTime).getTime()
         : updateTime
@@ -122,18 +114,13 @@ export function calculateRemainingTime(
       break;
 
     default:
-      // 其他状态不考虑超时
       return Infinity;
   }
 
-  // 计算截止时间
   const endTime = startTime + timeout;
-
-  // 计算剩余时间（使用同步后的时间）
   const now = getCurrentTime();
   const remaining = endTime - now;
 
-  // 返回剩余时间（如果小于0，表示已超时）
   return Math.max(0, remaining);
 }
 
@@ -144,10 +131,11 @@ export function isOrderTimedOut(
   orderStatus: OrderStatus,
   createTime: string,
   confirmTime?: string,
-  updateTime?: string
+  updateTime?: string,
+  customTimeoutConfig?: Record<string, number>
 ): boolean {
   return (
-    calculateRemainingTime(orderStatus, createTime, confirmTime, updateTime) ===
+    calculateRemainingTime(orderStatus, createTime, confirmTime, updateTime, customTimeoutConfig) ===
     0
   );
 }
@@ -169,7 +157,6 @@ export function getTimeoutCountdownText(
     return "已超时";
   }
 
-  // 转换为天、小时、分钟和秒
   const days = Math.floor(remainingTime / (24 * 60 * 60 * 1000));
   const hours = Math.floor(
     (remainingTime % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
@@ -177,7 +164,6 @@ export function getTimeoutCountdownText(
   const minutes = Math.floor((remainingTime % (60 * 60 * 1000)) / (60 * 1000));
   const seconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
 
-  // 根据剩余时间长度返回不同格式
   if (days > 0) {
     return `${days}天${hours}小时`;
   } else if (hours > 0) {
@@ -197,9 +183,9 @@ export function getTimeoutCountdownText(
 export function getTimeoutStatusColor(remainingTime: number): string {
   if (remainingTime === Infinity) return "#909399";
   if (remainingTime <= 0) return "#F56C6C";
-  if (remainingTime < 10 * 60 * 1000) return "#F56C6C"; // 10分钟内
-  if (remainingTime < 30 * 60 * 1000) return "#E6A23C"; // 30分钟内
-  if (remainingTime < 60 * 60 * 1000) return "#409EFF"; // 1小时内
+  if (remainingTime < 10 * 60 * 1000) return "#F56C6C";
+  if (remainingTime < 30 * 60 * 1000) return "#E6A23C";
+  if (remainingTime < 60 * 60 * 1000) return "#409EFF";
   return "#67C23A";
 }
 
@@ -231,10 +217,9 @@ function sendTimeoutWarning(
     title: "订单超时预警",
     message,
     type,
-    duration: 0, // 不自动关闭
+    duration: 0,
     showClose: true,
     onClick: () => {
-      // 点击通知跳转到订单详情
       window.location.href = `/orders/${orderId}`;
     },
   });
@@ -248,20 +233,18 @@ export async function handleOrderTimeout(
   orderStatus: OrderStatus,
   createTime: string,
   confirmTime?: string,
-  updateTime?: string
+  updateTime?: string,
+  customTimeoutConfig?: Record<string, number>
 ): Promise<boolean> {
-  // 再次检查订单是否已超时（防止时间同步问题）
-  if (!isOrderTimedOut(orderStatus, createTime, confirmTime, updateTime)) {
+  if (!isOrderTimedOut(orderStatus, createTime, confirmTime, updateTime, customTimeoutConfig)) {
     return false;
   }
 
-  // 根据不同的状态执行不同的超时处理
   try {
     switch (orderStatus) {
       case OrderStatus.PENDING:
       case OrderStatus.CONFIRMED:
       case OrderStatus.PAYMENT_PENDING:
-        // 对于这些状态的订单，超时后自动取消
         await cancelOrder(orderId, "TIMEOUT");
 
         ElNotification({
@@ -314,6 +297,8 @@ export function clearAllTimers(): void {
  * @param updateTime 订单更新时间
  * @param onTimeout 超时回调函数
  * @param onWarning 预警回调函数
+ * @param customTimeoutConfig 自定义超时配置（单位：毫秒）
+ * @param customWarningConfig 自定义预警配置（单位：毫秒）
  */
 export function setupTimeoutHandler(
   orderId: number,
@@ -322,29 +307,29 @@ export function setupTimeoutHandler(
   confirmTime?: string,
   updateTime?: string,
   onTimeout?: () => void,
-  onWarning?: (remainingTime: number) => void
+  onWarning?: (remainingTime: number) => void,
+  customTimeoutConfig?: Record<string, number>,
+  customWarningConfig?: Record<string, number[]>
 ): boolean {
-  // 清理旧的定时器
   clearOrderTimers(orderId);
 
-  // 计算剩余时间
   const remainingTime = calculateRemainingTime(
     orderStatus,
     createTime,
     confirmTime,
-    updateTime
+    updateTime,
+    customTimeoutConfig
   );
 
-  // 如果已超时或无超时限制，不设置定时器
   if (remainingTime <= 0 || remainingTime === Infinity) {
     return false;
   }
 
   const warningIds: ReturnType<typeof setTimeout>[] = [];
+  const warnings = customWarningConfig || DEFAULT_WARNING_MS;
+  const warningTimes = warnings[orderStatus] || [];
 
-  // 设置预警定时器
-  const warnings = warningConfig[orderStatus] || [];
-  warnings.forEach((warningTime) => {
+  warningTimes.forEach((warningTime) => {
     if (remainingTime > warningTime) {
       const warningDelay = remainingTime - warningTime;
       const warningId = setTimeout(() => {
@@ -357,27 +342,23 @@ export function setupTimeoutHandler(
     }
   });
 
-  // 设置超时定时器
   const timeoutId = setTimeout(async () => {
-    // 处理订单超时
     const handled = await handleOrderTimeout(
       orderId,
       orderStatus,
       createTime,
       confirmTime,
-      updateTime
+      updateTime,
+      customTimeoutConfig
     );
 
-    // 如果成功处理了超时并且提供了回调，则调用回调
     if (handled && onTimeout) {
       onTimeout();
     }
 
-    // 清理定时器
     clearOrderTimers(orderId);
   }, remainingTime);
 
-  // 保存定时器引用
   activeTimers.set(orderId, {
     timeoutId,
     warningIds,
@@ -395,20 +376,22 @@ export function getOrderUrgency(
   orderStatus: OrderStatus,
   createTime: string,
   confirmTime?: string,
-  updateTime?: string
+  updateTime?: string,
+  customTimeoutConfig?: Record<string, number>
 ): "low" | "medium" | "high" | "critical" {
   const remainingTime = calculateRemainingTime(
     orderStatus,
     createTime,
     confirmTime,
-    updateTime
+    updateTime,
+    customTimeoutConfig
   );
 
   if (remainingTime === Infinity) return "low";
   if (remainingTime <= 0) return "critical";
-  if (remainingTime < 10 * 60 * 1000) return "critical"; // 10分钟内
-  if (remainingTime < 30 * 60 * 1000) return "high"; // 30分钟内
-  if (remainingTime < 60 * 60 * 1000) return "medium"; // 1小时内
+  if (remainingTime < 10 * 60 * 1000) return "critical";
+  if (remainingTime < 30 * 60 * 1000) return "high";
+  if (remainingTime < 60 * 60 * 1000) return "medium";
   return "low";
 }
 

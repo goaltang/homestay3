@@ -58,7 +58,7 @@
                 <el-skeleton :rows="5" animated />
             </div>
 
-            <div v-else-if="!filteredOrders.length" class="empty-container">
+            <div v-else-if="!orders.length" class="empty-container">
                 <el-empty description="没有找到订单">
                     <template #description>
                         <p>{{ getEmptyDescription() }}</p>
@@ -68,11 +68,14 @@
             </div>
 
             <template v-else>
-                <div v-for="order in paginatedFilteredOrders" :key="order.id" class="order-card">
+                <div v-for="order in orders" :key="order.id" class="order-card">
                         <!-- 左图 -->
-                        <div class="order-image-col">
+                        <div class="order-image-col" :class="{ 'skeleton': !isImageLoaded(order.id) }">
                             <img :src="processImageUrl(order.imageUrl)" :alt="order.homestayTitle"
-                                @error="handleImageErrorEvent">
+                                loading="lazy"
+                                @load="onImageLoad(order.id)"
+                                @error="onImageError($event, order.id)"
+                                v-show="isImageLoaded(order.id)">
                         </div>
 
                         <!-- 中间信息 -->
@@ -96,13 +99,13 @@
 
                             <!-- 暂存倒计时 -->
                             <div v-if="order.status === 'PENDING'" class="order-countdown warning mt-2">
-                                <el-tooltip content="超过24小时未确认的订单将被自动取消">
-                                    <span><i class="el-icon-time"></i> 确认剩余: {{ getCountdownTime(order.createTime, 24) }}</span>
+                                <el-tooltip :content="`超过${pendingTimeoutHours}小时未确认的订单将被自动取消`">
+                                    <span><i class="el-icon-time"></i> 确认剩余: {{ getCountdownTime(order.createTime, pendingTimeoutHours) }}</span>
                                 </el-tooltip>
                             </div>
                             <div v-if="order.status === 'CONFIRMED'" class="order-countdown danger mt-2">
-                                <el-tooltip content="超过2小时未支付的订单将被自动取消">
-                                    <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime, 2) }}</span>
+                                <el-tooltip :content="`超过${confirmedTimeoutHours}小时未支付的订单将被自动取消`">
+                                    <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime, confirmedTimeoutHours) }}</span>
                                 </el-tooltip>
                             </div>
                         </div>
@@ -126,10 +129,10 @@
                                 <!-- 保留支付提示，或根据需要调整 -->
                                 <div v-if="order.status === 'CONFIRMED' || order.status === 'PAYMENT_PENDING'"
                                     class="payment-reminder danger small-text">
-                                    <el-tooltip content="超过2小时未支付的订单将被自动取消">
+                                    <el-tooltip :content="`超过${confirmedTimeoutHours}小时未支付的订单将被自动取消`">
                                         <span><i class="el-icon-time"></i> 支付剩余: {{ getCountdownTime(order.updateTime ||
                                             order.createTime,
-                                            2)
+                                            confirmedTimeoutHours)
                                         }}</span>
                                     </el-tooltip>
                                 </div>
@@ -178,9 +181,9 @@
                                     @click="cancelOrder(order.id)">取消订单</el-button>
                                 <!-- 保留确认提示 -->
                                 <div v-if="order.status === 'PENDING'" class="payment-reminder warning small-text">
-                                    <el-tooltip content="超过24小时未确认的订单将被自动取消">
+                                    <el-tooltip :content="`超过${pendingTimeoutHours}小时未确认的订单将被自动取消`">
                                         <span><i class="el-icon-time"></i> 确认剩余: {{ getCountdownTime(order.createTime,
-                                            24)
+                                            pendingTimeoutHours)
                                         }}</span>
                                     </el-tooltip>
                                 </div>
@@ -206,7 +209,7 @@
                 </div>
 
                 <div class="pagination-container">
-                    <el-pagination background layout="prev, pager, next" :total="filteredTotal" :page-size="pageSize"
+                    <el-pagination background layout="prev, pager, next" :total="paginationTotal" :page-size="pageSize"
                         :current-page="currentPage" @current-change="handlePageChange" />
                 </div>
             </template>
@@ -225,279 +228,57 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMyOrders, cancelOrder as apiCancelOrder } from '@/api/order'
-import { getHomestayById } from '@/api/homestay'
+import { cancelOrder as apiCancelOrder } from '@/api/order'
 import { submitReview } from '@/api/review'
 import { requestRefund as apiRequestRefund } from '@/api/refund'
 import ReviewForm from '@/components/ReviewForm.vue'
 import { getHomestayImageUrl, handleImageError } from '@/utils/image'
 import { type OrderStatus, type PaymentStatus } from '@/types/index'
-
-interface OrderItem {
-    id: number
-    orderNumber: string
-    homestayId: number
-    homestayTitle: string
-    hostName: string
-    imageUrl?: string
-    guestCount: number
-    checkInDate: string
-    checkOutDate: string
-    nights: number
-    totalAmount: number
-    status: OrderStatus
-    paymentStatus: PaymentStatus
-    createTime: string
-    updateTime: string
-    reviewed?: boolean
-    // 退款相关字段
-    refundType?: string
-    refundReason?: string
-    refundAmount?: number
-    refundInitiatedBy?: number
-    refundInitiatedByName?: string
-    refundInitiatedAt?: string
-    refundProcessedBy?: number
-    refundProcessedByName?: string
-    refundProcessedAt?: string
-    refundTransactionId?: string
-    refundRejectionReason?: string  // 退款被拒绝时的原因
-    // 争议相关字段
-    disputeReason?: string
-    disputeRaisedBy?: number
-    disputeRaisedAt?: string
-    disputeResolvedAt?: string
-    disputeResolution?: string
-    disputeResolutionNote?: string
-}
+import { useOrderStore, type OrderItem } from '@/stores/order'
 
 const router = useRouter()
+const store = useOrderStore()
 
-const loading = ref(true)
-const orders = ref<OrderItem[]>([])
-const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const activeTab = ref('all')
-
-// 状态统计
-const statusCounts = ref({
-    PENDING: 0,
-    NEED_PAYMENT: 0,
-    IN_PROGRESS: 0,
-    COMPLETED: 0,
-    CANCELLED: 0,
-    REFUND_RELATED: 0
-})
 
 // --- 评价模态框状态 ---
 const reviewDialogVisible = ref(false);
 const currentReviewOrder = ref<OrderItem | null>(null);
 
-// 计算状态统计
-const updateStatusCounts = () => {
-    const counts = {
-        PENDING: 0,
-        NEED_PAYMENT: 0,
-        IN_PROGRESS: 0,
-        COMPLETED: 0,
-        CANCELLED: 0,
-        REFUND_RELATED: 0
-    }
+// 从 Store 读取状态
+const loading = computed(() => store.loading)
+const orders = computed(() => store.orders)
+const statusCounts = computed(() => store.statusCounts)
 
-    orders.value.forEach(order => {
-        const status = order.status as OrderStatus
-        const paymentStatus = order.paymentStatus as PaymentStatus
+// 超时配置（从 Store 动态读取，fallback 2h）
+const pendingTimeoutHours = computed(() => store.timeoutConfig?.pendingTimeoutHours ?? 2)
+const confirmedTimeoutHours = computed(() => store.timeoutConfig?.confirmedTimeoutHours ?? 2)
 
-        // 退款相关
-        if (paymentStatus === 'REFUND_PENDING' || paymentStatus === 'REFUNDED' || paymentStatus === 'REFUND_FAILED') {
-            counts.REFUND_RELATED++
-        }
-        // 已取消
-        else if (status.includes('CANCELLED') || status === 'REJECTED') {
-            counts.CANCELLED++
-        }
-        // 已完成
-        else if (status === 'COMPLETED') {
-            counts.COMPLETED++
-        }
-        // 待确认
-        else if (status === 'PENDING') {
-            counts.PENDING++
-        }
-        // 待支付 (已确认但未支付 或 支付中状态)
-        else if ((status === 'CONFIRMED' && (paymentStatus === 'UNPAID' || !paymentStatus)) || status === 'PAYMENT_PENDING') {
-            counts.NEED_PAYMENT++
-        }
-        // 进行中（已支付但未完成）
-        else if (paymentStatus === 'PAID' || status === 'CHECKED_IN' || status === 'READY_FOR_CHECKIN') {
-            counts.IN_PROGRESS++
-        }
-    })
-
-    statusCounts.value = counts
+// 图片加载状态跟踪（用于骨架屏）
+const loadedImages = ref<Set<number>>(new Set())
+const isImageLoaded = (orderId: number) => loadedImages.value.has(orderId)
+const onImageLoad = (orderId: number) => loadedImages.value.add(orderId)
+const onImageError = (event: Event, orderId: number) => {
+    loadedImages.value.add(orderId)
+    handleImageError(event, 'homestay')
 }
 
-// 筛选订单
-const getFilteredOrders = () => {
-    if (activeTab.value === 'all') {
-        return orders.value
-    }
-
-    return orders.value.filter(order => {
-        const status = order.status as OrderStatus
-        const paymentStatus = order.paymentStatus as PaymentStatus
-
-        switch (activeTab.value) {
-            case 'PENDING':
-                return status === 'PENDING'
-            case 'NEED_PAYMENT':
-                return (status === 'CONFIRMED' && (paymentStatus === 'UNPAID' || !paymentStatus)) || status === 'PAYMENT_PENDING'
-            case 'IN_PROGRESS':
-                return paymentStatus === 'PAID' || status === 'CHECKED_IN' || status === 'READY_FOR_CHECKIN'
-            case 'COMPLETED':
-                return status === 'COMPLETED'
-            case 'CANCELLED':
-                return status.includes('CANCELLED') || status === 'REJECTED'
-            case 'REFUND_RELATED':
-                return paymentStatus === 'REFUND_PENDING' || paymentStatus === 'REFUNDED' || paymentStatus === 'REFUND_FAILED'
-            default:
-                return true
-        }
-    })
-}
-
-// 使用筛选后的订单
-const filteredOrders = computed(() => getFilteredOrders())
-
-// 分页筛选后的订单
-const paginatedFilteredOrders = computed(() => {
-    const filtered = filteredOrders.value
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-    return filtered.slice(start, end)
-})
-
-// 当前筛选状态下的总数
-const filteredTotal = computed(() => filteredOrders.value.length)
+// 当前筛选状态下的总数（后端分页返回）
+const paginationTotal = computed(() => store.pagination.total)
 
 
 
 // 获取订单列表
 const fetchOrders = async () => {
-    loading.value = true
-    try {
-        const params: any = {
-            page: 0,
-            size: 1000  // 获取足够多的订单数据，在前端分页
-        }
-
-        // 注意：我们现在获取所有订单，然后在前端进行筛选
-        // 不再向后端传递新的状态分类，因为后端不认识这些状态
-
-        const response = await getMyOrders(params)
-        console.log('获取到订单数据:', response)
-
-        let orderData = response.data
-        let rawOrders: any[] = [];
-
-        // --- 数据提取逻辑，保持不变 ---
-        if (orderData.data && orderData.data.content) {
-            rawOrders = orderData.data.content
-            total.value = orderData.data.totalElements
-        } else if (orderData.data && Array.isArray(orderData.data.content)) {
-            rawOrders = orderData.data.content
-            total.value = orderData.data.totalElements || orderData.data.content.length
-        } else if (orderData.content) {
-            rawOrders = orderData.content
-            total.value = orderData.totalElements || orderData.content.length
-        } else if (Array.isArray(orderData)) {
-            rawOrders = orderData
-            total.value = orderData.length
-        } else if (Array.isArray(orderData.content)) {
-            rawOrders = orderData.content
-            total.value = orderData.totalElements || orderData.totalPages * orderData.size
-        } else {
-            console.warn('未识别的订单数据格式:', orderData)
-            rawOrders = []
-            total.value = 0
-        }
-        // --- 数据提取逻辑结束 ---
-
-        // --- 数据映射 --- 
-        orders.value = rawOrders.map((order: any): OrderItem => ({
-            id: order.id,
-            orderNumber: order.orderNumber,
-            homestayId: order.homestayId,
-            homestayTitle: order.homestayTitle,
-            hostName: order.hostName,
-            imageUrl: order.imageUrl, // 后端DTO似乎没有这个，依赖 updateOrderImages
-            guestCount: order.guestCount,
-            checkInDate: order.checkInDate,
-            checkOutDate: order.checkOutDate,
-            nights: order.nights,
-            totalAmount: order.totalAmount,
-            status: order.status as OrderStatus,
-            paymentStatus: order.paymentStatus as PaymentStatus,
-            createTime: order.createTime,
-            updateTime: order.updateTime,
-            reviewed: order.reviewed ?? false,
-            refundType: order.refundType,
-            refundReason: order.refundReason,
-            refundAmount: order.refundAmount,
-            refundInitiatedByName: order.refundInitiatedByName,
-            refundInitiatedAt: order.refundInitiatedAt,
-            refundProcessedByName: order.refundProcessedByName,
-            refundProcessedAt: order.refundProcessedAt,
-            refundTransactionId: order.refundTransactionId,
-            refundRejectionReason: order.refundRejectionReason
-        }));
-
-        console.log('处理后的订单数据 (含reviewed):', orders.value);
-        console.log('总数量:', total.value);
-
-        await updateOrderImages(); // 图片更新逻辑保持不变
-
-        // 更新状态统计
-        updateStatusCounts()
-
-    } catch (error) {
-        console.error('获取订单列表失败:', error)
-        ElMessage.error('获取订单列表失败，请刷新页面重试')
-        orders.value = []
-        total.value = 0
-    } finally {
-        loading.value = false
-    }
-}
-
-// 更新订单的房源图片
-const updateOrderImages = async () => {
-    if (!orders.value.length) return
-
-    // 使用Promise.all并行获取所有订单的房源图片
-    const updatePromises = orders.value.map(async (order) => {
-        if (!order.homestayId) return
-        try {
-            const response = await getHomestayById(order.homestayId)
-            if (response && response.data) {
-                // 更新订单图片为房源的封面图或第一张图片
-                const coverImage = response.data.coverImage ||
-                    (response.data.images && response.data.images.length > 0 ?
-                        response.data.images[0] : null)
-
-                if (coverImage) {
-                    order.imageUrl = coverImage
-                    console.log(`订单${order.id}更新图片: ${order.imageUrl}`)
-                }
-            }
-        } catch (error) {
-            console.error(`获取订单${order.id}对应的房源详情失败:`, error)
-        }
+    await store.fetchOrders({
+        page: currentPage.value - 1,
+        size: pageSize.value,
+        tab: activeTab.value === 'all' ? undefined : activeTab.value
     })
-
-    // 等待所有图片更新完成
-    await Promise.all(updatePromises)
+    // 切换页码/Tab 后重置图片加载状态
+    loadedImages.value.clear()
 }
 
 // 处理图片URL
@@ -505,22 +286,17 @@ const processImageUrl = (url?: string) => {
     return getHomestayImageUrl(url);
 }
 
-// 处理图片加载错误事件处理器
-const handleImageErrorEvent = (event: Event) => {
-    handleImageError(event, 'homestay');
-}
-
 // 处理标签页切换
 const handleTabChange = () => {
     currentPage.value = 1
-    // 不需要重新获取数据，只需要更新统计
-    updateStatusCounts()
+    // Tab 切换时重新获取数据（后续可配合后端 status 参数做精确分页）
+    fetchOrders()
 }
 
 // 处理分页变化
 const handlePageChange = (page: number) => {
     currentPage.value = page
-    // 不需要重新获取数据，分页由计算属性自动处理
+    fetchOrders()
 }
 
 // 取消订单
@@ -564,6 +340,7 @@ const cancelOrder = async (orderId: number) => {
                         } else {
                             // 刷新当前页面的订单列表
                             fetchOrders()
+                            store.fetchStatsOrders()
                         }
                     }
                 }
@@ -625,6 +402,7 @@ const requestRefund = async (orderId: number) => {
             ElMessage.closeAll()
             ElMessage.success('退款申请已提交，请耐心等待处理')
             fetchOrders() // 刷新订单列表
+            store.fetchStatsOrders() // 刷新统计
         } catch (error: any) {
             ElMessage.closeAll()
             console.error('申请退款失败:', error)
@@ -870,7 +648,11 @@ const handleSubmitReview = async (reviewData: any) => {
 
 // 初始化
 onMounted(() => {
+    if (!store.timeoutConfig) {
+        store.fetchTimeoutConfig()
+    }
     fetchOrders()
+    store.fetchStatsOrders() // 额外拉取数据用于 badge 统计
 })
 </script>
 
@@ -955,6 +737,18 @@ onMounted(() => {
     border-radius: 8px;
     overflow: hidden;
     flex-shrink: 0;
+    background-color: #f2f2f2;
+}
+
+.order-image-col.skeleton {
+    background: linear-gradient(90deg, #f2f2f2 25%, #e6e6e6 50%, #f2f2f2 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .order-image-col img {

@@ -39,6 +39,7 @@ import {
     isOrderTimedOut
 } from '@/utils/orderTimeout'
 import { OrderStatus } from '@/types/order'
+import { useOrderStore } from '@/stores/order'
 
 interface Props {
     orderId: number
@@ -124,52 +125,71 @@ const warningMessage = computed(() => {
     }
 })
 
+const store = useOrderStore();
+
 // 获取超时描述文本
 function getTimeoutDescription(): string {
+    const config = store.timeoutConfig;
     switch (props.orderStatus) {
         case OrderStatus.PENDING:
-            return '超过24小时未确认，订单将自动取消'
+            return `超过${config?.pendingTimeoutHours ?? 2}小时未确认，订单将自动取消`;
         case OrderStatus.CONFIRMED:
         case OrderStatus.PAYMENT_PENDING:
-            return '超过2小时未支付，订单将自动取消'
+            return `超过${config?.confirmedTimeoutHours ?? 2}小时未支付，订单将自动取消`;
         default:
-            return ''
+            return '';
     }
 }
 
 // 方法
 function getTotalTimeout(): number {
+    const config = store.timeoutConfig;
     switch (props.orderStatus) {
         case OrderStatus.PENDING:
-            return 24 * 60 * 60 * 1000 // 24小时
+            return (config?.pendingTimeoutHours ?? 2) * 60 * 60 * 1000;
         case OrderStatus.CONFIRMED:
         case OrderStatus.PAYMENT_PENDING:
-            return 2 * 60 * 60 * 1000 // 2小时
+            return (config?.confirmedTimeoutHours ?? 2) * 60 * 60 * 1000;
         default:
-            return 0
+            return 0;
     }
 }
 
+function buildTimeoutConfig(): Record<string, number> {
+    const config = store.timeoutConfig;
+    if (!config) return {};
+    return {
+        [OrderStatus.PENDING]: config.pendingTimeoutHours * 60 * 60 * 1000,
+        [OrderStatus.CONFIRMED]: config.confirmedTimeoutHours * 60 * 60 * 1000,
+        [OrderStatus.PAYMENT_PENDING]: config.paymentPendingTimeoutHours * 60 * 60 * 1000,
+    };
+}
+
 function updateStatus(): void {
+    const timeoutConfig = buildTimeoutConfig();
+
     remainingTime.value = calculateRemainingTime(
         props.orderStatus,
         props.createTime,
         props.confirmTime,
-        props.updateTime
+        props.updateTime,
+        timeoutConfig
     )
 
     isTimedOut.value = isOrderTimedOut(
         props.orderStatus,
         props.createTime,
         props.confirmTime,
-        props.updateTime
+        props.updateTime,
+        timeoutConfig
     )
 
     urgency.value = getOrderUrgency(
         props.orderStatus,
         props.createTime,
         props.confirmTime,
-        props.updateTime
+        props.updateTime,
+        timeoutConfig
     )
 }
 

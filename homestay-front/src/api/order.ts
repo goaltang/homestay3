@@ -449,6 +449,7 @@ export function getMyOrders(params?: {
   page?: number;
   size?: number;
   status?: string;
+  tab?: string;
 }) {
   console.log("获取我的订单列表，参数:", params);
   return request({
@@ -586,6 +587,19 @@ export function getMyOrders(params?: {
 
       throw error;
     });
+}
+
+/**
+ * 获取订单超时配置
+ */
+export function getTimeoutConfig() {
+  return request({
+    url: "/api/orders/timeout-config",
+    method: "get",
+  }).catch((error) => {
+    handleApiError(error, "获取超时配置失败");
+    throw error;
+  });
 }
 
 /**

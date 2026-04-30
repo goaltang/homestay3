@@ -9,8 +9,10 @@ import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.DisputeService;
+import com.homestay3.homestaybackend.service.IOrderTimeoutService;
 import com.homestay3.homestaybackend.service.OrderService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
+import com.homestay3.homestaybackend.service.impl.OrderStatusUpdater;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -42,6 +44,8 @@ public class OrderController {
     private final OrderRepository orderRepository;
     private final PaymentProcessingService paymentProcessingService;
     private final DisputeService disputeService;
+    private final IOrderTimeoutService orderTimeoutService;
+    private final OrderStatusUpdater orderStatusUpdater;
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     @PostMapping
@@ -59,11 +63,15 @@ public class OrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String tab,
             Authentication authentication) {
         try {
             Map<String, String> params = new HashMap<>();
             if (status != null) {
                 params.put("status", status);
+            }
+            if (tab != null) {
+                params.put("tab", tab);
             }
 
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -184,6 +192,15 @@ public class OrderController {
         }
     }
 
+    @GetMapping("/timeout-config")
+    public ResponseEntity<?> getTimeoutConfig() {
+        try {
+            return ResponseEntity.ok(orderTimeoutService.getTimeoutConfig());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping("/pending/count")
     @PreAuthorize("hasAnyRole('HOST', 'LANDLORD')")
     public ResponseEntity<?> getPendingOrderCount(Authentication authentication) {
@@ -242,8 +259,7 @@ public class OrderController {
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
 
-            order.setStatus(OrderStatus.PAID.name());
-            order.setPaymentStatus(PaymentStatus.PAID);
+            orderStatusUpdater.markPaid(order);
             Order updatedOrder = orderRepository.save(order);
 
             // 触发统一支付成功后置处理（核销优惠券、生成收益等）
@@ -818,6 +834,7 @@ public class OrderController {
                 .totalAmount(order.getTotalAmount())
                 .status(order.getStatus())
                 .remark(order.getRemark())
+                .imageUrl(order.getHomestay() != null ? order.getHomestay().getCoverImage() : null)
                 .createTime(order.getCreatedAt())
                 .updateTime(order.getUpdatedAt())
                 .build();

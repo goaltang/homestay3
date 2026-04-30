@@ -50,6 +50,7 @@ public class CheckInServiceImpl implements CheckInService {
     private final CheckInRecordRepository checkInRecordRepository;
     private final SystemConfigService systemConfigService;
     private final NotificationService notificationService;
+    private final OrderStatusUpdater orderStatusUpdater;
 
     @Override
     @Transactional
@@ -95,7 +96,7 @@ public class CheckInServiceImpl implements CheckInService {
         checkInRecordRepository.save(checkInRecord);
 
         // 更新订单状态
-        order.setStatus(OrderStatus.READY_FOR_CHECKIN.name());
+        orderStatusUpdater.markReadyForCheckIn(order);
         order.setCheckInCode(checkInCode);
         order.setDoorPassword(credentialDTO.getDoorPassword());
         order.setAutoCheckinTime(parseAutoCheckinTime().format(DateTimeFormatter.ofPattern("HH:mm")));
@@ -150,7 +151,7 @@ public class CheckInServiceImpl implements CheckInService {
         LocalDateTime now = LocalDateTime.now();
 
         // 更新订单
-        order.setStatus(OrderStatus.CHECKED_IN.name());
+        orderStatusUpdater.markCheckedIn(order);
         order.setCheckedInAt(now);
         orderRepository.save(order);
 
@@ -198,7 +199,7 @@ public class CheckInServiceImpl implements CheckInService {
         }
 
         // 更新订单
-        order.setStatus(OrderStatus.CHECKED_IN.name());
+        orderStatusUpdater.markCheckedIn(order);
         order.setCheckedInAt(now);
         orderRepository.save(order);
 
@@ -264,7 +265,7 @@ public class CheckInServiceImpl implements CheckInService {
         }
 
         // 更新订单状态回 PAID
-        order.setStatus(OrderStatus.PAID.name());
+        orderStatusUpdater.markPaid(order, "取消准备入住");
         order.setCheckInCode(null);
         order.setDoorPassword(null);
         orderRepository.save(order);

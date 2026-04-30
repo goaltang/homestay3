@@ -52,6 +52,7 @@ public class CheckOutServiceImpl implements CheckOutService {
     private final SystemConfigService systemConfigService;
     private final NotificationService notificationService;
     private final EarningService earningService;
+    private final OrderStatusUpdater orderStatusUpdater;
 
     @Override
     @Transactional
@@ -109,7 +110,7 @@ public class CheckOutServiceImpl implements CheckOutService {
         checkOutRecordRepository.save(record);
 
         // 更新订单状态
-        order.setStatus(OrderStatus.CHECKED_OUT.name());
+        orderStatusUpdater.markCheckedOut(order);
         order.setCheckedOutAt(now);
         orderRepository.save(order);
 
@@ -261,7 +262,7 @@ public class CheckOutServiceImpl implements CheckOutService {
         checkOutRecordRepository.save(record);
 
         // 更新订单状态
-        order.setStatus(OrderStatus.COMPLETED.name());
+        orderStatusUpdater.markCompleted(order);
         orderRepository.save(order);
 
         // 发送结算完成通知

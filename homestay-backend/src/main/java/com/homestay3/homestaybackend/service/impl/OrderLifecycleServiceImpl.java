@@ -88,6 +88,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     private final ObjectProvider<SystemConfigService> systemConfigServiceProvider;
     private final UserBehaviorTrackingService userBehaviorTrackingService;
     private final com.homestay3.homestaybackend.service.PaymentProcessingService paymentProcessingService;
+    private final OrderStatusUpdater orderStatusUpdater;
 
     // Note: Payment processing is handled by PaymentProcessingService, not here
 
@@ -310,7 +311,11 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             }
 
             // 10. 设置支付状态
-            savedOrder.setPaymentStatus(PaymentStatus.UNPAID);
+            if (OrderStatus.CONFIRMED.name().equals(savedOrder.getStatus())) {
+                orderStatusUpdater.markConfirmed(savedOrder);
+            } else {
+                orderStatusUpdater.markPending(savedOrder);
+            }
             savedOrder = orderRepository.save(savedOrder);
 
             trackBookingAfterCommit(currentUser.getId(), homestay);
@@ -392,23 +397,92 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     @Transactional(readOnly = true)
     public Page<OrderDTO> getMyOrders(Map<String, String> params, Pageable pageable) {
         User currentUser = getCurrentUser();
+        Specification<Order> spec = buildMyOrdersSpec(params, currentUser);
+        return orderRepository.findAll(spec, pageable).map(this::convertToDTO);
+    }
 
-        // 创建查询条件
-        Specification<Order> spec = (root, query, cb) -> {
+    /**
+     * 构建我的订单查询条件
+     * 支持 tab 复合查询和单 status 兼容查询
+     */
+    private Specification<Order> buildMyOrdersSpec(Map<String, String> params, User currentUser) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
             // 当前用户作为客人
             predicates.add(cb.equal(root.get("guest"), currentUser));
 
-            // 按状态筛选
-            if (params.containsKey("status")) {
-                predicates.add(cb.equal(root.get("status"), params.get("status")));
+            String tab = params.get("tab");
+            if (tab != null && !tab.isBlank() && !"all".equalsIgnoreCase(tab)) {
+                Predicate tabPredicate = buildTabPredicate(root, cb, tab);
+                if (tabPredicate != null) {
+                    predicates.add(tabPredicate);
+                }
+            } else {
+                // 无 tab 时兼容旧逻辑
+                if (params.containsKey("status")) {
+                    predicates.add(cb.equal(root.get("status"), params.get("status")));
+                }
+                if (params.containsKey("statusIn")) {
+                    String[] statuses = params.get("statusIn").split(",");
+                    predicates.add(root.get("status").in((Object[]) statuses));
+                }
+                if (params.containsKey("paymentStatus")) {
+                    try {
+                        PaymentStatus ps = PaymentStatus.valueOf(params.get("paymentStatus"));
+                        predicates.add(cb.equal(root.get("paymentStatus"), ps));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("无效的支付状态筛选值: {}", params.get("paymentStatus"));
+                    }
+                }
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
 
-        return orderRepository.findAll(spec, pageable).map(this::convertToDTO);
+    /**
+     * 根据 tab 名称构建复合查询条件
+     */
+    private Predicate buildTabPredicate(jakarta.persistence.criteria.Root<Order> root,
+                                        jakarta.persistence.criteria.CriteriaBuilder cb,
+                                        String tab) {
+        switch (tab) {
+            case "PENDING":
+                return cb.equal(root.get("status"), OrderStatus.PENDING.name());
+            case "NEED_PAYMENT":
+                return cb.or(
+                        cb.and(
+                                cb.equal(root.get("status"), OrderStatus.CONFIRMED.name()),
+                                cb.or(
+                                        cb.equal(root.get("paymentStatus"), PaymentStatus.UNPAID),
+                                        cb.isNull(root.get("paymentStatus"))
+                                )
+                        ),
+                        cb.equal(root.get("status"), OrderStatus.PAYMENT_PENDING.name())
+                );
+            case "IN_PROGRESS":
+                return cb.or(
+                        cb.equal(root.get("paymentStatus"), PaymentStatus.PAID),
+                        cb.equal(root.get("status"), OrderStatus.CHECKED_IN.name()),
+                        cb.equal(root.get("status"), OrderStatus.READY_FOR_CHECKIN.name())
+                );
+            case "COMPLETED":
+                return cb.equal(root.get("status"), OrderStatus.COMPLETED.name());
+            case "CANCELLED":
+                return cb.or(
+                        cb.like(root.get("status"), "CANCELLED%"),
+                        cb.equal(root.get("status"), OrderStatus.REJECTED.name())
+                );
+            case "REFUND_RELATED":
+                return cb.or(
+                        cb.equal(root.get("paymentStatus"), PaymentStatus.REFUND_PENDING),
+                        cb.equal(root.get("paymentStatus"), PaymentStatus.REFUNDED),
+                        cb.equal(root.get("paymentStatus"), PaymentStatus.REFUND_FAILED)
+                );
+            default:
+                return null;
+        }
     }
 
     @Override
@@ -486,10 +560,8 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         // 更新订单状态
-        order.setStatus(targetStatus.name());
-
-        // 根据目标状态执行特定逻辑
         if (targetStatus == OrderStatus.CONFIRMED) {
+            orderStatusUpdater.markHostConfirmed(order);
             if (!isOrderOwner(order, currentUser)) {
                 throw new AccessDeniedException("只有房东才能确认订单");
             }
@@ -531,7 +603,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         // 更新订单状态
-        order.setStatus(OrderStatus.REJECTED.name());
+        orderStatusUpdater.markRejected(order);
         order.setRemark((order.getRemark() != null ? order.getRemark() + "\n" : "") + "拒绝原因: " + reason);
         order.setUpdatedAt(LocalDateTime.now());
         Order updatedOrder = orderRepository.save(order);
@@ -587,7 +659,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         // 更新订单状态
-        order.setStatus(targetStatus.name());
+        orderStatusUpdater.markCheckedIn(order);
         order.setCheckedInAt(LocalDateTime.now());
 
         // 保存更新后的订单
@@ -624,7 +696,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         }
 
         // 更新订单状态
-        order.setStatus(targetStatus.name());
+        orderStatusUpdater.markCheckedOut(order);
         order.setCheckedOutAt(LocalDateTime.now());
 
         // 完成订单时生成待结算收益
@@ -743,12 +815,9 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
             throw new IllegalArgumentException("无效的订单状态转换: 从 " + currentStatus + " 到 " + targetStatus);
         }
 
-        // 更新订单状态
-        order.setStatus(targetStatus.name());
-
         // 根据目标状态执行特定逻辑
         if (targetStatus == OrderStatus.PAID) {
-            order.setPaymentStatus(PaymentStatus.PAID);
+            orderStatusUpdater.markPaid(order);
             // 统一支付成功后置处理（核销优惠券、更新活动流水、生成收益、发送通知等）
             try {
                 paymentProcessingService.handleOrderPaidSuccess(order.getId());
@@ -756,6 +825,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 log.error("订单支付成功后置处理失败，订单: {}", order.getId(), e);
             }
         } else if (targetStatus == OrderStatus.CONFIRMED) {
+            orderStatusUpdater.markHostConfirmed(order);
             if (!isOrderOwner(order, currentUser)) {
                 throw new AccessDeniedException("只有房东才能确认订单");
             }
@@ -771,6 +841,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                         e.getMessage(), e);
             }
         } else if (targetStatus == OrderStatus.COMPLETED) {
+            orderStatusUpdater.markCompleted(order);
             // 检查当前用户是否有权标记完成 (房东、房客或管理员)
             boolean isAdmin = currentUser.getRole().contains("ADMIN");
             if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser) && !isAdmin) {
@@ -808,6 +879,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 log.error("订单 {} 完成返券失败: {}", order.getOrderNumber(), e.getMessage());
             }
         } else if (targetStatus == OrderStatus.CHECKED_IN) {
+            orderStatusUpdater.markCheckedIn(order);
             if (!isOrderOwner(order, currentUser) && !isOrderGuest(order, currentUser)) {
                 throw new AccessDeniedException("无权标记此订单为入住状态");
             }
@@ -1147,8 +1219,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 BigDecimal calculatedRefund = calculateRefundAmount(order);
                 String refundTradeNo = "ADMIN_REFUND_" + System.currentTimeMillis();
 
-                order.setStatus(OrderStatus.REFUNDED.name());
-                order.setPaymentStatus(PaymentStatus.REFUNDED);
+                orderStatusUpdater.markRefunded(order);
                 order.setRefundType(RefundType.ADMIN_INITIATED);
                 order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "管理员取消订单");
                 order.setRefundAmount(calculatedRefund);
@@ -1176,8 +1247,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                             String.format("不允许从当前状态 [%s] 进入退款流程", currentStatus.getDescription()));
                 }
 
-                order.setStatus(targetStatus.name());
-                order.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                orderStatusUpdater.markRefundPending(order);
                 order.setRefundType(refundType);
                 order.setRefundReason(reason != null && !reason.isEmpty() ? reason : "订单取消导致退款");
 
@@ -1205,7 +1275,15 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                         String.format("不允许从当前状态 [%s] 取消订单", currentStatus.getDescription()));
             }
 
-            order.setStatus(targetStatus.name());
+            if (targetStatus == OrderStatus.CANCELLED) {
+                orderStatusUpdater.markCancelled(order);
+            } else if (targetStatus == OrderStatus.CANCELLED_BY_USER) {
+                orderStatusUpdater.markCancelledByUser(order);
+            } else if (targetStatus == OrderStatus.CANCELLED_BY_HOST) {
+                orderStatusUpdater.markCancelledByHost(order);
+            } else if (targetStatus == OrderStatus.CANCELLED_SYSTEM) {
+                orderStatusUpdater.markCancelledBySystem(order);
+            }
             if (reason != null && !reason.isEmpty()) {
                 if (order.getRemark() != null && !order.getRemark().isEmpty()) {
                     order.setRemark(order.getRemark() + "\n取消原因: " + reason);
@@ -1478,6 +1556,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 .remark(order.getRemark())
                 .hostId(hostId)
                 .hostName(hostName)
+                .imageUrl(order.getHomestay() != null ? order.getHomestay().getCoverImage() : null)
                 .createTime(order.getCreatedAt())
                 .updateTime(order.getUpdatedAt())
                 .isReviewed(isReviewed)
