@@ -199,12 +199,13 @@ export function updateHomestayStatus(id: number, status: string) {
 }
 
 // 更新首页精选状态
-export function updateHomestayFeatured(id: number, featured: boolean): Promise<Homestay> {
-  return request<any>({
+export function updateHomestayFeatured(id: number, featured: boolean): Promise<any> {
+  console.log('API调用: PUT /api/admin/homestays/' + id + '/featured', { featured })
+  return request({
     url: `/api/admin/homestays/${id}/featured`,
-    method: "put",
+    method: 'put',
     data: { featured },
-  }).then((response) => adaptHomestayItem(response.data || response));
+  })
 }
 
 // 新增: 批量删除房源

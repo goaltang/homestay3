@@ -26,6 +26,19 @@
         <el-table :data="tableData" border style="width: 100%" v-loading="loading"
             @selection-change="handleSelectionChange" @sort-change="handleSortChange">
             <el-table-column type="selection" width="55" />
+            <!-- 新增：封面列 -->
+            <el-table-column label="封面" width="120">
+                <template #default="scope">
+                    <el-image 
+                        v-if="scope.row.coverImage || (scope.row.images && scope.row.images.length > 0)"
+                        :src="scope.row.coverImage || scope.row.images[0]" 
+                        :preview-src-list="scope.row.images || []"
+                        fit="cover"
+                        style="width: 80px; height: 60px; border-radius: 4px;"
+                    />
+                    <div v-else class="no-image">无图</div>
+                </template>
+            </el-table-column>
             <el-table-column prop="id" label="ID" width="80" sortable="custom" />
             <el-table-column prop="title" label="房源名称" sortable="custom" />
             <el-table-column prop="price" label="价格" width="120" sortable="custom">
@@ -53,62 +66,57 @@
                         placement="top"
                     >
                         <el-switch
-                            :model-value="Boolean(scope.row.featured)"
+                            :model-value="!!scope.row.featured"
                             :loading="isFeaturedUpdating(scope.row.id)"
                             active-text="是"
                             inactive-text="否"
                             inline-prompt
-                            @change="value => handleFeaturedChange(scope.row, Boolean(value))"
+                            @change="(val: boolean) => handleFeaturedChange(scope.row, val)"
                         />
                     </el-tooltip>
                 </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="300" fixed="right">
+            <el-table-column label="操作" width="180" fixed="right">
                 <template #default="scope">
-                    <!-- 待审核状态 - 引导到审核工作台 -->
-                    <template v-if="scope.row.status === 'PENDING'">
-                        <el-button type="warning" link @click="goToAuditWorkbenchWithId(scope.row.id)">
-                            <el-icon>
-                                <Document />
-                            </el-icon>
-                            去审核
+                    <el-button type="primary" link @click="handleViewDetail(scope.row)">详情</el-button>
+                    <el-dropdown @command="(cmd: string) => handleCommand(cmd, scope.row)">
+                        <el-button type="primary" link>
+                            更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
                         </el-button>
-                        <el-button type="primary" link @click="handleViewDetail(scope.row)">查看详情</el-button>
-                        <el-button type="info" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
-                    </template>
-
-                    <!-- 已上架状态 -->
-                    <template v-if="scope.row.status === 'ACTIVE'">
-                        <el-button type="info" link @click="handleToggleStatus(scope.row)">下架</el-button>
-                        <el-button type="danger" link @click="handleForceDelist(scope.row)">强制下架</el-button>
-                        <el-button type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-                        <el-button type="success" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
-                        <el-button type="warning" link @click="handleViewViolations(scope.row)">违规记录</el-button>
-                    </template>
-
-                    <!-- 已下架状态 -->
-                    <template v-if="scope.row.status === 'INACTIVE'">
-                        <el-button type="success" link @click="handleToggleStatus(scope.row)">上架</el-button>
-                        <el-button type="danger" link @click="handleForceDelist(scope.row)">强制下架</el-button>
-                        <el-button type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-                        <el-button type="info" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
-                        <el-button type="warning" link @click="handleViewViolations(scope.row)">违规记录</el-button>
-                    </template>
-
-                    <!-- 已拒绝状态 -->
-                    <template v-if="scope.row.status === 'REJECTED'">
-                        <el-button type="primary" link @click="handleViewDetail(scope.row)">查看详情</el-button>
-                        <el-button type="warning" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
-                        <el-button type="danger" link @click="handleDelete(scope.row)">删除</el-button>
-                    </template>
-
-                    <!-- 其他状态 -->
-                    <template v-if="['DRAFT', 'SUSPENDED'].includes(scope.row.status)">
-                        <el-button type="primary" link @click="handleEdit(scope.row)">编辑</el-button>
-                        <el-button type="info" link @click="handleViewAuditLogs(scope.row)">审核记录</el-button>
-                        <el-button type="danger" link @click="handleDelete(scope.row)">删除</el-button>
-                    </template>
+                        <template #dropdown>
+                            <el-dropdown-menu>
+                                <template v-if="scope.row.status === 'PENDING'">
+                                    <el-dropdown-item command="audit">去审核</el-dropdown-item>
+                                    <el-dropdown-item command="auditLog">审核记录</el-dropdown-item>
+                                </template>
+                                <template v-if="scope.row.status === 'ACTIVE'">
+                                    <el-dropdown-item command="toggleStatus">下架</el-dropdown-item>
+                                    <el-dropdown-item command="forceDelist">强制下架</el-dropdown-item>
+                                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                                    <el-dropdown-item command="auditLog">审核记录</el-dropdown-item>
+                                    <el-dropdown-item command="violations">违规记录</el-dropdown-item>
+                                </template>
+                                <template v-if="scope.row.status === 'INACTIVE'">
+                                    <el-dropdown-item command="toggleStatus">上架</el-dropdown-item>
+                                    <el-dropdown-item command="forceDelist">强制下架</el-dropdown-item>
+                                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                                    <el-dropdown-item command="auditLog">审核记录</el-dropdown-item>
+                                    <el-dropdown-item command="violations">违规记录</el-dropdown-item>
+                                </template>
+                                <template v-if="scope.row.status === 'REJECTED'">
+                                    <el-dropdown-item command="viewDetail">查看详情</el-dropdown-item>
+                                    <el-dropdown-item command="auditLog">审核记录</el-dropdown-item>
+                                    <el-dropdown-item command="delete">删除</el-dropdown-item>
+                                </template>
+                                <template v-if="['DRAFT', 'SUSPENDED'].includes(scope.row.status)">
+                                    <el-dropdown-item command="edit">编辑</el-dropdown-item>
+                                    <el-dropdown-item command="auditLog">审核记录</el-dropdown-item>
+                                    <el-dropdown-item command="delete">删除</el-dropdown-item>
+                                </template>
+                            </el-dropdown-menu>
+                        </template>
+                    </el-dropdown>
                 </template>
             </el-table-column>
         </el-table>
@@ -140,7 +148,39 @@
                     <el-descriptions-item label="描述" :span="2">
                         {{ currentDetailItem.description || '暂无描述' }}
                     </el-descriptions-item>
+                    <!-- 房东信息 -->
+                    <el-descriptions-item label="房东姓名" v-if="currentDetailItem.landlord">
+                        {{ currentDetailItem.landlord.name || 'N/A' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="房东手机" v-if="currentDetailItem.landlord">
+                        {{ currentDetailItem.landlord.phone || 'N/A' }}
+                    </el-descriptions-item>
                 </el-descriptions>
+
+                <!-- 房源图片 -->
+                <div class="detail-section" v-if="currentDetailItem.images && currentDetailItem.images.length > 0">
+                    <h4>房源图片</h4>
+                    <div class="image-list">
+                        <el-image 
+                            v-for="(img, index) in currentDetailItem.images" 
+                            :key="index"
+                            :src="img" 
+                            :preview-src-list="currentDetailItem.images"
+                            fit="cover"
+                            class="detail-image"
+                        />
+                    </div>
+                </div>
+
+                <!-- 配套设施 -->
+                <div class="detail-section" v-if="currentDetailItem.amenities && currentDetailItem.amenities.length > 0">
+                    <h4>配套设施</h4>
+                    <div class="amenity-list">
+                        <el-tag v-for="(amenity, index) in currentDetailItem.amenities" :key="index" class="amenity-tag">
+                            {{ amenity }}
+                        </el-tag>
+                    </div>
+                </div>
             </div>
             <template #footer>
                 <el-button @click="detailDialogVisible = false">关闭</el-button>
@@ -265,29 +305,58 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, ArrowRight, Plus, Warning } from '@element-plus/icons-vue'
+import { Document, ArrowRight, Plus, Warning, ArrowDown } from '@element-plus/icons-vue'
 import {
     getHomestayList,
     deleteHomestay,
     updateHomestayStatus,
+    updateHomestayFeatured,
     batchDeleteHomestays,
     batchUpdateHomestayStatus,
     getHomestayDetail,
     getHomestayAuditLogs,
-    forceDelistHomestay,
-    updateHomestayFeatured
+    forceDelistHomestay
 } from '@/api/homestay'
 import { getHomestayReports } from '@/api/violation'
 import type { Homestay } from '@/types'
 import TableSearch from '@/components/table-search.vue'
 import type { FormOptionList } from '@/types/form-option'
-// 简化的区域代码映射
+// 区域代码映射（两位国标码）
 const codeToText: Record<string, string> = {
     '11': '北京市',
     '12': '天津市',
+    '13': '河北省',
+    '14': '山西省',
+    '15': '内蒙古自治区',
+    '21': '辽宁省',
+    '22': '吉林省',
+    '23': '黑龙江省',
     '31': '上海市',
+    '32': '江苏省',
+    '33': '浙江省',
+    '34': '安徽省',
+    '35': '福建省',
+    '36': '江西省',
+    '37': '山东省',
+    '41': '河南省',
+    '42': '湖北省',
+    '43': '湖南省',
+    '44': '广东省',
+    '45': '广西壮族自治区',
+    '46': '海南省',
     '50': '重庆市',
-    // 可以根据需要添加更多地区代码
+    '51': '四川省',
+    '52': '贵州省',
+    '53': '云南省',
+    '54': '西藏自治区',
+    '61': '陕西省',
+    '62': '甘肃省',
+    '63': '青海省',
+    '64': '宁夏回族自治区',
+    '65': '新疆维吾尔自治区',
+    '71': '台湾省',
+    '81': '香港特别行政区',
+    '82': '澳门特别行政区',
 }
 
 // 定义 AuditLog 类型
@@ -312,6 +381,10 @@ const router = useRouter()
 const searchForm = reactive({
     name: '',
     status: '',
+    type: '',
+    minPrice: undefined as number | undefined,
+    maxPrice: undefined as number | undefined,
+    landlordName: '',
     sort: 'createdAt,desc'
 })
 
@@ -326,6 +399,15 @@ const searchOptions: FormOptionList[] = [
         { label: '已拒绝', value: 'REJECTED' },
         { label: '已暂停', value: 'SUSPENDED' },
     ]},
+    { label: '房源类型', prop: 'type', type: 'select', placeholder: '请选择类型', opts: [
+        { label: '整套房源', value: 'ENTIRE' },
+        { label: '独立房间', value: 'PRIVATE' },
+        { label: '共享房间', value: 'SHARED' },
+        { label: '民宿', value: 'HOMESTAY' },
+    ]},
+    { label: '最低价', prop: 'minPrice', type: 'number', placeholder: '¥' },
+    { label: '最高价', prop: 'maxPrice', type: 'number', placeholder: '¥' },
+    { label: '房东姓名', prop: 'landlordName', type: 'input', placeholder: '请输入房东姓名' },
 ]
 
 // 表格数据
@@ -400,6 +482,10 @@ const fetchData = async () => {
             pageSize: pageSize.value,
             name: searchForm.name,
             status: searchForm.status,
+            type: searchForm.type,
+            minPrice: searchForm.minPrice,
+            maxPrice: searchForm.maxPrice,
+            landlordName: searchForm.landlordName,
             sort: searchForm.sort || 'createdAt,desc',
         });
 
@@ -475,15 +561,34 @@ const handleFeaturedChange = async (row: Homestay, featured: boolean) => {
         return
     }
 
+    const oldFeatured = row.featured
+    // 乐观更新：先切换 UI
+    row.featured = featured
     setFeaturedUpdating(row.id, true)
+    
     try {
-        const updated = await updateHomestayFeatured(row.id, featured)
-        row.featured = updated.featured ?? featured
+        console.log('使用 updateHomestayFeatured 更新精选状态:', row.id, featured)
+        // 使用专门的精选状态更新接口
+        const result = await updateHomestayFeatured(row.id, featured)
+        console.log('更新结果:', result)
+        
+        // 更新本地数据
+        if (result && result.featured !== undefined) {
+            row.featured = result.featured
+        }
+        
         const suffix = row.status === 'ACTIVE' ? '' : '，上架后会在首页展示'
         ElMessage.success(featured ? `已设为首页精选${suffix}` : '已取消首页精选')
-    } catch (error) {
+    } catch (error: any) {
         console.error('更新精选状态失败:', error)
-        ElMessage.error('更新精选状态失败')
+        // 回滚 UI
+        row.featured = oldFeatured
+        
+        const errorMsg = error.response?.data?.message 
+            || error.response?.data?.error 
+            || error.message 
+            || '更新精选状态失败'
+        ElMessage.error(errorMsg)
     } finally {
         setFeaturedUpdating(row.id, false)
     }
@@ -839,6 +944,36 @@ const getViolationStatusTag = (status: string): 'primary' | 'success' | 'warning
     }
 };
 
+// 处理下拉菜单命令
+const handleCommand = (command: string, row: Homestay) => {
+    switch (command) {
+        case 'audit':
+            goToAuditWorkbenchWithId(row.id);
+            break;
+        case 'toggleStatus':
+            handleToggleStatus(row);
+            break;
+        case 'forceDelist':
+            handleForceDelist(row);
+            break;
+        case 'edit':
+            handleEdit(row);
+            break;
+        case 'viewDetail':
+            handleViewDetail(row);
+            break;
+        case 'auditLog':
+            handleViewAuditLogs(row);
+            break;
+        case 'violations':
+            handleViewViolations(row);
+            break;
+        case 'delete':
+            handleDelete(row);
+            break;
+    }
+};
+
 // 排序变化
 const handleSortChange = ({ prop, order }: any) => {
     if (!prop || !order) {
@@ -883,6 +1018,47 @@ onMounted(() => {
 
     .detail-content {
         padding: 20px 0;
+    }
+
+    .no-image {
+        width: 80px;
+        height: 60px;
+        background: #f5f7fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #999;
+        font-size: 12px;
+        border-radius: 4px;
+    }
+
+    .detail-section {
+        margin-top: 20px;
+        h4 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #303133;
+        }
+    }
+
+    .image-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        .detail-image {
+            width: 150px;
+            height: 100px;
+            border-radius: 4px;
+        }
+    }
+
+    .amenity-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        .amenity-tag {
+            margin: 0;
+        }
     }
 }
 </style>
