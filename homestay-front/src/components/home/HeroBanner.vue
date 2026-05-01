@@ -80,8 +80,8 @@ withDefaults(defineProps<Props>(), {
     homestayCount: 10000,
     cityCount: 50,
     positiveRate: 98,
-    totalUsers: 0,
-    totalOrders: 0
+    recentOrders: 0,
+    availableToday: 0
   })
 })
 

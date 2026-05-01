@@ -20,9 +20,9 @@ public class HomeStatsDTO {
     /** 好评率百分比（0-100） */
     private Double positiveRate;
 
-    /** 平台总注册用户数 */
-    private Long totalUsers;
+    /** 近30天订单数 */
+    private Long recentOrders;
 
-    /** 平台总订单数 */
-    private Long totalOrders;
+    /** 今日可预订房源数 */
+    private Long availableToday;
 }

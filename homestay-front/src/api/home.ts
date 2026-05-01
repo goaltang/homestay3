@@ -4,8 +4,8 @@ export interface HomeStats {
   homestayCount: number
   cityCount: number
   positiveRate: number
-  totalUsers: number
-  totalOrders: number
+  recentOrders: number
+  availableToday: number
 }
 
 export interface Banner {

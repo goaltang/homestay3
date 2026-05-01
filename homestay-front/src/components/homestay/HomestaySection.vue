@@ -15,8 +15,7 @@
 
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-container">
-            <el-skeleton :rows="3" animated />
-            <el-skeleton :rows="3" animated />
+            <HomestaySkeleton :count="maxDisplay || 6" />
         </div>
 
         <!-- 错误状态 -->
@@ -44,6 +43,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import HomestayCard from './HomestayCard.vue'
+import HomestaySkeleton from './HomestaySkeleton.vue'
 
 interface Props {
     title: string                    // 区域标题

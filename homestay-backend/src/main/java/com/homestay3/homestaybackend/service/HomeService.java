@@ -19,6 +19,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,15 +47,20 @@ public class HomeService {
             positiveRate = Math.round((positiveReviews.doubleValue() / totalReviews.doubleValue()) * 1000) / 10.0;
         }
 
-        Long totalUsers = userRepository.count();
-        Long totalOrders = orderRepository.count();
+        // 近30天订单数
+        LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+        LocalDateTime now = LocalDateTime.now();
+        Long recentOrders = orderRepository.countByCreatedAtBetween(thirtyDaysAgo, now);
+
+        // 今日可预订房源数（简化：统计活跃房源数，实际应考虑房态）
+        Long availableToday = homestayRepository.countByStatus(HomestayStatus.ACTIVE);
 
         return HomeStatsDTO.builder()
                 .homestayCount(homestayCount != null ? homestayCount : 0L)
                 .cityCount(cityCount != null ? cityCount : 0L)
                 .positiveRate(positiveRate)
-                .totalUsers(totalUsers != null ? totalUsers : 0L)
-                .totalOrders(totalOrders != null ? totalOrders : 0L)
+                .recentOrders(recentOrders != null ? recentOrders : 0L)
+                .availableToday(availableToday != null ? availableToday : 0L)
                 .build();
     }
 

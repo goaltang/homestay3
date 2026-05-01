@@ -54,13 +54,13 @@
       </div>
       <div class="plat-divider" />
       <div class="plat-stat">
-        <span class="plat-num">{{ formatCount(stats.totalOrders) }}</span>
-        <span class="plat-label">累计订单</span>
+        <span class="plat-num">{{ formatCount(stats.recentOrders) }}</span>
+        <span class="plat-label">近30天成交</span>
       </div>
       <div class="plat-divider" />
       <div class="plat-stat">
-        <span class="plat-num">{{ formatCount(stats.totalUsers) }}</span>
-        <span class="plat-label">注册用户</span>
+        <span class="plat-num">{{ formatCount(stats.availableToday) }}</span>
+        <span class="plat-label">今日可订</span>
       </div>
     </div>
   </section>
@@ -79,8 +79,8 @@ withDefaults(defineProps<Props>(), {
     homestayCount: 10000,
     cityCount: 50,
     positiveRate: 98,
-    totalUsers: 0,
-    totalOrders: 0
+    recentOrders: 0,
+    availableToday: 0
   })
 })
 

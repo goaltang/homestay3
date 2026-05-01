@@ -9,6 +9,9 @@
       </template>
     </HeroBanner>
 
+    <!-- ===== 公告栏 ===== -->
+    <AnnouncementBar />
+
     <!-- ===== 内容区 ===== -->
     <div class="home-content">
       <!-- 房源类型快捷筛选 -->
@@ -151,6 +154,7 @@ import { useUserStore } from '@/stores/user'
 import { useSearchStore } from '@/stores/search'
 import SearchBar from '@/components/SearchBar.vue'
 import HeroBanner from '@/components/home/HeroBanner.vue'
+import AnnouncementBar from '@/components/home/AnnouncementBar.vue'
 import HomestaySection from '@/components/homestay/HomestaySection.vue'
 import RecentViewed from '@/components/home/RecentViewed.vue'
 import MapCTA from '@/components/home/MapCTA.vue'
@@ -171,8 +175,8 @@ const homeStats = ref<HomeStats>({
   homestayCount: 10000,
   cityCount: 50,
   positiveRate: 98,
-  totalUsers: 0,
-  totalOrders: 0
+  recentOrders: 0,
+  availableToday: 0
 })
 const homeBanners = ref<Banner[]>([])
 
