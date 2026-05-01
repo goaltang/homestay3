@@ -21,7 +21,7 @@
                     v-if="!loading && notifications.length > 0">
                     <ul class="notification-list">
                         <li v-for="notification in notifications" :key="notification.id"
-                            :class="['notification-item', { unread: !notification.isRead }]"
+                            :class="['notification-item', { unread: !notification.read }]"
                             @click="handleNotificationClick(notification)">
                             <div class="notification-content">
                                 <!-- 可以根据 notification.type 添加不同图标 -->
@@ -41,7 +41,7 @@
                             </div>
                             <div class="notification-meta">
                                 <span class="notification-time">{{ formatTimeAgo(notification.createdAt) }}</span>
-                                <span v-if="!notification.isRead" class="unread-dot"></span>
+                                <span v-if="!notification.read" class="unread-dot"></span>
                             </div>
                         </li>
                     </ul>
@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, shallowRef, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useNotificationStore } from '@/stores/notification';
 import type { Notification } from '@/stores/notification';
@@ -72,31 +72,39 @@ import { Bell, Calendar, ChatDotRound, Star, InfoFilled } from '@element-plus/ic
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { useUserStore } from '@/stores/user';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
 const route = useRoute();
 const notificationStore = useNotificationStore();
 const userStore = useUserStore();
+const authStore = useAuthStore();
 
-const isAnimating = ref(false);
+const isAnimating = shallowRef(false);
 
 // 从 store 获取状态
 const unreadCount = computed(() => notificationStore.unreadCount);
 const notifications = computed(() => notificationStore.notifications); // 直接使用 store 的列表
 const loading = computed(() => notificationStore.loading);
 const hasUnread = computed(() => notificationStore.hasUnread);
+const isAuthenticated = computed(() => userStore.isAuthenticated || authStore.isAuthenticated);
 
 // 加载通知列表 (当 Popover 显示时触发)
-const loadNotifications = () => {
+const loadNotifications = async () => {
+    if (!isAuthenticated.value) return;
+
     // 只加载最新的 5 条用于下拉面板
-    notificationStore.fetchNotifications(0, 5, null, 'dropdown');
+    await Promise.all([
+        notificationStore.fetchUnreadCount(),
+        notificationStore.fetchNotifications(0, 5, null, 'dropdown'),
+    ]);
 };
 
 // 处理点击单条通知
 const handleNotificationClick = (notification: Notification) => {
     console.log('点击通知 (Bell):', notification);
-    if (!notification.isRead) {
-        notificationStore.markAsRead(notification.id);
+    if (!notification.read) {
+        void notificationStore.markAsRead(notification.id);
     }
 
     if (notification.entityType && notification.entityId) {
@@ -108,7 +116,7 @@ const handleNotificationClick = (notification: Notification) => {
 
 // 处理点击"全部已读"
 const handleMarkAllRead = () => {
-    notificationStore.markAllAsRead();
+    void notificationStore.markAllAsRead();
 };
 
 // 跳转到通知中心页面
@@ -200,8 +208,8 @@ watch(unreadCount, (newVal, oldVal) => {
 // 组件挂载时获取未读计数
 onMounted(() => {
     // 如果用户已登录，尝试获取未读数
-    if (userStore.isAuthenticated) {
-        userStore.fetchUnreadCount();
+    if (isAuthenticated.value) {
+        void notificationStore.fetchUnreadCount();
     }
 });
 

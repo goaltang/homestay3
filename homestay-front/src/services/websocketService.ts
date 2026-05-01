@@ -1,6 +1,7 @@
 import { ref, onUnmounted } from 'vue';
 import { useNotificationStore } from '@/stores/notification';
 import { useChatStore } from '@/stores/chat';
+import { normalizeNotification } from '@/types/notification';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 
@@ -40,7 +41,7 @@ export const initWebSocket = (userId: number | null) => {
       // 订阅用户的通知主题
       stompClient.subscribe(`/topic/notifications/${userId}`, function(notification: any) {
         try {
-          const notificationDTO = JSON.parse(notification.body);
+          const notificationDTO = normalizeNotification(JSON.parse(notification.body));
           console.log('收到实时通知:', notificationDTO);
           
           // 使用Pinia store更新通知状态
@@ -50,7 +51,7 @@ export const initWebSocket = (userId: number | null) => {
           notificationStore.notifications.unshift(notificationDTO as any);
           
           // 如果是未读通知，增加未读计数
-          if (!notificationDTO.isRead) {
+          if (!notificationDTO.read) {
             notificationStore.unreadCount += 1;
           }
           

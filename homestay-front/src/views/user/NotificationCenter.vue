@@ -10,7 +10,7 @@
                 <el-radio-button label="read">已读</el-radio-button>
             </el-radio-group>
             <el-button type="primary" plain @click="handleMarkAllRead"
-                :disabled="loading || userStore.unreadNotificationCount === 0">
+                :disabled="loading || !canMarkAllRead">
                 全部标记为已读
             </el-button>
         </div>
@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { computed, onMounted, ref, shallowRef } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     ElRadioGroup, ElRadioButton, ElTag, ElButton, ElPagination,
@@ -83,21 +83,20 @@ import {
     Bell, ChatDotRound, Goods, House, Star, Tickets
 } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
+import { useNotificationStore } from '@/stores/notification';
 import { formatDate } from '@/utils/format';
-import {
-    getNotifications, markAsRead, markAllAsRead, deleteNotification,
-} from '@/services/notificationService';
 import type { NotificationDto } from '@/types/notification';
 
 const router = useRouter();
 const userStore = useUserStore();
+const notificationStore = useNotificationStore();
 
-const notifications = ref<NotificationDto[]>([]);
-const loading = ref(true);
-const currentPage = ref(1);
-const pageSize = ref(10);
-const totalNotifications = ref(0);
-const filterStatus = ref<'all' | 'read' | 'unread'>('all');
+const notifications = computed(() => notificationStore.notifications);
+const loading = computed(() => notificationStore.loading);
+const currentPage = shallowRef(1);
+const pageSize = shallowRef(10);
+const totalNotifications = computed(() => notificationStore.pagination?.totalElements ?? 0);
+const filterStatus = shallowRef<'all' | 'read' | 'unread'>('all');
 const markingIds = ref<Set<number>>(new Set());
 const deletingIds = ref<Set<number>>(new Set());
 
@@ -106,10 +105,16 @@ const emptyText = computed(() => {
     return map[filterStatus.value];
 });
 
+const canMarkAllRead = computed(() => {
+    return notificationStore.unreadCount > 0 || notifications.value.some(notification => !notification.read);
+});
+
 // --- 通知分类与图标映射 ---
 const getCategory = (type?: string) => {
     if (!type) return 'system';
-    if (type.startsWith('BOOKING') || type.startsWith('ORDER') || type.startsWith('REFUND') || type.startsWith('PAYMENT')) return 'order';
+    if (type.startsWith('BOOKING') || type.startsWith('ORDER') || type.startsWith('REFUND') || type.startsWith('PAYMENT')
+        || type === 'PAID' || type === 'CANCELLED' || type === 'CANCELLED_BY_HOST' || type === 'CANCELLED_BY_USER'
+        || type === 'COMPLETED' || type === 'CONFIRMED' || type === 'PENDING' || type === 'REFUNDED') return 'order';
     if (type.startsWith('NEW_MESSAGE')) return 'message';
     if (type.startsWith('NEW_REVIEW') || type.startsWith('REVIEW')) return 'review';
     if (type.startsWith('HOMESTAY')) return 'homestay';
@@ -174,6 +179,15 @@ const formatType = (type?: string) => {
         WELCOME_MESSAGE: '欢迎',
         COUPON_EXPIRING: '优惠券',
         COUPON_ISSUED: '优惠券',
+        PAID: '已付款',
+        CANCELLED: '已取消',
+        CANCELLED_BY_HOST: '房东取消',
+        CANCELLED_BY_USER: '用户取消',
+        COMPLETED: '已完成',
+        CONFIRMED: '已确认',
+        PENDING: '待处理',
+        REFUNDED: '已退款',
+        UNKNOWN: '未知通知',
     };
     return map[type] || '系统';
 };
@@ -181,40 +195,31 @@ const formatType = (type?: string) => {
 // --- API 调用与逻辑 ---
 const fetchNotifications = async () => {
     if (!userStore.isAuthenticated) {
-        loading.value = false;
+        notificationStore.clearNotifications();
         return;
     }
-    loading.value = true;
+
     try {
-        const params: { page: number; size: number; isRead?: boolean } = {
-            page: currentPage.value,
-            size: pageSize.value,
-        };
-        if (filterStatus.value !== 'all') {
-            params.isRead = filterStatus.value === 'read';
-        }
-        const response = await getNotifications(params);
-        notifications.value = response.data.content;
-        totalNotifications.value = response.data.totalElements;
+        const isReadFilter = filterStatus.value === 'all' ? null : filterStatus.value === 'read';
+        await notificationStore.fetchNotifications(
+            currentPage.value - 1,
+            pageSize.value,
+            isReadFilter,
+            'center',
+        );
     } catch (error) {
         console.error('获取通知失败:', error);
         ElMessage.error('加载通知失败，请稍后重试');
-        notifications.value = [];
-        totalNotifications.value = 0;
-    } finally {
-        loading.value = false;
     }
 };
 
 const handleMarkRead = async (id: number) => {
     markingIds.value.add(id);
     try {
-        await markAsRead(id);
-        const idx = notifications.value.findIndex(n => n.id === id);
-        if (idx !== -1) {
-            notifications.value[idx].read = true;
+        await notificationStore.markAsRead(id);
+        if (filterStatus.value !== 'all') {
+            await fetchNotifications();
         }
-        await userStore.fetchUnreadCount();
         ElMessage.success('已标记为已读');
     } catch (error) {
         console.error('标记已读失败:', error);
@@ -226,10 +231,9 @@ const handleMarkRead = async (id: number) => {
 
 const handleMarkAllRead = async () => {
     try {
-        const response = await markAllAsRead();
-        ElMessage.success(`成功标记 ${response.markedCount} 条通知为已读`);
-        notifications.value.forEach(n => n.read = true);
-        await userStore.fetchUnreadCount();
+        const markedCount = await notificationStore.markAllAsRead();
+        ElMessage.success(`成功标记 ${markedCount} 条通知为已读`);
+        await fetchNotifications();
     } catch (error) {
         console.error('全部标记已读失败:', error);
         ElMessage.error('操作失败');
@@ -242,10 +246,12 @@ const handleDelete = async (id: number) => {
             confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
         });
         deletingIds.value.add(id);
-        await deleteNotification(id);
-        notifications.value = notifications.value.filter(n => n.id !== id);
-        totalNotifications.value = Math.max(0, totalNotifications.value - 1);
-        await userStore.fetchUnreadCount();
+        const shouldMoveToPreviousPage = notifications.value.length === 1 && currentPage.value > 1;
+        await notificationStore.deleteNotification(id);
+        if (shouldMoveToPreviousPage) {
+            currentPage.value -= 1;
+        }
+        await fetchNotifications();
         ElMessage.success('通知已删除');
     } catch (error: any) {
         if (error !== 'cancel') {
@@ -259,11 +265,10 @@ const handleDelete = async (id: number) => {
 
 const handleNotificationClick = async (notification: NotificationDto) => {
     // 标记已读
+    const wasUnread = !notification.read;
     if (!notification.read) {
         try {
-            await markAsRead(notification.id);
-            notification.read = true;
-            await userStore.fetchUnreadCount();
+            await notificationStore.markAsRead(notification.id);
         } catch (e) { /* ignore */ }
     }
 
@@ -274,6 +279,9 @@ const handleNotificationClick = async (notification: NotificationDto) => {
         if (type?.startsWith('NEW_MESSAGE')) {
             router.push('/user/notifications'); // 暂留在通知中心
             return;
+        }
+        if (wasUnread && filterStatus.value === 'unread') {
+            await fetchNotifications();
         }
         return;
     }
@@ -323,7 +331,7 @@ const handleFilterChange = () => {
 
 onMounted(() => {
     fetchNotifications();
-    userStore.fetchUnreadCount();
+    notificationStore.fetchUnreadCount();
 });
 </script>
 

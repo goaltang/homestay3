@@ -2,23 +2,11 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import api from "@/utils/request"; // 你的 axios 实例
 import type { Page } from "@/types/page"; // 假设你有一个 Page 类型
+import type { NotificationDto } from "@/types/notification";
+import { normalizeNotification } from "@/types/notification";
 
 // 定义通知的数据结构 (与后端的 NotificationDto 对应)
-export interface Notification {
-  id: number;
-  userId: number;
-  actorId?: number;
-  type: string; // 后续可以考虑使用枚举字符串
-  entityType?: string;
-  entityId?: string;
-  content: string;
-  isRead: boolean;
-  readAt?: string; // ISO 8601 格式的日期时间字符串
-  createdAt: string; // ISO 8601 格式的日期时间字符串
-  // 可以添加 actorUsername, entityTitle 等前端需要的附加信息
-  // actorUsername?: string;
-  // entityTitle?: string;
-}
+export type Notification = NotificationDto;
 
 // 定义后端返回的未读数量接口响应结构
 interface UnreadCountResponse {
@@ -37,6 +25,15 @@ export const useNotificationStore = defineStore("notification", () => {
 
   // --- Actions ---
 
+  const setUnreadCount = (count: number) => {
+    unreadCount.value = Math.max(0, count);
+  };
+
+  const clearNotifications = () => {
+    notifications.value = [];
+    pagination.value = null;
+  };
+
   /**
    * 获取当前用户的未读通知数量
    */
@@ -46,11 +43,13 @@ export const useNotificationStore = defineStore("notification", () => {
       const response = await api.get<UnreadCountResponse>(
         "/api/notifications/unread-count"
       );
-      unreadCount.value = response.data.unreadCount || 0;
+      setUnreadCount(response.data.unreadCount || 0);
       console.log("获取到未读通知数量:", unreadCount.value);
+      return unreadCount.value;
     } catch (error) {
       console.error("获取未读通知数量失败:", error);
       // 失败时不重置为0，避免误导用户
+      return unreadCount.value;
     }
   };
 
@@ -83,13 +82,19 @@ export const useNotificationStore = defineStore("notification", () => {
 
       if (target === "dropdown") {
         // 更新下拉列表（通常是最新的几条）
-        notifications.value = response.data.content || [];
+        notifications.value = (response.data.content || []).map(normalizeNotification);
         console.log("更新通知下拉列表:", notifications.value);
+        return null;
       } else {
         // 更新通知中心的分页数据
-        pagination.value = response.data;
-        notifications.value = response.data.content || []; // 也更新列表，方便直接使用
+        const content = (response.data.content || []).map(normalizeNotification);
+        pagination.value = {
+          ...response.data,
+          content,
+        };
+        notifications.value = content; // 也更新列表，方便直接使用
         console.log("更新通知中心数据:", pagination.value);
+        return pagination.value;
       }
     } catch (error) {
       console.error(`获取通知列表 (${target}) 失败:`, error);
@@ -100,6 +105,7 @@ export const useNotificationStore = defineStore("notification", () => {
         pagination.value = null;
         notifications.value = [];
       }
+      return null;
     } finally {
       loading.value = false;
     }
@@ -111,20 +117,20 @@ export const useNotificationStore = defineStore("notification", () => {
    */
   const markAsRead = async (notificationId: number) => {
     try {
-      await api.post(`/api/notifications/${notificationId}/read`);
+      const response = await api.post<Notification>(`/api/notifications/${notificationId}/read`);
+      const updatedNotification = normalizeNotification(response.data);
       console.log(`通知 ${notificationId} 已标记为已读 (API 调用成功)`);
 
       // 更新前端状态
       const notification = notifications.value.find(
         (n) => n.id === notificationId
       );
-      if (notification && !notification.isRead) {
+      if (notification && !notification.read) {
+        notification.read = true;
         notification.isRead = true;
-        notification.readAt = new Date().toISOString(); // 设置为当前时间
+        notification.readAt = updatedNotification.readAt || new Date().toISOString(); // 设置为当前时间
         // 更新未读计数 (如果之前是未读的话)
-        if (unreadCount.value > 0) {
-          unreadCount.value--;
-        }
+        setUnreadCount(unreadCount.value - 1);
         console.log(
           `前端状态更新: 通知 ${notificationId} 标记已读，未读数: ${unreadCount.value}`
         );
@@ -134,14 +140,17 @@ export const useNotificationStore = defineStore("notification", () => {
         const notificationInPage = pagination.value.content.find(
           (n) => n.id === notificationId
         );
-        if (notificationInPage && !notificationInPage.isRead) {
+        if (notificationInPage && !notificationInPage.read) {
+          notificationInPage.read = true;
           notificationInPage.isRead = true;
-          notificationInPage.readAt = new Date().toISOString();
+          notificationInPage.readAt = updatedNotification.readAt || new Date().toISOString();
         }
       }
+      return updatedNotification;
     } catch (error) {
       console.error(`标记通知 ${notificationId} 为已读失败:`, error);
       // 可以考虑显示错误消息
+      throw error;
     }
   };
 
@@ -149,10 +158,6 @@ export const useNotificationStore = defineStore("notification", () => {
    * 将所有未读通知标记为已读
    */
   const markAllAsRead = async () => {
-    if (unreadCount.value === 0) {
-      console.log("没有未读通知，无需操作");
-      return;
-    }
     try {
       const response = await api.post<{ markedCount: number }>(
         "/api/notifications/read-all"
@@ -161,25 +166,58 @@ export const useNotificationStore = defineStore("notification", () => {
       console.log(`API 响应: ${markedCount} 条通知已标记为已读`);
 
       // 更新前端状态
-      unreadCount.value = 0; // 直接设置为 0
+      setUnreadCount(0); // 直接设置为 0
       notifications.value.forEach((n) => {
-        if (!n.isRead) {
+        if (!n.read) {
+          n.read = true;
           n.isRead = true;
           n.readAt = new Date().toISOString();
         }
       });
       if (pagination.value) {
         pagination.value.content.forEach((n) => {
-          if (!n.isRead) {
+          if (!n.read) {
+            n.read = true;
             n.isRead = true;
             n.readAt = new Date().toISOString();
           }
         });
       }
       console.log("前端状态更新: 所有通知标记已读，未读数: 0");
+      return markedCount;
     } catch (error) {
       console.error("标记所有通知为已读失败:", error);
       // 可以考虑显示错误消息
+      throw error;
+    }
+  };
+
+  /**
+   * 删除单条通知
+   * @param notificationId 通知 ID
+   */
+  const deleteNotification = async (notificationId: number) => {
+    const existingNotification = notifications.value.find((n) => n.id === notificationId);
+    const wasUnread = existingNotification ? !existingNotification.read : false;
+
+    try {
+      await api.delete(`/api/notifications/${notificationId}`);
+      notifications.value = notifications.value.filter((n) => n.id !== notificationId);
+
+      if (pagination.value) {
+        pagination.value = {
+          ...pagination.value,
+          content: pagination.value.content.filter((n) => n.id !== notificationId),
+          totalElements: Math.max(0, pagination.value.totalElements - 1),
+        };
+      }
+
+      if (wasUnread) {
+        setUnreadCount(unreadCount.value - 1);
+      }
+    } catch (error) {
+      console.error(`删除通知 ${notificationId} 失败:`, error);
+      throw error;
     }
   };
 
@@ -193,10 +231,12 @@ export const useNotificationStore = defineStore("notification", () => {
     loading,
     pagination,
     hasUnread,
+    clearNotifications,
     fetchUnreadCount,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
   };
 });
 

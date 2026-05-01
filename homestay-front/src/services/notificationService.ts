@@ -1,7 +1,9 @@
 import request from "@/utils/request"; // 导入封装好的 axios 实例
 import type {
   NotificationApiResponse,
+  NotificationDto,
 } from "@/types/notification";
+import { normalizeNotification } from "@/types/notification";
 
 // 定义通用的分页参数类型 (如果项目中还没有)
 interface PageParams {
@@ -28,18 +30,24 @@ export const getNotifications = (
     url: "/api/notifications",
     method: "get",
     params: adjustedParams,
-  });
+  }).then((response: NotificationApiResponse) => ({
+    ...response,
+    data: {
+      ...response.data,
+      content: (response.data.content || []).map(normalizeNotification),
+    },
+  }));
 };
 
 /**
  * 将单个通知标记为已读
  * @param notificationId - 通知 ID
  */
-export const markAsRead = (notificationId: number): Promise<void> => {
+export const markAsRead = (notificationId: number): Promise<NotificationDto> => {
   return request({
     url: "/api/notifications/" + notificationId + "/read",
     method: "post",
-  });
+  }).then((response) => normalizeNotification(response.data));
 };
 
 /**
@@ -49,7 +57,7 @@ export const markAllAsRead = (): Promise<{ markedCount: number }> => {
   return request({
     url: "/api/notifications/read-all",
     method: "post",
-  });
+  }).then((response) => response.data);
 };
 
 /**
@@ -60,7 +68,7 @@ export const deleteNotification = (notificationId: number): Promise<void> => {
   return request({
     url: "/api/notifications/" + notificationId,
     method: "delete",
-  });
+  }).then(() => undefined);
 };
 
 /**
@@ -70,5 +78,5 @@ export const getUnreadCount = (): Promise<{ unreadCount: number }> => {
   return request({
     url: "/api/notifications/unread-count",
     method: "get",
-  });
+  }).then((response) => response.data);
 };
