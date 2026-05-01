@@ -50,5 +50,54 @@ public enum NotificationType {
 
     // 优惠券相关
     COUPON_EXPIRING,      // 优惠券即将过期提醒
-    COUPON_ISSUED         // 优惠券发放通知
+    COUPON_ISSUED,        // 优惠券发放通知
+
+    // 兼容历史数据
+    @Deprecated(forRemoval = false)
+    PAID,                 // 已付款 (PAYMENT_RECEIVED 的别名)
+    @Deprecated(forRemoval = false)
+    CANCELLED,            // 预订/订单取消 (通用)
+    @Deprecated(forRemoval = false)
+    CANCELLED_BY_HOST,    // 被房东取消
+    @Deprecated(forRemoval = false)
+    CANCELLED_BY_USER,    // 被用户取消
+    @Deprecated(forRemoval = false)
+    COMPLETED,            // 订单已完成
+    @Deprecated(forRemoval = false)
+    CONFIRMED,            // 订单已确认
+    @Deprecated(forRemoval = false)
+    PENDING,              // 等待处理
+    @Deprecated(forRemoval = false)
+    REFUNDED,             // 已退款
+    UNKNOWN;              // Unknown legacy notification type
+
+    public NotificationType canonicalType() {
+        return switch (this) {
+            case PAID -> PAYMENT_RECEIVED;
+            case COMPLETED -> ORDER_COMPLETED;
+            case CONFIRMED -> ORDER_CONFIRMED;
+            case REFUNDED -> REFUND_COMPLETED;
+            case CANCELLED_BY_HOST -> ORDER_CANCELLED_BY_HOST;
+            case CANCELLED_BY_USER -> ORDER_CANCELLED_BY_GUEST;
+            case CANCELLED -> BOOKING_CANCELLED;
+            case PENDING -> ORDER_STATUS_CHANGED;
+            default -> this;
+        };
+    }
+
+    public boolean isLegacyAlias() {
+        return canonicalType() != this;
+    }
+
+    public static NotificationType parseFilterValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            return NotificationType.valueOf(value.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
 } 

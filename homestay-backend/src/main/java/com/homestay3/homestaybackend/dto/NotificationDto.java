@@ -16,7 +16,9 @@ public class NotificationDTO {
     private Long actorId;
     private String actorUsername;
     private NotificationType type;
+    private String rawType;
     private EntityType entityType;
+    private String rawEntityType;
     private String entityId;
     private String entityTitle;
     private String content;

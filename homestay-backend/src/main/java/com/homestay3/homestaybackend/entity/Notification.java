@@ -1,66 +1,83 @@
 package com.homestay3.homestaybackend.entity;
 
+import com.homestay3.homestaybackend.model.converter.EntityTypeConverter;
+import com.homestay3.homestaybackend.model.converter.NotificationTypeConverter;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
-import jakarta.persistence.*;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notifications", indexes = {
-        @Index(name = "idx_notification_user_id", columnList = "userId"),
+        @Index(name = "idx_notification_user_id", columnList = "user_id"),
         @Index(name = "idx_notification_type", columnList = "type"),
-        @Index(name = "idx_notification_user_read", columnList = "userId, isRead"),
-        @Index(name = "idx_notification_user_created", columnList = "userId, createdAt DESC")
+        @Index(name = "idx_notification_user_read", columnList = "user_id, is_read"),
+        @Index(name = "idx_notification_user_created", columnList = "user_id, created_at DESC")
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@DynamicUpdate
 public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Long userId; // 接收通知的用户 ID
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    @Column
-    private Long actorId; // 触发通知的用户 ID (可选)
+    @Column(name = "actor_id")
+    private Long actorId;
 
-    @Enumerated(EnumType.STRING) // 将枚举存储为字符串
-    @Column(length = 50, nullable = false)
-    private NotificationType type; // 通知类型
+    @Convert(converter = NotificationTypeConverter.class)
+    @Column(name = "type", length = 50, nullable = false)
+    private NotificationType type;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 50)
-    private EntityType entityType; // 关联实体类型 (可选)
+    @Column(name = "type", length = 50, insertable = false, updatable = false)
+    private String rawType;
 
-    @Column(length = 255)
-    private String entityId; // 关联实体 ID (可选)
+    @Convert(converter = EntityTypeConverter.class)
+    @Column(name = "entity_type", length = 50)
+    private EntityType entityType;
+
+    @Column(name = "entity_type", length = 50, insertable = false, updatable = false)
+    private String rawEntityType;
+
+    @Column(name = "entity_id", length = 255)
+    private String entityId;
 
     @Column(columnDefinition = "TEXT", nullable = false)
-    private String content; // 通知内容
+    private String content;
 
     @Builder.Default
-    @Column(nullable = false)
-    private boolean isRead = false; // 是否已读，默认为 false
+    @Column(name = "is_read", nullable = false)
+    private boolean isRead = false;
 
-    @Column
-    private LocalDateTime readAt; // 标记已读的时间
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-} 
+}

@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL COMMENT '接收通知的用户ID',
+    actor_id BIGINT NULL COMMENT '触发通知的用户ID',
+    type VARCHAR(50) NOT NULL COMMENT '通知类型',
+    entity_type VARCHAR(50) NULL COMMENT '关联实体类型',
+    entity_id VARCHAR(255) NULL COMMENT '关联实体ID',
+    content TEXT NOT NULL COMMENT '通知内容',
+    is_read BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已读',
+    read_at DATETIME NULL COMMENT '标记已读时间',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_notification_user_id (user_id),
+    INDEX idx_notification_type (type),
+    INDEX idx_notification_user_read (user_id, is_read),
+    INDEX idx_notification_user_created (user_id, created_at DESC),
+    INDEX idx_notification_actor_id (actor_id),
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_actor FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户通知';

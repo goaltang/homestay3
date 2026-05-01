@@ -47,16 +47,25 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<Page<NotificationDTO>> getMyNotifications(
             @RequestParam(required = false) Boolean isRead,
-            @RequestParam(required = false) NotificationType type,
+            @RequestParam(required = false) String type,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Long currentUserId = getCurrentUserId();
+        NotificationType notificationType = parseTypeFilter(type);
         log.info("用户 ID {} 请求通知列表, isRead={}, type={}, page={}, size={}", 
-                 currentUserId, isRead, type, pageable.getPageNumber(), pageable.getPageSize());
+                 currentUserId, isRead, notificationType, pageable.getPageNumber(), pageable.getPageSize());
         
-        Page<NotificationDTO> notificationPage = notificationService.getNotificationsForUser(currentUserId, isRead, type, pageable);
+        Page<NotificationDTO> notificationPage = notificationService.getNotificationsForUser(currentUserId, isRead, notificationType, pageable);
         
         return ResponseEntity.ok(notificationPage);
+    }
+
+    private NotificationType parseTypeFilter(String type) {
+        NotificationType parsedType = NotificationType.parseFilterValue(type);
+        if (parsedType == null && type != null && !type.trim().isEmpty()) {
+            log.warn("Ignoring invalid notification type filter: {}", type);
+        }
+        return parsedType;
     }
 
     /**

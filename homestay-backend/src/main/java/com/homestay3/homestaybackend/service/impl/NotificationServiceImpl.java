@@ -60,10 +60,11 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional // 确保操作的原子性
     public Notification createNotification(Long userId, Long actorId, NotificationType type, EntityType entityType, String entityId, String content) {
+        NotificationType normalizedType = normalizeTypeForCreate(type);
         Notification notification = Notification.builder()
                 .userId(userId)
                 .actorId(actorId)
-                .type(type)
+                .type(normalizedType)
                 .entityType(entityType)
                 .entityId(entityId)
                 .content(content)
@@ -71,7 +72,10 @@ public class NotificationServiceImpl implements NotificationService {
                 .build();
 
         Notification savedNotification = notificationRepository.save(notification);
-        log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), userId, type);
+        if (type != null && type.isLegacyAlias()) {
+            log.warn("Legacy notification type {} normalized to {} before save", type, normalizedType);
+        }
+        log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), userId, normalizedType);
 
         // --- 实时推送 ---
         try {
@@ -326,7 +330,9 @@ public class NotificationServiceImpl implements NotificationService {
         dto.setUserId(notification.getUserId());
         dto.setActorId(notification.getActorId());
         dto.setType(notification.getType());
+        dto.setRawType(getRawType(notification));
         dto.setEntityType(notification.getEntityType());
+        dto.setRawEntityType(getRawEntityType(notification));
         dto.setEntityId(notification.getEntityId());
         dto.setContent(notification.getContent());
         dto.setRead(notification.isRead());
@@ -392,7 +398,9 @@ public class NotificationServiceImpl implements NotificationService {
         dto.setUserId(notification.getUserId());
         dto.setActorId(notification.getActorId());
         dto.setType(notification.getType());
+        dto.setRawType(getRawType(notification));
         dto.setEntityType(notification.getEntityType());
+        dto.setRawEntityType(getRawEntityType(notification));
         dto.setEntityId(notification.getEntityId());
         dto.setContent(notification.getContent());
         dto.setRead(notification.isRead());
@@ -435,5 +443,21 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         return dto;
+    }
+
+    private String getRawType(Notification notification) {
+        return notification.getRawType() != null
+                ? notification.getRawType()
+                : notification.getType() != null ? notification.getType().name() : null;
+    }
+
+    private String getRawEntityType(Notification notification) {
+        return notification.getRawEntityType() != null
+                ? notification.getRawEntityType()
+                : notification.getEntityType() != null ? notification.getEntityType().name() : null;
+    }
+
+    private NotificationType normalizeTypeForCreate(NotificationType type) {
+        return type == null ? NotificationType.UNKNOWN : type.canonicalType();
     }
 } 

@@ -11,5 +11,7 @@ public enum EntityType {
     USER,            // 用户 (例如，关注的用户发布了新房源)
     SYSTEM,          // 系统实体 (用于系统公告等)
     ORDER,           // 订单
-    COUPON           // 优惠券
+    COUPON,          // 优惠券
+    MESSAGE,         // Legacy message entity
+    UNKNOWN          // Unknown legacy entity
 } 
