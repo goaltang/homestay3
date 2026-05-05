@@ -128,10 +128,15 @@ public class BookingConflictService {
             
             // 标记日历为已预订
             availabilityService.markAsBooked(order);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 并发场景下，多个线程同时通过 existsOverlappingBooking 检查后，
+            // 同时插入 availability 记录会触发唯一约束冲突，说明已被其他线程预订
+            log.warn("订单创建失败：日历占用表唯一约束冲突，并发预订冲突 (homestayId={}, checkIn={}, checkOut={})",
+                    homestayId, order.getCheckInDate(), order.getCheckOutDate());
+            throw new IllegalArgumentException("该日期已被预订，请选择其他日期");
         } catch (Exception e) {
-            if (e instanceof IllegalArgumentException) {
-                throw e;
-            }
             log.warn("日历占用表操作失败，继续使用数据库检查结果: {}", e.getMessage());
         }
 
