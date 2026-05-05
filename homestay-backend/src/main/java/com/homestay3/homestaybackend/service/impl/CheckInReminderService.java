@@ -1,9 +1,9 @@
 package com.homestay3.homestaybackend.service.impl;
 
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.CheckInRecord;
 import com.homestay3.homestaybackend.entity.Order;
-import com.homestay3.homestaybackend.model.enums.EntityType;
-import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.notification.OrderNotificationEventType;
 import com.homestay3.homestaybackend.repository.CheckInRecordRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
@@ -80,14 +80,13 @@ public class CheckInReminderService {
                     checkInDate, homestayTitle);
         }
 
-        notificationService.createNotification(
+        notificationService.createNotification(NotificationCreateCommand.orderEvent(
                 guestId,
                 null,
-                NotificationType.BOOKING_REMINDER,
-                EntityType.ORDER,
-                String.valueOf(order.getId()),
+                OrderNotificationEventType.BOOKING_REMINDER,
+                order.getId(),
                 content
-        );
+        ));
 
         long unreadCount = notificationService.getUnreadNotificationCount(guestId);
         webSocketNotificationService.sendUnreadCountToUser(guestId, unreadCount);
@@ -102,14 +101,13 @@ public class CheckInReminderService {
         String content = String.format("您的房源 [%s] 明天有房客入住，请确认房源已准备好。订单号：%s",
                 homestayTitle, order.getOrderNumber());
 
-        notificationService.createNotification(
+        notificationService.createNotification(NotificationCreateCommand.orderEvent(
                 hostId,
                 null,
-                NotificationType.BOOKING_REMINDER,
-                EntityType.ORDER,
-                String.valueOf(order.getId()),
+                OrderNotificationEventType.BOOKING_REMINDER,
+                order.getId(),
                 content
-        );
+        ));
 
         long unreadCount = notificationService.getUnreadNotificationCount(hostId);
         webSocketNotificationService.sendUnreadCountToUser(hostId, unreadCount);

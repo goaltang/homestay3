@@ -1,14 +1,14 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.CheckOutDTO;
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.CheckOutRecord;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.exception.AccessDeniedException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.model.OrderStatus;
-import com.homestay3.homestaybackend.model.enums.EntityType;
-import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.notification.OrderNotificationEventType;
 import com.homestay3.homestaybackend.repository.CheckOutRecordRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -435,14 +435,13 @@ public class CheckOutServiceImpl implements CheckOutService {
     private void sendCheckOutNotification(Order order, BigDecimal settlementAmount) {
         try {
             String content = String.format("订单 %s 已办理退房，结算金额: %s", order.getOrderNumber(), settlementAmount);
-            notificationService.createNotification(
+            notificationService.createNotification(NotificationCreateCommand.orderEvent(
                     order.getGuest().getId(),
                     order.getHomestay().getOwner().getId(),
-                    NotificationType.ORDER_STATUS_CHANGED,
-                    EntityType.ORDER,
-                    String.valueOf(order.getId()),
+                    OrderNotificationEventType.fromOrderStatusName(order.getStatus()),
+                    order.getId(),
                     content
-            );
+            ));
         } catch (Exception e) {
             log.error("发送退房通知失败: {}", e.getMessage(), e);
         }
@@ -451,14 +450,13 @@ public class CheckOutServiceImpl implements CheckOutService {
     private void sendSettlementCompletedNotification(Order order) {
         try {
             String content = String.format("订单 %s 结算完成", order.getOrderNumber());
-            notificationService.createNotification(
+            notificationService.createNotification(NotificationCreateCommand.orderEvent(
                     order.getGuest().getId(),
                     order.getHomestay().getOwner().getId(),
-                    NotificationType.ORDER_STATUS_CHANGED,
-                    EntityType.ORDER,
-                    String.valueOf(order.getId()),
+                    OrderNotificationEventType.fromOrderStatusName(order.getStatus()),
+                    order.getId(),
                     content
-            );
+            ));
         } catch (Exception e) {
             log.error("发送结算完成通知失败: {}", e.getMessage(), e);
         }

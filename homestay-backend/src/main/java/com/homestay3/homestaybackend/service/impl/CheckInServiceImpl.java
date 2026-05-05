@@ -2,14 +2,14 @@ package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.CheckInCredentialDTO;
 import com.homestay3.homestaybackend.dto.CheckInDTO;
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.CheckInRecord;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.exception.AccessDeniedException;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.model.OrderStatus;
-import com.homestay3.homestaybackend.model.enums.EntityType;
-import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.notification.OrderNotificationEventType;
 import com.homestay3.homestaybackend.repository.CheckInRecordRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
@@ -232,14 +232,13 @@ public class CheckInServiceImpl implements CheckInService {
 
         // 发送通知给房东
         try {
-            notificationService.createNotification(
+            notificationService.createNotification(NotificationCreateCommand.orderEvent(
                     order.getHomestay().getOwner().getId(),
                     currentUser.getId(),
-                    NotificationType.ORDER_STATUS_CHANGED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.ORDER_STATUS_CHANGED,
+                    orderId,
                     "客人 " + currentUser.getUsername() + " 已到达，等待办理入住"
-            );
+            ));
         } catch (Exception e) {
             log.error("发送到达通知失败: {}", e.getMessage(), e);
         }
@@ -380,14 +379,13 @@ public class CheckInServiceImpl implements CheckInService {
                     credentialDTO.getLockboxCode() != null ? "，密钥箱密码: " + credentialDTO.getLockboxCode() : "",
                     credentialDTO.getLocationDescription() != null ? "，位置: " + credentialDTO.getLocationDescription() : "");
 
-            notificationService.createNotification(
+            notificationService.createNotification(NotificationCreateCommand.orderEvent(
                     order.getGuest().getId(),
                     order.getHomestay().getOwner().getId(),
-                    NotificationType.ORDER_STATUS_CHANGED,
-                    EntityType.ORDER,
-                    String.valueOf(order.getId()),
+                    OrderNotificationEventType.fromOrderStatusName(order.getStatus()),
+                    order.getId(),
                     content
-            );
+            ));
         } catch (Exception e) {
             log.error("发送入住凭证通知失败: {}", e.getMessage(), e);
         }
@@ -396,14 +394,13 @@ public class CheckInServiceImpl implements CheckInService {
     private void sendCheckInConfirmationNotification(Order order) {
         try {
             String content = String.format("订单 %s 已完成入住", order.getOrderNumber());
-            notificationService.createNotification(
+            notificationService.createNotification(NotificationCreateCommand.orderEvent(
                     order.getGuest().getId(),
                     order.getHomestay().getOwner().getId(),
-                    NotificationType.ORDER_STATUS_CHANGED,
-                    EntityType.ORDER,
-                    String.valueOf(order.getId()),
+                    OrderNotificationEventType.fromOrderStatusName(order.getStatus()),
+                    order.getId(),
                     content
-            );
+            ));
         } catch (Exception e) {
             log.error("发送入住确认通知失败: {}", e.getMessage(), e);
         }
