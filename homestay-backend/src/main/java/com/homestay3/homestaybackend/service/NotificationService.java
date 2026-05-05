@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.dto.NotificationDTO;
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.Notification;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
@@ -24,6 +25,14 @@ public interface NotificationService {
      */
     Notification createNotification(Long userId, Long actorId, NotificationType type,
                                     EntityType entityType, String entityId, String content);
+
+    /**
+     * 通过统一创建命令创建通知。
+     *
+     * @param command 通知创建命令
+     * @return 创建的通知实体
+     */
+    Notification createNotification(NotificationCreateCommand command);
 
     /**
      * 获取指定用户的通知列表（分页）

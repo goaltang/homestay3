@@ -1,9 +1,9 @@
 package com.homestay3.homestaybackend.service.impl;
 
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.Order;
 import com.homestay3.homestaybackend.model.OrderStatus;
-import com.homestay3.homestaybackend.model.enums.EntityType;
-import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.notification.OrderNotificationEventType;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.IOrderTimeoutService;
 import com.homestay3.homestaybackend.service.NotificationService;
@@ -160,7 +160,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
 
                     sendOrderNotification(
                             order.getGuest().getId(),
-                            NotificationType.ORDER_STATUS_CHANGED,
+                            OrderNotificationEventType.ORDER_STATUS_CHANGED,
                             "您的订单 " + order.getOrderNumber() + " 因超时未处理已被系统自动取消",
                             order.getId().toString()
                     );
@@ -194,7 +194,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
 
                     sendOrderNotification(
                             order.getGuest().getId(),
-                            NotificationType.ORDER_STATUS_CHANGED,
+                            OrderNotificationEventType.ORDER_STATUS_CHANGED,
                             "您的订单 " + order.getOrderNumber() + " 因超时未支付已被系统自动取消",
                             order.getId().toString()
                     );
@@ -228,7 +228,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
 
                     sendOrderNotification(
                             order.getGuest().getId(),
-                            NotificationType.ORDER_STATUS_CHANGED,
+                            OrderNotificationEventType.ORDER_STATUS_CHANGED,
                             "您的订单 " + order.getOrderNumber() + " 因支付超时已被系统自动取消",
                             order.getId().toString()
                     );
@@ -254,7 +254,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
         for (Order order : imminentOrders) {
             sendOrderNotification(
                     order.getGuest().getId(),
-                    NotificationType.BOOKING_REMINDER,
+                    OrderNotificationEventType.BOOKING_REMINDER,
                     "紧急：您的订单 " + order.getOrderNumber() + " 即将在5分钟内超时取消！",
                     order.getId().toString()
             );
@@ -278,7 +278,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
         for (Order order : warningOrders) {
             sendOrderNotification(
                     order.getGuest().getId(),
-                    NotificationType.BOOKING_REMINDER,
+                    OrderNotificationEventType.BOOKING_REMINDER,
                     "您的订单 " + order.getOrderNumber() + " 即将因超时未确认被自动取消，请尽快处理",
                     order.getId().toString()
             );
@@ -302,7 +302,7 @@ public class OrderTimeoutService implements IOrderTimeoutService {
         for (Order order : warningOrders) {
             sendOrderNotification(
                     order.getGuest().getId(),
-                    NotificationType.BOOKING_REMINDER,
+                    OrderNotificationEventType.BOOKING_REMINDER,
                     "您的订单 " + order.getOrderNumber() + " 即将因超时未支付被自动取消，请尽快完成支付",
                     order.getId().toString()
             );
@@ -313,9 +313,10 @@ public class OrderTimeoutService implements IOrderTimeoutService {
     /**
      * 发送订单通知并推送未读计数
      */
-    private void sendOrderNotification(Long userId, NotificationType type, String content, String entityId) {
+    private void sendOrderNotification(Long userId, OrderNotificationEventType eventType, String content, String entityId) {
         try {
-            notificationService.createNotification(userId, null, type, EntityType.ORDER, entityId, content);
+            notificationService.createNotification(
+                    NotificationCreateCommand.orderEvent(userId, null, eventType, entityId, content));
             long unreadCount = notificationService.getUnreadNotificationCount(userId);
             webSocketNotificationService.sendUnreadCountToUser(userId, unreadCount);
         } catch (Exception e) {

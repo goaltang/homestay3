@@ -1,10 +1,10 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.NotificationDTO;
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.User;
-import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.OrderStatus;
-import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.model.notification.OrderNotificationEventType;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
@@ -45,19 +45,19 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String hostNotificationContent = String.format(
                     "您收到了来自用户 %s 的新订单 (订单 %s)，该订单已自动确认，等待用户支付。",
                     guestUsername, orderNumber);
-            notificationService.createNotification(
+            createOrderNotification(
                     hostId, guestId,
-                    NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
-                    String.valueOf(orderId), hostNotificationContent);
+                    OrderNotificationEventType.AUTO_CONFIRMED_HOST,
+                    orderId, hostNotificationContent);
 
             // 通知客人
             String guestNotificationContent = String.format(
                     "您的预订 (订单 %s) 已自动确认，请在2小时内完成支付。",
                     orderNumber);
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, hostId,
-                    NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
-                    String.valueOf(orderId), guestNotificationContent);
+                    OrderNotificationEventType.AUTO_CONFIRMED_GUEST,
+                    orderId, guestNotificationContent);
 
             // 实时推送
             sendNotificationsToUsers(hostId, guestId);
@@ -79,15 +79,15 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String notificationContent = String.format(
                     "您收到了来自用户 %s 的新预订请求 (订单 %s)，请及时处理。",
                     guestUsername, orderNumber);
-            notificationService.createNotification(
+            createOrderNotification(
                     hostId, guestId,
-                    NotificationType.BOOKING_REQUEST, EntityType.BOOKING,
-                    String.valueOf(orderId), notificationContent);
+                    OrderNotificationEventType.BOOKING_REQUEST,
+                    orderId, notificationContent);
 
             // 实时推送
-            webSocketNotificationService.sendNotificationToUser(hostId, 
-                    createBasicNotificationDTO(guestId, hostId, NotificationType.BOOKING_REQUEST, 
-                            EntityType.BOOKING, String.valueOf(orderId), notificationContent));
+            webSocketNotificationService.sendNotificationToUser(hostId,
+                    createBasicOrderNotificationDTO(guestId, hostId,
+                            OrderNotificationEventType.BOOKING_REQUEST, orderId, notificationContent));
 
             log.info("已为房东 {} 发送新预订请求通知 (订单 {})",
                     guestUsername, orderNumber);
@@ -107,15 +107,15 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String notificationContent = String.format(
                     "您的订单 %s (房源: %s) 已被房东 %s 确认，请及时支付。",
                     orderNumber, homestayTitle, hostUsername);
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, hostId,
-                    NotificationType.ORDER_CONFIRMED, EntityType.ORDER,
-                    String.valueOf(orderId), notificationContent);
+                    OrderNotificationEventType.ORDER_CONFIRMED,
+                    orderId, notificationContent);
 
             // 实时推送
-            webSocketNotificationService.sendNotificationToUser(guestId, 
-                    createBasicNotificationDTO(hostId, guestId, NotificationType.ORDER_CONFIRMED, 
-                            EntityType.ORDER, String.valueOf(orderId), notificationContent));
+            webSocketNotificationService.sendNotificationToUser(guestId,
+                    createBasicOrderNotificationDTO(hostId, guestId,
+                            OrderNotificationEventType.ORDER_CONFIRMED, orderId, notificationContent));
 
             log.info("已为房客 {} 发送订单 {} 确认通知", guestUsername, orderNumber);
         } catch (Exception e) {
@@ -145,15 +145,17 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String contentForHost = contentBase + "。请尽快结算相关收益。";
 
             // 通知房客
-            notificationService.createNotification(
-                    guest.getId(), triggerUserId, NotificationType.ORDER_COMPLETED, EntityType.ORDER,
-                    String.valueOf(orderId), contentForGuest);
+            createOrderNotification(
+                    guest.getId(), triggerUserId,
+                    OrderNotificationEventType.ORDER_COMPLETED,
+                    orderId, contentForGuest);
             log.info("已为房客 {} 发送订单 {} 完成通知", guest.getUsername(), orderNumberSafe);
 
             // 通知房东
-            notificationService.createNotification(
-                    host.getId(), triggerUserId, NotificationType.ORDER_COMPLETED, EntityType.ORDER,
-                    String.valueOf(orderId), contentForHost);
+            createOrderNotification(
+                    host.getId(), triggerUserId,
+                    OrderNotificationEventType.ORDER_COMPLETED,
+                    orderId, contentForHost);
             log.info("已为房东 {} 发送订单 {} 完成通知", host.getUsername(), orderNumberSafe);
 
             // 实时推送未读数量更新
@@ -186,31 +188,29 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String notificationContentForHost = String.format(
                     "用户 %s 已支付订单 %s (房源: %s)。",
                     guestUsername, orderNumber, homestayTitle);
-            notificationService.createNotification(
+            createOrderNotification(
                     hostId, guestId,
-                    NotificationType.PAYMENT_RECEIVED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.PAYMENT_RECEIVED,
+                    orderId,
                     notificationContentForHost);
 
             // 通知客人
             String notificationContentForGuest = String.format(
                     "您的订单 %s (房源: %s) 已被房东确认并支付成功！",
                     orderNumber, homestayTitle);
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, hostId,
-                    NotificationType.BOOKING_ACCEPTED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.PAYMENT_SUCCESS_GUEST,
+                    orderId,
                     notificationContentForGuest);
 
             // 实时推送
-            webSocketNotificationService.sendNotificationToUser(hostId, 
-                    createBasicNotificationDTO(guestId, hostId, NotificationType.PAYMENT_RECEIVED, 
-                            EntityType.ORDER, String.valueOf(orderId), notificationContentForHost));
-            webSocketNotificationService.sendNotificationToUser(guestId, 
-                    createBasicNotificationDTO(hostId, guestId, NotificationType.BOOKING_ACCEPTED, 
-                            EntityType.ORDER, String.valueOf(orderId), notificationContentForGuest));
+            webSocketNotificationService.sendNotificationToUser(hostId,
+                    createBasicOrderNotificationDTO(guestId, hostId,
+                            OrderNotificationEventType.PAYMENT_RECEIVED, orderId, notificationContentForHost));
+            webSocketNotificationService.sendNotificationToUser(guestId,
+                    createBasicOrderNotificationDTO(hostId, guestId,
+                            OrderNotificationEventType.PAYMENT_SUCCESS_GUEST, orderId, notificationContentForGuest));
 
             log.info("已为房东 {} 发送订单 {} 支付成功通知", hostUsername, orderNumber);
             log.info("已为房客 {} 发送订单 {} 被接受的通知", guestUsername, orderNumber);
@@ -230,11 +230,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     "很抱歉，您关于房源 '%s' 的预订请求 (订单 %s) 已被房东拒绝。原因: %s",
                     homestayTitle, orderNumber,
                     (rejectReason != null && !rejectReason.isEmpty()) ? rejectReason : "未提供具体原因");
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, hostId,
-                    NotificationType.BOOKING_REJECTED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.ORDER_REJECTED,
+                    orderId,
                     notificationContent);
             log.info("已为房客 {} 发送订单 {} 被拒绝的通知", guestUsername, orderNumber);
         } catch (Exception e) {
@@ -264,11 +263,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                         orderNumber,
                         homestayTitle,
                         cancelReason != null && !cancelReason.isEmpty() ? cancelReason : "未提供原因");
-                notificationService.createNotification(
+                createOrderNotification(
                         guest.getId(), cancelledByUser ? guestId : null,
-                        NotificationType.REFUND_REQUESTED,
-                        EntityType.ORDER,
-                        String.valueOf(orderId),
+                        OrderNotificationEventType.REFUND_REQUESTED,
+                        orderId,
                         notificationContent);
             } else {
                 // 取消通知
@@ -279,11 +277,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                         previousStatus,
                         newStatus,
                         cancelReason != null && !cancelReason.isEmpty() ? cancelReason : "未提供原因");
-                notificationService.createNotification(
+                createOrderNotification(
                         guest.getId(), cancelledByUser ? guestId : null,
-                        NotificationType.ORDER_STATUS_CHANGED,
-                        EntityType.ORDER,
-                        String.valueOf(orderId),
+                        OrderNotificationEventType.cancellationEvent(newStatus, cancelledByUser),
+                        orderId,
                         notificationContent);
             }
 
@@ -305,17 +302,16 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     "您的订单 %s 退款申请已提交，请等待处理。退款原因: %s",
                     orderNumber,
                     refundReason != null && !refundReason.isEmpty() ? refundReason : "用户申请");
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, null,
-                    NotificationType.REFUND_REQUESTED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.REFUND_REQUESTED,
+                    orderId,
                     guestContent);
 
             // 实时推送
             webSocketNotificationService.sendNotificationToUser(guestId,
-                    createBasicNotificationDTO(null, guestId, NotificationType.REFUND_REQUESTED,
-                            EntityType.ORDER, String.valueOf(orderId), guestContent));
+                    createBasicOrderNotificationDTO(null, guestId,
+                            OrderNotificationEventType.REFUND_REQUESTED, orderId, guestContent));
 
             log.info("已为用户 {} 发送订单 {} 退款申请通知", getCurrentUsername(guestId), orderNumber);
         } catch (Exception e) {
@@ -333,11 +329,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String notificationContent = String.format(
                     "好消息！您的订单 %s 退款申请已批准并完成，款项已原路退回，请注意查收。",
                     orderNumber);
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, getCurrentUserId(), // 触发者为当前用户（管理员/房东）
-                    NotificationType.REFUND_COMPLETED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.REFUND_COMPLETED,
+                    orderId,
                     notificationContent);
             log.info("已为房客 {} 发送订单 {} 退款完成通知", getCurrentUsername(guestId), orderNumber);
         } catch (Exception e) {
@@ -356,11 +351,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     "很抱歉，您的订单 %s 退款申请被拒绝。原因: %s。如有疑问请联系客服。",
                     orderNumber,
                     rejectReason != null && !rejectReason.isEmpty() ? rejectReason : "未提供原因");
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, getCurrentUserId(), // 触发者为当前用户（管理员/房东）
-                    NotificationType.REFUND_REJECTED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.REFUND_REJECTED,
+                    orderId,
                     notificationContent);
             log.info("已为房客 {} 发送订单 {} 退款拒绝通知", getCurrentUsername(guestId), orderNumber);
         } catch (Exception e) {
@@ -379,11 +373,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     "好消息！您的订单 %s 退款已完成，款项已原路退回，请注意查收。退款交易号: %s",
                     orderNumber,
                     transactionId != null && !transactionId.isEmpty() ? transactionId : "请查看银行流水");
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, getCurrentUserId(), // 触发者为当前用户（管理员/房东）
-                    NotificationType.REFUND_COMPLETED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.REFUND_COMPLETED,
+                    orderId,
                     notificationContent);
             log.info("已为房客 {} 发送订单 {} 退款完成通知", getCurrentUsername(guestId), orderNumber);
         } catch (Exception e) {
@@ -403,21 +396,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     orderNumber,
                     initiatorUsername != null ? initiatorUsername : "系统");
             
-            // 确定通知类型
-            NotificationType notificationType;
-            if (initiatorId != null && initiatorId.equals(guestId)) {
-                // 用户自己发起的退款
-                notificationType = NotificationType.REFUND_REQUESTED;
-            } else {
-                // 房东或管理员发起的退款
-                notificationType = NotificationType.REFUND_REQUESTED; // 或者可以使用其他类型
-            }
-            
-            notificationService.createNotification(
+            createOrderNotification(
                     guestId, initiatorId,
-                    notificationType,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.REFUND_REQUESTED,
+                    orderId,
                     notificationContent);
             
             log.info("已为房客 {} 发送订单 {} 退款申请通知，发起人: {}",
@@ -439,11 +421,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                 String hostNotificationContent = String.format(
                         "订单 %s (房源: %s) 有新的争议待处理。争议原因: %s，请等待管理员仲裁。",
                         orderNumber, homestayTitle, disputeReason != null ? disputeReason : "未提供");
-                notificationService.createNotification(
+                createOrderNotification(
                         hostId, guestId,
-                        NotificationType.REFUND_REQUESTED,
-                        EntityType.ORDER,
-                        String.valueOf(orderId),
+                        OrderNotificationEventType.DISPUTE_RAISED,
+                        orderId,
                         hostNotificationContent);
                 log.info("已为房东 {} 发送订单 {} 争议发起通知", getCurrentUsername(hostId), orderNumber);
             }
@@ -454,11 +435,10 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                 String guestNotificationContent = String.format(
                         "您关于订单 %s (房源: %s) 的退款申请已进入争议处理流程，管理员将进行仲裁，请等待结果。",
                         orderNumber, homestayTitle);
-                notificationService.createNotification(
+                createOrderNotification(
                         guestId, hostId,
-                        NotificationType.REFUND_REQUESTED,
-                        EntityType.ORDER,
-                        String.valueOf(orderId),
+                        OrderNotificationEventType.DISPUTE_RAISED,
+                        orderId,
                         guestNotificationContent);
                 log.info("已为房客 {} 发送订单 {} 争议发起通知", getCurrentUsername(guestId), orderNumber);
             }
@@ -497,22 +477,20 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
 
             // 通知房东
             if (hostId != null) {
-                notificationService.createNotification(
+                createOrderNotification(
                         hostId, guestId,
-                        NotificationType.ORDER_STATUS_CHANGED,
-                        EntityType.ORDER,
-                        String.valueOf(orderId),
+                        OrderNotificationEventType.DISPUTE_RESOLVED_FOR_HOST,
+                        orderId,
                         hostContent);
                 log.info("已为房东 {} 发送订单 {} 争议解决通知", getCurrentUsername(hostId), orderNumber);
             }
 
             // 通知客人
             if (guestId != null) {
-                notificationService.createNotification(
+                createOrderNotification(
                         guestId, hostId,
-                        NotificationType.REFUND_COMPLETED,
-                        EntityType.ORDER,
-                        String.valueOf(orderId),
+                        OrderNotificationEventType.DISPUTE_RESOLVED_FOR_GUEST,
+                        orderId,
                         guestContent);
                 log.info("已为房客 {} 发送订单 {} 争议解决通知", getCurrentUsername(guestId), orderNumber);
             }
@@ -581,15 +559,29 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
         return 0;
     }
 
+    private void createOrderNotification(
+            Long userId,
+            Long actorId,
+            OrderNotificationEventType eventType,
+            Long orderId,
+            String content) {
+        notificationService.createNotification(
+                NotificationCreateCommand.orderEvent(userId, actorId, eventType, orderId, content));
+    }
+
     // 辅助方法：创建基础通知DTO
-    private NotificationDTO createBasicNotificationDTO(Long actorId, Long userId, NotificationType type,
-                                                       EntityType entityType, String entityId, String content) {
+    private NotificationDTO createBasicOrderNotificationDTO(
+            Long actorId,
+            Long userId,
+            OrderNotificationEventType eventType,
+            Long orderId,
+            String content) {
         NotificationDTO dto = new NotificationDTO();
         dto.setActorId(actorId);
         dto.setUserId(userId);
-        dto.setType(type);
-        dto.setEntityType(entityType);
-        dto.setEntityId(entityId);
+        dto.setType(eventType.notificationType());
+        dto.setEntityType(eventType.entityType());
+        dto.setEntityId(orderId != null ? String.valueOf(orderId) : null);
         dto.setContent(content);
         dto.setRead(false);
         return dto;
@@ -607,17 +599,16 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     refundType != null ? refundType : "未知",
                     refundReason != null && !refundReason.isEmpty() ? refundReason : "未提供",
                     refundAmount != null ? refundAmount : "计算中");
-            notificationService.createNotification(
+            createOrderNotification(
                     hostId, null,
-                    NotificationType.REFUND_REQUESTED,
-                    EntityType.ORDER,
-                    String.valueOf(orderId),
+                    OrderNotificationEventType.REFUND_REQUESTED,
+                    orderId,
                     content);
 
             // 实时推送
             webSocketNotificationService.sendNotificationToUser(hostId,
-                    createBasicNotificationDTO(null, hostId, NotificationType.REFUND_REQUESTED,
-                            EntityType.ORDER, String.valueOf(orderId), content));
+                    createBasicOrderNotificationDTO(null, hostId,
+                            OrderNotificationEventType.REFUND_REQUESTED, orderId, content));
 
             log.info("已为房东 {} 发送订单 {} 退款待审批通知", getCurrentUsername(hostId), orderNumber);
         } catch (Exception e) {

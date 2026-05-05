@@ -15,8 +15,6 @@ import com.homestay3.homestaybackend.model.OrderStatus;
 import com.homestay3.homestaybackend.model.PaymentStatus;
 import com.homestay3.homestaybackend.model.HomestayStatus;
 import com.homestay3.homestaybackend.model.RefundType;
-import com.homestay3.homestaybackend.model.enums.NotificationType;
-import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.PromotionUsageRepository;
@@ -25,7 +23,6 @@ import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.service.BookingConflictService;
 import com.homestay3.homestaybackend.service.CouponService;
 import com.homestay3.homestaybackend.service.EarningService;
-import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderLifecycleService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PricingService;
@@ -73,7 +70,6 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final HomestayRepository homestayRepository;
-    private final NotificationService notificationService;
     private final OrderNotificationService orderNotificationService;
     private final EarningService earningService;
     private final ReviewRepository reviewRepository;
@@ -275,36 +271,21 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 User host = homestay.getOwner();
                 if (OrderStatus.CONFIRMED.name().equals(savedOrder.getStatus())) {
                     // 自动确认房源：通知房东有新订单，通知客人可以支付
-                    String hostNotificationContent = String.format(
-                            "您收到了来自用户 %s 的新订单 (订单 %s)，该订单已自动确认，等待用户支付。",
-                            currentUser.getUsername(), savedOrder.getOrderNumber());
-                    notificationService.createNotification(
-                            host.getId(), currentUser.getId(),
-                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
-                            String.valueOf(savedOrder.getId()), hostNotificationContent);
-
-                    String guestNotificationContent = String.format(
-                            "您的预订 (订单 %s) 已自动确认，请在2小时内完成支付。",
+                    orderNotificationService.sendOrderAutoConfirmedNotification(
+                            host.getId(),
+                            currentUser.getId(),
+                            savedOrder.getId(),
+                            host.getUsername(),
+                            currentUser.getUsername(),
                             savedOrder.getOrderNumber());
-                    notificationService.createNotification(
-                            currentUser.getId(), host.getId(),
-                            NotificationType.ORDER_CONFIRMED, EntityType.BOOKING,
-                            String.valueOf(savedOrder.getId()), guestNotificationContent);
-
-                    log.info("已发送自动确认订单通知 - 房东: {}, 客人: {}, 订单: {}",
-                            host.getUsername(), currentUser.getUsername(), savedOrder.getOrderNumber());
                 } else {
                     // 房东确认制：通知房东有新预订请求
-                    String notificationContent = String.format(
-                            "您收到了来自用户 %s 的新预订请求 (订单 %s)，请及时处理。",
-                            currentUser.getUsername(), savedOrder.getOrderNumber());
-                    notificationService.createNotification(
-                            host.getId(), currentUser.getId(),
-                            NotificationType.BOOKING_REQUEST, EntityType.BOOKING,
-                            String.valueOf(savedOrder.getId()), notificationContent);
-
-                    log.info("已为房东 {} 发送新预订请求通知 (订单 {})",
-                            host.getUsername(), savedOrder.getOrderNumber());
+                    orderNotificationService.sendOrderBookingRequestNotification(
+                            host.getId(),
+                            currentUser.getId(),
+                            savedOrder.getId(),
+                            currentUser.getUsername(),
+                            savedOrder.getOrderNumber());
                 }
             } catch (Exception e) {
                 log.error("发送通知失败: {}", e.getMessage());
@@ -325,6 +306,9 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
         } catch (DataIntegrityViolationException e) {
             log.error("订单创建失败，可能存在日期冲突: {}", e.getMessage());
             throw new IllegalArgumentException("所选日期已被预订，请选择其他日期");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            // 透传已知的业务异常（如 BookingConflictService 抛出的日期冲突），保留原始信息
+            throw e;
         } catch (Exception e) {
             log.error("订单创建过程中发生异常: {}", e.getMessage(), e);
             throw new RuntimeException("订单创建失败，请稍后重试");

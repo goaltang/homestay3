@@ -1,6 +1,7 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.NotificationDTO;
+import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.Notification;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
@@ -60,30 +61,36 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional // 确保操作的原子性
     public Notification createNotification(Long userId, Long actorId, NotificationType type, EntityType entityType, String entityId, String content) {
-        NotificationType normalizedType = normalizeTypeForCreate(type);
+        return createNotification(NotificationCreateCommand.of(userId, actorId, type, entityType, entityId, content));
+    }
+
+    @Override
+    @Transactional
+    public Notification createNotification(NotificationCreateCommand command) {
+        NotificationType normalizedType = normalizeTypeForCreate(command.type());
         Notification notification = Notification.builder()
-                .userId(userId)
-                .actorId(actorId)
+                .userId(command.userId())
+                .actorId(command.actorId())
                 .type(normalizedType)
-                .entityType(entityType)
-                .entityId(entityId)
-                .content(content)
+                .entityType(command.entityType())
+                .entityId(command.entityId())
+                .content(command.content())
                 .isRead(false) // 默认为未读
                 .build();
 
         Notification savedNotification = notificationRepository.save(notification);
-        if (type != null && type.isLegacyAlias()) {
-            log.warn("Legacy notification type {} normalized to {} before save", type, normalizedType);
+        if (command.type() != null && command.type().isLegacyAlias()) {
+            log.warn("Legacy notification type {} normalized to {} before save", command.type(), normalizedType);
         }
-        log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), userId, normalizedType);
+        log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), command.userId(), normalizedType);
 
         // --- 实时推送 ---
         try {
             NotificationDTO dto = convertToDtoWithFullData(savedNotification);
-            webSocketNotificationService.sendNotificationToUser(userId, dto);
-            log.info("已通过 WebSocket 推送通知给用户: {}", userId);
+            webSocketNotificationService.sendNotificationToUser(command.userId(), dto);
+            log.info("已通过 WebSocket 推送通知给用户: {}", command.userId());
         } catch (Exception e) {
-            log.error("WebSocket 推送通知失败: userId={}, error={}", userId, e.getMessage(), e);
+            log.error("WebSocket 推送通知失败: userId={}, error={}", command.userId(), e.getMessage(), e);
             // 推送失败不应影响主流程
         }
         // --- 实时推送结束 ---
