@@ -109,6 +109,7 @@ import {
     deleteNotification,
 } from '@/services/notificationService'; // 复用 service
 import type { NotificationDto } from '@/types/notification'; // 复用类型
+import { resolveNotificationDeepLink, resolveNotificationTitle } from '@/types/notification';
 import { useUserStore } from '@/stores/user';
 import { formatDate } from '@/utils/format';
 import { VNode, h } from 'vue';
@@ -145,6 +146,13 @@ const notificationTypes = ref([
 // --- 新增：渲染通知内容的函数 ---
 const renderNotificationContent = (notification: NotificationDto): VNode => {
     const { type, actorUsername, entityTitle, content, entityType, entityId } = notification;
+    if (notification.title || notification.deepLink) {
+        return h('span', [
+            h('span', { class: 'font-medium' }, resolveNotificationTitle(notification)),
+            content ? `：${content}` : '',
+        ]);
+    }
+
     const actorLink = actorUsername ? h(RouterLink, { class: 'font-medium text-blue-700 hover:underline', to: `/user/profile/${notification.actorId}` }, () => actorUsername) : '系统';
     let entityLink: VNode | string = entityTitle || '';
     let entityPath = '';
@@ -332,6 +340,15 @@ const handleNotificationClick = async (notification: NotificationDto) => {
             console.error('点击时标记已读失败:', error);
             // 即使标记失败，也尝试跳转
         }
+    }
+
+    const deepLink = resolveNotificationDeepLink(notification, {
+        isLandlord: true,
+        fallback: '/host/notifications',
+    });
+    if (deepLink) {
+        router.push(deepLink);
+        return;
     }
 
     // 点击整行时的跳转逻辑保持不变 (作为后备或主要导航)

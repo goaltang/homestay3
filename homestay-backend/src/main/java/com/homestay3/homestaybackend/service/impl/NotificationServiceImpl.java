@@ -247,12 +247,17 @@ public class NotificationServiceImpl implements NotificationService {
 
         // 收集所有需要查询的ID
         Set<Long> actorIds = new HashSet<>();
+        Set<Long> recipientIds = new HashSet<>();
         Set<Long> orderIds = new HashSet<>();
         Set<Long> homestayIds = new HashSet<>();
         Set<Long> reviewIds = new HashSet<>();
         Set<Long> userIdsForEntity = new HashSet<>();
 
         for (Notification notification : notifications) {
+            if (notification.getUserId() != null) {
+                recipientIds.add(notification.getUserId());
+            }
+
             // 收集actorId
             if (notification.getActorId() != null) {
                 actorIds.add(notification.getActorId());
@@ -290,6 +295,10 @@ public class NotificationServiceImpl implements NotificationService {
                 userRepository.findAllById(actorIds).stream()
                         .collect(Collectors.toMap(User::getId, Function.identity()));
 
+        Map<Long, User> recipientMap = recipientIds.isEmpty() ? Collections.emptyMap() :
+                userRepository.findAllById(recipientIds).stream()
+                        .collect(Collectors.toMap(User::getId, Function.identity()));
+
         Map<Long, Order> orderMap = orderIds.isEmpty() ? Collections.emptyMap() :
                 orderRepository.findAllById(orderIds).stream()
                         .collect(Collectors.toMap(Order::getId, Function.identity()));
@@ -315,7 +324,7 @@ public class NotificationServiceImpl implements NotificationService {
         // 转换每个通知
         List<NotificationDTO> dtos = new ArrayList<>(notifications.size());
         for (Notification notification : notifications) {
-            dtos.add(convertToDtoWithMaps(notification, actorMap, orderMap, homestayMap, reviewHomestayTitleMap, userEntityMap));
+            dtos.add(convertToDtoWithMaps(notification, actorMap, recipientMap, orderMap, homestayMap, reviewHomestayTitleMap, userEntityMap));
         }
 
         return dtos;
@@ -327,6 +336,7 @@ public class NotificationServiceImpl implements NotificationService {
     private NotificationDTO convertToDtoWithMaps(
             Notification notification,
             Map<Long, User> actorMap,
+            Map<Long, User> recipientMap,
             Map<Long, Order> orderMap,
             Map<Long, Homestay> homestayMap,
             Map<Long, String> reviewHomestayTitleMap,
@@ -393,6 +403,7 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
+        applyPresentationMetadata(dto, recipientMap.get(notification.getUserId()));
         return dto;
     }
 
@@ -449,6 +460,11 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
+        User recipient = null;
+        if (notification.getUserId() != null) {
+            recipient = userRepository.findById(notification.getUserId()).orElse(null);
+        }
+        applyPresentationMetadata(dto, recipient);
         return dto;
     }
 
@@ -456,6 +472,142 @@ public class NotificationServiceImpl implements NotificationService {
         return notification.getRawType() != null
                 ? notification.getRawType()
                 : notification.getType() != null ? notification.getType().name() : null;
+    }
+
+    private void applyPresentationMetadata(NotificationDTO dto, User recipient) {
+        dto.setCategory(resolveCategory(dto.getType(), dto.getEntityType()));
+        dto.setTitle(resolveTitle(dto.getType()));
+        dto.setDeepLink(resolveDeepLink(dto, recipient));
+        dto.setPayload(buildPayload(dto));
+    }
+
+    private String resolveCategory(NotificationType type, EntityType entityType) {
+        NotificationType canonicalType = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
+
+        return switch (canonicalType) {
+            case BOOKING_REQUEST, BOOKING_ACCEPTED, BOOKING_REJECTED, BOOKING_CANCELLED,
+                    BOOKING_REMINDER, ORDER_CONFIRMED, PAYMENT_RECEIVED,
+                    ORDER_CANCELLED_BY_HOST, ORDER_CANCELLED_BY_GUEST, ORDER_COMPLETED,
+                    ORDER_STATUS_CHANGED, REFUND_REQUESTED, REFUND_APPROVED,
+                    REFUND_REJECTED, REFUND_COMPLETED -> "order";
+            case NEW_MESSAGE -> "message";
+            case NEW_REVIEW, REVIEW_REPLIED, REVIEW_REMINDER -> "review";
+            case HOMESTAY_APPROVED, HOMESTAY_REJECTED, HOMESTAY_SUBMITTED -> "homestay";
+            case COUPON_EXPIRING, COUPON_ISSUED -> "coupon";
+            case PASSWORD_CHANGED, EMAIL_VERIFIED, SYSTEM_ANNOUNCEMENT, WELCOME_MESSAGE, UNKNOWN,
+                    PAID, CANCELLED, CANCELLED_BY_HOST, CANCELLED_BY_USER, COMPLETED, CONFIRMED, PENDING, REFUNDED ->
+                    resolveCategoryFromEntity(entityType);
+        };
+    }
+
+    private String resolveCategoryFromEntity(EntityType entityType) {
+        if (entityType == null) {
+            return "system";
+        }
+
+        return switch (entityType) {
+            case ORDER, BOOKING -> "order";
+            case MESSAGE, MESSAGE_THREAD -> "message";
+            case REVIEW -> "review";
+            case HOMESTAY -> "homestay";
+            case COUPON -> "coupon";
+            case USER, SYSTEM, UNKNOWN -> "system";
+        };
+    }
+
+    private String resolveTitle(NotificationType type) {
+        NotificationType canonicalType = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
+
+        return switch (canonicalType) {
+            case BOOKING_REQUEST -> "预订请求";
+            case BOOKING_ACCEPTED -> "预订已接受";
+            case BOOKING_REJECTED -> "预订被拒绝";
+            case BOOKING_CANCELLED -> "预订已取消";
+            case BOOKING_REMINDER -> "入住提醒";
+            case REVIEW_REMINDER -> "评价提醒";
+            case NEW_MESSAGE -> "新消息";
+            case NEW_REVIEW -> "新评价";
+            case REVIEW_REPLIED -> "评价回复";
+            case PASSWORD_CHANGED -> "账号安全";
+            case EMAIL_VERIFIED -> "邮箱验证";
+            case HOMESTAY_APPROVED -> "房源审核通过";
+            case HOMESTAY_REJECTED -> "房源审核未通过";
+            case HOMESTAY_SUBMITTED -> "房源待审核";
+            case SYSTEM_ANNOUNCEMENT -> "系统公告";
+            case WELCOME_MESSAGE -> "欢迎消息";
+            case ORDER_CONFIRMED -> "订单已确认";
+            case PAYMENT_RECEIVED -> "付款已收到";
+            case ORDER_CANCELLED_BY_HOST, ORDER_CANCELLED_BY_GUEST -> "订单已取消";
+            case ORDER_COMPLETED -> "订单已完成";
+            case ORDER_STATUS_CHANGED -> "订单状态更新";
+            case REFUND_REQUESTED -> "退款申请";
+            case REFUND_APPROVED -> "退款已通过";
+            case REFUND_REJECTED -> "退款被拒绝";
+            case REFUND_COMPLETED -> "退款已完成";
+            case COUPON_EXPIRING -> "优惠券即将过期";
+            case COUPON_ISSUED -> "优惠券到账";
+            case UNKNOWN, PAID, CANCELLED, CANCELLED_BY_HOST, CANCELLED_BY_USER, COMPLETED, CONFIRMED, PENDING, REFUNDED ->
+                    "系统通知";
+        };
+    }
+
+    private String resolveDeepLink(NotificationDTO dto, User recipient) {
+        EntityType entityType = dto.getEntityType();
+        String entityId = dto.getEntityId();
+        boolean hostContext = isHostRecipient(recipient);
+
+        if (entityType == null) {
+            return resolveFallbackDeepLink(dto.getType(), hostContext);
+        }
+
+        return switch (entityType) {
+            case ORDER, BOOKING -> entityId == null ? null :
+                    hostContext ? "/host/orders?highlightOrderId=" + entityId : "/orders/" + entityId;
+            case HOMESTAY -> entityId == null ? null :
+                    hostContext ? "/host/homestay/edit/" + entityId : "/homestays/" + entityId;
+            case REVIEW -> entityId == null ? null :
+                    hostContext ? "/host/reviews?highlightReviewId=" + entityId : "/user/reviews";
+            case MESSAGE, MESSAGE_THREAD -> hostContext ? "/host/messages" : "/user/notifications";
+            case USER -> "/user/profile";
+            case COUPON -> "/user/coupons";
+            case SYSTEM, UNKNOWN -> resolveFallbackDeepLink(dto.getType(), hostContext);
+        };
+    }
+
+    private String resolveFallbackDeepLink(NotificationType type, boolean hostContext) {
+        NotificationType canonicalType = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
+        return switch (canonicalType) {
+            case NEW_MESSAGE -> hostContext ? "/host/messages" : "/user/notifications";
+            case COUPON_EXPIRING, COUPON_ISSUED -> "/user/coupons";
+            case HOMESTAY_APPROVED, HOMESTAY_REJECTED, HOMESTAY_SUBMITTED -> "/host/homestay";
+            default -> null;
+        };
+    }
+
+    private boolean isHostRecipient(User recipient) {
+        if (recipient == null || recipient.getRole() == null) {
+            return false;
+        }
+        String role = recipient.getRole();
+        return role.contains("HOST") || role.contains("ADMIN");
+    }
+
+    private Map<String, Object> buildPayload(NotificationDTO dto) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        putIfNotNull(payload, "rawType", dto.getRawType());
+        putIfNotNull(payload, "rawEntityType", dto.getRawEntityType());
+        putIfNotNull(payload, "entityType", dto.getEntityType() != null ? dto.getEntityType().name() : null);
+        putIfNotNull(payload, "entityId", dto.getEntityId());
+        putIfNotNull(payload, "entityTitle", dto.getEntityTitle());
+        putIfNotNull(payload, "actorId", dto.getActorId());
+        putIfNotNull(payload, "actorUsername", dto.getActorUsername());
+        return payload;
+    }
+
+    private void putIfNotNull(Map<String, Object> payload, String key, Object value) {
+        if (value != null) {
+            payload.put(key, value);
+        }
     }
 
     private String getRawEntityType(Notification notification) {

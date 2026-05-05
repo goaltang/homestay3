@@ -32,16 +32,16 @@
                 :class="{ 'notification-unread': !notification.read }"
                 @click="handleNotificationClick(notification)">
 
-                <div class="notification-icon" :class="`icon-${getCategory(notification.type)}`">
+                <div class="notification-icon" :class="`icon-${getCategory(notification)}`">
                     <el-icon :size="22">
-                        <component :is="getIcon(notification.type)" />
+                        <component :is="getIcon(notification)" />
                     </el-icon>
                 </div>
 
                 <div class="notification-body">
                     <div class="notification-header">
-                        <el-tag size="small" :type="getTagType(notification.type)" effect="plain">
-                            {{ formatType(notification.type) }}
+                        <el-tag size="small" :type="getTagType(notification)" effect="plain">
+                            {{ resolveNotificationTitle(notification) }}
                         </el-tag>
                         <span class="notification-time">{{ formatDate(notification.createdAt, 'YYYY-MM-DD HH:mm') }}</span>
                     </div>
@@ -86,6 +86,11 @@ import { useUserStore } from '@/stores/user';
 import { useNotificationStore } from '@/stores/notification';
 import { formatDate } from '@/utils/format';
 import type { NotificationDto } from '@/types/notification';
+import {
+    resolveNotificationCategory,
+    resolveNotificationDeepLink,
+    resolveNotificationTitle,
+} from '@/types/notification';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -110,20 +115,10 @@ const canMarkAllRead = computed(() => {
 });
 
 // --- 通知分类与图标映射 ---
-const getCategory = (type?: string) => {
-    if (!type) return 'system';
-    if (type.startsWith('BOOKING') || type.startsWith('ORDER') || type.startsWith('REFUND') || type.startsWith('PAYMENT')
-        || type === 'PAID' || type === 'CANCELLED' || type === 'CANCELLED_BY_HOST' || type === 'CANCELLED_BY_USER'
-        || type === 'COMPLETED' || type === 'CONFIRMED' || type === 'PENDING' || type === 'REFUNDED') return 'order';
-    if (type.startsWith('NEW_MESSAGE')) return 'message';
-    if (type.startsWith('NEW_REVIEW') || type.startsWith('REVIEW')) return 'review';
-    if (type.startsWith('HOMESTAY')) return 'homestay';
-    if (type.startsWith('COUPON')) return 'coupon';
-    return 'system';
-};
+const getCategory = (notification: NotificationDto) => resolveNotificationCategory(notification);
 
-const getIcon = (type?: string) => {
-    const category = getCategory(type);
+const getIcon = (notification: NotificationDto) => {
+    const category = getCategory(notification);
     const iconMap: Record<string, any> = {
         order: Tickets,
         message: ChatDotRound,
@@ -135,8 +130,8 @@ const getIcon = (type?: string) => {
     return iconMap[category] || Bell;
 };
 
-const getTagType = (type?: string): any => {
-    const category = getCategory(type);
+const getTagType = (notification: NotificationDto): any => {
+    const category = getCategory(notification);
     const typeMap: Record<string, any> = {
         order: 'primary',
         message: 'success',
@@ -146,50 +141,6 @@ const getTagType = (type?: string): any => {
         system: '',
     };
     return typeMap[category] || '';
-};
-
-const formatType = (type?: string) => {
-    if (!type) return '系统';
-    const map: Record<string, string> = {
-        BOOKING_REQUEST: '预订请求',
-        BOOKING_ACCEPTED: '预订确认',
-        BOOKING_REJECTED: '预订被拒',
-        BOOKING_CANCELLED: '预订取消',
-        BOOKING_REMINDER: '入住提醒',
-        REVIEW_REMINDER: '评价提醒',
-        ORDER_CONFIRMED: '订单确认',
-        PAYMENT_RECEIVED: '收款通知',
-        ORDER_CANCELLED_BY_HOST: '订单取消',
-        ORDER_CANCELLED_BY_GUEST: '订单取消',
-        ORDER_COMPLETED: '订单完成',
-        ORDER_STATUS_CHANGED: '订单状态',
-        REFUND_REQUESTED: '退款申请',
-        REFUND_APPROVED: '退款通过',
-        REFUND_REJECTED: '退款被拒',
-        REFUND_COMPLETED: '退款完成',
-        NEW_MESSAGE: '新消息',
-        NEW_REVIEW: '新评价',
-        REVIEW_REPLIED: '评价回复',
-        HOMESTAY_APPROVED: '房源通过',
-        HOMESTAY_REJECTED: '房源被拒',
-        HOMESTAY_SUBMITTED: '房源审核',
-        PASSWORD_CHANGED: '账号安全',
-        EMAIL_VERIFIED: '账号安全',
-        SYSTEM_ANNOUNCEMENT: '系统公告',
-        WELCOME_MESSAGE: '欢迎',
-        COUPON_EXPIRING: '优惠券',
-        COUPON_ISSUED: '优惠券',
-        PAID: '已付款',
-        CANCELLED: '已取消',
-        CANCELLED_BY_HOST: '房东取消',
-        CANCELLED_BY_USER: '用户取消',
-        COMPLETED: '已完成',
-        CONFIRMED: '已确认',
-        PENDING: '待处理',
-        REFUNDED: '已退款',
-        UNKNOWN: '未知通知',
-    };
-    return map[type] || '系统';
 };
 
 // --- API 调用与逻辑 ---
@@ -272,14 +223,17 @@ const handleNotificationClick = async (notification: NotificationDto) => {
         } catch (e) { /* ignore */ }
     }
 
-    // 跳转
-    const { entityType, entityId, type } = notification;
+    const deepLink = resolveNotificationDeepLink(notification, {
+        isLandlord: false,
+        fallback: '/user/notifications',
+    });
+    if (deepLink) {
+        router.push(deepLink);
+        return;
+    }
+
+    const { entityType, entityId } = notification;
     if (!entityType || !entityId) {
-        // 无跳转目标的类型，根据 type 推断
-        if (type?.startsWith('NEW_MESSAGE')) {
-            router.push('/user/notifications'); // 暂留在通知中心
-            return;
-        }
         if (wasUnread && filterStatus.value === 'unread') {
             await fetchNotifications();
         }

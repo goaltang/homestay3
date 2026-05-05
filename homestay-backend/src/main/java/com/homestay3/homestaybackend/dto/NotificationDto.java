@@ -5,6 +5,7 @@ import com.homestay3.homestaybackend.model.enums.NotificationType;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 通知数据传输对象 (用于 API 响应)
@@ -21,6 +22,10 @@ public class NotificationDTO {
     private String rawEntityType;
     private String entityId;
     private String entityTitle;
+    private String category;
+    private String title;
+    private String deepLink;
+    private Map<String, Object> payload;
     private String content;
     private boolean isRead;
     private LocalDateTime readAt;

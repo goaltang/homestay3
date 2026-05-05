@@ -24,20 +24,13 @@
                             :class="['notification-item', { unread: !notification.read }]"
                             @click="handleNotificationClick(notification)">
                             <div class="notification-content">
-                                <!-- 可以根据 notification.type 添加不同图标 -->
-                                <el-icon class="notification-item-icon" v-if="notification.type.startsWith('BOOKING')">
-                                    <Calendar />
+                                <el-icon class="notification-item-icon">
+                                    <component :is="getNotificationIcon(notification)" />
                                 </el-icon>
-                                <el-icon class="notification-item-icon" v-else-if="notification.type === 'NEW_MESSAGE'">
-                                    <ChatDotRound />
-                                </el-icon>
-                                <el-icon class="notification-item-icon" v-else-if="notification.type === 'NEW_REVIEW'">
-                                    <Star />
-                                </el-icon>
-                                <el-icon class="notification-item-icon" v-else>
-                                    <InfoFilled />
-                                </el-icon>
-                                <p>{{ notification.content }}</p>
+                                <div class="notification-copy">
+                                    <p class="notification-title">{{ resolveNotificationTitle(notification) }}</p>
+                                    <p class="notification-text">{{ notification.content }}</p>
+                                </div>
                             </div>
                             <div class="notification-meta">
                                 <span class="notification-time">{{ formatTimeAgo(notification.createdAt) }}</span>
@@ -67,8 +60,13 @@ import { computed, onMounted, shallowRef, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useNotificationStore } from '@/stores/notification';
 import type { Notification } from '@/stores/notification';
+import {
+    resolveNotificationCategory,
+    resolveNotificationDeepLink,
+    resolveNotificationTitle,
+} from '@/types/notification';
 import { ElPopover, ElBadge, ElIcon, ElScrollbar, ElButton, ElEmpty, ElSkeleton } from 'element-plus';
-import { Bell, Calendar, ChatDotRound, Star, InfoFilled } from '@element-plus/icons-vue';
+import { Bell, Calendar, ChatDotRound, Star, InfoFilled, Goods, House } from '@element-plus/icons-vue';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { useUserStore } from '@/stores/user';
@@ -107,8 +105,12 @@ const handleNotificationClick = (notification: Notification) => {
         void notificationStore.markAsRead(notification.id);
     }
 
-    if (notification.entityType && notification.entityId) {
-        navigateToEntityBasedOnRole(notification.entityType, notification.entityId);
+    const path = resolveNotificationDeepLink(notification, {
+        isLandlord: userStore.isLandlord,
+        fallback: route.path.startsWith('/host') ? '/host/notifications' : '/user/notifications',
+    });
+    if (path) {
+        router.push(path);
     } else {
         goToAppropriateNotificationCenter();
     }
@@ -128,59 +130,16 @@ const goToAppropriateNotificationCenter = () => {
     }
 };
 
-// 跳转到关联实体页面 (需要根据你的路由配置完善)
-const navigateToEntityBasedOnRole = (entityType: string, entityId: string) => {
-    console.log(`导航实体 (Bell): 类型=${entityType}, ID=${entityId}, 是否房东=${userStore.isLandlord}`);
-    let path = '';
-
-    try {
-        const id = parseInt(entityId, 10);
-        if (isNaN(id)) throw new Error('Invalid entity ID');
-
-        // 检查是否为房东
-        if (userStore.isLandlord) {
-            // 房东视角跳转逻辑
-            switch (entityType) {
-                case 'BOOKING':
-                case 'ORDER':
-                    path = `/host/orders?highlightOrderId=${id}`;
-                    break;
-                case 'HOMESTAY':
-                    path = `/host/homestay/edit/${id}`;
-                    break;
-                case 'REVIEW':
-                    path = `/host/reviews?highlightReviewId=${id}`;
-                    break;
-                default:
-                    console.log(`房东视角：未知或无需跳转的实体类型 ${entityType}`);
-                    // 对于房东，未知类型也跳转到房东通知中心
-                    path = '/host/notifications';
-            }
-        } else {
-            // 普通用户视角跳转逻辑
-            switch (entityType) {
-                case 'BOOKING':
-                case 'ORDER':
-                    path = `/orders/${id}`; // 用户订单详情
-                    break;
-                case 'HOMESTAY':
-                    path = `/homestays/${id}`; // 用户房源详情
-                    break;
-                // 用户可能不需要处理 REVIEW 或其他类型的直接跳转，或者跳转到通用列表
-                default:
-                    console.log(`用户视角：未知或无需跳转的实体类型 ${entityType}`);
-                    path = '/user/notifications'; // 跳转到用户通知中心
-            }
-        }
-
-        if (path) {
-            router.push(path);
-        }
-    } catch (e) {
-        console.error('导航到实体失败:', e);
-        // 失败时跳转到对应的通知中心
-        goToAppropriateNotificationCenter();
-    }
+const getNotificationIcon = (notification: Notification) => {
+    const iconMap: Record<string, any> = {
+        order: Calendar,
+        message: ChatDotRound,
+        review: Star,
+        homestay: House,
+        coupon: Goods,
+        system: InfoFilled,
+    };
+    return iconMap[resolveNotificationCategory(notification)] || InfoFilled;
 };
 
 // 格式化时间为 "多久以前"
@@ -303,12 +262,25 @@ onMounted(() => {
     /* 防止图标被压缩 */
 }
 
-.notification-content p {
+.notification-copy {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.notification-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    line-height: 1.35;
+    margin: 0 0 3px;
+    word-break: break-word;
+}
+
+.notification-text {
     font-size: 13px;
     color: var(--el-text-color-regular);
     line-height: 1.4;
     margin: 0;
-    flex-grow: 1;
     word-break: break-word;
     /* 防止长单词溢出 */
 }

@@ -1,6 +1,8 @@
 package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.entity.Notification;
+import com.homestay3.homestaybackend.dto.NotificationDTO;
+import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
@@ -52,6 +54,7 @@ class NotificationServiceImplTest {
     void createNotificationNormalizesLegacyOrderStatusTypeBeforeSaving() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_USER")));
 
         notificationService.createNotification(
                 1L,
@@ -65,13 +68,19 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(captor.capture());
         assertEquals(NotificationType.PAYMENT_RECEIVED, captor.getValue().getType());
         assertEquals(EntityType.ORDER, captor.getValue().getEntityType());
-        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), any());
+
+        ArgumentCaptor<NotificationDTO> dtoCaptor = ArgumentCaptor.forClass(NotificationDTO.class);
+        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), dtoCaptor.capture());
+        assertEquals("order", dtoCaptor.getValue().getCategory());
+        assertEquals("付款已收到", dtoCaptor.getValue().getTitle());
+        assertEquals("/orders/99", dtoCaptor.getValue().getDeepLink());
     }
 
     @Test
     void createNotificationKeepsCanonicalTypeBeforeSaving() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_HOST")));
 
         notificationService.createNotification(
                 1L,
@@ -84,11 +93,18 @@ class NotificationServiceImplTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         assertEquals(NotificationType.ORDER_CONFIRMED, captor.getValue().getType());
+
+        ArgumentCaptor<NotificationDTO> dtoCaptor = ArgumentCaptor.forClass(NotificationDTO.class);
+        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), dtoCaptor.capture());
+        assertEquals("order", dtoCaptor.getValue().getCategory());
+        assertEquals("订单已确认", dtoCaptor.getValue().getTitle());
+        assertEquals("/host/orders?highlightOrderId=99", dtoCaptor.getValue().getDeepLink());
     }
 
     @Test
     void createNotificationUsesUnknownWhenTypeIsNull() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_USER")));
 
         notificationService.createNotification(
                 1L,
@@ -101,5 +117,15 @@ class NotificationServiceImplTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         assertEquals(NotificationType.UNKNOWN, captor.getValue().getType());
+    }
+
+    private User user(Long id, String role) {
+        return User.builder()
+                .id(id)
+                .username("user_" + id)
+                .email("user_" + id + "@example.com")
+                .password("secret")
+                .role(role)
+                .build();
     }
 }
