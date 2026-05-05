@@ -95,12 +95,21 @@ public interface NotificationService {
      */
     int cleanupOldNotifications(int days);
 
-    // --- (可选) 辅助方法 --- 
     /**
-     * 发送系统公告 (给所有用户或特定角色用户 - 待实现具体逻辑)
+     * 向全体用户广播系统通知
      *
-     * @param content 公告内容
+     * @param content 通知内容
+     * @return 成功发送的通知数量
      */
-    // void sendSystemAnnouncement(String content);
+    int broadcastSystemNotification(String content);
+
+    /**
+     * 向指定用户发送系统通知
+     *
+     * @param userId  用户ID
+     * @param content 通知内容
+     * @return 创建的通知DTO（若用户关闭了系统通知可能返回null）
+     */
+    NotificationDTO sendSystemNotification(Long userId, String content);
 
 } 

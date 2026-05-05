@@ -250,6 +250,51 @@ public class NotificationServiceImpl implements NotificationService {
         return deletedCount;
     }
 
+    @Override
+    @Transactional
+    public int broadcastSystemNotification(String content) {
+        List<User> allUsers = userRepository.findAll();
+        int count = 0;
+        for (User user : allUsers) {
+            Notification notification = createNotification(
+                    NotificationCreateCommand.of(
+                            user.getId(),
+                            null,
+                            NotificationType.SYSTEM_ANNOUNCEMENT,
+                            EntityType.SYSTEM,
+                            null,
+                            content
+                    )
+            );
+            if (notification != null) {
+                count++;
+            }
+        }
+        log.info("Admin 广播系统通知，目标用户 {} 人，成功发送 {} 条", allUsers.size(), count);
+        return count;
+    }
+
+    @Override
+    @Transactional
+    public NotificationDTO sendSystemNotification(Long userId, String content) {
+        Notification notification = createNotification(
+                NotificationCreateCommand.of(
+                        userId,
+                        null,
+                        NotificationType.SYSTEM_ANNOUNCEMENT,
+                        EntityType.SYSTEM,
+                        null,
+                        content
+                )
+        );
+        if (notification == null) {
+            log.warn("向用户 {} 发送系统通知被跳过（可能关闭了系统通知）", userId);
+            return null;
+        }
+        log.info("Admin 向用户 {} 发送系统通知", userId);
+        return convertToDtoWithFullData(notification);
+    }
+
     // --- 私有辅助方法 ---
 
     /**

@@ -94,3 +94,8 @@ obsidian-vault/
 .agents/
 skills/
 skills-lock.json
+.aider*
+
+# --- 个人本地脚本 ---
+load-ai-keys.ps1
+*.local.ps1

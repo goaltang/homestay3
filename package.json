@@ -1,0 +1,16 @@
+{
+  "name": "homestay3-dev",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:front\" --names backend,front --prefix-colors blue,green",
+    "dev:backend": "cd homestay-backend && mvn spring-boot:run",
+    "dev:front": "cd homestay-front && npm run dev",
+    "dev:admin": "concurrently \"npm run dev:backend\" \"npm run dev:admin-only\" --names backend,admin --prefix-colors blue,yellow",
+    "dev:admin-only": "cd homestay-admin && npm run dev",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:front\" \"npm run dev:admin-only\" --names backend,front,admin --prefix-colors blue,green,yellow"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -17,6 +17,12 @@
                                 全部已读
                             </el-button>
                         </el-badge>
+                        <el-button type="warning" @click="showSendDialog = true">
+                            <el-icon>
+                                <Bell />
+                            </el-icon>
+                            发送系统通知
+                        </el-button>
                         <el-button @click="refreshNotifications">
                             <el-icon>
                                 <Refresh />
@@ -110,6 +116,31 @@
                 </div>
             </el-card>
         </div>
+
+        <!-- 发送系统通知弹窗 -->
+        <el-dialog v-model="showSendDialog" title="发送系统通知" width="500px" align-center>
+            <el-form :model="sendForm" label-width="100px">
+                <el-form-item label="发送对象">
+                    <el-tag type="info">全体用户</el-tag>
+                </el-form-item>
+                <el-form-item label="通知内容">
+                    <el-input
+                        v-model="sendForm.content"
+                        type="textarea"
+                        :rows="4"
+                        placeholder="请输入通知内容"
+                        maxlength="500"
+                        show-word-limit
+                    />
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <el-button @click="showSendDialog = false">取消</el-button>
+                <el-button type="primary" @click="handleSendNotification" :loading="sendLoading">
+                    发送
+                </el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -125,7 +156,8 @@ import {
     CircleCheck,
     InfoFilled,
     House,
-    Search
+    Search,
+    Message
 } from '@element-plus/icons-vue'
 import {
     getNotifications,
@@ -136,6 +168,7 @@ import {
     type NotificationDto
 } from '@/api/notification'
 import { useRouter } from 'vue-router'
+import request from '@/utils/request'
 
 const router = useRouter()
 
@@ -152,6 +185,39 @@ const filterForm = reactive({
     type: '',
     read: null as boolean | null
 })
+
+// 发送系统通知
+const showSendDialog = ref(false)
+const sendLoading = ref(false)
+const sendForm = reactive({
+    target: 'all' as 'all' | 'user',
+    userId: null as number | null,
+    content: ''
+})
+
+const handleSendNotification = async () => {
+    if (!sendForm.content.trim()) {
+        ElMessage.warning('请输入通知内容')
+        return
+    }
+
+    sendLoading.value = true
+    try {
+        await request({
+            url: '/api/admin/notifications/broadcast',
+            method: 'post',
+            data: { content: sendForm.content.trim() }
+        })
+        ElMessage.success('系统通知发送成功')
+        showSendDialog.value = false
+        sendForm.content = ''
+    } catch (error: any) {
+        console.error('发送系统通知失败:', error)
+        ElMessage.error(error?.response?.data?.error || '发送系统通知失败')
+    } finally {
+        sendLoading.value = false
+    }
+}
 
 // 方法
 const loadNotifications = async () => {

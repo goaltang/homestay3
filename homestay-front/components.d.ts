@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AmenitiesList: typeof import('./src/components/homestay/AmenitiesList.vue')['default']
     AmenitySelector: typeof import('./src/components/AmenitySelector.vue')['default']
+    AnnouncementBar: typeof import('./src/components/home/AnnouncementBar.vue')['default']
     AppFooter: typeof import('./src/components/common/AppFooter.vue')['default']
     AppHeader: typeof import('./src/components/common/AppHeader.vue')['default']
     AuthGuard: typeof import('./src/components/common/AuthGuard.vue')['default']
@@ -63,6 +64,7 @@ declare module 'vue' {
     ElSelect: typeof import('element-plus/es')['ElSelect']
     ElSelectV2: typeof import('element-plus/es')['ElSelectV2']
     ElSkeleton: typeof import('element-plus/es')['ElSkeleton']
+    ElSkeletonItem: typeof import('element-plus/es')['ElSkeletonItem']
     ElSlider: typeof import('element-plus/es')['ElSlider']
     ElStep: typeof import('element-plus/es')['ElStep']
     ElSteps: typeof import('element-plus/es')['ElSteps']
@@ -82,6 +84,7 @@ declare module 'vue' {
     HeroBanner: typeof import('./src/components/home/HeroBanner.vue')['default']
     HomestayCard: typeof import('./src/components/homestay/HomestayCard.vue')['default']
     HomestaySection: typeof import('./src/components/homestay/HomestaySection.vue')['default']
+    HomestaySkeleton: typeof import('./src/components/homestay/HomestaySkeleton.vue')['default']
     HostCalendarGrid: typeof import('./src/components/host-calendar/HostCalendarGrid.vue')['default']
     HostCTA: typeof import('./src/components/home/HostCTA.vue')['default']
     HostInfo: typeof import('./src/components/homestay/HostInfo.vue')['default']
