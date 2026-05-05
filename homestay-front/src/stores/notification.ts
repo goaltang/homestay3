@@ -4,6 +4,10 @@ import api from "@/utils/request"; // 你的 axios 实例
 import type { Page } from "@/types/page"; // 假设你有一个 Page 类型
 import type { NotificationDto } from "@/types/notification";
 import { normalizeNotification } from "@/types/notification";
+import {
+  getNotificationPreferences,
+  updateNotificationPreference,
+} from "@/services/notificationService";
 
 // 定义通知的数据结构 (与后端的 NotificationDto 对应)
 export type Notification = NotificationDto;
@@ -19,6 +23,7 @@ export const useNotificationStore = defineStore("notification", () => {
   const notifications = ref<Notification[]>([]); // 用于下拉列表或通知中心
   const loading = ref<boolean>(false);
   const pagination = ref<Page<Notification> | null>(null); // 用于通知中心分页
+  const preferences = ref<Record<string, boolean>>({}); // 通知偏好
 
   // --- Getters ---
   const hasUnread = computed(() => unreadCount.value > 0);
@@ -221,6 +226,33 @@ export const useNotificationStore = defineStore("notification", () => {
     }
   };
 
+  /**
+   * 获取通知偏好设置
+   */
+  const fetchPreferences = async () => {
+    try {
+      const data = await getNotificationPreferences();
+      preferences.value = data;
+      console.log("获取通知偏好:", preferences.value);
+    } catch (error) {
+      console.error("获取通知偏好失败:", error);
+    }
+  };
+
+  /**
+   * 更新指定业务域的通知偏好
+   */
+  const updatePreference = async (domain: string, enabled: boolean) => {
+    try {
+      await updateNotificationPreference(domain, enabled);
+      preferences.value = { ...preferences.value, [domain]: enabled };
+      console.log(`更新通知偏好: domain=${domain}, enabled=${enabled}`);
+    } catch (error) {
+      console.error(`更新通知偏好失败: domain=${domain}`, error);
+      throw error;
+    }
+  };
+
   // --- 初始化 ---
   // 应用启动时获取一次未读数量 (可以在 App.vue 或布局组件中调用)
   // fetchUnreadCount();
@@ -237,6 +269,9 @@ export const useNotificationStore = defineStore("notification", () => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    preferences,
+    fetchPreferences,
+    updatePreference,
   };
 });
 

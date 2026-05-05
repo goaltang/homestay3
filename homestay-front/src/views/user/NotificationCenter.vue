@@ -9,10 +9,15 @@
                 <el-radio-button label="unread">未读</el-radio-button>
                 <el-radio-button label="read">已读</el-radio-button>
             </el-radio-group>
-            <el-button type="primary" plain @click="handleMarkAllRead"
-                :disabled="loading || !canMarkAllRead">
-                全部标记为已读
-            </el-button>
+            <div class="flex gap-2">
+                <el-button type="default" plain @click="showSettingsDialog = true">
+                    通知设置
+                </el-button>
+                <el-button type="primary" plain @click="handleMarkAllRead"
+                    :disabled="loading || !canMarkAllRead">
+                    全部标记为已读
+                </el-button>
+            </div>
         </div>
 
         <!-- 加载状态 -->
@@ -69,6 +74,23 @@
                 :current-page="currentPage" @current-change="handlePageChange" />
         </div>
 
+        <!-- 通知偏好设置弹窗 -->
+        <el-dialog v-model="showSettingsDialog" title="通知设置" width="400px" align-center>
+            <div v-loading="preferenceLoading" class="preference-list">
+                <div v-for="key in domainKeys" :key="key" class="preference-item">
+                    <span class="preference-label">{{ domainLabels[key] }}</span>
+                    <el-switch
+                        :model-value="notificationStore.preferences[key] !== false"
+                        :disabled="key === 'system' || preferenceLoading"
+                        @change="(val: any) => handlePreferenceChange(key, Boolean(val))"
+                    />
+                </div>
+            </div>
+            <template #footer>
+                <el-button @click="showSettingsDialog = false">关闭</el-button>
+            </template>
+        </el-dialog>
+
     </div>
 </template>
 
@@ -78,6 +100,7 @@ import { useRouter } from 'vue-router';
 import {
     ElRadioGroup, ElRadioButton, ElTag, ElButton, ElPagination,
     ElMessage, ElMessageBox, ElSkeleton, ElEmpty, ElIcon,
+    ElDialog, ElSwitch,
 } from 'element-plus';
 import {
     Bell, ChatDotRound, Goods, House, Star, Tickets
@@ -235,9 +258,37 @@ const handleFilterChange = () => {
     fetchNotifications();
 };
 
+const showSettingsDialog = ref(false);
+const preferenceLoading = ref(false);
+
+const domainLabels: Record<string, string> = {
+    order: '订单通知',
+    message: '消息通知',
+    review: '评价通知',
+    homestay: '房源通知',
+    coupon: '优惠券通知',
+    system: '系统通知',
+};
+
+const domainKeys = ['order', 'message', 'review', 'homestay', 'coupon', 'system'];
+
+const handlePreferenceChange = async (domain: string, enabled: boolean) => {
+    preferenceLoading.value = true;
+    try {
+        await notificationStore.updatePreference(domain, enabled);
+        ElMessage.success(`${domainLabels[domain]}已${enabled ? '开启' : '关闭'}`);
+    } catch (error) {
+        console.error('更新通知偏好失败:', error);
+        ElMessage.error('设置保存失败');
+    } finally {
+        preferenceLoading.value = false;
+    }
+};
+
 onMounted(() => {
     fetchNotifications();
     notificationStore.fetchUnreadCount();
+    notificationStore.fetchPreferences();
 });
 </script>
 
@@ -344,6 +395,30 @@ onMounted(() => {
 
 .notification-actions :deep(.el-button) {
     padding: 4px 0;
+}
+
+.preference-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 4px;
+}
+
+.preference-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.preference-item:last-child {
+    border-bottom: none;
+}
+
+.preference-label {
+    font-size: 14px;
+    color: var(--el-text-color-primary);
 }
 
 @media (max-width: 768px) {

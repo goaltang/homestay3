@@ -3,6 +3,7 @@ package com.homestay3.homestaybackend.controller;
 import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.service.NotificationPreferenceService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,12 +38,15 @@ class NotificationControllerTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private NotificationPreferenceService notificationPreferenceService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new NotificationController(notificationService))
+                .standaloneSetup(new NotificationController(notificationService, notificationPreferenceService))
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
 

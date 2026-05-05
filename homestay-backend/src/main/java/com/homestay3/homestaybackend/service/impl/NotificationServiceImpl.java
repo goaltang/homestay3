@@ -11,6 +11,7 @@ import com.homestay3.homestaybackend.entity.Review;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.*; // 导入所有 repository
+import com.homestay3.homestaybackend.service.NotificationPreferenceService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.slf4j.Logger;
@@ -41,6 +42,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final OrderRepository orderRepository;
     private final ReviewRepository reviewRepository;
     private final WebSocketNotificationService webSocketNotificationService;
+    private final NotificationPreferenceService notificationPreferenceService;
 
 // 使用构造函数注入所有依赖
     // 添加 @Lazy 防止潜在的循环依赖 (例如 A -> B -> Notification -> A)
@@ -49,13 +51,15 @@ public class NotificationServiceImpl implements NotificationService {
                                     @Lazy HomestayRepository homestayRepository,
                                     @Lazy OrderRepository orderRepository,
                                     @Lazy ReviewRepository reviewRepository,
-                                    WebSocketNotificationService webSocketNotificationService) {
+                                    WebSocketNotificationService webSocketNotificationService,
+                                    NotificationPreferenceService notificationPreferenceService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.homestayRepository = homestayRepository;
         this.orderRepository = orderRepository;
         this.reviewRepository = reviewRepository;
         this.webSocketNotificationService = webSocketNotificationService;
+        this.notificationPreferenceService = notificationPreferenceService;
     }
 
     @Override
@@ -68,6 +72,13 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public Notification createNotification(NotificationCreateCommand command) {
         NotificationType normalizedType = normalizeTypeForCreate(command.type());
+
+        // 检查用户通知偏好
+        if (!notificationPreferenceService.isEnabled(command.userId(), normalizedType.getDomain())) {
+            log.info("用户 {} 关闭了 {} 域通知，跳过创建", command.userId(), normalizedType.getDomain());
+            return null;
+        }
+
         EntityType normalizedEntityType = normalizeEntityTypeForCreate(command.entityType());
         Notification notification = Notification.builder()
                 .userId(command.userId())

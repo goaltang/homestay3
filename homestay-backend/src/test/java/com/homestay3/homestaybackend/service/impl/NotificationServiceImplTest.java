@@ -10,6 +10,7 @@ import com.homestay3.homestaybackend.repository.NotificationRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
+import com.homestay3.homestaybackend.service.NotificationPreferenceService;
 import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,8 +48,16 @@ class NotificationServiceImplTest {
     @Mock
     private WebSocketNotificationService webSocketNotificationService;
 
+    @Mock
+    private NotificationPreferenceService notificationPreferenceService;
+
     @InjectMocks
     private NotificationServiceImpl notificationService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        when(notificationPreferenceService.isEnabled(any(), any())).thenReturn(true);
+    }
 
     @Test
     void createNotificationNormalizesLegacyOrderStatusTypeBeforeSaving() {

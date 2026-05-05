@@ -1,7 +1,9 @@
 package com.homestay3.homestaybackend.controller;
 
 import com.homestay3.homestaybackend.dto.NotificationDTO;
+import com.homestay3.homestaybackend.model.enums.NotificationDomain;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
+import com.homestay3.homestaybackend.service.NotificationPreferenceService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.util.UserUtil;
 import org.slf4j.Logger;
@@ -16,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,10 +30,13 @@ public class NotificationController {
     private static final Logger log = LoggerFactory.getLogger(NotificationController.class);
 
     private final NotificationService notificationService;
+    private final NotificationPreferenceService preferenceService;
 
     @Autowired
-    public NotificationController(NotificationService notificationService) {
+    public NotificationController(NotificationService notificationService,
+                                   NotificationPreferenceService preferenceService) {
         this.notificationService = notificationService;
+        this.preferenceService = preferenceService;
     }
 
     private Long getCurrentUserId() {
@@ -135,5 +141,36 @@ public class NotificationController {
         log.info("用户 ID {} 尝试删除通知 {}", currentUserId, notificationId);
         notificationService.deleteNotification(notificationId, currentUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 获取当前用户的通知偏好设置
+     * @return 各业务域的开启状态
+     */
+    @GetMapping("/preferences")
+    public ResponseEntity<Map<String, Boolean>> getNotificationPreferences() {
+        Long currentUserId = getCurrentUserId();
+        Map<NotificationDomain, Boolean> prefs = preferenceService.getPreferences(currentUserId);
+        Map<String, Boolean> response = new LinkedHashMap<>();
+        prefs.forEach((domain, enabled) -> response.put(domain.name().toLowerCase(), enabled));
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 更新指定业务域的通知偏好
+     * @param domain 业务域名称（小写）
+     * @param body 请求体 { "enabled": true/false }
+     * @return 操作结果
+     */
+    @PutMapping("/preferences/{domain}")
+    public ResponseEntity<Void> updateNotificationPreference(
+            @PathVariable String domain,
+            @RequestBody Map<String, Boolean> body) {
+        Long currentUserId = getCurrentUserId();
+        NotificationDomain notificationDomain = NotificationDomain.valueOf(domain.toUpperCase());
+        boolean enabled = body.getOrDefault("enabled", true);
+        preferenceService.updatePreference(currentUserId, notificationDomain, enabled);
+        log.info("用户 {} 更新通知偏好: domain={}, enabled={}", currentUserId, notificationDomain, enabled);
+        return ResponseEntity.ok().build();
     }
 } 

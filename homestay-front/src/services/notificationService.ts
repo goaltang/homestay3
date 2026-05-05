@@ -80,3 +80,29 @@ export const getUnreadCount = (): Promise<{ unreadCount: number }> => {
     method: "get",
   }).then((response) => response.data);
 };
+
+/**
+ * 获取通知偏好设置
+ */
+export const getNotificationPreferences = (): Promise<Record<string, boolean>> => {
+  return request({
+    url: "/api/notifications/preferences",
+    method: "get",
+  }).then((response) => response.data);
+};
+
+/**
+ * 更新指定业务域的通知偏好
+ * @param domain - 业务域名称（小写）
+ * @param enabled - 是否开启
+ */
+export const updateNotificationPreference = (
+  domain: string,
+  enabled: boolean
+): Promise<void> => {
+  return request({
+    url: `/api/notifications/preferences/${domain}`,
+    method: "put",
+    data: { enabled },
+  }).then(() => undefined);
+};
