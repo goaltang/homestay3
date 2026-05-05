@@ -32,7 +32,7 @@
                 :class="{ 'notification-unread': !notification.read }"
                 @click="handleNotificationClick(notification)">
 
-                <div class="notification-icon" :class="`icon-${getCategory(notification)}`">
+                <div class="notification-icon" :class="`icon-${notification.category}`">
                     <el-icon :size="22">
                         <component :is="getIcon(notification)" />
                     </el-icon>
@@ -41,7 +41,7 @@
                 <div class="notification-body">
                     <div class="notification-header">
                         <el-tag size="small" :type="getTagType(notification)" effect="plain">
-                            {{ resolveNotificationTitle(notification) }}
+                            {{ notification.title }}
                         </el-tag>
                         <span class="notification-time">{{ formatDate(notification.createdAt, 'YYYY-MM-DD HH:mm') }}</span>
                     </div>
@@ -86,11 +86,7 @@ import { useUserStore } from '@/stores/user';
 import { useNotificationStore } from '@/stores/notification';
 import { formatDate } from '@/utils/format';
 import type { NotificationDto } from '@/types/notification';
-import {
-    resolveNotificationCategory,
-    resolveNotificationDeepLink,
-    resolveNotificationTitle,
-} from '@/types/notification';
+
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -115,10 +111,7 @@ const canMarkAllRead = computed(() => {
 });
 
 // --- 通知分类与图标映射 ---
-const getCategory = (notification: NotificationDto) => resolveNotificationCategory(notification);
-
 const getIcon = (notification: NotificationDto) => {
-    const category = getCategory(notification);
     const iconMap: Record<string, any> = {
         order: Tickets,
         message: ChatDotRound,
@@ -127,11 +120,10 @@ const getIcon = (notification: NotificationDto) => {
         coupon: Goods,
         system: Bell,
     };
-    return iconMap[category] || Bell;
+    return iconMap[notification.category || ''] || Bell;
 };
 
 const getTagType = (notification: NotificationDto): any => {
-    const category = getCategory(notification);
     const typeMap: Record<string, any> = {
         order: 'primary',
         message: 'success',
@@ -140,7 +132,7 @@ const getTagType = (notification: NotificationDto): any => {
         coupon: 'danger',
         system: '',
     };
-    return typeMap[category] || '';
+    return typeMap[notification.category || ''] || '';
 };
 
 // --- API 调用与逻辑 ---
@@ -223,12 +215,8 @@ const handleNotificationClick = async (notification: NotificationDto) => {
         } catch (e) { /* ignore */ }
     }
 
-    const deepLink = resolveNotificationDeepLink(notification, {
-        isLandlord: false,
-        fallback: '/user/notifications',
-    });
-    if (deepLink) {
-        router.push(deepLink);
+    if (notification.deepLink) {
+        router.push(notification.deepLink);
         return;
     }
 

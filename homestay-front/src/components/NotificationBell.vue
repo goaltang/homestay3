@@ -28,7 +28,7 @@
                                     <component :is="getNotificationIcon(notification)" />
                                 </el-icon>
                                 <div class="notification-copy">
-                                    <p class="notification-title">{{ resolveNotificationTitle(notification) }}</p>
+                                    <p class="notification-title">{{ notification.title }}</p>
                                     <p class="notification-text">{{ notification.content }}</p>
                                 </div>
                             </div>
@@ -61,9 +61,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useNotificationStore } from '@/stores/notification';
 import type { Notification } from '@/stores/notification';
 import {
-    resolveNotificationCategory,
     resolveNotificationDeepLink,
-    resolveNotificationTitle,
 } from '@/types/notification';
 import { ElPopover, ElBadge, ElIcon, ElScrollbar, ElButton, ElEmpty, ElSkeleton } from 'element-plus';
 import { Bell, Calendar, ChatDotRound, Star, InfoFilled, Goods, House } from '@element-plus/icons-vue';
@@ -105,14 +103,18 @@ const handleNotificationClick = (notification: Notification) => {
         void notificationStore.markAsRead(notification.id);
     }
 
-    const path = resolveNotificationDeepLink(notification, {
-        isLandlord: userStore.isLandlord,
-        fallback: route.path.startsWith('/host') ? '/host/notifications' : '/user/notifications',
-    });
-    if (path) {
-        router.push(path);
+    if (notification.deepLink) {
+        router.push(notification.deepLink);
     } else {
-        goToAppropriateNotificationCenter();
+        const path = resolveNotificationDeepLink(notification, {
+            isLandlord: userStore.isLandlord,
+            fallback: route.path.startsWith('/host') ? '/host/notifications' : '/user/notifications',
+        });
+        if (path) {
+            router.push(path);
+        } else {
+            goToAppropriateNotificationCenter();
+        }
     }
 };
 
@@ -139,7 +141,7 @@ const getNotificationIcon = (notification: Notification) => {
         coupon: Goods,
         system: InfoFilled,
     };
-    return iconMap[resolveNotificationCategory(notification)] || InfoFilled;
+    return iconMap[notification.category || ''] || InfoFilled;
 };
 
 // 格式化时间为 "多久以前"

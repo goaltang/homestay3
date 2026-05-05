@@ -44,7 +44,8 @@ export const normalizeNotification = (notification: NotificationDto): Notificati
   const read = notification.read ?? notification.isRead ?? false;
   const type = notification.type || notification.rawType || "UNKNOWN";
   const entityType = notification.entityType || notification.rawEntityType || null;
-  const normalized = {
+
+  const normalized: NotificationDto = {
     ...notification,
     type,
     entityType,
@@ -52,13 +53,21 @@ export const normalizeNotification = (notification: NotificationDto): Notificati
     isRead: read,
   };
 
-  return {
-    ...normalized,
-    category: notification.category || resolveNotificationCategory(normalized),
-    title: notification.title || resolveNotificationTitle(normalized),
-    deepLink: notification.deepLink || null,
-    payload: notification.payload || null,
-  };
+  // 开发环境断言：展示元数据应由后端 NotificationServiceImpl 统一注入
+  if (import.meta.env.DEV) {
+    if (!notification.category) {
+      console.warn(
+        `[Notification] 后端未返回 category，请检查 NotificationServiceImpl.applyPresentationMetadata: type=${type}`
+      );
+    }
+    if (!notification.title) {
+      console.warn(
+        `[Notification] 后端未返回 title，请检查 NotificationServiceImpl.applyPresentationMetadata: type=${type}`
+      );
+    }
+  }
+
+  return normalized;
 };
 
 export const resolveNotificationCategory = (notification: Pick<NotificationDto, "type" | "entityType" | "category">): NotificationCategory => {

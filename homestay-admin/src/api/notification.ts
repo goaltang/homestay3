@@ -13,6 +13,9 @@ export interface NotificationDto {
   createdAt: string;
   actorUsername?: string;
   entityTitle?: string;
+  category?: string;
+  title?: string;
+  deepLink?: string;
 }
 
 export interface NotificationListResponse {
@@ -81,28 +84,6 @@ export function deleteNotification(notificationId: number) {
     url: `/api/notifications/${notificationId}`,
     method: "delete",
   });
-}
-
-/**
- * 获取通知类型的显示名称
- */
-export function getNotificationTypeDisplayName(type: string): string {
-  const typeMap: Record<string, string> = {
-    BOOKING_REQUEST: "预订请求",
-    BOOKING_ACCEPTED: "预订已接受",
-    BOOKING_REJECTED: "预订已拒绝",
-    BOOKING_CANCELLED: "预订已取消",
-    NEW_REVIEW: "新评价",
-    HOMESTAY_APPROVED: "房源审核通过",
-    HOMESTAY_REJECTED: "房源审核未通过",
-    HOMESTAY_SUBMITTED: "房源提交审核",
-    REVIEWER_ASSIGNED: "审核员分配",
-    HOMESTAY_UNDER_REVIEW: "房源审核中",
-    HOMESTAY_RESUBMITTED: "房源重新提交",
-    SYSTEM_ANNOUNCEMENT: "系统公告",
-    WELCOME_MESSAGE: "欢迎消息",
-  };
-  return typeMap[type] || type;
 }
 
 /**

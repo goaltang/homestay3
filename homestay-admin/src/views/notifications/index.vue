@@ -80,7 +80,7 @@
                             </div>
                             <div class="notification-content">
                                 <div class="notification-header">
-                                    <h4 class="notification-title">{{ getNotificationTitle(notification.type) }}</h4>
+                                    <h4 class="notification-title">{{ notification.title || '通知' }}</h4>
                                     <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
                                 </div>
                                 <p class="notification-message">{{ notification.content }}</p>
@@ -350,20 +350,6 @@ const getNotificationIconClass = (type: string) => {
         'WELCOME_MESSAGE': 'icon-success'
     }
     return classMap[type] || 'icon-primary'
-}
-
-const getNotificationTitle = (type: string) => {
-    const titleMap: Record<string, string> = {
-        'HOMESTAY_SUBMITTED': '新房源提交审核',
-        'HOMESTAY_APPROVED': '房源审核通过',
-        'HOMESTAY_REJECTED': '房源审核拒绝',
-        'HOMESTAY_RESUBMITTED': '房源重新提交',
-        'REVIEWER_ASSIGNED': '审核员分配',
-        'HOMESTAY_UNDER_REVIEW': '房源审核中',
-        'SYSTEM_ANNOUNCEMENT': '系统公告',
-        'WELCOME_MESSAGE': '欢迎消息'
-    }
-    return titleMap[type] || '通知'
 }
 
 const formatTime = (dateTime: string) => {
