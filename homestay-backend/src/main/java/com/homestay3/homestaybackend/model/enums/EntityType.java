@@ -13,5 +13,16 @@ public enum EntityType {
     ORDER,           // 订单
     COUPON,          // 优惠券
     MESSAGE,         // Legacy message entity
-    UNKNOWN          // Unknown legacy entity
+    UNKNOWN;         // Unknown legacy entity
+
+    public EntityType canonicalType() {
+        return switch (this) {
+            case MESSAGE -> MESSAGE_THREAD;
+            default -> this;
+        };
+    }
+
+    public boolean isLegacyAlias() {
+        return canonicalType() != this;
+    }
 } 

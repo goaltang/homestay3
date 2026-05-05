@@ -119,6 +119,29 @@ class NotificationServiceImplTest {
         assertEquals(NotificationType.UNKNOWN, captor.getValue().getType());
     }
 
+    @Test
+    void createNotificationNormalizesLegacyMessageEntityBeforeSaving() {
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_USER")));
+
+        notificationService.createNotification(
+                1L,
+                null,
+                NotificationType.NEW_MESSAGE,
+                EntityType.MESSAGE,
+                "thread-1",
+                "new message");
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        assertEquals(EntityType.MESSAGE_THREAD, captor.getValue().getEntityType());
+
+        ArgumentCaptor<NotificationDTO> dtoCaptor = ArgumentCaptor.forClass(NotificationDTO.class);
+        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), dtoCaptor.capture());
+        assertEquals("message", dtoCaptor.getValue().getCategory());
+        assertEquals("/user/notifications", dtoCaptor.getValue().getDeepLink());
+    }
+
     private User user(Long id, String role) {
         return User.builder()
                 .id(id)

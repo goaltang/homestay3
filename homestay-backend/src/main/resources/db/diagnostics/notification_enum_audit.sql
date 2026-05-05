@@ -101,6 +101,18 @@ GROUP BY n.type
 UNION ALL
 
 SELECT
+    'legacy_entity_type' AS check_name,
+    n.entity_type AS code,
+    COUNT(*) AS row_count,
+    MIN(n.created_at) AS first_seen_at,
+    MAX(n.created_at) AS last_seen_at
+FROM notifications n
+WHERE n.entity_type = 'MESSAGE'
+GROUP BY n.entity_type
+
+UNION ALL
+
+SELECT
     'persisted_unknown_marker' AS check_name,
     CONCAT('type=', COALESCE(n.type, '<NULL>'), ', entity_type=', COALESCE(n.entity_type, '<NULL>')) AS code,
     COUNT(*) AS row_count,

@@ -68,11 +68,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public Notification createNotification(NotificationCreateCommand command) {
         NotificationType normalizedType = normalizeTypeForCreate(command.type());
+        EntityType normalizedEntityType = normalizeEntityTypeForCreate(command.entityType());
         Notification notification = Notification.builder()
                 .userId(command.userId())
                 .actorId(command.actorId())
                 .type(normalizedType)
-                .entityType(command.entityType())
+                .entityType(normalizedEntityType)
                 .entityId(command.entityId())
                 .content(command.content())
                 .isRead(false) // 默认为未读
@@ -81,6 +82,9 @@ public class NotificationServiceImpl implements NotificationService {
         Notification savedNotification = notificationRepository.save(notification);
         if (command.type() != null && command.type().isLegacyAlias()) {
             log.warn("Legacy notification type {} normalized to {} before save", command.type(), normalizedType);
+        }
+        if (command.entityType() != null && command.entityType().isLegacyAlias()) {
+            log.warn("Legacy notification entity type {} normalized to {} before save", command.entityType(), normalizedEntityType);
         }
         log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), command.userId(), normalizedType);
 
@@ -264,7 +268,7 @@ public class NotificationServiceImpl implements NotificationService {
             }
 
             // 收集entityId根据类型
-            if (notification.getEntityType() != null && notification.getEntityId() != null) {
+            if (requiresNumericEntityId(notification.getEntityType()) && notification.getEntityId() != null) {
                 try {
                     Long entityId = Long.parseLong(notification.getEntityId());
                     switch (notification.getEntityType()) {
@@ -365,7 +369,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         // 填充 entityTitle
-        if (notification.getEntityType() != null && notification.getEntityId() != null) {
+        if (requiresNumericEntityId(notification.getEntityType()) && notification.getEntityId() != null) {
             try {
                 Long entityId = Long.parseLong(notification.getEntityId());
                 switch (notification.getEntityType()) {
@@ -430,7 +434,7 @@ public class NotificationServiceImpl implements NotificationService {
                     .ifPresent(actor -> dto.setActorUsername(actor.getUsername()));
         }
 
-        if (notification.getEntityType() != null && notification.getEntityId() != null) {
+        if (requiresNumericEntityId(notification.getEntityType()) && notification.getEntityId() != null) {
             try {
                 Long entityId = Long.parseLong(notification.getEntityId());
                 switch (notification.getEntityType()) {
@@ -610,6 +614,16 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
+    private boolean requiresNumericEntityId(EntityType entityType) {
+        if (entityType == null) {
+            return false;
+        }
+        return switch (entityType) {
+            case ORDER, BOOKING, HOMESTAY, REVIEW, USER -> true;
+            case MESSAGE, MESSAGE_THREAD, SYSTEM, COUPON, UNKNOWN -> false;
+        };
+    }
+
     private String getRawEntityType(Notification notification) {
         return notification.getRawEntityType() != null
                 ? notification.getRawEntityType()
@@ -618,5 +632,9 @@ public class NotificationServiceImpl implements NotificationService {
 
     private NotificationType normalizeTypeForCreate(NotificationType type) {
         return type == null ? NotificationType.UNKNOWN : type.canonicalType();
+    }
+
+    private EntityType normalizeEntityTypeForCreate(EntityType entityType) {
+        return entityType == null ? null : entityType.canonicalType();
     }
 } 
