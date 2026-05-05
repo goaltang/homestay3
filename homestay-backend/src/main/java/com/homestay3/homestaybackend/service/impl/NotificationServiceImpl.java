@@ -479,80 +479,20 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private void applyPresentationMetadata(NotificationDTO dto, User recipient) {
-        dto.setCategory(resolveCategory(dto.getType(), dto.getEntityType()));
+        dto.setCategory(resolveCategory(dto.getType()));
         dto.setTitle(resolveTitle(dto.getType()));
         dto.setDeepLink(resolveDeepLink(dto, recipient));
         dto.setPayload(buildPayload(dto));
     }
 
-    private String resolveCategory(NotificationType type, EntityType entityType) {
-        NotificationType canonicalType = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
-
-        return switch (canonicalType) {
-            case BOOKING_REQUEST, BOOKING_ACCEPTED, BOOKING_REJECTED, BOOKING_CANCELLED,
-                    BOOKING_REMINDER, ORDER_CONFIRMED, PAYMENT_RECEIVED,
-                    ORDER_CANCELLED_BY_HOST, ORDER_CANCELLED_BY_GUEST, ORDER_COMPLETED,
-                    ORDER_STATUS_CHANGED, REFUND_REQUESTED, REFUND_APPROVED,
-                    REFUND_REJECTED, REFUND_COMPLETED -> "order";
-            case NEW_MESSAGE -> "message";
-            case NEW_REVIEW, REVIEW_REPLIED, REVIEW_REMINDER -> "review";
-            case HOMESTAY_APPROVED, HOMESTAY_REJECTED, HOMESTAY_SUBMITTED -> "homestay";
-            case COUPON_EXPIRING, COUPON_ISSUED -> "coupon";
-            case PASSWORD_CHANGED, EMAIL_VERIFIED, SYSTEM_ANNOUNCEMENT, WELCOME_MESSAGE, UNKNOWN,
-                    PAID, CANCELLED, CANCELLED_BY_HOST, CANCELLED_BY_USER, COMPLETED, CONFIRMED, PENDING, REFUNDED ->
-                    resolveCategoryFromEntity(entityType);
-        };
-    }
-
-    private String resolveCategoryFromEntity(EntityType entityType) {
-        if (entityType == null) {
-            return "system";
-        }
-
-        return switch (entityType) {
-            case ORDER, BOOKING -> "order";
-            case MESSAGE, MESSAGE_THREAD -> "message";
-            case REVIEW -> "review";
-            case HOMESTAY -> "homestay";
-            case COUPON -> "coupon";
-            case USER, SYSTEM, UNKNOWN -> "system";
-        };
+    private String resolveCategory(NotificationType type) {
+        NotificationType canonical = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
+        return canonical.getDomain().getCategory();
     }
 
     private String resolveTitle(NotificationType type) {
-        NotificationType canonicalType = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
-
-        return switch (canonicalType) {
-            case BOOKING_REQUEST -> "预订请求";
-            case BOOKING_ACCEPTED -> "预订已接受";
-            case BOOKING_REJECTED -> "预订被拒绝";
-            case BOOKING_CANCELLED -> "预订已取消";
-            case BOOKING_REMINDER -> "入住提醒";
-            case REVIEW_REMINDER -> "评价提醒";
-            case NEW_MESSAGE -> "新消息";
-            case NEW_REVIEW -> "新评价";
-            case REVIEW_REPLIED -> "评价回复";
-            case PASSWORD_CHANGED -> "账号安全";
-            case EMAIL_VERIFIED -> "邮箱验证";
-            case HOMESTAY_APPROVED -> "房源审核通过";
-            case HOMESTAY_REJECTED -> "房源审核未通过";
-            case HOMESTAY_SUBMITTED -> "房源待审核";
-            case SYSTEM_ANNOUNCEMENT -> "系统公告";
-            case WELCOME_MESSAGE -> "欢迎消息";
-            case ORDER_CONFIRMED -> "订单已确认";
-            case PAYMENT_RECEIVED -> "付款已收到";
-            case ORDER_CANCELLED_BY_HOST, ORDER_CANCELLED_BY_GUEST -> "订单已取消";
-            case ORDER_COMPLETED -> "订单已完成";
-            case ORDER_STATUS_CHANGED -> "订单状态更新";
-            case REFUND_REQUESTED -> "退款申请";
-            case REFUND_APPROVED -> "退款已通过";
-            case REFUND_REJECTED -> "退款被拒绝";
-            case REFUND_COMPLETED -> "退款已完成";
-            case COUPON_EXPIRING -> "优惠券即将过期";
-            case COUPON_ISSUED -> "优惠券到账";
-            case UNKNOWN, PAID, CANCELLED, CANCELLED_BY_HOST, CANCELLED_BY_USER, COMPLETED, CONFIRMED, PENDING, REFUNDED ->
-                    "系统通知";
-        };
+        NotificationType canonical = type != null ? type.canonicalType() : NotificationType.UNKNOWN;
+        return canonical.getDefaultTitle();
     }
 
     private String resolveDeepLink(NotificationDTO dto, User recipient) {
