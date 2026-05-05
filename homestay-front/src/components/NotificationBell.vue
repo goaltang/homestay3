@@ -60,9 +60,7 @@ import { computed, onMounted, shallowRef, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useNotificationStore } from '@/stores/notification';
 import type { Notification } from '@/stores/notification';
-import {
-    resolveNotificationDeepLink,
-} from '@/types/notification';
+
 import { ElPopover, ElBadge, ElIcon, ElScrollbar, ElButton, ElEmpty, ElSkeleton } from 'element-plus';
 import { Bell, Calendar, ChatDotRound, Star, InfoFilled, Goods, House } from '@element-plus/icons-vue';
 import { formatDistanceToNow } from 'date-fns';
@@ -106,15 +104,7 @@ const handleNotificationClick = (notification: Notification) => {
     if (notification.deepLink) {
         router.push(notification.deepLink);
     } else {
-        const path = resolveNotificationDeepLink(notification, {
-            isLandlord: userStore.isLandlord,
-            fallback: route.path.startsWith('/host') ? '/host/notifications' : '/user/notifications',
-        });
-        if (path) {
-            router.push(path);
-        } else {
-            goToAppropriateNotificationCenter();
-        }
+        goToAppropriateNotificationCenter();
     }
 };
 

@@ -217,47 +217,11 @@ const handleNotificationClick = async (notification: NotificationDto) => {
 
     if (notification.deepLink) {
         router.push(notification.deepLink);
-        return;
     }
 
-    const { entityType, entityId } = notification;
-    if (!entityType || !entityId) {
-        if (wasUnread && filterStatus.value === 'unread') {
-            await fetchNotifications();
-        }
-        return;
-    }
-
-    let path = '';
-    try {
-        const id = parseInt(entityId, 10);
-        if (isNaN(id)) throw new Error('Invalid entity ID');
-
-        switch (entityType) {
-            case 'BOOKING':
-            case 'ORDER':
-                path = `/orders/${id}`;
-                break;
-            case 'HOMESTAY':
-                path = `/homestays/${id}`;
-                break;
-            case 'REVIEW':
-                path = `/homestays/${id}`; // 跳到房源详情，用户自行看评价
-                break;
-            case 'USER':
-                path = '/user/profile';
-                break;
-            case 'MESSAGE':
-                // 如果有消息中心页面，跳过去
-                path = '/user/notifications';
-                break;
-            default:
-                console.log(`未知实体类型 ${entityType}，不跳转`);
-        }
-
-        if (path) router.push(path);
-    } catch (e) {
-        console.error('无法解析跳转链接:', e);
+    // 无 deepLink 时仅刷新列表（若从未读筛选中移除了当前项）
+    if (wasUnread && filterStatus.value === 'unread') {
+        await fetchNotifications();
     }
 };
 

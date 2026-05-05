@@ -109,7 +109,7 @@ import {
     deleteNotification,
 } from '@/services/notificationService'; // 复用 service
 import type { NotificationDto } from '@/types/notification'; // 复用类型
-import { resolveNotificationDeepLink, resolveNotificationTitle } from '@/types/notification';
+
 import { useUserStore } from '@/stores/user';
 import { formatDate } from '@/utils/format';
 import { VNode, h } from 'vue';
@@ -148,7 +148,7 @@ const renderNotificationContent = (notification: NotificationDto): VNode => {
     const { type, actorUsername, entityTitle, content, entityType, entityId } = notification;
     if (notification.title || notification.deepLink) {
         return h('span', [
-            h('span', { class: 'font-medium' }, resolveNotificationTitle(notification)),
+            h('span', { class: 'font-medium' }, notification.title || ''),
             content ? `：${content}` : '',
         ]);
     }
@@ -342,44 +342,8 @@ const handleNotificationClick = async (notification: NotificationDto) => {
         }
     }
 
-    const deepLink = resolveNotificationDeepLink(notification, {
-        isLandlord: true,
-        fallback: '/host/notifications',
-    });
-    if (deepLink) {
-        router.push(deepLink);
-        return;
-    }
-
-    // 点击整行时的跳转逻辑保持不变 (作为后备或主要导航)
-    const { entityType, entityId } = notification;
-    if (!entityType || !entityId) return;
-
-    let path = '';
-    try {
-        const id = parseInt(entityId, 10);
-        if (isNaN(id)) throw new Error('Invalid entity ID');
-
-        switch (entityType) {
-            case 'BOOKING':
-            case 'ORDER':
-                path = `/host/orders?highlightOrderId=${id}`;
-                break;
-            case 'HOMESTAY':
-                path = `/host/homestay/edit/${id}`;
-                break;
-            case 'REVIEW':
-                path = `/host/reviews?highlightReviewId=${id}`;
-                break;
-            default:
-                console.log(`房东视角：未知或无需跳转的实体类型 ${entityType}`);
-        }
-
-        if (path) {
-            router.push(path);
-        }
-    } catch (e) {
-        console.error('无法解析跳转链接:', e);
+    if (notification.deepLink) {
+        router.push(notification.deepLink);
     }
 };
 
