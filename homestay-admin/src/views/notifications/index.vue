@@ -208,7 +208,7 @@ const handleSendNotification = async () => {
             method: 'post',
             data: { content: sendForm.content.trim() }
         })
-        ElMessage.success('系统通知发送成功')
+        ElMessage.success('系统通知广播任务已提交')
         showSendDialog.value = false
         sendForm.content = ''
     } catch (error: any) {

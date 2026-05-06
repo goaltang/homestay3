@@ -2,6 +2,7 @@ package com.homestay3.homestaybackend.service;
 
 import com.homestay3.homestaybackend.model.enums.NotificationDomain;
 
+import java.util.Collection;
 import java.util.Map;
 
 public interface NotificationPreferenceService {
@@ -31,4 +32,14 @@ public interface NotificationPreferenceService {
      * @return 是否开启（默认 true）
      */
     boolean isEnabled(Long userId, NotificationDomain domain);
+
+    /**
+     * 批量检查多个用户是否开启了指定业务域通知。
+     * 未配置偏好的用户默认开启。
+     *
+     * @param userIds 用户ID集合
+     * @param domain  通知业务域
+     * @return 用户ID -> 是否开启
+     */
+    Map<Long, Boolean> getEnabledMap(Collection<Long> userIds, NotificationDomain domain);
 }

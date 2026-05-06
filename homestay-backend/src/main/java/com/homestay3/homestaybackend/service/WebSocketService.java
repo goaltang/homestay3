@@ -30,8 +30,7 @@ public class WebSocketService {
      */
     public void sendNotificationToUser(Long userId, NotificationDTO notificationDTO) {
         try {
-            String destination = "/topic/notifications/" + userId;
-            messagingTemplate.convertAndSend(destination, notificationDTO);
+            messagingTemplate.convertAndSendToUser(String.valueOf(userId), "/queue/notifications", notificationDTO);
             log.info("已通过 WebSocket 推送通知给用户: {}, 消息: {}", userId, notificationDTO);
         } catch (Exception e) {
             log.error("WebSocket 推送通知失败: userId={}, error={}", userId, e.getMessage(), e);
@@ -46,8 +45,7 @@ public class WebSocketService {
      */
     public void sendUnreadCountToUser(Long userId, long count) {
         try {
-            String destination = "/topic/unread-count/" + userId;
-            messagingTemplate.convertAndSend(destination, count);
+            messagingTemplate.convertAndSendToUser(String.valueOf(userId), "/queue/unread-count", count);
             log.info("已通过 WebSocket 推送未读通知数量给用户: {}, 数量: {}", userId, count);
         } catch (Exception e) {
             log.error("WebSocket 推送未读通知数量失败: userId={}, error={}", userId, e.getMessage(), e);

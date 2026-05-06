@@ -96,12 +96,11 @@ public interface NotificationService {
     int cleanupOldNotifications(int days);
 
     /**
-     * 向全体用户广播系统通知
+     * 异步向全体用户广播系统通知。
      *
      * @param content 通知内容
-     * @return 成功发送的通知数量
      */
-    int broadcastSystemNotification(String content);
+    void broadcastSystemNotification(String content);
 
     /**
      * 向指定用户发送系统通知

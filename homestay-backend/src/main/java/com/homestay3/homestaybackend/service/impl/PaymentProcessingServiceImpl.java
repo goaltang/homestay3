@@ -24,7 +24,6 @@ import com.homestay3.homestaybackend.service.OrderNotificationService;
 import com.homestay3.homestaybackend.service.PaymentProcessingService;
 import com.homestay3.homestaybackend.service.PaymentService;
 import com.homestay3.homestaybackend.service.SystemConfigService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +51,6 @@ public class PaymentProcessingServiceImpl implements PaymentProcessingService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final EarningService earningService;
     private final OrderNotificationService orderNotificationService;
-    private final WebSocketNotificationService webSocketNotificationService;
     private final PaymentService paymentService;
     private final CouponService couponService;
     private final PromotionUsageRepository promotionUsageRepository;

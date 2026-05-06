@@ -6,7 +6,6 @@ import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -28,9 +27,6 @@ class OrderNotificationServiceImplDisputeTest {
 
     @Mock
     private NotificationService notificationService;
-
-    @Mock
-    private WebSocketNotificationService webSocketNotificationService;
 
     @Mock
     private UserRepository userRepository;

@@ -10,7 +10,6 @@ import "./assets/main.css";
 import "./assets/input-styles.css";
 import "./styles/design-system.css";
 import { useUserStore } from "./stores/user";
-import { initWebSocket } from "./services/websocketService";
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -36,11 +35,6 @@ const initializeApp = async () => {
       console.log("应用启动时获取用户信息");
       await userStore.fetchUserInfo();
       console.log("用户信息获取成功:", userStore.userInfo);
-
-      // 初始化WebSocket连接
-      if (userStore.userInfo) {
-        initWebSocket(userStore.userInfo.id);
-      }
 
       // 检查头像信息是否存在
       if (userStore.userInfo && !userStore.userInfo.avatar) {

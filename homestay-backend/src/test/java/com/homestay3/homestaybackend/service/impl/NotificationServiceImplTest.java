@@ -3,6 +3,8 @@ package com.homestay3.homestaybackend.service.impl;
 import com.homestay3.homestaybackend.entity.Notification;
 import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.event.NotificationCreatedEvent;
+import com.homestay3.homestaybackend.event.NotificationUnreadCountChangedEvent;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.HomestayRepository;
@@ -11,19 +13,26 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.repository.ReviewRepository;
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationPreferenceService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +55,7 @@ class NotificationServiceImplTest {
     private ReviewRepository reviewRepository;
 
     @Mock
-    private WebSocketNotificationService webSocketNotificationService;
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
     private NotificationPreferenceService notificationPreferenceService;
@@ -56,7 +65,7 @@ class NotificationServiceImplTest {
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        when(notificationPreferenceService.isEnabled(any(), any())).thenReturn(true);
+        lenient().when(notificationPreferenceService.isEnabled(any(), any())).thenReturn(true);
     }
 
     @Test
@@ -78,11 +87,10 @@ class NotificationServiceImplTest {
         assertEquals(NotificationType.PAYMENT_RECEIVED, captor.getValue().getType());
         assertEquals(EntityType.ORDER, captor.getValue().getEntityType());
 
-        ArgumentCaptor<NotificationDTO> dtoCaptor = ArgumentCaptor.forClass(NotificationDTO.class);
-        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), dtoCaptor.capture());
-        assertEquals("order", dtoCaptor.getValue().getCategory());
-        assertEquals("付款已收到", dtoCaptor.getValue().getTitle());
-        assertEquals("/orders/99", dtoCaptor.getValue().getDeepLink());
+        NotificationDTO dto = captureCreatedNotificationEvent(1L);
+        assertEquals("order", dto.getCategory());
+        assertEquals("付款已收到", dto.getTitle());
+        assertEquals("/orders/99", dto.getDeepLink());
     }
 
     @Test
@@ -103,11 +111,10 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(captor.capture());
         assertEquals(NotificationType.ORDER_CONFIRMED, captor.getValue().getType());
 
-        ArgumentCaptor<NotificationDTO> dtoCaptor = ArgumentCaptor.forClass(NotificationDTO.class);
-        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), dtoCaptor.capture());
-        assertEquals("order", dtoCaptor.getValue().getCategory());
-        assertEquals("订单已确认", dtoCaptor.getValue().getTitle());
-        assertEquals("/host/orders?highlightOrderId=99", dtoCaptor.getValue().getDeepLink());
+        NotificationDTO dto = captureCreatedNotificationEvent(1L);
+        assertEquals("order", dto.getCategory());
+        assertEquals("订单已确认", dto.getTitle());
+        assertEquals("/host/orders?highlightOrderId=99", dto.getDeepLink());
     }
 
     @Test
@@ -145,10 +152,77 @@ class NotificationServiceImplTest {
         verify(notificationRepository).save(captor.capture());
         assertEquals(EntityType.MESSAGE_THREAD, captor.getValue().getEntityType());
 
-        ArgumentCaptor<NotificationDTO> dtoCaptor = ArgumentCaptor.forClass(NotificationDTO.class);
-        verify(webSocketNotificationService).sendNotificationToUser(eq(1L), dtoCaptor.capture());
-        assertEquals("message", dtoCaptor.getValue().getCategory());
-        assertEquals("/user/notifications", dtoCaptor.getValue().getDeepLink());
+        NotificationDTO dto = captureCreatedNotificationEvent(1L);
+        assertEquals("message", dto.getCategory());
+        assertEquals("/user/notifications", dto.getDeepLink());
+    }
+
+    @Test
+    void broadcastSystemNotificationBatchSavesEnabledUsersAndPublishesEvents() {
+        User user1 = user(1L, "ROLE_USER");
+        User user2 = user(2L, "ROLE_USER");
+        User user3 = user(3L, "ROLE_HOST");
+        when(userRepository.findAll()).thenReturn(List.of(user1, user2, user3));
+        when(notificationPreferenceService.getEnabledMap(any(), any()))
+                .thenReturn(Map.of(1L, true, 2L, false, 3L, true));
+        when(notificationRepository.saveAll(any())).thenAnswer(invocation -> {
+            Iterable<Notification> notifications = invocation.getArgument(0);
+            List<Notification> saved = new ArrayList<>();
+            long id = 1L;
+            for (Notification notification : notifications) {
+                notification.setId(id++);
+                saved.add(notification);
+            }
+            return saved;
+        });
+        when(userRepository.findAllById(any())).thenReturn(List.of(user1, user3));
+        when(notificationRepository.countUnreadByUserIds(any()))
+                .thenReturn(List.of(new Object[]{1L, 4L}, new Object[]{3L, 8L}));
+
+        notificationService.broadcastSystemNotification("system notice");
+
+        verify(notificationRepository).saveAll(argThat(this::containsOnlyEnabledSystemNotifications));
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, times(4)).publishEvent(eventCaptor.capture());
+
+        List<Long> createdUserIds = eventCaptor.getAllValues().stream()
+                .filter(NotificationCreatedEvent.class::isInstance)
+                .map(NotificationCreatedEvent.class::cast)
+                .map(NotificationCreatedEvent::userId)
+                .toList();
+        assertEquals(List.of(1L, 3L), createdUserIds);
+
+        Map<Long, Long> unreadCounts = eventCaptor.getAllValues().stream()
+                .filter(NotificationUnreadCountChangedEvent.class::isInstance)
+                .map(NotificationUnreadCountChangedEvent.class::cast)
+                .collect(Collectors.toMap(
+                        NotificationUnreadCountChangedEvent::userId,
+                        NotificationUnreadCountChangedEvent::unreadCount));
+        assertEquals(Map.of(1L, 4L, 3L, 8L), unreadCounts);
+    }
+
+    private NotificationDTO captureCreatedNotificationEvent(Long expectedUserId) {
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, atLeastOnce()).publishEvent(eventCaptor.capture());
+
+        NotificationCreatedEvent event = eventCaptor.getAllValues().stream()
+                .filter(NotificationCreatedEvent.class::isInstance)
+                .map(NotificationCreatedEvent.class::cast)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(expectedUserId, event.userId());
+        return event.notification();
+    }
+
+    private boolean containsOnlyEnabledSystemNotifications(Iterable<Notification> notifications) {
+        List<Notification> list = new ArrayList<>();
+        notifications.forEach(list::add);
+        return list.size() == 2
+                && list.stream().map(Notification::getUserId).toList().equals(List.of(1L, 3L))
+                && list.stream().allMatch(notification -> notification.getType() == NotificationType.SYSTEM_ANNOUNCEMENT)
+                && list.stream().allMatch(notification -> notification.getEntityType() == EntityType.SYSTEM)
+                && list.stream().allMatch(notification -> "system notice".equals(notification.getContent()));
     }
 
     private User user(Long id, String role) {

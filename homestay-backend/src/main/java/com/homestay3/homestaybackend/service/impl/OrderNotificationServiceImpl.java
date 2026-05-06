@@ -1,6 +1,5 @@
 package com.homestay3.homestaybackend.service.impl;
 
-import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.User;
 import com.homestay3.homestaybackend.model.OrderStatus;
@@ -8,7 +7,6 @@ import com.homestay3.homestaybackend.model.notification.OrderNotificationEventTy
 import com.homestay3.homestaybackend.repository.UserRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderNotificationService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,14 +23,11 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderNotificationServiceImpl.class);
     private final NotificationService notificationService;
-    private final WebSocketNotificationService webSocketNotificationService;
     private final UserRepository userRepository;
 
     public OrderNotificationServiceImpl(NotificationService notificationService,
-                                        WebSocketNotificationService webSocketNotificationService,
                                         UserRepository userRepository) {
         this.notificationService = notificationService;
-        this.webSocketNotificationService = webSocketNotificationService;
         this.userRepository = userRepository;
     }
 
@@ -59,9 +54,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     OrderNotificationEventType.AUTO_CONFIRMED_GUEST,
                     orderId, guestNotificationContent);
 
-            // 实时推送
-            sendNotificationsToUsers(hostId, guestId);
-
             log.info("已发送自动确认订单通知 - 房东: {}, 客人: {}, 订单: {}",
                     hostUsername, guestUsername, orderNumber);
         } catch (Exception e) {
@@ -83,11 +75,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     hostId, guestId,
                     OrderNotificationEventType.BOOKING_REQUEST,
                     orderId, notificationContent);
-
-            // 实时推送
-            webSocketNotificationService.sendNotificationToUser(hostId,
-                    createBasicOrderNotificationDTO(guestId, hostId,
-                            OrderNotificationEventType.BOOKING_REQUEST, orderId, notificationContent));
 
             log.info("已为房东 {} 发送新预订请求通知 (订单 {})",
                     guestUsername, orderNumber);
@@ -111,11 +98,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     guestId, hostId,
                     OrderNotificationEventType.ORDER_CONFIRMED,
                     orderId, notificationContent);
-
-            // 实时推送
-            webSocketNotificationService.sendNotificationToUser(guestId,
-                    createBasicOrderNotificationDTO(hostId, guestId,
-                            OrderNotificationEventType.ORDER_CONFIRMED, orderId, notificationContent));
 
             log.info("已为房客 {} 发送订单 {} 确认通知", guestUsername, orderNumber);
         } catch (Exception e) {
@@ -158,19 +140,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     orderId, contentForHost);
             log.info("已为房东 {} 发送订单 {} 完成通知", host.getUsername(), orderNumberSafe);
 
-            // 实时推送未读数量更新
-            if (triggerUserId != null) {
-                Long[] userIds = {guestId, hostId};
-                for (Long userId : userIds) {
-                    try {
-                        long newUnreadCount = getUnreadNotificationCount(userId);
-                        webSocketNotificationService.sendUnreadCountToUser(userId, newUnreadCount);
-                    } catch (Exception ex) {
-                        log.error("WebSocket推送未读计数失败: userId={}, error={}", userId, ex.getMessage(), ex);
-                    }
-                }
-            }
-
         } catch (Exception e) {
             log.error("发送订单完成通知失败: {}", e.getMessage(), e);
             // 不抛出异常，以免影响主业务流程
@@ -203,14 +172,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     OrderNotificationEventType.PAYMENT_SUCCESS_GUEST,
                     orderId,
                     notificationContentForGuest);
-
-            // 实时推送
-            webSocketNotificationService.sendNotificationToUser(hostId,
-                    createBasicOrderNotificationDTO(guestId, hostId,
-                            OrderNotificationEventType.PAYMENT_RECEIVED, orderId, notificationContentForHost));
-            webSocketNotificationService.sendNotificationToUser(guestId,
-                    createBasicOrderNotificationDTO(hostId, guestId,
-                            OrderNotificationEventType.PAYMENT_SUCCESS_GUEST, orderId, notificationContentForGuest));
 
             log.info("已为房东 {} 发送订单 {} 支付成功通知", hostUsername, orderNumber);
             log.info("已为房客 {} 发送订单 {} 被接受的通知", guestUsername, orderNumber);
@@ -307,11 +268,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     OrderNotificationEventType.REFUND_REQUESTED,
                     orderId,
                     guestContent);
-
-            // 实时推送
-            webSocketNotificationService.sendNotificationToUser(guestId,
-                    createBasicOrderNotificationDTO(null, guestId,
-                            OrderNotificationEventType.REFUND_REQUESTED, orderId, guestContent));
 
             log.info("已为用户 {} 发送订单 {} 退款申请通知", getCurrentUsername(guestId), orderNumber);
         } catch (Exception e) {
@@ -525,40 +481,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
         }
     }
 
-    // 辅助方法：发送通知给多个用户（用于自动确认场景）
-    private void sendNotificationsToUsers(Long... userIds) {
-        for (Long userId : userIds) {
-            if (userId != null) {
-                try {
-                    webSocketNotificationService.sendUnreadCountToUser(userId, 
-                            getUnreadNotificationCount(userId));
-                } catch (Exception e) {
-                    log.error("WebSocket推送未读计数失败: userId={}, error={}", userId, e.getMessage(), e);
-                }
-            }
-        }
-    }
-
-    // 辅助方法：获取用户未读通知数量
-    private long getUnreadNotificationCount(Long userId) {
-        // 这里需要通过notificationService获取未读数量
-        // 但NotificationService没有直接提供这个方法，我们需要变通
-        // 实际上，NotificationServiceImpl有getUnreadNotificationCount方法
-        // 由于我们只能依赖NotificationService接口，这里需要另一种方法
-        
-        // 临时解决方案：我们可以直接使用notificationService的实现
-        // 但这样会耦合到实现类，不是理想的做法
-        // 更好的做法是扩展NotificationService接口
-        
-        // 为了不修改现有接口，这里我们尝试强制转换（在实际项目中应该改进接口设计）
-        if (notificationService instanceof com.homestay3.homestaybackend.service.impl.NotificationServiceImpl) {
-            return ((com.homestay3.homestaybackend.service.impl.NotificationServiceImpl) notificationService)
-                    .getUnreadNotificationCount(userId);
-        }
-        // 如果不是我们期望的实现，返回0以避免错误
-        return 0;
-    }
-
     private void createOrderNotification(
             Long userId,
             Long actorId,
@@ -567,24 +489,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
             String content) {
         notificationService.createNotification(
                 NotificationCreateCommand.orderEvent(userId, actorId, eventType, orderId, content));
-    }
-
-    // 辅助方法：创建基础通知DTO
-    private NotificationDTO createBasicOrderNotificationDTO(
-            Long actorId,
-            Long userId,
-            OrderNotificationEventType eventType,
-            Long orderId,
-            String content) {
-        NotificationDTO dto = new NotificationDTO();
-        dto.setActorId(actorId);
-        dto.setUserId(userId);
-        dto.setType(eventType.notificationType());
-        dto.setEntityType(eventType.entityType());
-        dto.setEntityId(orderId != null ? String.valueOf(orderId) : null);
-        dto.setContent(content);
-        dto.setRead(false);
-        return dto;
     }
 
     @Override
@@ -604,11 +508,6 @@ public class OrderNotificationServiceImpl implements OrderNotificationService {
                     OrderNotificationEventType.REFUND_REQUESTED,
                     orderId,
                     content);
-
-            // 实时推送
-            webSocketNotificationService.sendNotificationToUser(hostId,
-                    createBasicOrderNotificationDTO(null, hostId,
-                            OrderNotificationEventType.REFUND_REQUESTED, orderId, content));
 
             log.info("已为房东 {} 发送订单 {} 退款待审批通知", getCurrentUsername(hostId), orderNumber);
         } catch (Exception e) {

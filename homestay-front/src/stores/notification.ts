@@ -34,6 +34,43 @@ export const useNotificationStore = defineStore("notification", () => {
     unreadCount.value = Math.max(0, count);
   };
 
+  const upsertRealtimeNotification = (notification: NotificationDto) => {
+    const normalizedNotification = normalizeNotification(notification);
+
+    const listIndex = notifications.value.findIndex((item) => item.id === normalizedNotification.id);
+    const isNew = listIndex === -1;
+
+    if (isNew) {
+      notifications.value.unshift(normalizedNotification);
+    } else {
+      notifications.value[listIndex] = {
+        ...notifications.value[listIndex],
+        ...normalizedNotification,
+      };
+    }
+
+    if (pagination.value) {
+      const pageIndex = pagination.value.content.findIndex((item) => item.id === normalizedNotification.id);
+      const nextContent = [...pagination.value.content];
+
+      if (pageIndex === -1) {
+        nextContent.unshift(normalizedNotification);
+      } else {
+        nextContent[pageIndex] = {
+          ...nextContent[pageIndex],
+          ...normalizedNotification,
+        };
+      }
+
+      pagination.value = {
+        ...pagination.value,
+        content: nextContent,
+        totalElements: isNew ? pagination.value.totalElements + 1 : pagination.value.totalElements,
+      };
+    }
+
+  };
+
   const clearNotifications = () => {
     notifications.value = [];
     pagination.value = null;
@@ -263,6 +300,8 @@ export const useNotificationStore = defineStore("notification", () => {
     loading,
     pagination,
     hasUnread,
+    setUnreadCount,
+    upsertRealtimeNotification,
     clearNotifications,
     fetchUnreadCount,
     fetchNotifications,

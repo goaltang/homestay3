@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -60,6 +61,14 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     long countByUserIdAndIsReadFalse(Long userId);
 
     /**
+     * 批量统计多个用户的未读通知数量
+     * @param userIds 用户ID集合
+     * @return userId, unreadCount
+     */
+    @Query("SELECT n.userId, COUNT(n) FROM Notification n WHERE n.userId IN :userIds AND n.isRead = false GROUP BY n.userId")
+    List<Object[]> countUnreadByUserIds(@Param("userIds") Collection<Long> userIds);
+
+    /**
      * 将指定用户的所有未读通知标记为已读
      * @param userId 用户ID
      * @return 更新的记录数
@@ -85,4 +94,4 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.readAt < :cutoffDate")
     int deleteReadNotificationsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
 
-} 
+}

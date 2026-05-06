@@ -3,6 +3,8 @@ import { ref, computed } from "vue";
 import api from "@/api";
 import { RegisterRequest } from "@/types/auth";
 import { ElMessage } from "element-plus";
+import { initWebSocket, disconnectWebSocket } from "@/services/websocketService";
+import { useNotificationStore } from "@/stores/notification";
 
 export interface UserInfo {
   id: number;
@@ -109,6 +111,9 @@ export const useUserStore = defineStore("user", () => {
     userInfo.value = user;
     // 保存用户信息到 localStorage
     localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (token.value && user.id) {
+      initWebSocket(user.id);
+    }
     // 输出调试信息
     console.log("用户角色:", user.role);
     console.log("isLandlord计算值:", user.role === "ROLE_HOST");
@@ -380,6 +385,7 @@ export const useUserStore = defineStore("user", () => {
   };
 
   const logout = () => {
+    disconnectWebSocket();
     // 清除token和用户信息
     setToken(null);
     userInfo.value = null;
@@ -399,6 +405,7 @@ export const useUserStore = defineStore("user", () => {
     window.location.href = "/login";
 
     unreadNotificationCount.value = 0;
+    useNotificationStore().setUnreadCount(0);
   };
 
   const updateProfile = async (data: ProfileUpdateRequest) => {
@@ -739,11 +746,14 @@ export const useUserStore = defineStore("user", () => {
   const fetchUnreadCount = async () => {
     if (!isAuthenticated.value) {
       unreadNotificationCount.value = 0;
+      useNotificationStore().setUnreadCount(0);
       return;
     }
     try {
       const response = await api.get("/api/notifications/unread-count");
-      unreadNotificationCount.value = response.data.unreadCount;
+      const count = response.data.unreadCount || 0;
+      unreadNotificationCount.value = count;
+      useNotificationStore().setUnreadCount(count);
     } catch (error) {
       console.error("获取未读通知数失败:", error);
     }

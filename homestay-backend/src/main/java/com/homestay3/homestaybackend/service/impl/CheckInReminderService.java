@@ -7,7 +7,6 @@ import com.homestay3.homestaybackend.model.notification.OrderNotificationEventTy
 import com.homestay3.homestaybackend.repository.CheckInRecordRepository;
 import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.NotificationService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,16 +27,13 @@ public class CheckInReminderService {
     private final OrderRepository orderRepository;
     private final CheckInRecordRepository checkInRecordRepository;
     private final NotificationService notificationService;
-    private final WebSocketNotificationService webSocketNotificationService;
 
     public CheckInReminderService(OrderRepository orderRepository,
-                                  CheckInRecordRepository checkInRecordRepository,
-                                  NotificationService notificationService,
-                                  WebSocketNotificationService webSocketNotificationService) {
+                                   CheckInRecordRepository checkInRecordRepository,
+                                   NotificationService notificationService) {
         this.orderRepository = orderRepository;
         this.checkInRecordRepository = checkInRecordRepository;
         this.notificationService = notificationService;
-        this.webSocketNotificationService = webSocketNotificationService;
     }
 
     @Scheduled(cron = "0 0 9 * * ?")
@@ -88,9 +84,6 @@ public class CheckInReminderService {
                 content
         ));
 
-        long unreadCount = notificationService.getUnreadNotificationCount(guestId);
-        webSocketNotificationService.sendUnreadCountToUser(guestId, unreadCount);
-
         log.info("已发送入住提醒给客人: guestId={}, orderId={}", guestId, order.getId());
     }
 
@@ -108,9 +101,6 @@ public class CheckInReminderService {
                 order.getId(),
                 content
         ));
-
-        long unreadCount = notificationService.getUnreadNotificationCount(hostId);
-        webSocketNotificationService.sendUnreadCountToUser(hostId, unreadCount);
 
         log.info("已发送入住提醒给房东: hostId={}, orderId={}", hostId, order.getId());
     }

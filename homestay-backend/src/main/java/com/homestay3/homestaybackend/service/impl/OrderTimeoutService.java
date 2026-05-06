@@ -8,7 +8,6 @@ import com.homestay3.homestaybackend.repository.OrderRepository;
 import com.homestay3.homestaybackend.service.IOrderTimeoutService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.OrderService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,7 +30,6 @@ public class OrderTimeoutService implements IOrderTimeoutService {
     private final OrderRepository orderRepository;
     private final OrderService orderService;
     private final NotificationService notificationService;
-    private final WebSocketNotificationService webSocketNotificationService;
 
     /**
      * 超时配置（单位：小时）
@@ -52,12 +50,10 @@ public class OrderTimeoutService implements IOrderTimeoutService {
     private int warningBeforeTimeoutMinutes;
 
     public OrderTimeoutService(OrderRepository orderRepository, OrderService orderService,
-                               NotificationService notificationService,
-                               WebSocketNotificationService webSocketNotificationService) {
+                               NotificationService notificationService) {
         this.orderRepository = orderRepository;
         this.orderService = orderService;
         this.notificationService = notificationService;
-        this.webSocketNotificationService = webSocketNotificationService;
     }
 
     /**
@@ -317,8 +313,6 @@ public class OrderTimeoutService implements IOrderTimeoutService {
         try {
             notificationService.createNotification(
                     NotificationCreateCommand.orderEvent(userId, null, eventType, entityId, content));
-            long unreadCount = notificationService.getUnreadNotificationCount(userId);
-            webSocketNotificationService.sendUnreadCountToUser(userId, unreadCount);
         } catch (Exception e) {
             log.error("发送订单通知失败: userId={}, error={}", userId, e.getMessage(), e);
         }

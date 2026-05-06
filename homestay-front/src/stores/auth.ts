@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import api from "@/api";
+import { initWebSocket, disconnectWebSocket } from "@/services/websocketService";
+import { useNotificationStore } from "@/stores/notification";
 
 const TOKEN_KEY = "homestay_token";
 const USER_KEY = "homestay_user";
@@ -131,6 +133,9 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     api.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
+    if (data.user?.id) {
+      initWebSocket(data.user.id);
+    }
 
     syncFavoritesAfterLogin();
   }
@@ -146,6 +151,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function logout() {
+    disconnectWebSocket();
     token.value = "";
     user.value = null;
 
@@ -156,6 +162,7 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.removeItem("userInfo");
 
     delete api.defaults.headers.common["Authorization"];
+    useNotificationStore().setUnreadCount(0);
 
     window.location.href = "/login";
   }
@@ -217,6 +224,9 @@ export const useAuthStore = defineStore("auth", () => {
 
   if (token.value) {
     api.defaults.headers.common["Authorization"] = `Bearer ${token.value}`;
+    if (user.value?.id) {
+      initWebSocket(user.value.id);
+    }
   }
 
   return {

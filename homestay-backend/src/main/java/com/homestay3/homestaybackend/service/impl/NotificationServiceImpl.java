@@ -4,6 +4,8 @@ import com.homestay3.homestaybackend.dto.NotificationDTO;
 import com.homestay3.homestaybackend.dto.NotificationCreateCommand;
 import com.homestay3.homestaybackend.entity.Notification;
 import com.homestay3.homestaybackend.entity.User;
+import com.homestay3.homestaybackend.event.NotificationCreatedEvent;
+import com.homestay3.homestaybackend.event.NotificationUnreadCountChangedEvent;
 import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.entity.Homestay;
 import com.homestay3.homestaybackend.entity.Order;
@@ -13,14 +15,15 @@ import com.homestay3.homestaybackend.model.enums.NotificationType;
 import com.homestay3.homestaybackend.repository.*; // 导入所有 repository
 import com.homestay3.homestaybackend.service.NotificationPreferenceService;
 import com.homestay3.homestaybackend.service.NotificationService;
-import com.homestay3.homestaybackend.service.WebSocketNotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 // import org.springframework.beans.factory.annotation.Autowired; // 使用构造函数注入，无需此注解
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy; // 引入 Lazy
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,25 +44,25 @@ public class NotificationServiceImpl implements NotificationService {
     private final HomestayRepository homestayRepository;
     private final OrderRepository orderRepository;
     private final ReviewRepository reviewRepository;
-    private final WebSocketNotificationService webSocketNotificationService;
     private final NotificationPreferenceService notificationPreferenceService;
+    private final ApplicationEventPublisher eventPublisher;
 
 // 使用构造函数注入所有依赖
     // 添加 @Lazy 防止潜在的循环依赖 (例如 A -> B -> Notification -> A)
     public NotificationServiceImpl(NotificationRepository notificationRepository,
                                     UserRepository userRepository,
-                                    @Lazy HomestayRepository homestayRepository,
-                                    @Lazy OrderRepository orderRepository,
-                                    @Lazy ReviewRepository reviewRepository,
-                                    WebSocketNotificationService webSocketNotificationService,
-                                    NotificationPreferenceService notificationPreferenceService) {
+                                     @Lazy HomestayRepository homestayRepository,
+                                     @Lazy OrderRepository orderRepository,
+                                     @Lazy ReviewRepository reviewRepository,
+                                     NotificationPreferenceService notificationPreferenceService,
+                                     ApplicationEventPublisher eventPublisher) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.homestayRepository = homestayRepository;
         this.orderRepository = orderRepository;
         this.reviewRepository = reviewRepository;
-        this.webSocketNotificationService = webSocketNotificationService;
         this.notificationPreferenceService = notificationPreferenceService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -100,14 +103,9 @@ public class NotificationServiceImpl implements NotificationService {
         log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), command.userId(), normalizedType);
 
         // --- 实时推送 ---
-        try {
-            NotificationDTO dto = convertToDtoWithFullData(savedNotification);
-            webSocketNotificationService.sendNotificationToUser(command.userId(), dto);
-            log.info("已通过 WebSocket 推送通知给用户: {}", command.userId());
-        } catch (Exception e) {
-            log.error("WebSocket 推送通知失败: userId={}, error={}", command.userId(), e.getMessage(), e);
-            // 推送失败不应影响主流程
-        }
+        NotificationDTO dto = convertToDtoWithFullData(savedNotification);
+        eventPublisher.publishEvent(new NotificationCreatedEvent(command.userId(), dto));
+        publishUnreadCountChanged(command.userId());
         // --- 实时推送结束 ---
 
         return savedNotification;
@@ -168,13 +166,19 @@ public class NotificationServiceImpl implements NotificationService {
             throw new AccessDeniedException("无法标记不属于您的通知");
         }
 
+        boolean changed = false;
         if (!notification.isRead()) {
             notification.setRead(true);
             notification.setReadAt(LocalDateTime.now());
             notification = notificationRepository.save(notification);
+            changed = true;
             log.info("用户 {} 将通知 {} 标记为已读", userId, notificationId);
         } else {
             log.debug("通知 {} 已经是已读状态", notificationId);
+        }
+
+        if (changed) {
+            publishUnreadCountChanged(userId);
         }
 
         return convertToDtoWithFullData(notification);
@@ -200,6 +204,9 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         notificationRepository.saveAll(notifications);
+        if (count > 0) {
+            publishUnreadCountChanged(userId);
+        }
         log.info("用户 {} 批量标记 {} 条通知为已读", userId, count);
         return count;
     }
@@ -213,12 +220,7 @@ public class NotificationServiceImpl implements NotificationService {
         // --- 实时推送 ---
         // 如果标记了任何通知为已读，可以推送更新后的未读计数
         if (updatedCount > 0) {
-            try {
-                long newUnreadCount = getUnreadNotificationCount(userId);
-                webSocketNotificationService.sendUnreadCountToUser(userId, newUnreadCount);
-            } catch (Exception e) {
-                log.error("WebSocket 推送未读计数失败: userId={}, error={}", userId, e.getMessage(), e);
-            }
+            publishUnreadCountChanged(userId);
         }
         // --- 实时推送结束 ---
 
@@ -237,7 +239,11 @@ public class NotificationServiceImpl implements NotificationService {
             throw new AccessDeniedException("无法删除不属于您的通知");
         }
 
+        boolean wasUnread = !notification.isRead();
         notificationRepository.delete(notification);
+        if (wasUnread) {
+            publishUnreadCountChanged(userId);
+        }
         log.info("用户 {} 删除了通知 {}", userId, notificationId);
     }
 
@@ -251,27 +257,49 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Async("taskExecutor")
     @Transactional
-    public int broadcastSystemNotification(String content) {
+    public void broadcastSystemNotification(String content) {
         List<User> allUsers = userRepository.findAll();
-        int count = 0;
-        for (User user : allUsers) {
-            Notification notification = createNotification(
-                    NotificationCreateCommand.of(
-                            user.getId(),
-                            null,
-                            NotificationType.SYSTEM_ANNOUNCEMENT,
-                            EntityType.SYSTEM,
-                            null,
-                            content
-                    )
-            );
-            if (notification != null) {
-                count++;
-            }
+        List<Long> userIds = allUsers.stream()
+                .map(User::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        Map<Long, Boolean> enabledByUserId = notificationPreferenceService.getEnabledMap(
+                userIds,
+                NotificationType.SYSTEM_ANNOUNCEMENT.getDomain());
+
+        List<Notification> notifications = allUsers.stream()
+                .filter(user -> user.getId() != null)
+                .filter(user -> enabledByUserId.getOrDefault(user.getId(), true))
+                .map(user -> Notification.builder()
+                        .userId(user.getId())
+                        .actorId(null)
+                        .type(NotificationType.SYSTEM_ANNOUNCEMENT)
+                        .entityType(EntityType.SYSTEM)
+                        .entityId(null)
+                        .content(content)
+                        .isRead(false)
+                        .build())
+                .toList();
+
+        if (notifications.isEmpty()) {
+            log.info("Admin 广播系统通知，目标用户 {} 人，成功发送 0 条", allUsers.size());
+            return;
         }
-        log.info("Admin 广播系统通知，目标用户 {} 人，成功发送 {} 条", allUsers.size(), count);
-        return count;
+
+        List<Notification> savedNotifications = notificationRepository.saveAll(notifications);
+        List<NotificationDTO> dtos = convertToDtosBatch(savedNotifications);
+        for (NotificationDTO dto : dtos) {
+            eventPublisher.publishEvent(new NotificationCreatedEvent(dto.getUserId(), dto));
+        }
+
+        publishUnreadCountChangedBatch(savedNotifications.stream()
+                .map(Notification::getUserId)
+                .toList());
+
+        log.info("Admin 广播系统通知，目标用户 {} 人，成功发送 {} 条", allUsers.size(), savedNotifications.size());
     }
 
     @Override
@@ -532,6 +560,32 @@ public class NotificationServiceImpl implements NotificationService {
         return notification.getRawType() != null
                 ? notification.getRawType()
                 : notification.getType() != null ? notification.getType().name() : null;
+    }
+
+    private void publishUnreadCountChanged(Long userId) {
+        long unreadCount = getUnreadNotificationCount(userId);
+        eventPublisher.publishEvent(new NotificationUnreadCountChangedEvent(userId, unreadCount));
+    }
+
+    private void publishUnreadCountChangedBatch(Collection<Long> userIds) {
+        Set<Long> distinctUserIds = userIds.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (distinctUserIds.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Long> unreadCountByUserId = notificationRepository.countUnreadByUserIds(distinctUserIds).stream()
+                .collect(Collectors.toMap(
+                        row -> ((Number) row[0]).longValue(),
+                        row -> ((Number) row[1]).longValue()));
+
+        for (Long userId : distinctUserIds) {
+            eventPublisher.publishEvent(new NotificationUnreadCountChangedEvent(
+                    userId,
+                    unreadCountByUserId.getOrDefault(userId, 0L)));
+        }
     }
 
     private void applyPresentationMetadata(NotificationDTO dto, User recipient) {

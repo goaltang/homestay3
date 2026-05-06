@@ -1,154 +1,245 @@
-import { ref, onUnmounted } from 'vue';
-import { useNotificationStore } from '@/stores/notification';
-import { useChatStore } from '@/stores/chat';
-import { normalizeNotification } from '@/types/notification';
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
+import { shallowRef } from "vue";
+import { useNotificationStore } from "@/stores/notification";
+import { useChatStore } from "@/stores/chat";
+import { normalizeNotification } from "@/types/notification";
+import SockJS from "sockjs-client";
+import Stomp from "stompjs";
 
 let stompClient: any = null;
-const isConnected = ref(false);
+let activeUserId: number | null = null;
+let activeToken: string | null = null;
+let reconnectAttempts = 0;
+let reconnectTimer: number | null = null;
+let manuallyDisconnected = false;
+let listenersRegistered = false;
 
-/**
- * 初始化WebSocket连接
- * @param userId 用户ID
- */
-export const initWebSocket = (userId: number | null) => {
-  if (!userId) {
-    console.warn('用户ID为空，无法初始化WebSocket连接');
-    return;
-  };
+const isConnected = shallowRef(false);
 
-  // 如果已经有连接，先断开
-  if (stompClient) {
-    disconnectWebSocket();
-  };
+const getApiBaseUrl = () =>
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:8080";
 
-  try {
-    // 创建SockJS连接
-    const socket = new SockJS((import.meta.env.VITE_API_URL || 'http://localhost:8080') + '/ws');
-    stompClient = Stomp.over(socket);
+const getStoredToken = () => {
+  const token =
+    localStorage.getItem("homestay_token") ||
+    sessionStorage.getItem("homestay_token") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("token");
 
-    // 调试模式下打印日志
-    stompClient.debug = (_str: string) => {
-      // console.log(str);
-    };
+  if (!token) {
+    return null;
+  }
 
-    // 连接到WebSocket
-    stompClient.connect({}, function(frame: any) {
-      console.log('WebSocket已连接: ' + frame);
-      isConnected.value = true;
+  return token.startsWith("Bearer ") ? token.slice(7) : token;
+};
 
-      // 订阅用户的通知主题
-      stompClient.subscribe(`/topic/notifications/${userId}`, function(notification: any) {
-        try {
-          const notificationDTO = normalizeNotification(JSON.parse(notification.body));
-          console.log('收到实时通知:', notificationDTO);
-          
-          // 使用Pinia store更新通知状态
-          const notificationStore = useNotificationStore();
-          
-          // 将新通知添加到列表开头（最新的在前面）
-          notificationStore.notifications.unshift(notificationDTO as any);
-          
-          // 如果是未读通知，增加未读计数
-          if (!notificationDTO.read) {
-            notificationStore.unreadCount += 1;
-          }
-          
-          // 同时更新分页中的通知（如果存在）
-          if (notificationStore.pagination?.content) {
-            notificationStore.pagination.content.unshift(notificationDTO as any);
-          }
-          
-          // 可以在这里触发全局事件或显示通知提示
-          // 例如: window.dispatchEvent(new CustomEvent('new-notification', { detail: notificationDTO }));
-        } catch (error) {
-          console.error('解析通知消息失败:', error);
-        }
-      });
-
-      // 订阅未读数量更新主题
-      stompClient.subscribe(`/topic/unread-count/${userId}`, function(countMessage: any) {
-        try {
-          const count = JSON.parse(countMessage.body);
-          console.log('收到未读数量更新:', count);
-
-          // 使用Pinia store更新未读数量
-          const notificationStore = useNotificationStore();
-          notificationStore.unreadCount = count;
-
-          // 同时更新所有通知的已读状态（可选，取决于业务需求）
-          // 这里我们只是更新数量，保持通知本身的状态不变
-          // 如果需要同步所有通知的状态，可以遍历通知列表并标记为已读
-        } catch (error) {
-          console.error('解析未读数量消息失败:', error);
-        }
-      });
-
-      // 订阅用户的聊天消息主题
-      stompClient.subscribe(`/topic/chat/user/${userId}`, function(chatMessage: any) {
-        try {
-          const message = JSON.parse(chatMessage.body);
-          console.log('收到聊天消息:', message);
-
-          // 使用Pinia store更新聊天状态
-          const chatStore = useChatStore();
-          chatStore.handleNewMessage(message);
-        } catch (error) {
-          console.error('解析聊天消息失败:', error);
-        }
-      });
-
-      // 订阅房东日历更新主题
-      stompClient.subscribe(`/topic/calendar/${userId}`, function(calendarMessage: any) {
-        try {
-          const payload = JSON.parse(calendarMessage.body);
-          console.log('收到日历更新:', payload);
-          window.dispatchEvent(new CustomEvent('calendar-update', { detail: payload }));
-        } catch (error) {
-          console.error('解析日历更新消息失败:', error);
-        }
-      });
-    }, function(error: any) {
-      console.error('WebSocket连接错误:', error);
-      isConnected.value = false;
-      // 可以在这里实现重连逻辑
-    });
-  } catch (error) {
-    console.error('初始化WebSocket失败:', error);
-    isConnected.value = false;
+const clearReconnectTimer = () => {
+  if (reconnectTimer !== null) {
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = null;
   }
 };
 
-/**
- * 断开WebSocket连接
- */
-export const disconnectWebSocket = () => {
-  if (stompClient && stompClient.connected) {
-    stompClient.disconnect(function() {
-      console.log('WebSocket已断开连接');
-      isConnected.value = false;
-    });
-  };
+const closeCurrentClient = () => {
+  const client = stompClient;
   stompClient = null;
+  isConnected.value = false;
+
+  if (!client) {
+    return;
+  }
+
+  try {
+    if (client.connected) {
+      client.disconnect(() => undefined);
+    } else {
+      client.ws?.close?.();
+    }
+  } catch (error) {
+    console.warn("关闭 WebSocket 连接失败:", error);
+  }
 };
 
-/**
- * 检查WebSocket是否已连接
- */
-export const isWebSocketConnected = (): boolean => {
-  return isConnected.value && stompClient && stompClient.connected;
+const scheduleReconnect = () => {
+  if (manuallyDisconnected || !activeUserId || reconnectTimer !== null) {
+    return;
+  }
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return;
+  }
+
+  const delay = Math.min(3000 * 2 ** reconnectAttempts, 60000);
+  reconnectAttempts += 1;
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = null;
+    connect(activeUserId);
+  }, delay);
 };
 
-// 在组件卸载时自动断开连接的辅助函数
-export const useWebSocket = (_userId: number | null) => {
-  onUnmounted(() => {
-    disconnectWebSocket();
+const handleConnectionLost = () => {
+  if (manuallyDisconnected) {
+    return;
+  }
+
+  isConnected.value = false;
+  closeCurrentClient();
+  scheduleReconnect();
+};
+
+const registerNetworkListeners = () => {
+  if (listenersRegistered || typeof window === "undefined") {
+    return;
+  }
+
+  window.addEventListener("online", () => {
+    if (!manuallyDisconnected && activeUserId && !isWebSocketConnected()) {
+      reconnectAttempts = 0;
+      clearReconnectTimer();
+      connect(activeUserId);
+    }
   });
-  
+
+  window.addEventListener("offline", () => {
+    isConnected.value = false;
+    clearReconnectTimer();
+    closeCurrentClient();
+  });
+
+  listenersRegistered = true;
+};
+
+const parseUnreadCount = (body: string) => {
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed === "number") {
+      return parsed;
+    }
+    return Number(parsed?.unreadCount ?? parsed?.count ?? 0);
+  } catch {
+    return Number(body);
+  }
+};
+
+const subscribeUserQueues = (userId: number) => {
+  stompClient.subscribe("/user/queue/notifications", (message: any) => {
+    try {
+      const notificationDTO = normalizeNotification(JSON.parse(message.body));
+      const notificationStore = useNotificationStore();
+      notificationStore.upsertRealtimeNotification(notificationDTO);
+    } catch (error) {
+      console.error("解析实时通知失败:", error);
+    }
+  });
+
+  stompClient.subscribe("/user/queue/unread-count", (message: any) => {
+    const count = parseUnreadCount(message.body);
+    const notificationStore = useNotificationStore();
+    notificationStore.setUnreadCount(Number.isFinite(count) ? count : 0);
+  });
+
+  stompClient.subscribe(`/topic/chat/user/${userId}`, (message: any) => {
+    try {
+      const chatStore = useChatStore();
+      chatStore.handleNewMessage(JSON.parse(message.body));
+    } catch (error) {
+      console.error("解析聊天消息失败:", error);
+    }
+  });
+
+  stompClient.subscribe(`/topic/calendar/${userId}`, (message: any) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("calendar-update", { detail: JSON.parse(message.body) })
+      );
+    } catch (error) {
+      console.error("解析日历更新失败:", error);
+    }
+  });
+};
+
+const connect = (userId: number | null) => {
+  if (!userId) {
+    return;
+  }
+
+  const token = getStoredToken();
+  if (!token) {
+    console.warn("缺少 WebSocket token，跳过连接");
+    return;
+  }
+
+  if (
+    stompClient &&
+    isWebSocketConnected() &&
+    activeUserId === userId &&
+    activeToken === token
+  ) {
+    return;
+  }
+
+  activeUserId = userId;
+  activeToken = token;
+  closeCurrentClient();
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return;
+  }
+
+  const socket = new SockJS(`${getApiBaseUrl()}/ws`);
+  stompClient = Stomp.over(socket);
+  stompClient.debug = () => undefined;
+
+  stompClient.connect(
+    { Authorization: `Bearer ${token}` },
+    () => {
+      isConnected.value = true;
+      reconnectAttempts = 0;
+      clearReconnectTimer();
+      subscribeUserQueues(userId);
+
+      const notificationStore = useNotificationStore();
+      notificationStore.fetchUnreadCount();
+    },
+    (error: any) => {
+      console.error("WebSocket 连接错误:", error);
+      handleConnectionLost();
+    }
+  );
+};
+
+export const initWebSocket = (userId: number | null) => {
+  if (!userId) {
+    return;
+  }
+
+  manuallyDisconnected = false;
+  registerNetworkListeners();
+  connect(userId);
+};
+
+export const disconnectWebSocket = () => {
+  manuallyDisconnected = true;
+  activeUserId = null;
+  activeToken = null;
+  reconnectAttempts = 0;
+  clearReconnectTimer();
+  closeCurrentClient();
+};
+
+export const isWebSocketConnected = (): boolean =>
+  Boolean(isConnected.value && stompClient?.connected);
+
+export const useWebSocket = (userId: number | null = null) => {
+  if (userId) {
+    initWebSocket(userId);
+  }
+
   return {
     initWebSocket,
     disconnectWebSocket,
-    isWebSocketConnected
+    isWebSocketConnected,
+    isConnected,
   };
 };

@@ -8,8 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class NotificationPreferenceServiceImpl implements NotificationPreferenceService {
@@ -52,5 +57,30 @@ public class NotificationPreferenceServiceImpl implements NotificationPreference
                 .findByUserIdAndDomain(userId, domain.name())
                 .map(NotificationPreference::isEnabled)
                 .orElse(true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, Boolean> getEnabledMap(Collection<Long> userIds, NotificationDomain domain) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Boolean> result = userIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(
+                        Function.identity(),
+                        ignored -> true,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+
+        if (result.isEmpty()) {
+            return result;
+        }
+
+        preferenceRepository.findByDomainAndUserIdIn(domain.name(), result.keySet())
+                .forEach(preference -> result.put(preference.getUserId(), preference.isEnabled()));
+        return result;
     }
 }

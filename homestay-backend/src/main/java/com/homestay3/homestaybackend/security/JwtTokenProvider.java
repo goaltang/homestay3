@@ -108,8 +108,14 @@ public class JwtTokenProvider {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
-            Integer userId = claims.get("userId", Integer.class);
-            return userId != null ? userId.longValue() : null;
+            Object userId = claims.get("userId");
+            if (userId instanceof Number number) {
+                return number.longValue();
+            }
+            if (userId instanceof String value && !value.isBlank()) {
+                return Long.parseLong(value);
+            }
+            return null;
         } catch (Exception e) {
             log.error("从Token解析userId失败: {}", e.getMessage());
             return null;

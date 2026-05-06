@@ -28,18 +28,18 @@ public class AdminNotificationController {
     /**
      * 向全体用户广播系统通知
      * @param body 请求体 { "content": "..." }
-     * @return 发送成功的通知数量
+     * @return 任务提交结果
      */
     @PostMapping("/broadcast")
-    public ResponseEntity<Map<String, Integer>> broadcastSystemNotification(
+    public ResponseEntity<Map<String, String>> broadcastSystemNotification(
             @RequestBody Map<String, String> body) {
         String content = body.get("content");
         if (content == null || content.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        int sentCount = notificationService.broadcastSystemNotification(content.trim());
-        log.info("Admin 广播系统通知，内容长度={}, 成功发送 {} 条", content.length(), sentCount);
-        return ResponseEntity.ok(Map.of("sentCount", sentCount));
+        notificationService.broadcastSystemNotification(content.trim());
+        log.info("Admin 提交系统通知广播任务，内容长度={}", content.length());
+        return ResponseEntity.accepted().body(Map.of("status", "submitted"));
     }
 
     /**

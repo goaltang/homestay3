@@ -19,7 +19,7 @@
             </div>
 
             <el-button type="primary" plain @click="handleMarkAllRead"
-                :disabled="loading || userStore.unreadNotificationCount === 0">
+                :disabled="loading || notificationStore.unreadCount === 0">
                 全部标记为已读
             </el-button>
         </div>
@@ -111,12 +111,14 @@ import {
 import type { NotificationDto } from '@/types/notification'; // 复用类型
 
 import { useUserStore } from '@/stores/user';
+import { useNotificationStore } from '@/stores/notification';
 import { formatDate } from '@/utils/format';
 import { VNode, h } from 'vue';
 import { RouterLink } from 'vue-router';
 
 const router = useRouter();
 const userStore = useUserStore();
+const notificationStore = useNotificationStore();
 
 // --- 状态定义 (与用户版一致) ---
 const notifications = ref<NotificationDto[]>([]);
@@ -271,7 +273,7 @@ const handleMarkRead = async (id: number) => {
         ElMessage.success('已标记为已读');
 
         console.log(`[HostNotificationManage] Calling fetchUnreadCount`);
-        await userStore.fetchUnreadCount();
+        await notificationStore.fetchUnreadCount();
         console.log(`[HostNotificationManage] fetchUnreadCount finished`);
 
         console.log(`[HostNotificationManage] Reloading notifications after marking as read...`);
@@ -290,7 +292,7 @@ const handleMarkAllRead = async () => {
         const response = await markAllAsRead();
         ElMessage.success(`成功标记 ${response.markedCount} 条通知为已读`);
         await fetchNotifications();
-        await userStore.fetchUnreadCount();
+        await notificationStore.fetchUnreadCount();
     } catch (error) {
         console.error('全部标记已读失败:', error);
         ElMessage.error('操作失败，请稍后重试');
@@ -313,7 +315,7 @@ const handleDelete = async (id: number) => {
         await deleteNotification(id);
         ElMessage.success('通知已删除');
         await fetchNotifications();
-        await userStore.fetchUnreadCount();
+        await notificationStore.fetchUnreadCount();
     } catch (error: any) {
         if (error !== 'cancel') {
             console.error('删除通知失败:', error);
@@ -335,7 +337,7 @@ const handleNotificationClick = async (notification: NotificationDto) => {
             if (index !== -1) {
                 notifications.value[index].read = true;
             }
-            await userStore.fetchUnreadCount();
+            await notificationStore.fetchUnreadCount();
         } catch (error) {
             console.error('点击时标记已读失败:', error);
             // 即使标记失败，也尝试跳转
@@ -363,7 +365,7 @@ onMounted(() => {
     console.log('[HostNotificationManage] Component onMounted hook called');
     console.log('[HostNotificationManage] onMounted - isAuthenticated:', userStore.isAuthenticated);
     fetchNotifications();
-    userStore.fetchUnreadCount();
+    notificationStore.fetchUnreadCount();
 });
 
 </script>
