@@ -191,19 +191,7 @@ public class NotificationServiceImpl implements NotificationService {
             return 0;
         }
 
-        List<Notification> notifications = notificationRepository.findAllById(notificationIds);
-        int count = 0;
-        LocalDateTime now = LocalDateTime.now();
-
-        for (Notification notification : notifications) {
-            if (notification.getUserId().equals(userId) && !notification.isRead()) {
-                notification.setRead(true);
-                notification.setReadAt(now);
-                count++;
-            }
-        }
-
-        notificationRepository.saveAll(notifications);
+        int count = notificationRepository.markMultipleAsReadByUserId(userId, notificationIds);
         if (count > 0) {
             publishUnreadCountChanged(userId);
         }
@@ -245,6 +233,23 @@ public class NotificationServiceImpl implements NotificationService {
             publishUnreadCountChanged(userId);
         }
         log.info("用户 {} 删除了通知 {}", userId, notificationId);
+    }
+
+    @Override
+    @Transactional
+    public int deleteMultipleNotifications(List<Long> notificationIds, Long userId) {
+        if (notificationIds == null || notificationIds.isEmpty()) {
+            return 0;
+        }
+
+        long unreadCount = notificationRepository.countByUserIdAndIdInAndIsReadFalse(userId, notificationIds);
+        int deletedCount = notificationRepository.deleteByUserIdAndIdIn(userId, notificationIds);
+        if (deletedCount > 0 && unreadCount > 0) {
+            publishUnreadCountChanged(userId);
+        }
+
+        log.info("用户 {} 批量删除 {} 条通知", userId, deletedCount);
+        return deletedCount;
     }
 
     @Override
@@ -378,14 +383,17 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
-        // 批量查询
-        Map<Long, User> actorMap = actorIds.isEmpty() ? Collections.emptyMap() :
-                userRepository.findAllById(actorIds).stream()
+        Set<Long> userIdsToLoad = new HashSet<>();
+        userIdsToLoad.addAll(actorIds);
+        userIdsToLoad.addAll(recipientIds);
+        userIdsToLoad.addAll(userIdsForEntity);
+
+        Map<Long, User> userMap = userIdsToLoad.isEmpty() ? Collections.emptyMap() :
+                userRepository.findAllById(userIdsToLoad).stream()
                         .collect(Collectors.toMap(User::getId, Function.identity()));
 
-        Map<Long, User> recipientMap = recipientIds.isEmpty() ? Collections.emptyMap() :
-                userRepository.findAllById(recipientIds).stream()
-                        .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<Long, User> actorMap = userMap;
+        Map<Long, User> recipientMap = userMap;
 
         Map<Long, Order> orderMap = orderIds.isEmpty() ? Collections.emptyMap() :
                 orderRepository.findAllById(orderIds).stream()
@@ -405,9 +413,7 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
 
-        Map<Long, User> userEntityMap = userIdsForEntity.isEmpty() ? Collections.emptyMap() :
-                userRepository.findAllById(userIdsForEntity).stream()
-                        .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<Long, User> userEntityMap = userMap;
 
         // 转换每个通知
         List<NotificationDTO> dtos = new ArrayList<>(notifications.size());
@@ -499,61 +505,7 @@ public class NotificationServiceImpl implements NotificationService {
      * 转换单个通知为DTO，包含完整的关联数据
      */
     private NotificationDTO convertToDtoWithFullData(Notification notification) {
-        NotificationDTO dto = new NotificationDTO();
-        dto.setId(notification.getId());
-        dto.setUserId(notification.getUserId());
-        dto.setActorId(notification.getActorId());
-        dto.setType(notification.getType());
-        dto.setRawType(getRawType(notification));
-        dto.setEntityType(notification.getEntityType());
-        dto.setRawEntityType(getRawEntityType(notification));
-        dto.setEntityId(notification.getEntityId());
-        dto.setContent(notification.getContent());
-        dto.setRead(notification.isRead());
-        dto.setReadAt(notification.getReadAt());
-        dto.setCreatedAt(notification.getCreatedAt());
-
-        if (notification.getActorId() != null) {
-            userRepository.findById(notification.getActorId())
-                    .ifPresent(actor -> dto.setActorUsername(actor.getUsername()));
-        }
-
-        if (requiresNumericEntityId(notification.getEntityType()) && notification.getEntityId() != null) {
-            try {
-                Long entityId = Long.parseLong(notification.getEntityId());
-                switch (notification.getEntityType()) {
-                    case ORDER:
-                    case BOOKING:
-                        orderRepository.findById(entityId)
-                                .ifPresent(order -> dto.setEntityTitle("订单 " + order.getOrderNumber()));
-                        break;
-                    case HOMESTAY:
-                        homestayRepository.findById(entityId)
-                                .ifPresent(homestay -> dto.setEntityTitle(homestay.getTitle()));
-                        break;
-                    case REVIEW:
-                        reviewRepository.findHomestayTitleByReviewId(entityId)
-                                .ifPresent(dto::setEntityTitle);
-                        break;
-                    case USER:
-                        userRepository.findById(entityId)
-                                .ifPresent(user -> dto.setEntityTitle(user.getUsername()));
-                        break;
-                    default:
-                        log.debug("未处理的实体类型: {}", notification.getEntityType());
-                }
-            } catch (NumberFormatException e) {
-                log.warn("无法解析entityId '{}' 对于通知ID {}: {}",
-                        notification.getEntityId(), notification.getId(), e.getMessage());
-            }
-        }
-
-        User recipient = null;
-        if (notification.getUserId() != null) {
-            recipient = userRepository.findById(notification.getUserId()).orElse(null);
-        }
-        applyPresentationMetadata(dto, recipient);
-        return dto;
+        return convertToDtosBatch(List.of(notification)).get(0);
     }
 
     private String getRawType(Notification notification) {

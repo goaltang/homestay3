@@ -1,10 +1,15 @@
 package com.homestay3.homestaybackend.controller;
 
+import com.homestay3.homestaybackend.dto.NotificationBroadcastJobDTO;
 import com.homestay3.homestaybackend.dto.NotificationDTO;
+import com.homestay3.homestaybackend.entity.NotificationBroadcastJob;
+import com.homestay3.homestaybackend.service.NotificationBroadcastService;
 import com.homestay3.homestaybackend.service.NotificationService;
+import com.homestay3.homestaybackend.util.UserUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -19,10 +24,13 @@ public class AdminNotificationController {
     private static final Logger log = LoggerFactory.getLogger(AdminNotificationController.class);
 
     private final NotificationService notificationService;
+    private final NotificationBroadcastService notificationBroadcastService;
 
     @Autowired
-    public AdminNotificationController(NotificationService notificationService) {
+    public AdminNotificationController(NotificationService notificationService,
+                                       NotificationBroadcastService notificationBroadcastService) {
         this.notificationService = notificationService;
+        this.notificationBroadcastService = notificationBroadcastService;
     }
 
     /**
@@ -31,15 +39,22 @@ public class AdminNotificationController {
      * @return 任务提交结果
      */
     @PostMapping("/broadcast")
-    public ResponseEntity<Map<String, String>> broadcastSystemNotification(
+    public ResponseEntity<NotificationBroadcastJobDTO> broadcastSystemNotification(
             @RequestBody Map<String, String> body) {
         String content = body.get("content");
         if (content == null || content.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        notificationService.broadcastSystemNotification(content.trim());
-        log.info("Admin 提交系统通知广播任务，内容长度={}", content.length());
-        return ResponseEntity.accepted().body(Map.of("status", "submitted"));
+        NotificationBroadcastJobDTO job = notificationBroadcastService.submitBroadcast(
+                content.trim(),
+                currentUserIdOrNull(),
+                UserUtil.getCurrentUsername());
+        log.info("Admin submitted notification broadcast job {}, status={}, contentLength={}",
+                job.getJobId(), job.getStatus(), job.getContentLength());
+        if (job.getStatus() == NotificationBroadcastJob.Status.RATE_LIMITED) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(job);
+        }
+        return ResponseEntity.accepted().body(job);
     }
 
     /**
@@ -62,5 +77,14 @@ public class AdminNotificationController {
         }
         log.info("Admin 向用户 {} 发送系统通知", userId);
         return ResponseEntity.ok(dto);
+    }
+
+    private Long currentUserIdOrNull() {
+        try {
+            return UserUtil.getCurrentUserId();
+        } catch (IllegalStateException ex) {
+            log.debug("Unable to resolve current admin user id for notification broadcast audit: {}", ex.getMessage());
+            return null;
+        }
     }
 }

@@ -40,14 +40,12 @@
                 <el-form :inline="true" :model="filterForm">
                     <el-form-item label="通知类型">
                         <el-select v-model="filterForm.type" placeholder="全部类型" clearable style="width: 200px;">
-                            <el-option label="房源提交审核" value="HOMESTAY_SUBMITTED" />
-                            <el-option label="房源审核通过" value="HOMESTAY_APPROVED" />
-                            <el-option label="房源审核拒绝" value="HOMESTAY_REJECTED" />
-                            <el-option label="房源重新提交" value="HOMESTAY_RESUBMITTED" />
-                            <el-option label="审核员分配" value="REVIEWER_ASSIGNED" />
-                            <el-option label="房源审核中" value="HOMESTAY_UNDER_REVIEW" />
-                            <el-option label="系统公告" value="SYSTEM_ANNOUNCEMENT" />
-                            <el-option label="欢迎消息" value="WELCOME_MESSAGE" />
+                            <el-option
+                                v-for="type in notificationTypes"
+                                :key="type.value"
+                                :label="type.label"
+                                :value="type.value"
+                            />
                         </el-select>
                     </el-form-item>
                     <el-form-item label="状态">
@@ -73,12 +71,44 @@
         <div class="notifications-list">
             <el-card shadow="never">
                 <div v-loading="loading">
+                    <div v-if="notifications.length > 0" class="batch-toolbar">
+                        <div class="batch-left">
+                            <el-checkbox v-model="currentPageAllSelected" :indeterminate="currentPageIndeterminate">
+                                全选当前页
+                            </el-checkbox>
+                            <span class="selected-count">已选择 {{ selectedNotificationIds.length }} 条</span>
+                        </div>
+                        <div class="batch-actions">
+                            <el-button
+                                size="small"
+                                type="primary"
+                                :disabled="selectedUnreadCount === 0"
+                                @click="batchMarkAsRead"
+                            >
+                                批量标记已读
+                            </el-button>
+                            <el-button
+                                size="small"
+                                type="danger"
+                                :disabled="selectedNotificationIds.length === 0"
+                                @click="batchDeleteNotifications"
+                            >
+                                批量删除
+                            </el-button>
+                        </div>
+                    </div>
                     <div v-if="notifications.length === 0" class="empty-state">
                         <el-empty description="暂无通知" />
                     </div>
                     <div v-else class="notification-items">
                         <div v-for="notification in notifications" :key="notification.id" class="notification-item"
                             :class="{ 'unread': !notification.read }" @click="handleNotificationClick(notification)">
+                            <div class="notification-select" @click.stop>
+                                <el-checkbox
+                                    :model-value="selectedNotificationIds.includes(notification.id)"
+                                    @change="checked => toggleNotificationSelection(notification.id, Boolean(checked))"
+                                />
+                            </div>
                             <div class="notification-icon">
                                 <el-icon :class="getNotificationIconClass(notification.type)">
                                     <component :is="getNotificationIcon(notification.type)" />
@@ -162,23 +192,51 @@ import {
 import {
     getNotifications,
     getUnreadCount,
+    getNotificationTypes,
     markAsRead as markNotificationAsRead,
+    markMultipleAsRead as markMultipleNotificationsAsRead,
     markAllAsRead as markAllNotificationsAsRead,
     deleteNotification as removeNotification,
+    deleteMultipleNotifications as removeMultipleNotifications,
+    broadcastSystemNotification,
+    type NotificationTypeOption,
     type NotificationDto
 } from '@/api/notification'
 import { useRouter } from 'vue-router'
-import request from '@/utils/request'
 
 const router = useRouter()
 
 // 响应式数据
 const loading = ref(false)
 const notifications = ref<NotificationDto[]>([])
+const notificationTypes = ref<NotificationTypeOption[]>([])
+const selectedNotificationIds = ref<number[]>([])
 const unreadCount = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+
+const selectedNotifications = computed(() => {
+    const selectedIds = new Set(selectedNotificationIds.value)
+    return notifications.value.filter(notification => selectedIds.has(notification.id))
+})
+
+const selectedUnreadCount = computed(() =>
+    selectedNotifications.value.filter(notification => !notification.read).length
+)
+
+const currentPageAllSelected = computed({
+    get: () =>
+        notifications.value.length > 0 &&
+        notifications.value.every(notification => selectedNotificationIds.value.includes(notification.id)),
+    set: (checked: boolean) => {
+        selectedNotificationIds.value = checked ? notifications.value.map(notification => notification.id) : []
+    }
+})
+
+const currentPageIndeterminate = computed(() =>
+    selectedNotificationIds.value.length > 0 && !currentPageAllSelected.value
+)
 
 // 筛选表单
 const filterForm = reactive({
@@ -203,17 +261,17 @@ const handleSendNotification = async () => {
 
     sendLoading.value = true
     try {
-        await request({
-            url: '/api/admin/notifications/broadcast',
-            method: 'post',
-            data: { content: sendForm.content.trim() }
-        })
-        ElMessage.success('系统通知广播任务已提交')
+        const job = await broadcastSystemNotification(sendForm.content.trim())
+        ElMessage.success(`系统通知广播任务已提交，任务ID：${job.jobId}`)
         showSendDialog.value = false
         sendForm.content = ''
     } catch (error: any) {
         console.error('发送系统通知失败:', error)
-        ElMessage.error(error?.response?.data?.error || '发送系统通知失败')
+        ElMessage.error(
+            error?.response?.data?.failureReason ||
+            error?.response?.data?.error ||
+            '发送系统通知失败'
+        )
     } finally {
         sendLoading.value = false
     }
@@ -233,6 +291,7 @@ const loadNotifications = async () => {
         const response = await getNotifications(params)
         notifications.value = response.content
         total.value = response.totalElements
+        selectedNotificationIds.value = []
     } catch (error) {
         console.error('获取通知列表失败:', error)
         ElMessage.error('获取通知列表失败')
@@ -248,6 +307,26 @@ const loadUnreadCount = async () => {
     } catch (error) {
         console.error('获取未读数量失败:', error)
     }
+}
+
+const loadNotificationTypes = async () => {
+    try {
+        notificationTypes.value = await getNotificationTypes()
+    } catch (error) {
+        console.error('获取通知类型失败:', error)
+        ElMessage.error('获取通知类型失败')
+    }
+}
+
+const toggleNotificationSelection = (notificationId: number, checked: boolean) => {
+    if (checked) {
+        if (!selectedNotificationIds.value.includes(notificationId)) {
+            selectedNotificationIds.value = [...selectedNotificationIds.value, notificationId]
+        }
+        return
+    }
+
+    selectedNotificationIds.value = selectedNotificationIds.value.filter(id => id !== notificationId)
 }
 
 const refreshNotifications = async () => {
@@ -294,6 +373,33 @@ const markAsRead = async (notificationId: number) => {
     } catch (error) {
         console.error('标记已读失败:', error)
         ElMessage.error('标记已读失败')
+    }
+}
+
+const batchMarkAsRead = async () => {
+    const unreadIds = selectedNotifications.value
+        .filter(notification => !notification.read)
+        .map(notification => notification.id)
+
+    if (unreadIds.length === 0) {
+        ElMessage.warning('请选择未读通知')
+        return
+    }
+
+    try {
+        const response = await markMultipleNotificationsAsRead(unreadIds)
+        const markedCount = response.markedCount ?? unreadIds.length
+        notifications.value.forEach(notification => {
+            if (unreadIds.includes(notification.id)) {
+                notification.read = true
+            }
+        })
+        unreadCount.value = Math.max(0, unreadCount.value - markedCount)
+        selectedNotificationIds.value = []
+        ElMessage.success(`已批量标记 ${markedCount} 条通知为已读`)
+    } catch (error) {
+        console.error('批量标记已读失败:', error)
+        ElMessage.error('批量标记已读失败')
     }
 }
 
@@ -348,6 +454,38 @@ const deleteNotification = async (notificationId: number) => {
         if (error !== 'cancel') {
             console.error('删除通知失败:', error)
             ElMessage.error('删除通知失败')
+        }
+    }
+}
+
+const batchDeleteNotifications = async () => {
+    const ids = [...selectedNotificationIds.value]
+    if (ids.length === 0) {
+        ElMessage.warning('请先选择通知')
+        return
+    }
+
+    try {
+        await ElMessageBox.confirm(`确认删除选中的 ${ids.length} 条通知？`, '批量删除', {
+            confirmButtonText: '确认',
+            cancelButtonText: '取消',
+            type: 'warning'
+        })
+
+        const deletedUnreadCount = selectedNotifications.value.filter(notification => !notification.read).length
+        const response = await removeMultipleNotifications(ids)
+        const deletedCount = response.deletedCount ?? ids.length
+
+        notifications.value = notifications.value.filter(notification => !ids.includes(notification.id))
+        unreadCount.value = Math.max(0, unreadCount.value - deletedUnreadCount)
+        total.value = Math.max(0, total.value - deletedCount)
+        selectedNotificationIds.value = []
+
+        ElMessage.success(`已批量删除 ${deletedCount} 条通知`)
+    } catch (error) {
+        if (error !== 'cancel') {
+            console.error('批量删除通知失败:', error)
+            ElMessage.error('批量删除通知失败')
         }
     }
 }
@@ -444,6 +582,7 @@ const formatTime = (dateTime: string) => {
 
 // 初始化
 onMounted(() => {
+    loadNotificationTypes()
     loadNotifications()
     loadUnreadCount()
 })
@@ -497,6 +636,28 @@ onMounted(() => {
     }
 
     .notifications-list {
+        .batch-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 0 0 16px 0;
+            border-bottom: 1px solid #ebeef5;
+            margin-bottom: 4px;
+
+            .batch-left,
+            .batch-actions {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .selected-count {
+                color: #606266;
+                font-size: 13px;
+            }
+        }
+
         .empty-state {
             padding: 60px 0;
             text-align: center;
@@ -551,6 +712,11 @@ onMounted(() => {
                             color: #909399;
                         }
                     }
+                }
+
+                .notification-select {
+                    flex: 0 0 28px;
+                    padding-top: 4px;
                 }
 
                 .notification-content {

@@ -24,7 +24,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -71,8 +70,8 @@ class NotificationServiceImplTest {
     @Test
     void createNotificationNormalizesLegacyOrderStatusTypeBeforeSaving() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_USER")));
+        when(orderRepository.findAllById(any())).thenReturn(List.of());
+        when(userRepository.findAllById(any())).thenReturn(List.of(user(1L, "ROLE_USER")));
 
         notificationService.createNotification(
                 1L,
@@ -96,8 +95,8 @@ class NotificationServiceImplTest {
     @Test
     void createNotificationKeepsCanonicalTypeBeforeSaving() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderRepository.findById(99L)).thenReturn(Optional.empty());
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_HOST")));
+        when(orderRepository.findAllById(any())).thenReturn(List.of());
+        when(userRepository.findAllById(any())).thenReturn(List.of(user(1L, "ROLE_HOST")));
 
         notificationService.createNotification(
                 1L,
@@ -120,7 +119,7 @@ class NotificationServiceImplTest {
     @Test
     void createNotificationUsesUnknownWhenTypeIsNull() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_USER")));
+        when(userRepository.findAllById(any())).thenReturn(List.of(user(1L, "ROLE_USER")));
 
         notificationService.createNotification(
                 1L,
@@ -138,7 +137,7 @@ class NotificationServiceImplTest {
     @Test
     void createNotificationNormalizesLegacyMessageEntityBeforeSaving() {
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "ROLE_USER")));
+        when(userRepository.findAllById(any())).thenReturn(List.of(user(1L, "ROLE_USER")));
 
         notificationService.createNotification(
                 1L,
@@ -200,6 +199,41 @@ class NotificationServiceImplTest {
                         NotificationUnreadCountChangedEvent::userId,
                         NotificationUnreadCountChangedEvent::unreadCount));
         assertEquals(Map.of(1L, 4L, 3L, 8L), unreadCounts);
+    }
+
+    @Test
+    void markMultipleAsReadUsesBulkUpdateAndPublishesUnreadCount() {
+        List<Long> notificationIds = List.of(10L, 11L);
+        when(notificationRepository.markMultipleAsReadByUserId(42L, notificationIds)).thenReturn(2);
+        when(notificationRepository.countByUserIdAndIsReadFalse(42L)).thenReturn(5L);
+
+        int count = notificationService.markMultipleAsRead(notificationIds, 42L);
+
+        assertEquals(2, count);
+        verify(notificationRepository).markMultipleAsReadByUserId(42L, notificationIds);
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationUnreadCountChangedEvent event = (NotificationUnreadCountChangedEvent) eventCaptor.getValue();
+        assertEquals(42L, event.userId());
+        assertEquals(5L, event.unreadCount());
+    }
+
+    @Test
+    void deleteMultipleNotificationsDeletesOwnedRowsAndPublishesUnreadCountWhenNeeded() {
+        List<Long> notificationIds = List.of(10L, 11L);
+        when(notificationRepository.countByUserIdAndIdInAndIsReadFalse(42L, notificationIds)).thenReturn(1L);
+        when(notificationRepository.deleteByUserIdAndIdIn(42L, notificationIds)).thenReturn(2);
+        when(notificationRepository.countByUserIdAndIsReadFalse(42L)).thenReturn(4L);
+
+        int count = notificationService.deleteMultipleNotifications(notificationIds, 42L);
+
+        assertEquals(2, count);
+        verify(notificationRepository).deleteByUserIdAndIdIn(42L, notificationIds);
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        NotificationUnreadCountChangedEvent event = (NotificationUnreadCountChangedEvent) eventCaptor.getValue();
+        assertEquals(42L, event.userId());
+        assertEquals(4L, event.unreadCount());
     }
 
     private NotificationDTO captureCreatedNotificationEvent(Long expectedUserId) {

@@ -88,6 +88,15 @@ public interface NotificationService {
     void deleteNotification(Long notificationId, Long userId);
 
     /**
+     * Batch deletes notifications owned by the current user.
+     *
+     * @param notificationIds notification IDs
+     * @param userId current user ID
+     * @return deleted notification count
+     */
+    int deleteMultipleNotifications(List<Long> notificationIds, Long userId);
+
+    /**
      * 清理过期通知 - 删除已读取且超过指定天数的通知
      *
      * @param days 保留天数（超过此天数的已读通知将被删除）

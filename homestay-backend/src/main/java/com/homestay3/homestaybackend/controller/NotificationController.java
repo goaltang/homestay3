@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,6 +73,20 @@ public class NotificationController {
             log.warn("Ignoring invalid notification type filter: {}", type);
         }
         return parsedType;
+    }
+
+    @GetMapping("/types")
+    public ResponseEntity<List<Map<String, String>>> getNotificationTypes() {
+        List<Map<String, String>> types = Arrays.stream(NotificationType.values())
+                .filter(type -> !type.isLegacyAlias())
+                .filter(type -> type != NotificationType.UNKNOWN)
+                .map(type -> Map.of(
+                        "value", type.name(),
+                        "label", type.getDefaultTitle(),
+                        "domain", type.getDomain().name(),
+                        "category", type.getDomain().getCategory()))
+                .toList();
+        return ResponseEntity.ok(types);
     }
 
     /**
@@ -141,6 +156,16 @@ public class NotificationController {
         log.info("用户 ID {} 尝试删除通知 {}", currentUserId, notificationId);
         notificationService.deleteNotification(notificationId, currentUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/delete-multiple")
+    public ResponseEntity<Map<String, Integer>> deleteMultipleNotifications(@RequestBody List<Long> notificationIds) {
+        Long currentUserId = getCurrentUserId();
+        log.info("用户 ID {} 尝试批量删除通知 {}", currentUserId, notificationIds);
+        int count = notificationService.deleteMultipleNotifications(notificationIds, currentUserId);
+        Map<String, Integer> response = new HashMap<>();
+        response.put("deletedCount", count);
+        return ResponseEntity.ok(response);
     }
 
     /**

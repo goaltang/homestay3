@@ -78,6 +78,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     int markAllAsReadByUserId(@Param("userId") Long userId);
 
     /**
+     * Batch marks selected notifications as read for a user.
+     * @param userId 用户ID
+     * @param notificationIds 通知ID集合
+     * @return updated row count
+     */
+    @Modifying
+    @Query("UPDATE Notification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP " +
+            "WHERE n.userId = :userId AND n.id IN :notificationIds AND n.isRead = false")
+    int markMultipleAsReadByUserId(@Param("userId") Long userId,
+                                   @Param("notificationIds") Collection<Long> notificationIds);
+
+    /**
      * 查找指定用户的所有未读通知ID
      * @param userId 用户ID
      * @return 未读通知ID列表
@@ -93,5 +105,18 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.readAt < :cutoffDate")
     int deleteReadNotificationsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
+
+    long countByUserIdAndIdInAndIsReadFalse(Long userId, Collection<Long> notificationIds);
+
+    /**
+     * Batch deletes selected notifications owned by a user.
+     * @param userId 用户ID
+     * @param notificationIds 通知ID集合
+     * @return deleted row count
+     */
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.userId = :userId AND n.id IN :notificationIds")
+    int deleteByUserIdAndIdIn(@Param("userId") Long userId,
+                              @Param("notificationIds") Collection<Long> notificationIds);
 
 }

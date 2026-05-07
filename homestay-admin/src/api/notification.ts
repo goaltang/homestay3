@@ -30,6 +30,29 @@ export interface UnreadCountResponse {
   unreadCount: number;
 }
 
+export interface NotificationTypeOption {
+  value: string;
+  label: string;
+  domain: string;
+  category: string;
+}
+
+export interface NotificationBroadcastJob {
+  jobId: number;
+  status: string;
+  initiatedBy?: number | null;
+  initiatedByUsername?: string | null;
+  contentSummary: string;
+  contentLength: number;
+  targetCount: number;
+  successCount: number;
+  failureCount: number;
+  failureReason?: string | null;
+  submittedAt: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+}
+
 /**
  * 获取用户通知列表
  */
@@ -57,12 +80,33 @@ export function getUnreadCount() {
 }
 
 /**
+ * 获取通知类型筛选项
+ */
+export function getNotificationTypes() {
+  return request<NotificationTypeOption[]>({
+    url: "/api/notifications/types",
+    method: "get",
+  });
+}
+
+/**
  * 标记通知为已读
  */
 export function markAsRead(notificationId: number) {
   return request({
     url: `/api/notifications/${notificationId}/read`,
     method: "post",
+  });
+}
+
+/**
+ * 批量标记通知为已读
+ */
+export function markMultipleAsRead(notificationIds: number[]) {
+  return request<{ markedCount: number }>({
+    url: "/api/notifications/read-multiple",
+    method: "post",
+    data: notificationIds,
   });
 }
 
@@ -83,6 +127,28 @@ export function deleteNotification(notificationId: number) {
   return request({
     url: `/api/notifications/${notificationId}`,
     method: "delete",
+  });
+}
+
+/**
+ * 批量删除通知
+ */
+export function deleteMultipleNotifications(notificationIds: number[]) {
+  return request<{ deletedCount: number }>({
+    url: "/api/notifications/delete-multiple",
+    method: "post",
+    data: notificationIds,
+  });
+}
+
+/**
+ * 广播系统通知
+ */
+export function broadcastSystemNotification(content: string) {
+  return request<NotificationBroadcastJob>({
+    url: "/api/admin/notifications/broadcast",
+    method: "post",
+    data: { content },
   });
 }
 

@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -105,5 +107,28 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.content.length()").value(0));
 
         verify(notificationService).getNotificationsForUser(eq(42L), isNull(), isNull(), any());
+    }
+
+    @Test
+    void getNotificationTypesReturnsCanonicalFilterOptions() throws Exception {
+        mockMvc.perform(get("/api/notifications/types"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].value").value("BOOKING_REQUEST"))
+                .andExpect(jsonPath("$[0].domain").value("ORDER"))
+                .andExpect(jsonPath("$[0].category").value("order"));
+    }
+
+    @Test
+    void deleteMultipleNotificationsDelegatesToCurrentUser() throws Exception {
+        when(notificationService.deleteMultipleNotifications(eq(List.of(100L, 101L)), eq(42L)))
+                .thenReturn(2);
+
+        mockMvc.perform(post("/api/notifications/delete-multiple")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[100,101]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedCount").value(2));
+
+        verify(notificationService).deleteMultipleNotifications(eq(List.of(100L, 101L)), eq(42L));
     }
 }
