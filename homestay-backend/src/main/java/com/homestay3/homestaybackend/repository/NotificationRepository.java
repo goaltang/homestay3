@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -74,6 +75,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * @return 更新的记录数
      */
     @Modifying // 表示这是一个更新或删除操作
+    @Transactional
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP WHERE n.userId = :userId AND n.isRead = false")
     int markAllAsReadByUserId(@Param("userId") Long userId);
 
@@ -84,6 +86,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * @return updated row count
      */
     @Modifying
+    @Transactional
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = CURRENT_TIMESTAMP " +
             "WHERE n.userId = :userId AND n.id IN :notificationIds AND n.isRead = false")
     int markMultipleAsReadByUserId(@Param("userId") Long userId,
@@ -103,6 +106,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * @return 删除的记录数
      */
     @Modifying
+    @Transactional
     @Query("DELETE FROM Notification n WHERE n.isRead = true AND n.readAt < :cutoffDate")
     int deleteReadNotificationsOlderThan(@Param("cutoffDate") LocalDateTime cutoffDate);
 
@@ -115,6 +119,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
      * @return deleted row count
      */
     @Modifying
+    @Transactional
     @Query("DELETE FROM Notification n WHERE n.userId = :userId AND n.id IN :notificationIds")
     int deleteByUserIdAndIdIn(@Param("userId") Long userId,
                               @Param("notificationIds") Collection<Long> notificationIds);
