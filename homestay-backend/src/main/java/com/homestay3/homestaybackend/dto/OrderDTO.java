@@ -70,6 +70,7 @@ public class OrderDTO {
     // 入住相关字段
     private LocalDateTime checkedInAt;
     private LocalDateTime checkedOutAt;
+    private LocalDateTime completedAt; // 订单完成时间
     private String checkInCode;
     private String doorPassword;
     private String autoCheckinTime;

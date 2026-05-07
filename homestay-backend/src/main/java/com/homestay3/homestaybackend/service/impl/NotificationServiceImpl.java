@@ -27,6 +27,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.Optional; // 导入 Optional
@@ -102,10 +104,21 @@ public class NotificationServiceImpl implements NotificationService {
         }
         log.info("创建通知成功: id={}, userId={}, type={}", savedNotification.getId(), command.userId(), normalizedType);
 
-        // --- 实时推送 ---
-        NotificationDTO dto = convertToDtoWithFullData(savedNotification);
-        eventPublisher.publishEvent(new NotificationCreatedEvent(command.userId(), dto));
-        publishUnreadCountChanged(command.userId());
+        // --- 实时推送（事务提交后）---
+        final Long eventUserId = command.userId();
+        final NotificationDTO eventDto = convertToDtoWithFullData(savedNotification);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    eventPublisher.publishEvent(new NotificationCreatedEvent(eventUserId, eventDto));
+                    publishUnreadCountChanged(eventUserId);
+                }
+            });
+        } else {
+            eventPublisher.publishEvent(new NotificationCreatedEvent(eventUserId, eventDto));
+            publishUnreadCountChanged(eventUserId);
+        }
         // --- 实时推送结束 ---
 
         return savedNotification;
@@ -242,9 +255,8 @@ public class NotificationServiceImpl implements NotificationService {
             return 0;
         }
 
-        long unreadCount = notificationRepository.countByUserIdAndIdInAndIsReadFalse(userId, notificationIds);
         int deletedCount = notificationRepository.deleteByUserIdAndIdIn(userId, notificationIds);
-        if (deletedCount > 0 && unreadCount > 0) {
+        if (deletedCount > 0) {
             publishUnreadCountChanged(userId);
         }
 

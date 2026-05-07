@@ -85,11 +85,16 @@ public class AdminNotificationController {
     @PostMapping("/send")
     public ResponseEntity<NotificationDTO> sendSystemNotificationToUser(
             @RequestBody Map<String, Object> body) {
-        Long userId = Long.valueOf(body.get("userId").toString());
-        String content = (String) body.get("content");
-        if (content == null || content.isBlank()) {
-            return ResponseEntity.badRequest().build();
+        Object userIdRaw = body.get("userId");
+        if (userIdRaw == null) {
+            throw new IllegalArgumentException("userId is required");
         }
+        Long userId = Long.valueOf(userIdRaw.toString());
+        Object contentRaw = body.get("content");
+        if (!(contentRaw instanceof String) || ((String) contentRaw).isBlank()) {
+            throw new IllegalArgumentException("content is required and must be a non-blank string");
+        }
+        String content = (String) contentRaw;
         NotificationDTO dto = notificationService.sendSystemNotification(userId, content.trim());
         if (dto == null) {
             // 用户可能关闭了系统通知（理论上不应发生，因为 system 强制开启）

@@ -129,6 +129,9 @@ public class Order {
     @Column(name = "checked_out_at")
     private LocalDateTime checkedOutAt; // 实际退房时间
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt; // 订单完成时间（状态变为 COMPLETED 时设置）
+
     @Column(name = "check_in_code", length = 32)
     private String checkInCode; // 入住码
 

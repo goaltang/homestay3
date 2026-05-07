@@ -184,9 +184,10 @@ public class ReviewController {
             return ResponseEntity.badRequest().body(Map.of("error", "每条评价最多上传9张图片"));
         }
 
-        logger.info("更新评价图片, 评价ID: {}", reviewId);
+        String username = authentication.getName();
+        logger.info("更新评价图片, 评价ID: {}, 用户: {}", reviewId, username);
         try {
-            reviewService.updateReviewImages(reviewId, images);
+            reviewService.updateReviewImages(reviewId, images, username);
             return ResponseEntity.ok().build();
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));

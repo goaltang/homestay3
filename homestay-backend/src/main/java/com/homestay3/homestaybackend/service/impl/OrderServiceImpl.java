@@ -983,6 +983,7 @@ public class OrderServiceImpl implements OrderService {
                 .hostName(hostName)
                 .createTime(order.getCreatedAt())
                 .updateTime(order.getUpdatedAt())
+                .completedAt(order.getCompletedAt())
                 .isReviewed(isReviewed)
                 .review(reviewDTO)
                 // 退款相关字段

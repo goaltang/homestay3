@@ -1543,6 +1543,7 @@ public class OrderLifecycleServiceImpl implements OrderLifecycleService {
                 .imageUrl(order.getHomestay() != null ? order.getHomestay().getCoverImage() : null)
                 .createTime(order.getCreatedAt())
                 .updateTime(order.getUpdatedAt())
+                .completedAt(order.getCompletedAt())
                 .isReviewed(isReviewed)
                 .review(reviewDTO)
                 .refundType(order.getRefundType() != null ? order.getRefundType().name() : null)

@@ -221,7 +221,6 @@ class NotificationServiceImplTest {
     @Test
     void deleteMultipleNotificationsDeletesOwnedRowsAndPublishesUnreadCountWhenNeeded() {
         List<Long> notificationIds = List.of(10L, 11L);
-        when(notificationRepository.countByUserIdAndIdInAndIsReadFalse(42L, notificationIds)).thenReturn(1L);
         when(notificationRepository.deleteByUserIdAndIdIn(42L, notificationIds)).thenReturn(2);
         when(notificationRepository.countByUserIdAndIsReadFalse(42L)).thenReturn(4L);
 

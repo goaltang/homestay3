@@ -42,9 +42,9 @@ class NotificationBroadcastServiceImplTest {
 
     @Test
     void submitBroadcastCreatesPendingJobAndStartsProcessor() {
-        when(jobRepository.existsByInitiatedByAndStatusNotAndSubmittedAtAfter(
+        when(jobRepository.findRecentByInitiatedByAndStatusNotAndSubmittedAtAfter(
                 eq(7L), eq(NotificationBroadcastJob.Status.RATE_LIMITED), any(LocalDateTime.class)))
-                .thenReturn(false);
+                .thenReturn(List.of());
         when(jobRepository.save(any(NotificationBroadcastJob.class))).thenAnswer(invocation -> {
             NotificationBroadcastJob job = invocation.getArgument(0);
             job.setId(10L);
@@ -64,9 +64,10 @@ class NotificationBroadcastServiceImplTest {
 
     @Test
     void submitBroadcastCreatesRateLimitedAuditJobWithoutStartingProcessor() {
-        when(jobRepository.existsByInitiatedByAndStatusNotAndSubmittedAtAfter(
+        NotificationBroadcastJob recentJob = jobEntity(1L, NotificationBroadcastJob.Status.PENDING);
+        when(jobRepository.findRecentByInitiatedByAndStatusNotAndSubmittedAtAfter(
                 eq(7L), eq(NotificationBroadcastJob.Status.RATE_LIMITED), any(LocalDateTime.class)))
-                .thenReturn(true);
+                .thenReturn(List.of(recentJob));
         when(jobRepository.save(any(NotificationBroadcastJob.class))).thenAnswer(invocation -> {
             NotificationBroadcastJob job = invocation.getArgument(0);
             job.setId(11L);

@@ -193,11 +193,14 @@
                             <template v-else>
                                 <el-button type="default" size="small"
                                     @click="viewOrderDetail(order.id)">查看详情</el-button>
-                                <!-- 添加评价按钮，仅在订单完成且未评价时显示 -->
-                                <el-button v-if="order.status === 'COMPLETED' && !order.reviewed" type="primary" plain
+                                <!-- 添加评价按钮，仅在订单完成、未评价且在时间窗口内时显示 -->
+                                <el-button v-if="order.status === 'COMPLETED' && !order.reviewed && isWithinReviewWindow(order)" type="primary" plain
                                     size="small" @click="openReviewModal(order)">
                                     评价订单
                                 </el-button>
+                                <el-tooltip v-else-if="order.status === 'COMPLETED' && !order.reviewed && !isWithinReviewWindow(order)" content="订单已完成超过30天，无法提交评价">
+                                    <el-button type="info" plain size="small" disabled>评价已过期</el-button>
+                                </el-tooltip>
                                 <!-- 可以添加一个已评价的提示或按钮 -->
                                 <el-button v-else-if="order.status === 'COMPLETED' && order.reviewed" type="info" plain
                                     size="small" disabled>
@@ -235,6 +238,7 @@ import ReviewForm from '@/components/ReviewForm.vue'
 import { getHomestayImageUrl, handleImageError } from '@/utils/image'
 import { type OrderStatus, type PaymentStatus } from '@/types/index'
 import { useOrderStore, type OrderItem } from '@/stores/order'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const store = useOrderStore()
@@ -612,6 +616,12 @@ const getCountdownTime = (startTimeStr: string, hoursLimit: number) => {
 
     return `${hours}小时${minutes}分钟`;
 }
+
+// 判断订单是否在评价时间窗口内（30天）
+const isWithinReviewWindow = (order: OrderItem): boolean => {
+    if (!order.completedAt) return true;
+    return dayjs().diff(dayjs(order.completedAt), 'day') <= 30;
+};
 
 // --- 评价相关方法 ---
 const openReviewModal = (order: OrderItem) => {

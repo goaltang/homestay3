@@ -2,7 +2,17 @@
     <div class="review-container">
         <TableSearch :query="query" :options="searchOptions" :search="handleSearch" />
 
-        <el-table :data="tableData" border style="width: 100%" v-loading="loading" @sort-change="handleSortChange">
+        <!-- 批量操作栏 -->
+        <div v-if="selectedIds.length > 0" class="batch-toolbar">
+            <span class="batch-info">已选择 {{ selectedIds.length }} 条</span>
+            <el-button size="small" type="primary" @click="handleBatchShow">批量显示</el-button>
+            <el-button size="small" type="warning" @click="handleBatchHide">批量隐藏</el-button>
+            <el-button size="small" type="danger" @click="handleBatchDelete">批量删除</el-button>
+        </div>
+
+        <el-table :data="tableData" border style="width: 100%" v-loading="loading" @sort-change="handleSortChange"
+            @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" align="center" />
             <el-table-column prop="id" label="ID" width="80" sortable="custom" />
             <el-table-column prop="userName" label="用户" width="120">
                 <template #default="scope">
@@ -83,9 +93,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCrud } from '@/composables/useCrud'
-import { getAdminReviewList, deleteReview, setReviewVisibility } from '@/api/review'
+import { getAdminReviewList, deleteReview, setReviewVisibility, batchSetVisibility, batchDelete } from '@/api/review'
 import TableSearch from '@/components/table-search.vue'
 import type { FormOptionList } from '@/types/form-option'
 import dayjs from 'dayjs'
@@ -105,11 +115,15 @@ interface ReviewItem {
     images?: string[];
 }
 
-// 详情弹窗状态（useCrud 的 dialog 用于表单，这里用单独的详情弹窗）
+// 详情弹窗状态
 const detailVisible = ref(false)
 const currentReview = ref<ReviewItem | null>(null)
 
-// 包装列表 API：给每行加 visibilityLoading，page 从 0 开始
+// 批量选择状态
+const selectedIds = ref<number[]>([])
+const selectedRows = ref<ReviewItem[]>([])
+
+// 包装列表 API
 const wrappedListApi = async (params: any) => {
     const res: any = await getAdminReviewList({
         page: params.page,
@@ -150,7 +164,7 @@ const searchOptions: FormOptionList[] = [
     },
 ]
 
-// 使用 useCrud：只有列表和删除
+// 使用 useCrud
 const {
     loading, tableData, query, pagination,
     getList, handleDelete, handlePageChange, handleSizeChange,
@@ -212,11 +226,83 @@ const formatDateTime = (dateString?: string | null) => {
     if (!dateString) return ''
     return dayjs(dateString).format('YYYY-MM-DD HH:mm')
 }
+
+// 批量选择变化
+const handleSelectionChange = (rows: ReviewItem[]) => {
+    selectedRows.value = rows
+    selectedIds.value = rows.map(r => r.id)
+}
+
+// 批量显示
+const handleBatchShow = async () => {
+    if (selectedIds.value.length === 0) return
+    try {
+        await ElMessageBox.confirm(`确定要批量显示选中的 ${selectedIds.value.length} 条评价吗？`, '批量显示', { type: 'warning' })
+        await batchSetVisibility(selectedIds.value, true)
+        ElMessage.success('批量显示成功')
+        selectedIds.value = []
+        getList()
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            ElMessage.error(error?.response?.data?.message || '批量显示失败')
+        }
+    }
+}
+
+// 批量隐藏
+const handleBatchHide = async () => {
+    if (selectedIds.value.length === 0) return
+    try {
+        await ElMessageBox.confirm(`确定要批量隐藏选中的 ${selectedIds.value.length} 条评价吗？`, '批量隐藏', { type: 'warning' })
+        await batchSetVisibility(selectedIds.value, false)
+        ElMessage.success('批量隐藏成功')
+        selectedIds.value = []
+        getList()
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            ElMessage.error(error?.response?.data?.message || '批量隐藏失败')
+        }
+    }
+}
+
+// 批量删除
+const handleBatchDelete = async () => {
+    if (selectedIds.value.length === 0) return
+    try {
+        await ElMessageBox.confirm(`确定要批量删除选中的 ${selectedIds.value.length} 条评价吗？删除后不可恢复。`, '批量删除', { type: 'error' })
+        await batchDelete(selectedIds.value)
+        ElMessage.success('批量删除成功')
+        selectedIds.value = []
+        getList()
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            ElMessage.error(error?.response?.data?.message || '批量删除失败')
+        }
+    }
+}
 </script>
 
 <style scoped lang="scss">
 .review-container {
     padding: 20px;
+
+    .batch-toolbar {
+        margin-bottom: 15px;
+        padding: 10px 15px;
+        background-color: #f0f9ff;
+        border: 1px solid #b3d8ff;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        .batch-info {
+            font-size: 14px;
+            color: #409EFF;
+            font-weight: 500;
+            margin-right: 10px;
+        }
+    }
 
     .filter-container {
         background-color: #f5f7fa;

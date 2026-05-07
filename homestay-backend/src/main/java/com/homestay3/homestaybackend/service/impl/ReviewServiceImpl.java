@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +42,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
+import org.springframework.beans.factory.annotation.Value;
 import com.homestay3.homestaybackend.model.enums.EntityType;
 import com.homestay3.homestaybackend.model.enums.NotificationType;
 
@@ -57,6 +59,9 @@ public class ReviewServiceImpl implements ReviewService {
     private final NotificationService notificationService;
     private final ContentFilterService contentFilterService;
     private final ReviewImageService reviewImageService;
+
+    @Value("${app.review.window-days:30}")
+    private int reviewWindowDays;
 
     @Override
     public Page<ReviewDTO> getReviewsByUser(String username, int page, int size) {
@@ -146,10 +151,18 @@ public class ReviewServiceImpl implements ReviewService {
         
         Homestay homestay = order.getHomestay(); // 直接从订单获取民宿，避免二次查询
 
-        // 5. 敏感词过滤
+        // 5. 检查评价时间窗口（订单完成后 N 天内可评价）
+        if (order.getCompletedAt() != null) {
+            long daysSinceCompletion = ChronoUnit.DAYS.between(order.getCompletedAt(), LocalDateTime.now());
+            if (daysSinceCompletion > reviewWindowDays) {
+                throw new IllegalArgumentException("订单已完成超过 " + reviewWindowDays + " 天，无法提交评价。");
+            }
+        }
+
+        // 6. 敏感词过滤
         contentFilterService.validate(reviewDTO.getContent());
 
-        // 6. 检查是否已评论（排除已删除的）
+        // 7. 检查是否已评论（排除已删除的）
         if (reviewRepository.existsByOrder(order)) {
             throw new IllegalArgumentException("You have already reviewed this order.");
         }
@@ -622,9 +635,19 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
-    public void updateReviewImages(Long reviewId, List<String> imageUrls) {
+    public void updateReviewImages(Long reviewId, List<String> imageUrls, String username) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + reviewId));
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("用户不存在: " + username));
+
+        if (!review.getUser().getId().equals(user.getId())) {
+            logger.warn("更新评价图片失败 - 权限不足, 评价ID: {}, 请求用户: {}, 评价作者ID: {}",
+                    reviewId, username, review.getUser().getId());
+            throw new AccessDeniedException("您没有权限修改此评价的图片");
+        }
+
         reviewImageService.saveReviewImages(reviewId, imageUrls);
         logger.info("更新评价图片, reviewId: {}, count: {}", reviewId, imageUrls != null ? imageUrls.size() : 0);
     }

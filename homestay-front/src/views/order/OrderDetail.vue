@@ -306,9 +306,12 @@
                     <el-button type="warning" plain v-if="canRequestRefund" @click="confirmRequestRefund">
                         申请退款
                     </el-button>
-                    <el-button type="primary" v-if="orderData.status === 'COMPLETED' && !orderData.review" @click="openReviewModal" class="primary-action-btn">
+                    <el-button type="primary" v-if="orderData.status === 'COMPLETED' && !orderData.review && isWithinReviewWindow(orderData)" @click="openReviewModal" class="primary-action-btn">
                         评价房源
                     </el-button>
+                    <el-tooltip v-else-if="orderData.status === 'COMPLETED' && !orderData.review && !isWithinReviewWindow(orderData)" content="订单已完成超过30天，无法提交评价">
+                        <el-button type="info" disabled class="primary-action-btn">评价已过期</el-button>
+                    </el-tooltip>
                 </template>
 
                 <!-- 退款状态下的简化操作 -->
@@ -458,7 +461,7 @@ import dayjs from 'dayjs'
 import { deleteReview } from '@/api/review'
 import { requestRefund, getRefundPreview, raiseDispute } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
-import { useOrderStore, type ReviewItem } from '@/stores/order'
+import { useOrderStore, type ReviewItem, type OrderItem } from '@/stores/order'
 import ReviewEditModal from '@/components/ReviewEditModal.vue'
 import ReviewForm from '@/components/ReviewForm.vue'
 import OrderTimeoutIndicator from '@/components/order/OrderTimeoutIndicator.vue'
@@ -469,6 +472,13 @@ interface EditableReviewData {
     id: number;
     rating: number;
     content: string;
+    images?: string[];
+    cleanlinessRating?: number;
+    accuracyRating?: number;
+    communicationRating?: number;
+    locationRating?: number;
+    checkInRating?: number;
+    valueRating?: number;
 }
 // --- End type ---
 
@@ -1333,6 +1343,14 @@ const handleOrderWarning = (remainingTime: number) => {
     }
 }
 
+// 判断订单是否在评价时间窗口内（30天）
+const isWithinReviewWindow = (order: OrderItem | null): boolean => {
+    if (!order || !order.completedAt) return true; // 无完成时间默认允许
+    const completedAt = dayjs(order.completedAt);
+    const now = dayjs();
+    return now.diff(completedAt, 'day') <= 30;
+};
+
 // --- Add functions for edit modal ---
 // 打开编辑弹窗
 const openEditModal = (review: ReviewItem) => {
@@ -1340,6 +1358,13 @@ const openEditModal = (review: ReviewItem) => {
         id: review.id,
         rating: review.rating,
         content: review.content,
+        images: review.images,
+        cleanlinessRating: review.cleanlinessRating,
+        accuracyRating: review.accuracyRating,
+        communicationRating: review.communicationRating,
+        locationRating: review.locationRating,
+        checkInRating: review.checkInRating,
+        valueRating: review.valueRating,
     };
     isEditModalVisible.value = true;
 };
@@ -1349,9 +1374,15 @@ const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
     if (orderData.value && orderData.value.review) {
         orderData.value.review.rating = updatedReviewData.rating;
         orderData.value.review.content = updatedReviewData.content;
-        // 可以考虑更新 updateTime 如果需要显示的话
+        orderData.value.review.images = updatedReviewData.images;
+        orderData.value.review.cleanlinessRating = updatedReviewData.cleanlinessRating;
+        orderData.value.review.accuracyRating = updatedReviewData.accuracyRating;
+        orderData.value.review.communicationRating = updatedReviewData.communicationRating;
+        orderData.value.review.locationRating = updatedReviewData.locationRating;
+        orderData.value.review.checkInRating = updatedReviewData.checkInRating;
+        orderData.value.review.valueRating = updatedReviewData.valueRating;
     }
-    isEditModalVisible.value = false; // 关闭弹窗
+    isEditModalVisible.value = false;
 };
 // --- End functions ---
 

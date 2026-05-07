@@ -51,24 +51,32 @@ export const useNotificationStore = defineStore("notification", () => {
 
     if (pagination.value) {
       const pageIndex = pagination.value.content.findIndex((item) => item.id === normalizedNotification.id);
-      const nextContent = [...pagination.value.content];
 
       if (pageIndex === -1) {
-        nextContent.unshift(normalizedNotification);
+        const newTotalElements = pagination.value.totalElements + 1;
+        const newTotalPages = Math.ceil(newTotalElements / pagination.value.size);
+        const nextContent = pagination.value.number === 0
+          ? [normalizedNotification, ...pagination.value.content].slice(0, pagination.value.size + 1)
+          : pagination.value.content;
+
+        pagination.value = {
+          ...pagination.value,
+          content: nextContent,
+          totalElements: newTotalElements,
+          totalPages: newTotalPages,
+        };
       } else {
+        const nextContent = [...pagination.value.content];
         nextContent[pageIndex] = {
           ...nextContent[pageIndex],
           ...normalizedNotification,
         };
+        pagination.value = {
+          ...pagination.value,
+          content: nextContent,
+        };
       }
-
-      pagination.value = {
-        ...pagination.value,
-        content: nextContent,
-        totalElements: isNew ? pagination.value.totalElements + 1 : pagination.value.totalElements,
-      };
     }
-
   };
 
   const clearNotifications = () => {
@@ -140,12 +148,15 @@ export const useNotificationStore = defineStore("notification", () => {
       }
     } catch (error) {
       console.error(`获取通知列表 (${target}) 失败:`, error);
-      // 清空数据或显示错误提示
       if (target === "dropdown") {
         notifications.value = [];
       } else {
-        pagination.value = null;
-        notifications.value = [];
+        if (pagination.value) {
+          pagination.value = {
+            ...pagination.value,
+            content: [],
+          };
+        }
       }
       return null;
     } finally {
@@ -163,6 +174,8 @@ export const useNotificationStore = defineStore("notification", () => {
       const updatedNotification = normalizeNotification(response.data);
       console.log(`通知 ${notificationId} 已标记为已读 (API 调用成功)`);
 
+      let wasUnread = false;
+
       // 更新前端状态
       const notification = notifications.value.find(
         (n) => n.id === notificationId
@@ -170,12 +183,8 @@ export const useNotificationStore = defineStore("notification", () => {
       if (notification && !notification.read) {
         notification.read = true;
         notification.isRead = true;
-        notification.readAt = updatedNotification.readAt || new Date().toISOString(); // 设置为当前时间
-        // 更新未读计数 (如果之前是未读的话)
-        setUnreadCount(unreadCount.value - 1);
-        console.log(
-          `前端状态更新: 通知 ${notificationId} 标记已读，未读数: ${unreadCount.value}`
-        );
+        notification.readAt = updatedNotification.readAt || new Date().toISOString();
+        wasUnread = true;
       }
       // 如果是在通知中心操作，可能需要更新分页对象中的数据
       if (pagination.value) {
@@ -186,8 +195,17 @@ export const useNotificationStore = defineStore("notification", () => {
           notificationInPage.read = true;
           notificationInPage.isRead = true;
           notificationInPage.readAt = updatedNotification.readAt || new Date().toISOString();
+          wasUnread = true;
         }
       }
+
+      if (wasUnread) {
+        setUnreadCount(unreadCount.value - 1);
+        console.log(
+          `前端状态更新: 通知 ${notificationId} 标记已读，未读数: ${unreadCount.value}`
+        );
+      }
+
       return updatedNotification;
     } catch (error) {
       console.error(`标记通知 ${notificationId} 为已读失败:`, error);
@@ -257,6 +275,7 @@ export const useNotificationStore = defineStore("notification", () => {
       if (wasUnread) {
         setUnreadCount(unreadCount.value - 1);
       }
+      await fetchUnreadCount();
     } catch (error) {
       console.error(`删除通知 ${notificationId} 失败:`, error);
       throw error;

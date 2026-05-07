@@ -136,6 +136,7 @@ public class OrderStatusUpdater {
      */
     public void markCompleted(Order order) {
         update(order, OrderStatus.COMPLETED, PaymentStatus.PAID, "订单已完成");
+        order.setCompletedAt(java.time.LocalDateTime.now());
     }
 
     /**

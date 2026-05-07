@@ -40,7 +40,7 @@
                 <el-col :span="6">
                     <el-card shadow="hover" class="stat-card">
                         <div class="stat-content">
-                            <div class="stat-title">待执行/执行中</div>
+                            <div class="stat-title">当前页待执行/执行中</div>
                             <div class="stat-value pending">{{ pendingRunningCount }}</div>
                         </div>
                     </el-card>
@@ -48,7 +48,7 @@
                 <el-col :span="6">
                     <el-card shadow="hover" class="stat-card">
                         <div class="stat-content">
-                            <div class="stat-title">已成功</div>
+                            <div class="stat-title">当前页已成功</div>
                             <div class="stat-value success">{{ succeededCount }}</div>
                         </div>
                     </el-card>
@@ -56,7 +56,7 @@
                 <el-col :span="6">
                     <el-card shadow="hover" class="stat-card">
                         <div class="stat-content">
-                            <div class="stat-title">已失败/限流</div>
+                            <div class="stat-title">当前页已失败/限流</div>
                             <div class="stat-value failed">{{ failedCount }}</div>
                         </div>
                     </el-card>
@@ -241,6 +241,8 @@ const broadcastJobTotal = ref(0)
 const broadcastJobDetailVisible = ref(false)
 const broadcastJobDetailLoading = ref(false)
 const currentBroadcastJob = ref<NotificationBroadcastJob | null>(null)
+const detailRequestId = ref(0)
+const fetchId = ref(0)
 
 const broadcastJobStatusOptions = [
     { label: '待执行', value: 'PENDING' },
@@ -298,6 +300,7 @@ const handleSendNotification = async () => {
 }
 
 const loadBroadcastJobs = async () => {
+    const currentFetchId = ++fetchId.value
     try {
         broadcastJobsLoading.value = true
         const response = await getNotificationBroadcastJobs({
@@ -306,15 +309,19 @@ const loadBroadcastJobs = async () => {
             status: broadcastJobFilter.status || undefined
         })
 
+        if (currentFetchId !== fetchId.value) return true
         broadcastJobs.value = response.content
         broadcastJobTotal.value = response.totalElements
         return true
     } catch (error) {
+        if (currentFetchId !== fetchId.value) return false
         console.error('获取广播任务历史失败:', error)
         ElMessage.error('获取广播任务历史失败')
         return false
     } finally {
-        broadcastJobsLoading.value = false
+        if (currentFetchId === fetchId.value) {
+            broadcastJobsLoading.value = false
+        }
     }
 }
 
@@ -342,17 +349,23 @@ const handleBroadcastJobCurrentChange = (val: number) => {
 }
 
 const handleViewBroadcastJob = async (job: NotificationBroadcastJob) => {
+    const requestId = ++detailRequestId.value
     currentBroadcastJob.value = job
     broadcastJobDetailVisible.value = true
     broadcastJobDetailLoading.value = true
 
     try {
-        currentBroadcastJob.value = await getNotificationBroadcastJob(job.jobId)
+        const jobDetail = await getNotificationBroadcastJob(job.jobId)
+        if (requestId !== detailRequestId.value) return
+        currentBroadcastJob.value = jobDetail
     } catch (error) {
+        if (requestId !== detailRequestId.value) return
         console.error('获取广播任务详情失败:', error)
         ElMessage.error('获取广播任务详情失败')
     } finally {
-        broadcastJobDetailLoading.value = false
+        if (requestId === detailRequestId.value) {
+            broadcastJobDetailLoading.value = false
+        }
     }
 }
 

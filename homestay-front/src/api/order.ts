@@ -168,8 +168,9 @@ interface OrderDetailData {
   remark?: string;
   createTime: string;
   updateTime: string;
-  reviewed?: boolean; // 使用之前添加的 reviewed 字段
-  review?: ReviewItem | null; // 添加可选的 review 字段
+  completedAt?: string;
+  reviewed?: boolean;
+  review?: ReviewItem | null;
 }
 
 /**

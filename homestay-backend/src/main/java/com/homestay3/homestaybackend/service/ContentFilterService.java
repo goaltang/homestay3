@@ -1,8 +1,11 @@
 package com.homestay3.homestaybackend.service;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -10,25 +13,51 @@ import java.util.regex.Pattern;
 @Service
 public class ContentFilterService {
 
-    private static final Set<String> SENSITIVE_WORDS = new HashSet<>(Arrays.asList(
-            // 示例敏感词，实际使用时替换为真实的敏感词库
+    // 默认敏感词库（作为兜底）
+    private static final Set<String> DEFAULT_SENSITIVE_WORDS = new HashSet<>(Arrays.asList(
             "傻逼", "蠢货", "废物", "垃圾",
             "操", "妈的", "麻痹", "草泥马",
             "fuck", "shit", "asshole", "bitch"
     ));
 
-    private static final Pattern SENSITIVE_PATTERN;
+    @Value("${app.sensitive-words:}")
+    private String sensitiveWordsConfig;
 
-    static {
+    private Set<String> sensitiveWords = new HashSet<>();
+    private Pattern sensitivePattern;
+
+    @PostConstruct
+    public void init() {
+        // 先加载默认词库
+        sensitiveWords.addAll(DEFAULT_SENSITIVE_WORDS);
+
+        // 如果配置了自定义敏感词，则追加（支持逗号分隔）
+        if (sensitiveWordsConfig != null && !sensitiveWordsConfig.trim().isEmpty()) {
+            String[] customWords = sensitiveWordsConfig.split(",");
+            for (String word : customWords) {
+                String trimmed = word.trim();
+                if (!trimmed.isEmpty()) {
+                    sensitiveWords.add(trimmed);
+                }
+            }
+        }
+
+        rebuildPattern();
+    }
+
+    private void rebuildPattern() {
+        if (sensitiveWords.isEmpty()) {
+            sensitivePattern = Pattern.compile("(?!.*)"); // 匹配空
+            return;
+        }
         StringBuilder patternBuilder = new StringBuilder();
-        for (String word : SENSITIVE_WORDS) {
+        for (String word : sensitiveWords) {
             if (patternBuilder.length() > 0) {
                 patternBuilder.append("|");
             }
-            // 转义特殊字符
             patternBuilder.append("\\Q").append(word).append("\\E");
         }
-        SENSITIVE_PATTERN = Pattern.compile(patternBuilder.toString(), Pattern.CASE_INSENSITIVE);
+        sensitivePattern = Pattern.compile(patternBuilder.toString(), Pattern.CASE_INSENSITIVE);
     }
 
     /**
@@ -40,7 +69,7 @@ public class ContentFilterService {
         if (content == null || content.isEmpty()) {
             return false;
         }
-        return SENSITIVE_PATTERN.matcher(content).find();
+        return sensitivePattern.matcher(content).find();
     }
 
     /**
@@ -52,7 +81,7 @@ public class ContentFilterService {
         if (content == null || content.isEmpty()) {
             return content;
         }
-        return SENSITIVE_PATTERN.matcher(content).replaceAll(match -> {
+        return sensitivePattern.matcher(content).replaceAll(match -> {
             String word = match.group();
             return "*".repeat(word.length());
         });
@@ -73,6 +102,19 @@ public class ContentFilterService {
      * 获取敏感词列表（用于管理）
      */
     public Set<String> getSensitiveWords() {
-        return SENSITIVE_WORDS;
+        return Collections.unmodifiableSet(sensitiveWords);
+    }
+
+    /**
+     * 动态更新敏感词库（可用于管理后台热更新）
+     * @param words 新的敏感词集合
+     */
+    public synchronized void updateSensitiveWords(Set<String> words) {
+        sensitiveWords.clear();
+        sensitiveWords.addAll(DEFAULT_SENSITIVE_WORDS);
+        if (words != null) {
+            sensitiveWords.addAll(words);
+        }
+        rebuildPattern();
     }
 }

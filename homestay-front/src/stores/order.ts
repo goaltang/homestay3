@@ -16,6 +16,7 @@ export interface ReviewItem {
   response?: string;
   createTime: string;
   responseTime?: string;
+  images?: string[];
   cleanlinessRating?: number;
   accuracyRating?: number;
   communicationRating?: number;
@@ -49,6 +50,7 @@ export interface OrderItem {
   remark?: string;
   createTime: string;
   updateTime: string;
+  completedAt?: string;
   reviewed?: boolean;
   review?: ReviewItem | null;
   refundType?: string;

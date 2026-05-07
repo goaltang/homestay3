@@ -81,8 +81,9 @@ public interface ReviewService {
      * 更新评价图片
      * @param reviewId 评价ID
      * @param imageUrls 图片URL列表
+     * @param username 当前操作用户名
      */
-    void updateReviewImages(Long reviewId, List<String> imageUrls);
+    void updateReviewImages(Long reviewId, List<String> imageUrls, String username);
     
     /**
      * 设置评价可见性

@@ -86,14 +86,14 @@ public class NotificationBroadcastServiceImpl implements NotificationBroadcastSe
 
     private boolean isRateLimited(Long initiatedBy, LocalDateTime submittedAfter) {
         if (initiatedBy != null) {
-            return jobRepository.existsByInitiatedByAndStatusNotAndSubmittedAtAfter(
+            return !jobRepository.findRecentByInitiatedByAndStatusNotAndSubmittedAtAfter(
                     initiatedBy,
                     NotificationBroadcastJob.Status.RATE_LIMITED,
-                    submittedAfter);
+                    submittedAfter).isEmpty();
         }
-        return jobRepository.existsByStatusNotAndSubmittedAtAfter(
+        return !jobRepository.findRecentByStatusNotAndSubmittedAtAfter(
                 NotificationBroadcastJob.Status.RATE_LIMITED,
-                submittedAfter);
+                submittedAfter).isEmpty();
     }
 
     private NotificationBroadcastJob buildJob(String content,

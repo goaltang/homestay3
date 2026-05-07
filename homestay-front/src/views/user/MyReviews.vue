@@ -96,8 +96,8 @@ import ReviewEditModal from '@/components/ReviewEditModal.vue';
 
 // 定义评价类型 (确保包含 userId)
 interface ReviewItem {
-    id: number; // 改回 number
-    userId: number; // 用户ID 是 number
+    id: number;
+    userId: number;
     homestayId: number;
     homestayTitle?: string;
     rating: number;
@@ -105,7 +105,13 @@ interface ReviewItem {
     response?: string;
     createTime: string;
     responseTime?: string;
-    // 根据 DTO 添加其他字段
+    images?: string[];
+    cleanlinessRating?: number;
+    accuracyRating?: number;
+    communicationRating?: number;
+    locationRating?: number;
+    checkInRating?: number;
+    valueRating?: number;
 }
 
 // --- Add type for editable data ---
@@ -113,6 +119,13 @@ interface EditableReviewData {
   id: number;
   rating: number;
   content: string;
+  images?: string[];
+  cleanlinessRating?: number;
+  accuracyRating?: number;
+  communicationRating?: number;
+  locationRating?: number;
+  checkInRating?: number;
+  valueRating?: number;
 }
 // --- End type ---
 
@@ -211,6 +224,13 @@ const openEditModal = (review: ReviewItem) => {
     id: review.id,
     rating: review.rating,
     content: review.content,
+    images: review.images,
+    cleanlinessRating: review.cleanlinessRating,
+    accuracyRating: review.accuracyRating,
+    communicationRating: review.communicationRating,
+    locationRating: review.locationRating,
+    checkInRating: review.checkInRating,
+    valueRating: review.valueRating,
   };
   isEditModalVisible.value = true;
 };
@@ -219,12 +239,17 @@ const openEditModal = (review: ReviewItem) => {
 const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
     const index = reviews.value.findIndex(r => r.id === updatedReviewData.id);
     if (index !== -1) {
-        // 只更新 rating 和 content
         reviews.value[index].rating = updatedReviewData.rating;
         reviews.value[index].content = updatedReviewData.content;
-        // 如果需要，可以更新 updateTime，但这通常由后端处理
+        reviews.value[index].images = updatedReviewData.images;
+        reviews.value[index].cleanlinessRating = updatedReviewData.cleanlinessRating;
+        reviews.value[index].accuracyRating = updatedReviewData.accuracyRating;
+        reviews.value[index].communicationRating = updatedReviewData.communicationRating;
+        reviews.value[index].locationRating = updatedReviewData.locationRating;
+        reviews.value[index].checkInRating = updatedReviewData.checkInRating;
+        reviews.value[index].valueRating = updatedReviewData.valueRating;
     }
-    isEditModalVisible.value = false; // 关闭弹窗
+    isEditModalVisible.value = false;
 };
 // --- End functions ---
 

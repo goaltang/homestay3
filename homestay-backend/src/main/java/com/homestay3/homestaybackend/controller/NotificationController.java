@@ -192,7 +192,12 @@ public class NotificationController {
             @PathVariable String domain,
             @RequestBody Map<String, Boolean> body) {
         Long currentUserId = getCurrentUserId();
-        NotificationDomain notificationDomain = NotificationDomain.valueOf(domain.toUpperCase());
+        NotificationDomain notificationDomain;
+        try {
+            notificationDomain = NotificationDomain.valueOf(domain.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().build();
+        }
         boolean enabled = body.getOrDefault("enabled", true);
         preferenceService.updatePreference(currentUserId, notificationDomain, enabled);
         log.info("用户 {} 更新通知偏好: domain={}, enabled={}", currentUserId, notificationDomain, enabled);

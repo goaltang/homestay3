@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -53,10 +54,19 @@ public class NotificationBroadcastJobProcessor {
     }
 
     @Async("taskExecutor")
+    @Transactional(rollbackFor = Exception.class)
     public void process(Long jobId, String content) {
         NotificationBroadcastJob job = jobRepository.findById(jobId).orElse(null);
         if (job == null) {
             log.warn("Notification broadcast job {} not found", jobId);
+            return;
+        }
+
+        NotificationBroadcastJob.Status status = job.getStatus();
+        if (status == NotificationBroadcastJob.Status.SUCCEEDED
+                || status == NotificationBroadcastJob.Status.FAILED
+                || status == NotificationBroadcastJob.Status.RUNNING) {
+            log.info("Notification broadcast job {} already in terminal or running status {}, skipping", jobId, status);
             return;
         }
 

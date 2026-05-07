@@ -349,6 +349,8 @@ const broadcastJobTotal = ref(0)
 const broadcastJobDetailVisible = ref(false)
 const broadcastJobDetailLoading = ref(false)
 const currentBroadcastJob = ref<NotificationBroadcastJob | null>(null)
+const detailRequestId = ref(0)
+const fetchId = ref(0)
 
 const broadcastJobStatusOptions = [
     { label: '待执行', value: 'PENDING' },
@@ -372,7 +374,13 @@ const currentPageAllSelected = computed({
         notifications.value.length > 0 &&
         notifications.value.every(notification => selectedNotificationIds.value.includes(notification.id)),
     set: (checked: boolean) => {
-        selectedNotificationIds.value = checked ? notifications.value.map(notification => notification.id) : []
+        const pageIds = notifications.value.map(n => n.id);
+        if (checked) {
+            const set = new Set([...selectedNotificationIds.value, ...pageIds]);
+            selectedNotificationIds.value = Array.from(set);
+        } else {
+            selectedNotificationIds.value = selectedNotificationIds.value.filter(id => !pageIds.includes(id));
+        }
     }
 })
 
@@ -427,6 +435,7 @@ const handleSendNotification = async () => {
 
 // 方法
 const loadNotifications = async () => {
+    const currentFetchId = ++fetchId.value
     try {
         loading.value = true
         const params = {
@@ -437,14 +446,18 @@ const loadNotifications = async () => {
         }
 
         const response = await getNotifications(params)
+        if (currentFetchId !== fetchId.value) return
         notifications.value = response.content
         total.value = response.totalElements
         selectedNotificationIds.value = []
     } catch (error) {
+        if (currentFetchId !== fetchId.value) return
         console.error('获取通知列表失败:', error)
         ElMessage.error('获取通知列表失败')
     } finally {
-        loading.value = false
+        if (currentFetchId === fetchId.value) {
+            loading.value = false
+        }
     }
 }
 
@@ -553,17 +566,23 @@ const handleBroadcastJobCurrentChange = (val: number) => {
 }
 
 const handleViewBroadcastJob = async (job: NotificationBroadcastJob) => {
+    const requestId = ++detailRequestId.value
     currentBroadcastJob.value = job
     broadcastJobDetailVisible.value = true
     broadcastJobDetailLoading.value = true
 
     try {
-        currentBroadcastJob.value = await getNotificationBroadcastJob(job.jobId)
+        const jobDetail = await getNotificationBroadcastJob(job.jobId)
+        if (requestId !== detailRequestId.value) return
+        currentBroadcastJob.value = jobDetail
     } catch (error) {
+        if (requestId !== detailRequestId.value) return
         console.error('获取广播任务详情失败:', error)
         ElMessage.error('获取广播任务详情失败')
     } finally {
-        broadcastJobDetailLoading.value = false
+        if (requestId === detailRequestId.value) {
+            broadcastJobDetailLoading.value = false
+        }
     }
 }
 
@@ -573,8 +592,10 @@ const markAsRead = async (notificationId: number) => {
         // 更新本地状态
         const notification = notifications.value.find(n => n.id === notificationId)
         if (notification) {
-            notification.read = true
-            unreadCount.value = Math.max(0, unreadCount.value - 1)
+            if (!notification.read) {
+                notification.read = true
+                unreadCount.value = Math.max(0, unreadCount.value - 1)
+            }
         }
         ElMessage.success('已标记为已读')
     } catch (error) {
@@ -697,10 +718,14 @@ const batchDeleteNotifications = async () => {
     }
 }
 
-const handleNotificationClick = (notification: NotificationDto) => {
+const handleNotificationClick = async (notification: NotificationDto) => {
     // 如果未读，先标记为已读
     if (!notification.read) {
-        markAsRead(notification.id)
+        try {
+            await markAsRead(notification.id)
+        } catch {
+            // 标记失败不阻塞导航
+        }
     }
 
     // 根据通知类型和实体类型进行导航
@@ -803,6 +828,7 @@ const formatDateTime = (dateTime?: string | null) => {
 }
 
 const formatTime = (dateTime: string) => {
+    if (!dateTime || Number.isNaN(new Date(dateTime).getTime())) return '-'
     const now = new Date()
     const time = new Date(dateTime)
     const diff = now.getTime() - time.getTime()
