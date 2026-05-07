@@ -2,8 +2,11 @@ package com.homestay3.homestaybackend.service.impl;
 
 import com.homestay3.homestaybackend.dto.NotificationBroadcastJobDTO;
 import com.homestay3.homestaybackend.entity.NotificationBroadcastJob;
+import com.homestay3.homestaybackend.exception.ResourceNotFoundException;
 import com.homestay3.homestaybackend.repository.NotificationBroadcastJobRepository;
 import com.homestay3.homestaybackend.service.NotificationBroadcastService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -60,6 +63,25 @@ public class NotificationBroadcastServiceImpl implements NotificationBroadcastSe
         NotificationBroadcastJob savedJob = jobRepository.save(job);
         runAfterCommit(() -> processor.process(savedJob.getId(), normalizedContent));
         return NotificationBroadcastJobDTO.fromEntity(savedJob);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<NotificationBroadcastJobDTO> getBroadcastJobs(NotificationBroadcastJob.Status status,
+                                                              Pageable pageable) {
+        Page<NotificationBroadcastJob> jobs = status == null
+                ? jobRepository.findAll(pageable)
+                : jobRepository.findByStatus(status, pageable);
+        return jobs.map(NotificationBroadcastJobDTO::fromEntity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NotificationBroadcastJobDTO getBroadcastJob(Long jobId) {
+        return jobRepository.findById(jobId)
+                .map(NotificationBroadcastJobDTO::fromEntity)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Notification broadcast job not found with id: " + jobId));
     }
 
     private boolean isRateLimited(Long initiatedBy, LocalDateTime submittedAfter) {

@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -21,9 +24,12 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -43,6 +49,7 @@ class AdminNotificationControllerTest {
     void setUp() {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AdminNotificationController(notificationService, notificationBroadcastService))
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .build();
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
@@ -95,6 +102,40 @@ class AdminNotificationControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(notificationBroadcastService);
+    }
+
+    @Test
+    void getBroadcastJobsReturnsPagedResultWithStatusFilter() throws Exception {
+        NotificationBroadcastJobDTO dto = job(101L, NotificationBroadcastJob.Status.SUCCEEDED, null);
+        when(notificationBroadcastService.getBroadcastJobs(
+                eq(NotificationBroadcastJob.Status.SUCCEEDED),
+                any()))
+                .thenReturn(new PageImpl<>(List.of(dto), PageRequest.of(0, 5), 1));
+
+        mockMvc.perform(get("/api/admin/notifications/broadcast-jobs")
+                        .param("status", "succeeded")
+                        .param("page", "0")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].jobId").value(101))
+                .andExpect(jsonPath("$.content[0].status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(notificationBroadcastService).getBroadcastJobs(eq(NotificationBroadcastJob.Status.SUCCEEDED), any());
+    }
+
+    @Test
+    void getBroadcastJobReturnsDetail() throws Exception {
+        when(notificationBroadcastService.getBroadcastJob(101L))
+                .thenReturn(job(101L, NotificationBroadcastJob.Status.FAILED, "failed"));
+
+        mockMvc.perform(get("/api/admin/notifications/broadcast-jobs/101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.jobId").value(101))
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.failureReason").value("failed"));
+
+        verify(notificationBroadcastService).getBroadcastJob(101L);
     }
 
     private NotificationBroadcastJobDTO job(Long jobId,

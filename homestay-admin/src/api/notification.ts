@@ -53,6 +53,14 @@ export interface NotificationBroadcastJob {
   completedAt?: string | null;
 }
 
+export interface NotificationBroadcastJobListResponse {
+  content: NotificationBroadcastJob[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
 /**
  * 获取用户通知列表
  */
@@ -149,6 +157,31 @@ export function broadcastSystemNotification(content: string) {
     url: "/api/admin/notifications/broadcast",
     method: "post",
     data: { content },
+  });
+}
+
+/**
+ * 获取广播任务历史
+ */
+export function getNotificationBroadcastJobs(params: {
+  page?: number;
+  size?: number;
+  status?: string;
+}) {
+  return request<NotificationBroadcastJobListResponse>({
+    url: "/api/admin/notifications/broadcast-jobs",
+    method: "get",
+    params,
+  });
+}
+
+/**
+ * 获取广播任务详情
+ */
+export function getNotificationBroadcastJob(jobId: number) {
+  return request<NotificationBroadcastJob>({
+    url: `/api/admin/notifications/broadcast-jobs/${jobId}`,
+    method: "get",
   });
 }
 

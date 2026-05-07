@@ -106,7 +106,7 @@
                             <div class="notification-select" @click.stop>
                                 <el-checkbox
                                     :model-value="selectedNotificationIds.includes(notification.id)"
-                                    @change="checked => toggleNotificationSelection(notification.id, Boolean(checked))"
+                                    @change="toggleNotificationSelection(notification.id, $event)"
                                 />
                             </div>
                             <div class="notification-icon">
@@ -147,6 +147,91 @@
             </el-card>
         </div>
 
+        <!-- 广播任务历史 -->
+        <div class="broadcast-history">
+            <el-card shadow="never">
+                <template #header>
+                    <div class="section-header">
+                        <h3>广播任务历史</h3>
+                        <div class="section-actions">
+                            <el-select
+                                v-model="broadcastJobFilter.status"
+                                placeholder="全部状态"
+                                clearable
+                                style="width: 140px;"
+                                @change="handleBroadcastJobStatusChange"
+                            >
+                                <el-option
+                                    v-for="status in broadcastJobStatusOptions"
+                                    :key="status.value"
+                                    :label="status.label"
+                                    :value="status.value"
+                                />
+                            </el-select>
+                            <el-button @click="refreshBroadcastJobs" :loading="broadcastJobsLoading">
+                                <el-icon>
+                                    <Refresh />
+                                </el-icon>
+                                刷新
+                            </el-button>
+                        </div>
+                    </div>
+                </template>
+
+                <el-table
+                    v-loading="broadcastJobsLoading"
+                    :data="broadcastJobs"
+                    border
+                    stripe
+                    style="width: 100%"
+                    empty-text="暂无广播任务"
+                >
+                    <el-table-column prop="jobId" label="任务ID" width="100" />
+                    <el-table-column prop="status" label="状态" width="110">
+                        <template #default="{ row }">
+                            <el-tag :type="getBroadcastJobStatusTagType(row.status)" size="small">
+                                {{ formatBroadcastJobStatus(row.status) }}
+                            </el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="targetCount" label="目标数" width="100" align="center" />
+                    <el-table-column prop="successCount" label="成功数" width="100" align="center" />
+                    <el-table-column prop="failureReason" label="失败原因" min-width="220" show-overflow-tooltip>
+                        <template #default="{ row }">
+                            {{ row.failureReason || '-' }}
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="submittedAt" label="提交时间" width="180">
+                        <template #default="{ row }">
+                            {{ formatDateTime(row.submittedAt) }}
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="110" fixed="right" align="center">
+                        <template #default="{ row }">
+                            <el-button type="primary" size="small" text @click="handleViewBroadcastJob(row)">
+                                <el-icon>
+                                    <View />
+                                </el-icon>
+                                详情
+                            </el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+
+                <div class="pagination" v-if="broadcastJobTotal > 0">
+                    <el-pagination
+                        v-model:current-page="broadcastJobCurrentPage"
+                        v-model:page-size="broadcastJobPageSize"
+                        :page-sizes="[10, 20, 50]"
+                        :total="broadcastJobTotal"
+                        layout="total, sizes, prev, pager, next, jumper"
+                        @size-change="handleBroadcastJobSizeChange"
+                        @current-change="handleBroadcastJobCurrentChange"
+                    />
+                </div>
+            </el-card>
+        </div>
+
         <!-- 发送系统通知弹窗 -->
         <el-dialog v-model="showSendDialog" title="发送系统通知" width="500px" align-center>
             <el-form :model="sendForm" label-width="100px">
@@ -171,6 +256,44 @@
                 </el-button>
             </template>
         </el-dialog>
+
+        <!-- 广播任务详情弹窗 -->
+        <el-dialog v-model="broadcastJobDetailVisible" title="广播任务详情" width="680px" align-center>
+            <div v-loading="broadcastJobDetailLoading">
+                <el-descriptions v-if="currentBroadcastJob" :column="2" border>
+                    <el-descriptions-item label="任务ID">{{ currentBroadcastJob.jobId }}</el-descriptions-item>
+                    <el-descriptions-item label="状态">
+                        <el-tag :type="getBroadcastJobStatusTagType(currentBroadcastJob.status)" size="small">
+                            {{ formatBroadcastJobStatus(currentBroadcastJob.status) }}
+                        </el-tag>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="提交人">
+                        {{ currentBroadcastJob.initiatedByUsername || currentBroadcastJob.initiatedBy || '-' }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="内容长度">
+                        {{ currentBroadcastJob.contentLength }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="目标数">{{ currentBroadcastJob.targetCount }}</el-descriptions-item>
+                    <el-descriptions-item label="成功数">{{ currentBroadcastJob.successCount }}</el-descriptions-item>
+                    <el-descriptions-item label="失败数">{{ currentBroadcastJob.failureCount }}</el-descriptions-item>
+                    <el-descriptions-item label="提交时间">
+                        {{ formatDateTime(currentBroadcastJob.submittedAt) }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="开始时间">
+                        {{ formatDateTime(currentBroadcastJob.startedAt) }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="完成时间">
+                        {{ formatDateTime(currentBroadcastJob.completedAt) }}
+                    </el-descriptions-item>
+                    <el-descriptions-item label="内容摘要" :span="2">
+                        <span class="description-text">{{ currentBroadcastJob.contentSummary || '-' }}</span>
+                    </el-descriptions-item>
+                    <el-descriptions-item label="失败原因" :span="2">
+                        <span class="description-text">{{ currentBroadcastJob.failureReason || '-' }}</span>
+                    </el-descriptions-item>
+                </el-descriptions>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
@@ -187,7 +310,7 @@ import {
     InfoFilled,
     House,
     Search,
-    Message
+    View
 } from '@element-plus/icons-vue'
 import {
     getNotifications,
@@ -199,8 +322,11 @@ import {
     deleteNotification as removeNotification,
     deleteMultipleNotifications as removeMultipleNotifications,
     broadcastSystemNotification,
+    getNotificationBroadcastJobs,
+    getNotificationBroadcastJob,
     type NotificationTypeOption,
-    type NotificationDto
+    type NotificationDto,
+    type NotificationBroadcastJob
 } from '@/api/notification'
 import { useRouter } from 'vue-router'
 
@@ -215,6 +341,22 @@ const unreadCount = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const broadcastJobsLoading = ref(false)
+const broadcastJobs = ref<NotificationBroadcastJob[]>([])
+const broadcastJobCurrentPage = ref(1)
+const broadcastJobPageSize = ref(10)
+const broadcastJobTotal = ref(0)
+const broadcastJobDetailVisible = ref(false)
+const broadcastJobDetailLoading = ref(false)
+const currentBroadcastJob = ref<NotificationBroadcastJob | null>(null)
+
+const broadcastJobStatusOptions = [
+    { label: '待执行', value: 'PENDING' },
+    { label: '执行中', value: 'RUNNING' },
+    { label: '已成功', value: 'SUCCEEDED' },
+    { label: '已失败', value: 'FAILED' },
+    { label: '已限流', value: 'RATE_LIMITED' }
+]
 
 const selectedNotifications = computed(() => {
     const selectedIds = new Set(selectedNotificationIds.value)
@@ -244,6 +386,10 @@ const filterForm = reactive({
     read: null as boolean | null
 })
 
+const broadcastJobFilter = reactive({
+    status: ''
+})
+
 // 发送系统通知
 const showSendDialog = ref(false)
 const sendLoading = ref(false)
@@ -265,6 +411,8 @@ const handleSendNotification = async () => {
         ElMessage.success(`系统通知广播任务已提交，任务ID：${job.jobId}`)
         showSendDialog.value = false
         sendForm.content = ''
+        broadcastJobCurrentPage.value = 1
+        await loadBroadcastJobs()
     } catch (error: any) {
         console.error('发送系统通知失败:', error)
         ElMessage.error(
@@ -318,8 +466,29 @@ const loadNotificationTypes = async () => {
     }
 }
 
-const toggleNotificationSelection = (notificationId: number, checked: boolean) => {
-    if (checked) {
+const loadBroadcastJobs = async () => {
+    try {
+        broadcastJobsLoading.value = true
+        const response = await getNotificationBroadcastJobs({
+            page: broadcastJobCurrentPage.value - 1,
+            size: broadcastJobPageSize.value,
+            status: broadcastJobFilter.status || undefined
+        })
+
+        broadcastJobs.value = response.content
+        broadcastJobTotal.value = response.totalElements
+        return true
+    } catch (error) {
+        console.error('获取广播任务历史失败:', error)
+        ElMessage.error('获取广播任务历史失败')
+        return false
+    } finally {
+        broadcastJobsLoading.value = false
+    }
+}
+
+const toggleNotificationSelection = (notificationId: number, checked: unknown) => {
+    if (Boolean(checked)) {
         if (!selectedNotificationIds.value.includes(notificationId)) {
             selectedNotificationIds.value = [...selectedNotificationIds.value, notificationId]
         }
@@ -335,6 +504,13 @@ const refreshNotifications = async () => {
         loadUnreadCount()
     ])
     ElMessage.success('刷新成功')
+}
+
+const refreshBroadcastJobs = async () => {
+    const refreshed = await loadBroadcastJobs()
+    if (refreshed) {
+        ElMessage.success('广播任务历史已刷新')
+    }
 }
 
 const handleSearch = () => {
@@ -358,6 +534,37 @@ const handleSizeChange = (val: number) => {
 const handleCurrentChange = (val: number) => {
     currentPage.value = val
     loadNotifications()
+}
+
+const handleBroadcastJobStatusChange = () => {
+    broadcastJobCurrentPage.value = 1
+    loadBroadcastJobs()
+}
+
+const handleBroadcastJobSizeChange = (val: number) => {
+    broadcastJobPageSize.value = val
+    broadcastJobCurrentPage.value = 1
+    loadBroadcastJobs()
+}
+
+const handleBroadcastJobCurrentChange = (val: number) => {
+    broadcastJobCurrentPage.value = val
+    loadBroadcastJobs()
+}
+
+const handleViewBroadcastJob = async (job: NotificationBroadcastJob) => {
+    currentBroadcastJob.value = job
+    broadcastJobDetailVisible.value = true
+    broadcastJobDetailLoading.value = true
+
+    try {
+        currentBroadcastJob.value = await getNotificationBroadcastJob(job.jobId)
+    } catch (error) {
+        console.error('获取广播任务详情失败:', error)
+        ElMessage.error('获取广播任务详情失败')
+    } finally {
+        broadcastJobDetailLoading.value = false
+    }
 }
 
 const markAsRead = async (notificationId: number) => {
@@ -556,6 +763,45 @@ const getNotificationIconClass = (type: string) => {
     return classMap[type] || 'icon-primary'
 }
 
+const formatBroadcastJobStatus = (status: string) => {
+    const statusMap: Record<string, string> = {
+        PENDING: '待执行',
+        RUNNING: '执行中',
+        SUCCEEDED: '已成功',
+        FAILED: '已失败',
+        RATE_LIMITED: '已限流'
+    }
+    return statusMap[status] || status
+}
+
+const getBroadcastJobStatusTagType = (status: string): 'success' | 'info' | 'warning' | 'danger' => {
+    const typeMap: Record<string, 'success' | 'info' | 'warning' | 'danger'> = {
+        PENDING: 'info',
+        RUNNING: 'warning',
+        SUCCEEDED: 'success',
+        FAILED: 'danger',
+        RATE_LIMITED: 'warning'
+    }
+    return typeMap[status] || 'info'
+}
+
+const formatDateTime = (dateTime?: string | null) => {
+    if (!dateTime) return '-'
+
+    const time = new Date(dateTime)
+    if (Number.isNaN(time.getTime())) {
+        return dateTime
+    }
+
+    return time.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    })
+}
+
 const formatTime = (dateTime: string) => {
     const now = new Date()
     const time = new Date(dateTime)
@@ -585,6 +831,7 @@ onMounted(() => {
     loadNotificationTypes()
     loadNotifications()
     loadUnreadCount()
+    loadBroadcastJobs()
 })
 </script>
 
@@ -633,6 +880,41 @@ onMounted(() => {
 
     .filter-section {
         margin-bottom: 20px;
+    }
+
+    .broadcast-history {
+        margin-top: 20px;
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+
+            h3 {
+                margin: 0;
+                color: #303133;
+                font-size: 18px;
+                font-weight: 600;
+            }
+
+            .section-actions {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+        }
+
+        .pagination {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+        }
+    }
+
+    .description-text {
+        white-space: pre-wrap;
+        word-break: break-word;
     }
 
     .notifications-list {
