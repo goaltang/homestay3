@@ -80,13 +80,14 @@ export function useReviews() {
       if (statsResponse?.data) {
         // 保存后端返回的平均评分
         averageRating.value = statsResponse.data.averageRating || 0;
+        const detailed = statsResponse.data.detailedRatings || {};
         reviewStats.value = [
-          { name: "清洁度", score: statsResponse.data.cleanlinessRating || 0 },
-          { name: "准确性", score: statsResponse.data.accuracyRating || 0 },
-          { name: "沟通", score: statsResponse.data.communicationRating || 0 },
-          { name: "位置", score: statsResponse.data.locationRating || 0 },
-          { name: "入住", score: statsResponse.data.checkInRating || 0 },
-          { name: "性价比", score: statsResponse.data.valueRating || 0 },
+          { name: "清洁度", score: detailed.cleanlinessRating || 0 },
+          { name: "准确性", score: detailed.accuracyRating || 0 },
+          { name: "沟通", score: detailed.communicationRating || 0 },
+          { name: "位置", score: detailed.locationRating || 0 },
+          { name: "入住", score: detailed.checkInRating || 0 },
+          { name: "性价比", score: detailed.valueRating || 0 },
         ].filter((stat) => stat.score > 0);
       }
     } catch (error) {

@@ -30,6 +30,21 @@
                         <span class="rating-label">评分:</span>
                         <el-rate :model-value="review.rating" disabled size="small" text-color="#ff9900" />
                     </div>
+                    <!-- 细分评分 -->
+                    <div class="detailed-ratings" v-if="review.cleanlinessRating || review.accuracyRating">
+                        <el-row :gutter="10">
+                            <el-col :span="8" v-if="review.cleanlinessRating"><span class="det-label">清洁度</span><el-rate :model-value="review.cleanlinessRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="review.accuracyRating"><span class="det-label">准确性</span><el-rate :model-value="review.accuracyRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="review.communicationRating"><span class="det-label">沟通</span><el-rate :model-value="review.communicationRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="review.locationRating"><span class="det-label">位置</span><el-rate :model-value="review.locationRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="review.checkInRating"><span class="det-label">入住</span><el-rate :model-value="review.checkInRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="review.valueRating"><span class="det-label">性价比</span><el-rate :model-value="review.valueRating" disabled size="small" /></el-col>
+                        </el-row>
+                    </div>
+                    <!-- 评价图片 -->
+                    <div class="review-images" v-if="review.images && review.images.length > 0">
+                        <el-image v-for="(img, idx) in review.images" :key="idx" :src="img" :preview-src-list="review.images" fit="cover" class="review-thumb" />
+                    </div>
                     <div class="review-text">
                         <p>{{ review.content }}</p>
                     </div>
@@ -241,7 +256,9 @@ const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
     if (index !== -1) {
         reviews.value[index].rating = updatedReviewData.rating;
         reviews.value[index].content = updatedReviewData.content;
-        reviews.value[index].images = updatedReviewData.images;
+        if (updatedReviewData.images !== undefined) {
+            reviews.value[index].images = updatedReviewData.images;
+        }
         reviews.value[index].cleanlinessRating = updatedReviewData.cleanlinessRating;
         reviews.value[index].accuracyRating = updatedReviewData.accuracyRating;
         reviews.value[index].communicationRating = updatedReviewData.communicationRating;
@@ -362,6 +379,32 @@ onMounted(() => {
     margin: 0;
     line-height: 1.6;
     color: #303133;
+}
+
+.detailed-ratings {
+    margin-bottom: 12px;
+    padding: 8px 0;
+}
+
+.detailed-ratings .det-label {
+    font-size: 12px;
+    color: #606266;
+    margin-right: 6px;
+}
+
+.review-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.review-images .review-thumb {
+    width: 80px;
+    height: 80px;
+    border-radius: 4px;
+    object-fit: cover;
+    cursor: pointer;
 }
 
 .host-response {

@@ -253,20 +253,25 @@ const handleSubmit = async () => {
       submitting.value = true;
       try {
         // 1. 更新评价内容（含细分评分）
-        const payload = {
+        // 注意：el-rate 最小值为 1，0 表示未选择；但编辑弹窗中已有评分时保留原值
+        const payload: any = {
           rating: formData.rating,
           content: formData.content,
-          cleanlinessRating: formData.cleanlinessRating || undefined,
-          accuracyRating: formData.accuracyRating || undefined,
-          communicationRating: formData.communicationRating || undefined,
-          locationRating: formData.locationRating || undefined,
-          checkInRating: formData.checkInRating || undefined,
-          valueRating: formData.valueRating || undefined,
         };
+        if (formData.cleanlinessRating && formData.cleanlinessRating > 0) payload.cleanlinessRating = formData.cleanlinessRating;
+        if (formData.accuracyRating && formData.accuracyRating > 0) payload.accuracyRating = formData.accuracyRating;
+        if (formData.communicationRating && formData.communicationRating > 0) payload.communicationRating = formData.communicationRating;
+        if (formData.locationRating && formData.locationRating > 0) payload.locationRating = formData.locationRating;
+        if (formData.checkInRating && formData.checkInRating > 0) payload.checkInRating = formData.checkInRating;
+        if (formData.valueRating && formData.valueRating > 0) payload.valueRating = formData.valueRating;
         await updateReview(formData.id, payload);
 
         // 2. 更新评价图片
         const allImageUrls = await uploadImages();
+        if (allImageUrls.length < imageFileList.value.length) {
+            const failedCount = imageFileList.value.length - allImageUrls.length;
+            ElMessage.warning(`图片上传部分失败，成功 ${allImageUrls.length} 张，失败 ${failedCount} 张`);
+        }
         await updateReviewImages(formData.id, allImageUrls);
 
         ElMessage.success('评价修改成功');

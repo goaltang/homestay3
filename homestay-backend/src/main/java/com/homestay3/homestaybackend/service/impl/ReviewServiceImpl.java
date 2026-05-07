@@ -153,6 +153,9 @@ public class ReviewServiceImpl implements ReviewService {
 
         // 5. 检查评价时间窗口（订单完成后 N 天内可评价）
         if (order.getCompletedAt() != null) {
+            if (order.getCompletedAt().isAfter(LocalDateTime.now())) {
+                throw new IllegalArgumentException("订单完成时间异常，无法提交评价。");
+            }
             long daysSinceCompletion = ChronoUnit.DAYS.between(order.getCompletedAt(), LocalDateTime.now());
             if (daysSinceCompletion > reviewWindowDays) {
                 throw new IllegalArgumentException("订单已完成超过 " + reviewWindowDays + " 天，无法提交评价。");
@@ -485,8 +488,8 @@ public class ReviewServiceImpl implements ReviewService {
     public Map<String, Object> getAdminReviewStats() {
         Map<String, Object> stats = new HashMap<>();
         
-        // 统计总评价数
-        long totalCount = reviewRepository.count();
+        // 统计总评价数（排除已删除）
+        long totalCount = reviewRepository.countByDeletedFalse();
         stats.put("total", totalCount);
         
         // 统计各评分段的评价数
@@ -636,6 +639,10 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public void updateReviewImages(Long reviewId, List<String> imageUrls, String username) {
+        if (imageUrls != null && imageUrls.size() > 9) {
+            throw new IllegalArgumentException("每条评价最多上传9张图片");
+        }
+
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + reviewId));
 

@@ -249,6 +249,21 @@
                         <span class="label">评分:</span>
                         <el-rate :model-value="orderData.review.rating" disabled size="small" text-color="#ff9900" />
                     </div>
+                    <!-- 细分评分 -->
+                    <div class="detailed-ratings" v-if="orderData.review.cleanlinessRating || orderData.review.accuracyRating">
+                        <el-row :gutter="10">
+                            <el-col :span="8" v-if="orderData.review.cleanlinessRating"><span class="det-label">清洁度</span><el-rate :model-value="orderData.review.cleanlinessRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="orderData.review.accuracyRating"><span class="det-label">准确性</span><el-rate :model-value="orderData.review.accuracyRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="orderData.review.communicationRating"><span class="det-label">沟通</span><el-rate :model-value="orderData.review.communicationRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="orderData.review.locationRating"><span class="det-label">位置</span><el-rate :model-value="orderData.review.locationRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="orderData.review.checkInRating"><span class="det-label">入住</span><el-rate :model-value="orderData.review.checkInRating" disabled size="small" /></el-col>
+                            <el-col :span="8" v-if="orderData.review.valueRating"><span class="det-label">性价比</span><el-rate :model-value="orderData.review.valueRating" disabled size="small" /></el-col>
+                        </el-row>
+                    </div>
+                    <!-- 评价图片 -->
+                    <div class="review-images" v-if="orderData.review.images && orderData.review.images.length > 0">
+                        <el-image v-for="(img, idx) in orderData.review.images" :key="idx" :src="img" :preview-src-list="orderData.review.images" fit="cover" class="review-thumb" />
+                    </div>
                     <div class="info-item">
                         <span class="label">评价内容:</span>
                         <p>{{ orderData.review.content }}</p>
@@ -458,7 +473,7 @@ import { cancelOrder, generatePaymentQRCode, checkPayment, payOrder, getCheckInC
 import { getHomestayById } from '../../api/homestay'
 import { getHomestayImageUrl, handleImageError } from '../../utils/image'
 import dayjs from 'dayjs'
-import { deleteReview } from '@/api/review'
+import { deleteReview, submitReview } from '@/api/review'
 import { requestRefund, getRefundPreview, raiseDispute } from '@/api/refund'
 import { useUserStore } from '@/stores/user'
 import { useOrderStore, type ReviewItem, type OrderItem } from '@/stores/order'
@@ -511,11 +526,17 @@ const openReviewModal = () => {
     reviewDialogVisible.value = true;
 };
 
-const handleSubmitReview = (success: boolean) => {
-    if (success) {
+const handleSubmitReview = async (reviewData: any) => {
+    try {
+        await submitReview(reviewData);
+        ElMessage.success('评价提交成功');
+        reviewDialogVisible.value = false;
         fetchOrderDetail();
         store.fetchOrders();
         store.fetchStatsOrders();
+    } catch (error: any) {
+        const errMsg = error?.response?.data?.message || '评价提交失败，请稍后重试';
+        ElMessage.error(errMsg);
     }
 };
 // --- End state ---
@@ -1345,7 +1366,8 @@ const handleOrderWarning = (remainingTime: number) => {
 
 // 判断订单是否在评价时间窗口内（30天）
 const isWithinReviewWindow = (order: OrderItem | null): boolean => {
-    if (!order || !order.completedAt) return true; // 无完成时间默认允许
+    if (!order) return false;
+    if (!order.completedAt) return true; // 无完成时间默认允许（兼容老数据）
     const completedAt = dayjs(order.completedAt);
     const now = dayjs();
     return now.diff(completedAt, 'day') <= 30;
@@ -1771,6 +1793,32 @@ h1 {
 .review-content p {
     margin: 0;
     flex: 1;
+}
+
+.detailed-ratings {
+    margin-bottom: 12px;
+    padding: 8px 0;
+}
+
+.detailed-ratings .det-label {
+    font-size: 12px;
+    color: #606266;
+    margin-right: 6px;
+}
+
+.review-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.review-images .review-thumb {
+    width: 80px;
+    height: 80px;
+    border-radius: 4px;
+    object-fit: cover;
+    cursor: pointer;
 }
 
 .host-response-detail {

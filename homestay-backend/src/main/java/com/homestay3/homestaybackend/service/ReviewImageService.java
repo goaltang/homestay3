@@ -27,19 +27,20 @@ public class ReviewImageService {
 
     @Transactional
     public void saveReviewImages(Long reviewId, List<String> imageUrls) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("评价不存在: " + reviewId));
+
+        // 无论新图片是否为空，都先删除旧图片（支持清空所有图片）
+        reviewImageRepository.deleteByReviewId(reviewId);
+
         if (imageUrls == null || imageUrls.isEmpty()) {
+            logger.info("清空评价图片, reviewId: {}", reviewId);
             return;
         }
 
         if (imageUrls.size() > MAX_IMAGES_PER_REVIEW) {
             throw new IllegalArgumentException("每条评价最多上传" + MAX_IMAGES_PER_REVIEW + "张图片");
         }
-
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("评价不存在: " + reviewId));
-
-        // 删除旧图片
-        reviewImageRepository.deleteByReviewId(reviewId);
 
         // 保存新图片
         List<ReviewImage> images = IntStream.range(0, imageUrls.size())
