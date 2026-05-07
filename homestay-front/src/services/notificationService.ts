@@ -1,6 +1,6 @@
 import request from "@/utils/request"; // 导入封装好的 axios 实例
 import type {
-  NotificationApiResponse,
+  NotificationPageData,
   NotificationDto,
 } from "@/types/notification";
 import { normalizeNotification } from "@/types/notification";
@@ -17,7 +17,7 @@ interface PageParams {
  */
 export const getNotifications = (
   params: PageParams & { isRead?: boolean; type?: string }
-): Promise<NotificationApiResponse> => {
+): Promise<{ data: NotificationPageData }> => {
   // 后端分页是从0开始，前端通常从1开始，这里进行转换
   const adjustedParams: any = {
     ...params,
@@ -30,7 +30,7 @@ export const getNotifications = (
     url: "/api/notifications",
     method: "get",
     params: adjustedParams,
-  }).then((response: NotificationApiResponse) => ({
+  }).then((response) => ({
     ...response,
     data: {
       ...response.data,

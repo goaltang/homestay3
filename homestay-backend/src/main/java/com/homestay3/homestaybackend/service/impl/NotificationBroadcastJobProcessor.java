@@ -18,6 +18,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -56,7 +58,7 @@ public class NotificationBroadcastJobProcessor {
     @Async("taskExecutor")
     @Transactional(rollbackFor = Exception.class)
     public void process(Long jobId, String content) {
-        NotificationBroadcastJob job = jobRepository.findById(jobId).orElse(null);
+        NotificationBroadcastJob job = jobRepository.findByIdForUpdate(jobId).orElse(null);
         if (job == null) {
             log.warn("Notification broadcast job {} not found", jobId);
             return;
@@ -65,7 +67,8 @@ public class NotificationBroadcastJobProcessor {
         NotificationBroadcastJob.Status status = job.getStatus();
         if (status == NotificationBroadcastJob.Status.SUCCEEDED
                 || status == NotificationBroadcastJob.Status.FAILED
-                || status == NotificationBroadcastJob.Status.RUNNING) {
+                || status == NotificationBroadcastJob.Status.RUNNING
+                || status == NotificationBroadcastJob.Status.RATE_LIMITED) {
             log.info("Notification broadcast job {} already in terminal or running status {}, skipping", jobId, status);
             return;
         }
@@ -105,10 +108,23 @@ public class NotificationBroadcastJobProcessor {
             if (!notifications.isEmpty()) {
                 List<Notification> savedNotifications = notificationRepository.saveAll(notifications);
                 successCount = savedNotifications.size();
-                publishNotificationEvents(savedNotifications);
-                publishUnreadCountChangedBatch(savedNotifications.stream()
-                        .map(Notification::getUserId)
-                        .toList());
+                final List<Notification> committedNotifications = savedNotifications;
+                if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            publishNotificationEvents(committedNotifications);
+                            publishUnreadCountChangedBatch(committedNotifications.stream()
+                                    .map(Notification::getUserId)
+                                    .toList());
+                        }
+                    });
+                } else {
+                    publishNotificationEvents(savedNotifications);
+                    publishUnreadCountChangedBatch(savedNotifications.stream()
+                            .map(Notification::getUserId)
+                            .toList());
+                }
             }
 
             complete(job, targetCount, successCount);

@@ -98,17 +98,6 @@
                 :current-page="currentPage" @current-change="handlePageChange" />
         </div>
 
-        <!-- 恢复加载和空状态 (如果需要用 ElEmpty) -->
-        <div v-if="loading && notifications.length === 0" class="text-center py-10">
-            <el-icon class="is-loading text-4xl">
-                <Loading />
-            </el-icon>
-            <p>加载中...</p>
-        </div>
-        <div v-else-if="!loading && notifications.length === 0" class="text-center py-10 text-gray-500">
-            <el-empty description="暂无通知"></el-empty>
-        </div>
-
     </div>
 </template>
 
@@ -125,13 +114,11 @@ import {
     ElMessage,
     ElMessageBox,
     vLoading,
-    ElIcon,
-    ElEmpty,
     ElSelect,
     ElOption,
     ElAlert
 } from 'element-plus';
-import { Loading } from '@element-plus/icons-vue';
+
 import { useRouter } from 'vue-router';
 import {
     getNotifications,
@@ -191,7 +178,9 @@ const renderNotificationContent = (notification: NotificationDto): VNode => {
         ]);
     }
 
-    const actorLink = actorUsername ? h(RouterLink, { class: 'font-medium text-blue-700 hover:underline', to: `/user/profile/${notification.actorId}` }, () => actorUsername) : '系统';
+    const actorLink = actorUsername && notification.actorId != null
+        ? h(RouterLink, { class: 'font-medium text-blue-700 hover:underline', to: `/user/profile/${notification.actorId}` }, () => actorUsername)
+        : '系统';
     let entityLink: VNode | string = entityTitle || '';
     let entityPath = '';
 
@@ -260,6 +249,8 @@ const renderNotificationContent = (notification: NotificationDto): VNode => {
 };
 
 // --- API 调用与逻辑 (大部分可复用) ---
+let currentFetchId = 0;
+
 const fetchNotifications = async () => {
     console.log('[HostNotificationManage] fetchNotifications called');
 
@@ -270,6 +261,7 @@ const fetchNotifications = async () => {
     }
     console.log('[HostNotificationManage] 用户已认证，继续获取通知');
 
+    const thisFetchId = ++currentFetchId;
     loading.value = true;
     try {
         const params: { page: number; size: number; isRead?: boolean; type?: string } = {
@@ -286,11 +278,14 @@ const fetchNotifications = async () => {
         const response = await getNotifications(params);
         console.log('[HostNotificationManage] getNotifications API 响应:', response);
 
+        if (thisFetchId !== currentFetchId) return;
+
         notifications.value = response.data.content;
         totalNotifications.value = response.data.totalElements;
         console.log('[HostNotificationManage] fetchNotifications 成功，赋值后的 notifications.value:', JSON.stringify(notifications.value));
 
     } catch (error) {
+        if (thisFetchId !== currentFetchId) return;
         console.error('[HostNotificationManage] 获取通知失败 (catch block):', error);
         ElMessage.error('加载通知失败，请稍后重试');
         notifications.value = [];
@@ -455,6 +450,8 @@ const handlePageChange = (newPage: number) => {
 
 const handleFilterChange = () => {
     currentPage.value = 1;
+    selectedRows.value = [];
+    selectedUnreadCount.value = 0;
     fetchNotifications();
 };
 

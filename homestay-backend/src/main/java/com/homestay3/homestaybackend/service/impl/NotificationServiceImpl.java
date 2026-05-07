@@ -307,14 +307,29 @@ public class NotificationServiceImpl implements NotificationService {
         }
 
         List<Notification> savedNotifications = notificationRepository.saveAll(notifications);
-        List<NotificationDTO> dtos = convertToDtosBatch(savedNotifications);
-        for (NotificationDTO dto : dtos) {
-            eventPublisher.publishEvent(new NotificationCreatedEvent(dto.getUserId(), dto));
+        final List<Notification> committedNotifications = savedNotifications;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    List<NotificationDTO> dtos = convertToDtosBatch(committedNotifications);
+                    for (NotificationDTO dto : dtos) {
+                        eventPublisher.publishEvent(new NotificationCreatedEvent(dto.getUserId(), dto));
+                    }
+                    publishUnreadCountChangedBatch(committedNotifications.stream()
+                            .map(Notification::getUserId)
+                            .toList());
+                }
+            });
+        } else {
+            List<NotificationDTO> dtos = convertToDtosBatch(savedNotifications);
+            for (NotificationDTO dto : dtos) {
+                eventPublisher.publishEvent(new NotificationCreatedEvent(dto.getUserId(), dto));
+            }
+            publishUnreadCountChangedBatch(savedNotifications.stream()
+                    .map(Notification::getUserId)
+                    .toList());
         }
-
-        publishUnreadCountChangedBatch(savedNotifications.stream()
-                .map(Notification::getUserId)
-                .toList());
 
         log.info("Admin 广播系统通知，目标用户 {} 人，成功发送 {} 条", allUsers.size(), savedNotifications.size());
     }

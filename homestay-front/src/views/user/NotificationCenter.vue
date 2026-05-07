@@ -115,7 +115,7 @@
         </div>
 
         <!-- 分页 -->
-        <div class="mt-6 flex justify-center" v-if="totalNotifications > pageSize">
+        <div class="mt-6 flex justify-center" v-if="!loading && totalNotifications > pageSize">
             <el-pagination background layout="prev, pager, next" :total="totalNotifications" :page-size="pageSize"
                 :current-page="currentPage" @current-change="handlePageChange" />
         </div>
@@ -141,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from 'vue';
+import { computed, onMounted, ref, shallowRef, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     ElRadioGroup, ElRadioButton, ElTag, ElButton, ElPagination,
@@ -172,6 +172,13 @@ const totalNotifications = computed(() => notificationStore.pagination?.totalEle
 const filterStatus = shallowRef<'all' | 'read' | 'unread'>('all');
 const markingIds = ref<Set<number>>(new Set());
 const deletingIds = ref<Set<number>>(new Set());
+
+const isMounted = ref(true);
+onBeforeUnmount(() => {
+    isMounted.value = false;
+});
+
+let currentFetchId = 0;
 
 const selectedNotificationIds = ref<number[]>([]);
 
@@ -247,6 +254,7 @@ const fetchNotifications = async () => {
         return;
     }
 
+    const thisFetchId = ++currentFetchId;
     try {
         const isReadFilter = filterStatus.value === 'all' ? null : filterStatus.value === 'read';
         await notificationStore.fetchNotifications(
@@ -255,7 +263,9 @@ const fetchNotifications = async () => {
             isReadFilter,
             'center',
         );
+        if (thisFetchId !== currentFetchId) return;
     } catch (error) {
+        if (thisFetchId !== currentFetchId) return;
         console.error('获取通知失败:', error);
         ElMessage.error('加载通知失败，请稍后重试');
     }
@@ -387,6 +397,7 @@ const handleNotificationClick = async (notification: NotificationDto) => {
     // 无 deepLink 时仅刷新列表（若从未读筛选中移除了当前项）
     if (wasUnread && filterStatus.value === 'unread') {
         await fetchNotifications();
+        if (!isMounted.value) return;
     }
 };
 

@@ -18,6 +18,10 @@ public interface NotificationBroadcastJobRepository extends JpaRepository<Notifi
     Page<NotificationBroadcastJob> findByStatus(NotificationBroadcastJob.Status status, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT j FROM NotificationBroadcastJob j WHERE j.id = :id")
+    Optional<NotificationBroadcastJob> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT j FROM NotificationBroadcastJob j WHERE j.initiatedBy = :initiatedBy AND j.status <> :excludedStatus AND j.submittedAt > :submittedAfter ORDER BY j.submittedAt DESC")
     List<NotificationBroadcastJob> findRecentByInitiatedByAndStatusNotAndSubmittedAtAfter(
             @Param("initiatedBy") Long initiatedBy,
