@@ -163,6 +163,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/notifications/index.vue"),
       },
       {
+        path: "/broadcast",
+        name: "broadcast",
+        meta: {
+          title: "广播管理",
+          requiresAuth: true,
+        },
+        component: () => import("@/views/broadcast/index.vue"),
+      },
+      {
         path: "/audit/workbench",
         name: "auditWorkbench",
         meta: {

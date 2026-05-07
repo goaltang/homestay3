@@ -24,8 +24,38 @@
             </el-button>
         </div>
 
+        <!-- 批量操作栏 -->
+        <div v-if="selectedRows.length > 0" class="batch-toolbar mb-4">
+            <el-alert type="info" :closable="false" show-icon>
+                <template #title>
+                    <div class="flex items-center justify-between w-full">
+                        <span>已选择 <strong>{{ selectedRows.length }}</strong> 条通知</span>
+                        <div class="flex gap-2">
+                            <el-button
+                                size="small"
+                                type="primary"
+                                :disabled="selectedUnreadCount === 0"
+                                @click="handleBatchMarkRead"
+                            >
+                                批量标记已读
+                            </el-button>
+                            <el-button
+                                size="small"
+                                type="danger"
+                                @click="handleBatchDelete"
+                            >
+                                批量删除
+                            </el-button>
+                        </div>
+                    </div>
+                </template>
+            </el-alert>
+        </div>
+
         <!-- 恢复 el-table -->
-        <el-table :data="notifications" v-loading="loading" style="width: 100%" empty-text="暂无通知" row-key="id">
+        <el-table :data="notifications" v-loading="loading" style="width: 100%" empty-text="暂无通知" row-key="id"
+            @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" />
             <el-table-column label="状态" width="100">
                 <template #default="{ row }">
                     <!-- 使用 row.read 判断 -->
@@ -98,7 +128,8 @@ import {
     ElIcon,
     ElEmpty,
     ElSelect,
-    ElOption
+    ElOption,
+    ElAlert
 } from 'element-plus';
 import { Loading } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
@@ -106,7 +137,9 @@ import {
     getNotifications,
     markAsRead,
     markAllAsRead,
+    markMultipleAsRead,
     deleteNotification,
+    deleteMultipleNotifications,
 } from '@/services/notificationService'; // 复用 service
 import type { NotificationDto } from '@/types/notification'; // 复用类型
 
@@ -128,6 +161,9 @@ const pageSize = ref(10);
 const totalNotifications = ref(0);
 const filterStatus = ref<'all' | 'read' | 'unread'>('all');
 const filterType = ref<string>('');
+const selectedRows = ref<NotificationDto[]>([]);
+
+const selectedUnreadCount = ref(0);
 
 // 新增：通知类型选项
 const notificationTypes = ref([
@@ -264,6 +300,11 @@ const fetchNotifications = async () => {
     }
 };
 
+const handleSelectionChange = (selection: NotificationDto[]) => {
+    selectedRows.value = selection;
+    selectedUnreadCount.value = selection.filter(n => !n.read).length;
+};
+
 const handleMarkRead = async (id: number) => {
     console.log(`[HostNotificationManage] handleMarkRead called for id: ${id}`);
     try {
@@ -291,12 +332,31 @@ const handleMarkAllRead = async () => {
     try {
         const response = await markAllAsRead();
         ElMessage.success(`成功标记 ${response.markedCount} 条通知为已读`);
+        selectedRows.value = [];
         await fetchNotifications();
         await notificationStore.fetchUnreadCount();
     } catch (error) {
         console.error('全部标记已读失败:', error);
         ElMessage.error('操作失败，请稍后重试');
         loading.value = false;
+    }
+};
+
+const handleBatchMarkRead = async () => {
+    const ids = selectedRows.value.filter(n => !n.read).map(n => n.id);
+    if (ids.length === 0) {
+        ElMessage.warning('请选择未读通知');
+        return;
+    }
+    try {
+        const res = await markMultipleAsRead(ids);
+        ElMessage.success(`已批量标记 ${res.markedCount ?? ids.length} 条通知为已读`);
+        selectedRows.value = [];
+        await fetchNotifications();
+        await notificationStore.fetchUnreadCount();
+    } catch (error) {
+        console.error('批量标记已读失败:', error);
+        ElMessage.error('批量标记已读失败');
     }
 };
 
@@ -314,6 +374,10 @@ const handleDelete = async (id: number) => {
         loading.value = true;
         await deleteNotification(id);
         ElMessage.success('通知已删除');
+        const shouldMoveToPreviousPage = notifications.value.length === 1 && currentPage.value > 1;
+        if (shouldMoveToPreviousPage) {
+            currentPage.value -= 1;
+        }
         await fetchNotifications();
         await notificationStore.fetchUnreadCount();
     } catch (error: any) {
@@ -321,7 +385,41 @@ const handleDelete = async (id: number) => {
             console.error('删除通知失败:', error);
             ElMessage.error('删除失败，请稍后重试');
         }
+    } finally {
         loading.value = false;
+    }
+};
+
+const handleBatchDelete = async () => {
+    const ids = selectedRows.value.map(n => n.id);
+    if (ids.length === 0) {
+        ElMessage.warning('请先选择通知');
+        return;
+    }
+    try {
+        await ElMessageBox.confirm(
+            `确定要删除选中的 ${ids.length} 条通知吗？此操作不可恢复。`,
+            '批量删除',
+            {
+                confirmButtonText: '确定',
+                cancelButtonText: '取消',
+                type: 'warning',
+            }
+        );
+        const res = await deleteMultipleNotifications(ids);
+        ElMessage.success(`已批量删除 ${res.deletedCount ?? ids.length} 条通知`);
+        selectedRows.value = [];
+        const shouldMoveToPreviousPage = notifications.value.length === ids.length && currentPage.value > 1;
+        if (shouldMoveToPreviousPage) {
+            currentPage.value -= 1;
+        }
+        await fetchNotifications();
+        await notificationStore.fetchUnreadCount();
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            console.error('批量删除通知失败:', error);
+            ElMessage.error('批量删除失败');
+        }
     }
 };
 
@@ -383,5 +481,9 @@ onMounted(() => {
 .gap-4 {
     gap: 1rem;
     /* 16px */
+}
+
+.batch-toolbar :deep(.el-alert__title) {
+    width: 100%;
 }
 </style>

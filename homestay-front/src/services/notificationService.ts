@@ -72,6 +72,30 @@ export const deleteNotification = (notificationId: number): Promise<void> => {
 };
 
 /**
+ * 批量标记通知为已读
+ * @param notificationIds - 通知 ID 数组
+ */
+export const markMultipleAsRead = (notificationIds: number[]): Promise<{ markedCount: number }> => {
+  return request({
+    url: "/api/notifications/read-multiple",
+    method: "post",
+    data: notificationIds,
+  }).then((response) => response.data);
+};
+
+/**
+ * 批量删除通知
+ * @param notificationIds - 通知 ID 数组
+ */
+export const deleteMultipleNotifications = (notificationIds: number[]): Promise<{ deletedCount: number }> => {
+  return request({
+    url: "/api/notifications/delete-multiple",
+    method: "post",
+    data: notificationIds,
+  }).then((response) => response.data);
+};
+
+/**
  * 获取未读通知数量
  */
 export const getUnreadCount = (): Promise<{ unreadCount: number }> => {

@@ -18,6 +18,20 @@ export const menuData: Menus[] = [
     title: "通知中心",
     index: "/notifications",
     icon: "Bell",
+    children: [
+      {
+        id: "notifications-list",
+        pid: "notifications",
+        title: "通知列表",
+        index: "/notifications",
+      },
+      {
+        id: "broadcast",
+        pid: "notifications",
+        title: "广播管理",
+        index: "/broadcast",
+      },
+    ],
   },
   {
     id: "homestay",

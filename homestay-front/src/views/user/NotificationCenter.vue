@@ -20,6 +20,34 @@
             </div>
         </div>
 
+        <!-- 批量操作栏 -->
+        <div v-if="selectedNotificationIds.length > 0" class="batch-toolbar mb-4">
+            <el-alert type="info" :closable="false" show-icon>
+                <template #title>
+                    <div class="flex items-center justify-between w-full">
+                        <span>已选择 <strong>{{ selectedNotificationIds.length }}</strong> 条通知</span>
+                        <div class="flex gap-2">
+                            <el-button
+                                size="small"
+                                type="primary"
+                                :disabled="selectedUnreadCount === 0"
+                                @click="handleBatchMarkRead"
+                            >
+                                批量标记已读
+                            </el-button>
+                            <el-button
+                                size="small"
+                                type="danger"
+                                @click="handleBatchDelete"
+                            >
+                                批量删除
+                            </el-button>
+                        </div>
+                    </div>
+                </template>
+            </el-alert>
+        </div>
+
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-container">
             <el-skeleton :rows="4" animated v-for="i in 3" :key="i" />
@@ -32,10 +60,28 @@
 
         <!-- 通知卡片列表 -->
         <div v-else class="notification-list">
-            <div v-for="notification in notifications" :key="notification.id"
+            <div class="list-header">
+                <el-checkbox
+                    v-model="currentPageAllSelected"
+                    :indeterminate="currentPageIndeterminate"
+                    class="mr-2"
+                >
+                    全选当前页
+                </el-checkbox>
+            </div>
+            <div
+                v-for="notification in notifications"
+                :key="notification.id"
                 class="notification-card"
                 :class="{ 'notification-unread': !notification.read }"
-                @click="handleNotificationClick(notification)">
+                @click="handleNotificationClick(notification)"
+            >
+                <div class="notification-select" @click.stop>
+                    <el-checkbox
+                        :model-value="selectedNotificationIds.includes(notification.id)"
+                        @change="(val: any) => toggleSelection(notification.id, val as boolean)"
+                    />
+                </div>
 
                 <div class="notification-icon" :class="`icon-${notification.category}`">
                     <el-icon :size="22">
@@ -100,7 +146,7 @@ import { useRouter } from 'vue-router';
 import {
     ElRadioGroup, ElRadioButton, ElTag, ElButton, ElPagination,
     ElMessage, ElMessageBox, ElSkeleton, ElEmpty, ElIcon,
-    ElDialog, ElSwitch,
+    ElDialog, ElSwitch, ElAlert, ElCheckbox
 } from 'element-plus';
 import {
     Bell, ChatDotRound, Goods, House, Star, Tickets
@@ -109,7 +155,10 @@ import { useUserStore } from '@/stores/user';
 import { useNotificationStore } from '@/stores/notification';
 import { formatDate } from '@/utils/format';
 import type { NotificationDto } from '@/types/notification';
-
+import {
+    markMultipleAsRead,
+    deleteMultipleNotifications,
+} from '@/services/notificationService';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -123,6 +172,39 @@ const totalNotifications = computed(() => notificationStore.pagination?.totalEle
 const filterStatus = shallowRef<'all' | 'read' | 'unread'>('all');
 const markingIds = ref<Set<number>>(new Set());
 const deletingIds = ref<Set<number>>(new Set());
+
+const selectedNotificationIds = ref<number[]>([]);
+
+const selectedNotifications = computed(() => {
+    const ids = new Set(selectedNotificationIds.value);
+    return notifications.value.filter(n => ids.has(n.id));
+});
+
+const selectedUnreadCount = computed(() =>
+    selectedNotifications.value.filter(n => !n.read).length
+);
+
+const currentPageAllSelected = computed({
+    get: () =>
+        notifications.value.length > 0 &&
+        notifications.value.every(n => selectedNotificationIds.value.includes(n.id)),
+    set: (checked: boolean) => {
+        const ids = notifications.value.map(n => n.id);
+        if (checked) {
+            const set = new Set(selectedNotificationIds.value);
+            ids.forEach(id => set.add(id));
+            selectedNotificationIds.value = Array.from(set);
+        } else {
+            selectedNotificationIds.value = selectedNotificationIds.value.filter(id => !ids.includes(id));
+        }
+    }
+});
+
+const currentPageIndeterminate = computed(() => {
+    const pageIds = notifications.value.map(n => n.id);
+    const selected = selectedNotificationIds.value.filter(id => pageIds.includes(id));
+    return selected.length > 0 && selected.length < pageIds.length;
+});
 
 const emptyText = computed(() => {
     const map = { all: '暂无通知', unread: '暂无未读通知', read: '暂无已读通知' };
@@ -198,11 +280,32 @@ const handleMarkRead = async (id: number) => {
 const handleMarkAllRead = async () => {
     try {
         const markedCount = await notificationStore.markAllAsRead();
+        selectedNotificationIds.value = [];
         ElMessage.success(`成功标记 ${markedCount} 条通知为已读`);
         await fetchNotifications();
     } catch (error) {
         console.error('全部标记已读失败:', error);
         ElMessage.error('操作失败');
+    }
+};
+
+const handleBatchMarkRead = async () => {
+    const ids = selectedNotifications.value
+        .filter(n => !n.read)
+        .map(n => n.id);
+    if (ids.length === 0) {
+        ElMessage.warning('请选择未读通知');
+        return;
+    }
+    try {
+        const res = await markMultipleAsRead(ids);
+        ElMessage.success(`已批量标记 ${res.markedCount ?? ids.length} 条通知为已读`);
+        selectedNotificationIds.value = [];
+        await fetchNotifications();
+        await notificationStore.fetchUnreadCount();
+    } catch (error) {
+        console.error('批量标记已读失败:', error);
+        ElMessage.error('批量标记已读失败');
     }
 };
 
@@ -214,10 +317,12 @@ const handleDelete = async (id: number) => {
         deletingIds.value.add(id);
         const shouldMoveToPreviousPage = notifications.value.length === 1 && currentPage.value > 1;
         await notificationStore.deleteNotification(id);
+        selectedNotificationIds.value = selectedNotificationIds.value.filter(sid => sid !== id);
         if (shouldMoveToPreviousPage) {
             currentPage.value -= 1;
         }
         await fetchNotifications();
+        await notificationStore.fetchUnreadCount();
         ElMessage.success('通知已删除');
     } catch (error: any) {
         if (error !== 'cancel') {
@@ -226,6 +331,43 @@ const handleDelete = async (id: number) => {
         }
     } finally {
         deletingIds.value.delete(id);
+    }
+};
+
+const handleBatchDelete = async () => {
+    const ids = [...selectedNotificationIds.value];
+    if (ids.length === 0) {
+        ElMessage.warning('请先选择通知');
+        return;
+    }
+    try {
+        await ElMessageBox.confirm(`确定要删除选中的 ${ids.length} 条通知吗？此操作不可恢复。`, '批量删除', {
+            confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
+        });
+        const res = await deleteMultipleNotifications(ids);
+        ElMessage.success(`已批量删除 ${res.deletedCount ?? ids.length} 条通知`);
+        selectedNotificationIds.value = [];
+        const shouldMoveToPreviousPage = notifications.value.length === ids.length && currentPage.value > 1;
+        if (shouldMoveToPreviousPage) {
+            currentPage.value -= 1;
+        }
+        await fetchNotifications();
+        await notificationStore.fetchUnreadCount();
+    } catch (error: any) {
+        if (error !== 'cancel') {
+            console.error('批量删除通知失败:', error);
+            ElMessage.error('批量删除失败');
+        }
+    }
+};
+
+const toggleSelection = (id: number, checked: boolean) => {
+    if (checked) {
+        if (!selectedNotificationIds.value.includes(id)) {
+            selectedNotificationIds.value = [...selectedNotificationIds.value, id];
+        }
+    } else {
+        selectedNotificationIds.value = selectedNotificationIds.value.filter(sid => sid !== id);
     }
 };
 
@@ -255,6 +397,7 @@ const handlePageChange = (newPage: number) => {
 
 const handleFilterChange = () => {
     currentPage.value = 1;
+    selectedNotificationIds.value = [];
     fetchNotifications();
 };
 
@@ -299,6 +442,10 @@ onMounted(() => {
     padding: 20px;
 }
 
+.batch-toolbar :deep(.el-alert__title) {
+    width: 100%;
+}
+
 .loading-container {
     padding: 24px;
     display: flex;
@@ -317,10 +464,16 @@ onMounted(() => {
     gap: 12px;
 }
 
+.list-header {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+}
+
 .notification-card {
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 12px;
     padding: 16px 20px;
     background: #fff;
     border: 1px solid var(--el-border-color-lighter);
@@ -337,6 +490,11 @@ onMounted(() => {
 .notification-unread {
     background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
     border-color: #ffe4c4;
+}
+
+.notification-select {
+    flex: 0 0 24px;
+    padding-top: 4px;
 }
 
 .notification-icon {
