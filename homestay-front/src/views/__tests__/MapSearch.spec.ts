@@ -52,6 +52,8 @@ interface MapSearchMock {
   searchNearby: ReturnType<typeof vi.fn>;
   searchByLandmark: ReturnType<typeof vi.fn>;
   resetSearchMode: ReturnType<typeof vi.fn>;
+  setOnViewDetail: ReturnType<typeof vi.fn>;
+  rememberNormalSearchSnapshot: ReturnType<typeof vi.fn>;
 }
 
 type CurrentSearchContext = MapSearchMock["currentSearchContext"]["value"];
@@ -225,6 +227,8 @@ const createMapSearchMock = (): MapSearchMock => {
       landmark: null,
     };
   });
+  const setOnViewDetail = vi.fn();
+  const rememberNormalSearchSnapshot = vi.fn();
 
   return {
     homestays,
@@ -257,6 +261,8 @@ const createMapSearchMock = (): MapSearchMock => {
     searchNearby,
     searchByLandmark,
     resetSearchMode,
+    setOnViewDetail,
+    rememberNormalSearchSnapshot,
   };
 };
 
@@ -296,13 +302,16 @@ const settle = async () => {
   await flushPromises();
 };
 
-const clickButton = async (wrapper: VueWrapper, text: string) => {
-  const button = wrapper
-    .findAll("button")
-    .find((candidate) => candidate.text().includes(text));
+const clickCurrentLocation = async (wrapper: VueWrapper) => {
+  const locateButton = wrapper.find('[aria-label="定位到当前位置"]');
 
-  expect(button, `button with text ${text} should exist`).toBeDefined();
-  await button!.trigger("click");
+  expect(locateButton.exists(), "current location control should exist").toBe(true);
+  await locateButton.trigger("click");
+  await settle();
+};
+
+const waitForAutoSearch = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 550));
   await settle();
 };
 
@@ -330,11 +339,11 @@ describe("MapSearch", () => {
     currentMapSearchMock.applySearchState.mockClear();
     currentMapSearchMock.resetSearchMode.mockClear();
 
-    const guestCountInput = wrapper.findAll('input[type="number"]').at(2);
+    const guestCountInput = wrapper.findAll('input[type="number"]').at(0);
     expect(guestCountInput).toBeDefined();
     await guestCountInput!.setValue("4");
-
-    await clickButton(wrapper, "搜索房源");
+    await guestCountInput!.trigger("change");
+    await waitForAutoSearch();
 
     expect(currentMapSearchMock.resetSearchMode).toHaveBeenCalledWith({
       filters: {
@@ -372,7 +381,7 @@ describe("MapSearch", () => {
     currentMapSearchMock.locateUser.mockClear();
     currentMapSearchMock.searchNearby.mockClear();
 
-    await clickButton(wrapper, "使用当前位置");
+    await clickCurrentLocation(wrapper);
 
     expect(currentMapSearchMock.locateUser).toHaveBeenCalledWith({
       recenter: true,
@@ -397,9 +406,7 @@ describe("MapSearch", () => {
     expect(router.currentRoute.value.query).toMatchObject({
       mode: "nearby",
       radiusKm: "5",
-      nearbyLat: "31.230400",
-      nearbyLng: "121.473700",
-      nearbySource: "user",
+      q: "我的当前位置",
       mapLat: "31.230400",
       mapLng: "121.473700",
       mapZoom: "14",
@@ -407,23 +414,30 @@ describe("MapSearch", () => {
   });
 
   it("supports landmark search and replays landmark query", async () => {
-    geocodeAddressMock.mockResolvedValue({
-      lat: 22.5431,
-      lng: 114.0579,
-      address: "深圳市南山区科技园",
-      formattedAddress: "深圳市南山区科技园",
-    });
+    poiSuggestionsMock.mockResolvedValue([
+      {
+        id: "poi-1",
+        name: "科技园",
+        latitude: 22.5431,
+        longitude: 114.0579,
+        district: "南山区",
+        address: "科技园",
+      },
+    ]);
 
     const { wrapper, router } = await mountMapSearch();
 
     currentMapSearchMock.searchByLandmark.mockClear();
 
-    const landmarkInput = findInputByPlaceholder(wrapper, "输入");
+    const landmarkInput = findInputByPlaceholder(wrapper, "搜索目的地");
     await landmarkInput.setValue("科技园");
+    await landmarkInput.trigger("keyup", { key: "Enter" });
+    await settle();
 
-    await clickButton(wrapper, "搜索地标");
-
-    expect(geocodeAddressMock).toHaveBeenCalled();
+    expect(poiSuggestionsMock).toHaveBeenCalledWith("科技园", {
+      city: undefined,
+      limit: 1,
+    });
     expect(currentMapSearchMock.searchByLandmark).toHaveBeenLastCalledWith(
       {
         latitude: 22.5431,
@@ -443,6 +457,7 @@ describe("MapSearch", () => {
       landmarkLat: "22.543100",
       landmarkLng: "114.057900",
       radiusKm: "5",
+      q: "科技园",
     });
   });
 
@@ -481,7 +496,7 @@ describe("MapSearch", () => {
       }
     );
 
-    const landmarkInput = findInputByPlaceholder(wrapper, "输入");
+    const landmarkInput = findInputByPlaceholder(wrapper, "搜索目的地");
     expect((landmarkInput.element as HTMLInputElement).value).toBe("深圳湾公园");
 
     const viewportSwitch = wrapper.find('input[type="checkbox"]');
@@ -502,10 +517,7 @@ describe("MapSearch", () => {
     });
 
     expect(currentMapSearchMock.searchNearby).toHaveBeenCalledWith({
-      latitude: 31.2304,
-      longitude: 121.4737,
       radius: 7,
-      source: "user",
       filters: {},
       fitView: false,
     });
@@ -534,15 +546,12 @@ describe("MapSearch", () => {
     expect(currentMapSearchMock.searchNearby).toHaveBeenCalledWith({
       radius: 9,
       filters: {},
-      fitView: true,
+      fitView: false,
     });
 
     expect(router.currentRoute.value.query).toMatchObject({
       mode: "nearby",
       radiusKm: "9",
-      nearbyLat: "31.230400",
-      nearbyLng: "121.473700",
-      nearbySource: "user",
     });
   });
 
@@ -552,30 +561,27 @@ describe("MapSearch", () => {
     });
 
     currentMapSearchMock.locateUser.mockClear();
-    const useCurrentLocationButton = wrapper.find(".location-actions button");
-    expect(useCurrentLocationButton.exists()).toBe(true);
-    await useCurrentLocationButton.trigger("click");
-    await settle();
+    await clickCurrentLocation(wrapper);
 
     expect(currentMapSearchMock.locateUser).toHaveBeenCalledWith({
       recenter: true,
     });
 
-    const exitButton = wrapper.find('[data-testid="exit-special-search"]');
-    expect(exitButton.exists()).toBe(true);
+    const exitButton = wrapper
+      .findAll("button")
+      .find((candidate) => candidate.text().includes("退出"));
+    expect(exitButton, "exit special search button should exist").toBeDefined();
 
     currentMapSearchMock.resetSearchMode.mockClear();
 
-    await exitButton.trigger("click");
+    await exitButton!.trigger("click");
     await settle();
 
     expect(currentMapSearchMock.resetSearchMode).toHaveBeenCalled();
     expect(currentMapSearchMock.searchMode.value).toBe("normal");
     expect(router.currentRoute.value.query).not.toHaveProperty("mode");
     expect(router.currentRoute.value.query).not.toHaveProperty("radiusKm");
-    expect(router.currentRoute.value.query).not.toHaveProperty("nearbyLat");
-    expect(router.currentRoute.value.query).not.toHaveProperty("nearbyLng");
-    expect(router.currentRoute.value.query).not.toHaveProperty("nearbySource");
+    expect(router.currentRoute.value.query).not.toHaveProperty("q");
     expect(router.currentRoute.value.query).toMatchObject({
       guestCount: "2",
       mapLat: "31.230400",

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -72,6 +73,9 @@ class PaymentServiceImplTest {
 
     @Mock
     private RedisLock redisLock;
+
+    @Spy
+    private OrderStatusUpdater orderStatusUpdater = new OrderStatusUpdater();
 
     @InjectMocks
     private PaymentServiceImpl paymentService;

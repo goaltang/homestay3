@@ -251,21 +251,9 @@ const openEditModal = (review: ReviewItem) => {
 };
 
 // 处理评价更新事件
-const handleReviewUpdated = (updatedReviewData: EditableReviewData) => {
-    const index = reviews.value.findIndex(r => r.id === updatedReviewData.id);
-    if (index !== -1) {
-        reviews.value[index].rating = updatedReviewData.rating;
-        reviews.value[index].content = updatedReviewData.content;
-        if (updatedReviewData.images !== undefined) {
-            reviews.value[index].images = updatedReviewData.images;
-        }
-        reviews.value[index].cleanlinessRating = updatedReviewData.cleanlinessRating;
-        reviews.value[index].accuracyRating = updatedReviewData.accuracyRating;
-        reviews.value[index].communicationRating = updatedReviewData.communicationRating;
-        reviews.value[index].locationRating = updatedReviewData.locationRating;
-        reviews.value[index].checkInRating = updatedReviewData.checkInRating;
-        reviews.value[index].valueRating = updatedReviewData.valueRating;
-    }
+const handleReviewUpdated = (_updatedReviewData: EditableReviewData) => {
+    // 重新获取评价列表，确保前端数据与服务器一致（如敏感词过滤后的内容）
+    fetchReviews();
     isEditModalVisible.value = false;
 };
 // --- End functions ---

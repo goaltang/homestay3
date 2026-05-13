@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -19,11 +20,11 @@ import java.util.Optional;
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecificationExecutor<Review> {
 
-    // 查找指定房源的评论
-    Page<Review> findByHomestay(Homestay homestay, Pageable pageable);
+    // 查找指定房源的评论（排除已删除）
+    Page<Review> findByHomestayAndDeletedFalse(Homestay homestay, Pageable pageable);
 
-    // 查找指定用户的评论
-    Page<Review> findByUser(User user, Pageable pageable);
+    // 查找指定用户的评论（排除已删除）
+    Page<Review> findByUserAndDeletedFalse(User user, Pageable pageable);
 
     // 查找指定房东的房源评论
     @Query("SELECT r FROM Review r JOIN r.homestay h WHERE h.owner = :owner AND r.deleted = false")
@@ -37,8 +38,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     @Query("SELECT r FROM Review r JOIN r.homestay h WHERE h.owner = :owner AND r.response IS NULL AND r.deleted = false")
     Page<Review> findUnrepliedByHomestayOwner(@Param("owner") User owner, Pageable pageable);
 
-    // 计算指定房源的平均评分
-    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.homestay = :homestay AND r.deleted = false")
+    // 计算指定房源的平均评分（排除已删除和未公开的）
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.homestay = :homestay AND r.isPublic = true AND r.deleted = false")
     Double calculateAverageRatingByHomestay(@Param("homestay") Homestay homestay);
 
     // 根据用户ID查找评价（排除已删除）
@@ -97,6 +98,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     // 获取评价系统的平均评分（排除已删除）
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.deleted = false")
     Double getAverageRating();
+
+    // 评价总数（排除已删除）
+    Long countByDeletedFalse();
 
     // 评分大于等于指定值的评价数量（排除已删除）
     @Query("SELECT COUNT(r) FROM Review r WHERE r.rating >= :rating AND r.deleted = false")
@@ -171,4 +175,19 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
      */
     @Query("SELECT COUNT(r) FROM Review r WHERE r.isPublic = true AND r.deleted = false AND r.rating >= :minRating")
     Long countPublicPositiveReviews(@Param("minRating") int minRating);
+
+    /**
+     * 批量设置评价可见性
+     */
+    @Modifying
+    @Query("UPDATE Review r SET r.isPublic = :isVisible WHERE r.id IN :ids AND r.deleted = false")
+    int batchUpdateVisibility(@Param("ids") List<Long> ids, @Param("isVisible") boolean isVisible);
+
+    /**
+     * 批量软删除评价
+     */
+    @Modifying
+    @Query("UPDATE Review r SET r.deleted = true WHERE r.id IN :ids AND r.deleted = false")
+    int batchSoftDelete(@Param("ids") List<Long> ids);
+
 }

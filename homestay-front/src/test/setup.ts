@@ -117,7 +117,7 @@ const ElInputNumber = defineComponent({
       default: "",
     },
   },
-  emits: ["update:modelValue"],
+  emits: ["update:modelValue", "change"],
   template: `
     <input
       type="number"
@@ -126,6 +126,7 @@ const ElInputNumber = defineComponent({
       :min="min"
       :max="max"
       @input="$emit('update:modelValue', $event.target.value === '' ? undefined : Number($event.target.value))"
+      @change="$emit('change', $event.target.value === '' ? undefined : Number($event.target.value))"
     />
   `,
 });
@@ -256,6 +257,34 @@ const ElTooltip = defineComponent({
   },
 });
 
+const ElPopover = defineComponent({
+  name: "ElPopover",
+  inheritAttrs: false,
+  emits: ["hide"],
+  setup(_, { slots }) {
+    return () =>
+      h("div", { class: "el-popover-stub" }, [
+        slots.reference?.(),
+        slots.default?.(),
+      ]);
+  },
+});
+
+const ElDrawer = defineComponent({
+  name: "ElDrawer",
+  inheritAttrs: false,
+  props: {
+    modelValue: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ["update:modelValue"],
+  setup(_, { slots }) {
+    return () => h("div", { class: "el-drawer-stub" }, slots.default?.());
+  },
+});
+
 const ElIcon = defineComponent({
   name: "ElIcon",
   inheritAttrs: false,
@@ -274,6 +303,8 @@ config.global.components = {
   "el-switch": ElSwitch,
   "el-cascader": ElCascader,
   "el-tooltip": ElTooltip,
+  "el-popover": ElPopover,
+  "el-drawer": ElDrawer,
   "el-icon": ElIcon,
 };
 

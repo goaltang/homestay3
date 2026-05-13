@@ -16,6 +16,7 @@ import com.homestay3.homestaybackend.service.ReviewService;
 import com.homestay3.homestaybackend.service.NotificationService;
 import com.homestay3.homestaybackend.service.ContentFilterService;
 import com.homestay3.homestaybackend.service.ReviewImageService;
+import com.homestay3.homestaybackend.service.search.HomestayIndexingService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -59,6 +60,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final NotificationService notificationService;
     private final ContentFilterService contentFilterService;
     private final ReviewImageService reviewImageService;
+    private final HomestayIndexingService homestayIndexingService;
 
     @Value("${app.review.window-days:30}")
     private int reviewWindowDays;
@@ -152,14 +154,15 @@ public class ReviewServiceImpl implements ReviewService {
         Homestay homestay = order.getHomestay(); // 直接从订单获取民宿，避免二次查询
 
         // 5. 检查评价时间窗口（订单完成后 N 天内可评价）
-        if (order.getCompletedAt() != null) {
-            if (order.getCompletedAt().isAfter(LocalDateTime.now())) {
-                throw new IllegalArgumentException("订单完成时间异常，无法提交评价。");
-            }
-            long daysSinceCompletion = ChronoUnit.DAYS.between(order.getCompletedAt(), LocalDateTime.now());
-            if (daysSinceCompletion > reviewWindowDays) {
-                throw new IllegalArgumentException("订单已完成超过 " + reviewWindowDays + " 天，无法提交评价。");
-            }
+        if (order.getCompletedAt() == null) {
+            throw new IllegalArgumentException("订单尚未完成，无法提交评价。");
+        }
+        if (order.getCompletedAt().isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("订单完成时间异常，无法提交评价。");
+        }
+        long daysSinceCompletion = ChronoUnit.DAYS.between(order.getCompletedAt(), LocalDateTime.now());
+        if (daysSinceCompletion > reviewWindowDays) {
+            throw new IllegalArgumentException("订单已完成超过 " + reviewWindowDays + " 天，无法提交评价。");
         }
 
         // 6. 敏感词过滤
@@ -170,7 +173,7 @@ public class ReviewServiceImpl implements ReviewService {
             throw new IllegalArgumentException("You have already reviewed this order.");
         }
 
-        // 6. 创建并保存评论
+        // 8. 创建并保存评论
         Review review = Review.builder()
                 .user(user)
                 .homestay(homestay)
@@ -218,9 +221,9 @@ public class ReviewServiceImpl implements ReviewService {
         }
         // --- 通知逻辑结束 ---
 
-        // 可选：更新民宿的平均分等统计信息
-        // updateHomestayReviewStats(homestay.getId()); 
-        
+        // 同步房源搜索索引（评分和评论数可能已变化）
+        syncHomestayToSearch(homestay.getId());
+
         return convertToDTO(savedReview);
     }
 
@@ -229,11 +232,15 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDTO respondToReview(Long reviewId, String response, String username) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + reviewId));
-        
+
+        if (Boolean.TRUE.equals(review.getDeleted())) {
+            throw new ResourceNotFoundException("评价不存在: " + reviewId);
+        }
+
         // 检查当前用户是否是该房源的房东
         User host = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("用户不存在: " + username));
-        
+
         if (!review.getHomestay().getOwner().getId().equals(host.getId())) {
             throw new IllegalStateException("只有房东才能回复评价");
         }
@@ -269,30 +276,35 @@ public class ReviewServiceImpl implements ReviewService {
         }
         // --- 通知逻辑结束 ---
 
+        // 同步房源搜索索引（回复状态可能影响筛选）
+        syncHomestayToSearch(review.getHomestay().getId());
+
         return convertToDTO(updatedReview);
     }
 
     @Override
     public Page<ReviewDTO> getAdminReviews(Pageable pageable, Integer rating, String status) {
-        Specification<Review> spec = Specification.where(null);
-        
+        Specification<Review> spec = Specification.where(
+            (root, query, criteriaBuilder) -> criteriaBuilder.isFalse(root.get("deleted"))
+        );
+
         // 按评分筛选
         if (rating != null) {
-            spec = spec.and((root, query, criteriaBuilder) -> 
+            spec = spec.and((root, query, criteriaBuilder) ->
                 criteriaBuilder.equal(root.get("rating"), rating));
         }
-        
+
         // 按回复状态筛选
         if (status != null) {
             if ("RESPONDED".equals(status)) {
-                spec = spec.and((root, query, criteriaBuilder) -> 
+                spec = spec.and((root, query, criteriaBuilder) ->
                     criteriaBuilder.isNotNull(root.get("response")));
             } else if ("UNREPLIED".equals(status)) {
-                spec = spec.and((root, query, criteriaBuilder) -> 
+                spec = spec.and((root, query, criteriaBuilder) ->
                     criteriaBuilder.isNull(root.get("response")));
             }
         }
-        
+
         return reviewRepository.findAll(spec, pageable).map(this::convertToDTO);
     }
 
@@ -301,13 +313,14 @@ public class ReviewServiceImpl implements ReviewService {
         // 1. 获取房东用户实体
         User host = userRepository.findByUsername(hostUsername)
                 .orElseThrow(() -> new ResourceNotFoundException("房东用户不存在: " + hostUsername));
-        
+
         // 2. 构建查询条件 (Specification)
         Specification<Review> spec = (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // 基本条件：评价所属房源的房东是当前用户
+            // 基本条件：评价所属房源的房东是当前用户，且未删除
             predicates.add(criteriaBuilder.equal(root.get("homestay").get("owner").get("id"), host.getId()));
+            predicates.add(criteriaBuilder.isFalse(root.get("deleted")));
 
             // 按房源ID筛选
             if (homestayId != null) {
@@ -328,9 +341,6 @@ public class ReviewServiceImpl implements ReviewService {
                 }
                 // 可以添加其他状态的处理
             }
-
-            // 添加其他必要的默认条件，例如只查询公开的评价？(根据需求定)
-            // predicates.add(criteriaBuilder.isTrue(root.get("isPublic")));
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
@@ -383,6 +393,9 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDTO getReviewById(Long id) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + id));
+        if (Boolean.TRUE.equals(review.getDeleted())) {
+            throw new ResourceNotFoundException("评价不存在: " + id);
+        }
         return convertToDTO(review);
     }
 
@@ -432,9 +445,11 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         logger.info("Permission granted. Soft deleting review {} requested by user '{}' (Is Owner: {}, Is Admin: {})", id, currentUsername, isOwner, isAdmin);
+        Long homestayId = review.getHomestay().getId();
         review.setDeleted(true);
         reviewRepository.save(review);
         logger.info("Review soft deleted successfully with id: {}", id);
+        syncHomestayToSearch(homestayId);
     }
 
     @Override
@@ -442,46 +457,46 @@ public class ReviewServiceImpl implements ReviewService {
     public void setReviewVisibility(Long id, boolean isVisible) {
         Review review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + id));
+        if (Boolean.TRUE.equals(review.getDeleted())) {
+            throw new ResourceNotFoundException("评价不存在: " + id);
+        }
         review.setIsPublic(isVisible);
         reviewRepository.save(review);
+        syncHomestayToSearch(review.getHomestay().getId());
     }
 
     @Override
     @Transactional
     public void batchSetVisibility(List<Long> ids, boolean isVisible) {
         logger.info("批量设置评价可见性, IDs: {}, isVisible: {}", ids, isVisible);
-        for (Long id : ids) {
-            try {
-                Review review = reviewRepository.findById(id)
-                        .orElse(null);
-                if (review != null) {
-                    review.setIsPublic(isVisible);
-                    reviewRepository.save(review);
-                }
-            } catch (Exception e) {
-                logger.error("批量设置可见性失败, ID: {}, 错误: {}", id, e.getMessage());
-            }
+        if (ids == null || ids.isEmpty()) {
+            return;
         }
-        logger.info("批量设置评价可见性完成");
+        // 查询涉及的房源ID用于后续同步
+        List<Long> homestayIds = reviewRepository.findAllById(ids).stream()
+                .map(r -> r.getHomestay().getId())
+                .distinct()
+                .collect(Collectors.toList());
+        int updated = reviewRepository.batchUpdateVisibility(ids, isVisible);
+        logger.info("批量设置评价可见性完成, 影响行数: {}", updated);
+        homestayIds.forEach(this::syncHomestayToSearch);
     }
 
     @Override
     @Transactional
     public void batchDelete(List<Long> ids) {
         logger.info("批量删除评价, IDs: {}", ids);
-        for (Long id : ids) {
-            try {
-                Review review = reviewRepository.findById(id)
-                        .orElse(null);
-                if (review != null) {
-                    review.setDeleted(true);
-                    reviewRepository.save(review);
-                }
-            } catch (Exception e) {
-                logger.error("批量删除失败, ID: {}, 错误: {}", id, e.getMessage());
-            }
+        if (ids == null || ids.isEmpty()) {
+            return;
         }
-        logger.info("批量删除评价完成");
+        // 查询涉及的房源ID用于后续同步
+        List<Long> homestayIds = reviewRepository.findAllById(ids).stream()
+                .map(r -> r.getHomestay().getId())
+                .distinct()
+                .collect(Collectors.toList());
+        int updated = reviewRepository.batchSoftDelete(ids);
+        logger.info("批量删除评价完成, 影响行数: {}", updated);
+        homestayIds.forEach(this::syncHomestayToSearch);
     }
 
     @Override
@@ -519,13 +534,18 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     public ReviewDTO updateReview(Long reviewId, UpdateReviewRequest updateRequest, String username) {
         logger.info("开始更新评价, ID: {}, 用户: {}", reviewId, username);
-        
+
         // 1. 查找评价
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> {
                     logger.warn("更新评价失败 - 未找到评价, ID: {}", reviewId);
                     return new ResourceNotFoundException("评价不存在: " + reviewId);
                 });
+
+        if (Boolean.TRUE.equals(review.getDeleted())) {
+            logger.warn("更新评价失败 - 评价已删除, ID: {}", reviewId);
+            throw new ResourceNotFoundException("评价不存在: " + reviewId);
+        }
                 
         // 2. 查找请求用户
         User user = userRepository.findByUsername(username)
@@ -573,7 +593,10 @@ public class ReviewServiceImpl implements ReviewService {
         // 5. 保存更新
         Review updatedReview = reviewRepository.save(review);
         logger.info("评价更新成功, ID: {}", updatedReview.getId());
-        
+
+        // 同步房源搜索索引（评分可能已变化）
+        syncHomestayToSearch(review.getHomestay().getId());
+
         // 6. 转换并返回 DTO
         return convertToDTO(updatedReview);
     }
@@ -586,6 +609,10 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("评价未找到, ID: " + reviewId));
 
+        if (Boolean.TRUE.equals(review.getDeleted())) {
+            throw new ResourceNotFoundException("评价未找到, ID: " + reviewId);
+        }
+
         // 验证房东权限
         Homestay homestay = review.getHomestay();
         if (homestay == null || !homestay.getOwner().getUsername().equals(hostUsername)) {
@@ -597,7 +624,7 @@ public class ReviewServiceImpl implements ReviewService {
         if (review.getResponse() == null) {
             logger.info("评价 {} 本身没有回复，无需删除", reviewId);
             // 可以选择直接返回或抛出特定异常，这里选择直接返回表示操作完成
-            return; 
+            return;
         }
 
         // 清除回复内容和时间
@@ -605,7 +632,21 @@ public class ReviewServiceImpl implements ReviewService {
         review.setResponseTime(null);
         reviewRepository.save(review);
 
+        // 同步房源搜索索引（回复状态可能影响筛选）
+        syncHomestayToSearch(review.getHomestay().getId());
+
         logger.info("成功删除评价 {} 的回复", reviewId);
+    }
+
+    private void syncHomestayToSearch(Long homestayId) {
+        try {
+            if (homestayId != null) {
+                homestayIndexingService.syncHomestay(homestayId);
+                logger.debug("触发房源 {} 的搜索索引同步", homestayId);
+            }
+        } catch (Exception e) {
+            logger.warn("同步房源 {} 到搜索索引失败: {}", homestayId, e.getMessage());
+        }
     }
 
     private ReviewDTO convertToDTO(Review review) {
@@ -645,6 +686,10 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("评价不存在: " + reviewId));
+
+        if (Boolean.TRUE.equals(review.getDeleted())) {
+            throw new ResourceNotFoundException("评价不存在: " + reviewId);
+        }
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("用户不存在: " + username));

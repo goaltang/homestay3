@@ -41,7 +41,7 @@ public class AdminReviewController {
     ) {
         logger.info("管理员获取评价列表，页码: {}, 每页数量: {}, 评分: {}, 状态: {}, 排序: {}", page, size, rating, status, sort);
         
-        Set<String> allowedFields = Set.of("id", "createTime", "updatedAt", "rating");
+        Set<String> allowedFields = Set.of("id", "createTime", "updateTime", "rating");
         Pageable pageable = SortUtils.buildPageable(page, size, sort, null, allowedFields);
         Page<ReviewDTO> reviews = reviewService.getAdminReviews(pageable, rating, status);
         

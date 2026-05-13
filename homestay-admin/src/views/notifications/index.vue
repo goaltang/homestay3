@@ -351,6 +351,7 @@ const broadcastJobDetailLoading = ref(false)
 const currentBroadcastJob = ref<NotificationBroadcastJob | null>(null)
 const detailRequestId = ref(0)
 const fetchId = ref(0)
+const broadcastFetchId = ref(0)
 
 const broadcastJobStatusOptions = [
     { label: '待执行', value: 'PENDING' },
@@ -480,6 +481,7 @@ const loadNotificationTypes = async () => {
 }
 
 const loadBroadcastJobs = async () => {
+    const currentFetchId = ++broadcastFetchId.value
     try {
         broadcastJobsLoading.value = true
         const response = await getNotificationBroadcastJobs({
@@ -488,15 +490,19 @@ const loadBroadcastJobs = async () => {
             status: broadcastJobFilter.status || undefined
         })
 
+        if (currentFetchId !== broadcastFetchId.value) return true
         broadcastJobs.value = response.content
         broadcastJobTotal.value = response.totalElements
         return true
     } catch (error) {
+        if (currentFetchId !== broadcastFetchId.value) return false
         console.error('获取广播任务历史失败:', error)
         ElMessage.error('获取广播任务历史失败')
         return false
     } finally {
-        broadcastJobsLoading.value = false
+        if (currentFetchId === broadcastFetchId.value) {
+            broadcastJobsLoading.value = false
+        }
     }
 }
 

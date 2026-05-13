@@ -30,7 +30,7 @@ export function useReviews() {
           return avgRating.toFixed(1);
         }
       }
-      return "4.5"; // 默认好评评分
+      return "暂无评分";
     }
 
     return "暂无评分";

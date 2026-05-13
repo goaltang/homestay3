@@ -792,12 +792,16 @@ const handleUseCurrentLocation = async () => {
 
   globalSearchKeyword.value = '我的当前位置';
   rememberNormalSearchSnapshot();
-  searchMode.value = 'nearby';
   useClusterMode.value = false;
-  const changed = await syncQueryFromForm(buildQueryState(), 'push');
-  if (!changed) {
-    await applyRouteStateFromQuery();
-  }
+  await searchNearby({
+    latitude: location.latitude,
+    longitude: location.longitude,
+    radius: nearbyRadius.value,
+    source: 'user',
+    filters: buildFiltersFromForm(),
+    fitView: true,
+  });
+  await syncQueryFromForm(buildQueryState(), 'push', { skipRouteReplay: true });
 };
 
 const handleToggleCluster = async () => {
