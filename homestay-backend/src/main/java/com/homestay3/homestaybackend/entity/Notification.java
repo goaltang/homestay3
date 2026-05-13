@@ -11,7 +11,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -51,15 +53,21 @@ public class Notification {
     @Column(name = "type", length = 50, nullable = false)
     private NotificationType type;
 
-    @Column(name = "type", length = 50, insertable = false, updatable = false)
+    @Transient
     private String rawType;
 
     @Convert(converter = EntityTypeConverter.class)
     @Column(name = "entity_type", length = 50)
     private EntityType entityType;
 
-    @Column(name = "entity_type", length = 50, insertable = false, updatable = false)
+    @Transient
     private String rawEntityType;
+
+    @PostLoad
+    void postLoad() {
+        rawType = type != null ? type.name() : null;
+        rawEntityType = entityType != null ? entityType.name() : null;
+    }
 
     @Column(name = "entity_id", length = 255)
     private String entityId;

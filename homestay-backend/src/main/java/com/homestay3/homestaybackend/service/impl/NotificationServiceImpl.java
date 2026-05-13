@@ -666,4 +666,4 @@ public class NotificationServiceImpl implements NotificationService {
     private EntityType normalizeEntityTypeForCreate(EntityType entityType) {
         return entityType == null ? null : entityType.canonicalType();
     }
-} 
+}

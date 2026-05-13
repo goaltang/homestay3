@@ -63,7 +63,7 @@ class NotificationBroadcastJobProcessorTest {
         User user2 = user(2L);
         User user3 = user(3L);
 
-        when(jobRepository.findById(20L)).thenReturn(Optional.of(job));
+        when(jobRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(job));
         when(jobRepository.save(any(NotificationBroadcastJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findAll()).thenReturn(List.of(user1, user2, user3));
         when(notificationPreferenceService.getEnabledMap(any(), any()))
@@ -113,7 +113,7 @@ class NotificationBroadcastJobProcessorTest {
     @Test
     void processRecordsFailureReasonWhenSaveAllFails() {
         NotificationBroadcastJob job = pendingJob(21L);
-        when(jobRepository.findById(21L)).thenReturn(Optional.of(job));
+        when(jobRepository.findByIdForUpdate(21L)).thenReturn(Optional.of(job));
         when(jobRepository.save(any(NotificationBroadcastJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.findAll()).thenReturn(List.of(user(1L), user(2L)));
         when(notificationPreferenceService.getEnabledMap(any(), any()))

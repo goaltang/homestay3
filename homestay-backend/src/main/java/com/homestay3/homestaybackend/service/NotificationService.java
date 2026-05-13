@@ -120,4 +120,4 @@ public interface NotificationService {
      */
     NotificationDTO sendSystemNotification(Long userId, String content);
 
-} 
+}

@@ -34,4 +34,4 @@ public class NotificationDTO {
     // 可以添加 actorUsername 或 entityTitle 等字段，如果需要减少前端查询
     // private String actorUsername;
     // private String entityTitle; // 例如: 房源名称
-} 
+}

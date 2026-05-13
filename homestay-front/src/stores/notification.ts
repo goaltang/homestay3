@@ -42,11 +42,21 @@ export const useNotificationStore = defineStore("notification", () => {
 
     if (isNew) {
       notifications.value.unshift(normalizedNotification);
+      // 新通知且未读时，本地未读计数+1（WebSocket unread-count 消息可能稍后到达）
+      if (!normalizedNotification.read) {
+        setUnreadCount(unreadCount.value + 1);
+      }
     } else {
+      const wasUnread = !notifications.value[listIndex].read;
+      const nowUnread = !normalizedNotification.read;
       notifications.value[listIndex] = {
         ...notifications.value[listIndex],
         ...normalizedNotification,
       };
+      // 同步更新未读计数（如通知从未读变为已读）
+      if (wasUnread && !nowUnread) {
+        setUnreadCount(unreadCount.value - 1);
+      }
     }
 
     if (pagination.value) {
@@ -56,7 +66,7 @@ export const useNotificationStore = defineStore("notification", () => {
         const newTotalElements = pagination.value.totalElements + 1;
         const newTotalPages = Math.ceil(newTotalElements / pagination.value.size);
         const nextContent = pagination.value.number === 0
-          ? [normalizedNotification, ...pagination.value.content].slice(0, pagination.value.size + 1)
+          ? [normalizedNotification, ...pagination.value.content].slice(0, pagination.value.size)
           : pagination.value.content;
 
         pagination.value = {
@@ -148,15 +158,11 @@ export const useNotificationStore = defineStore("notification", () => {
       }
     } catch (error) {
       console.error(`获取通知列表 (${target}) 失败:`, error);
-      if (target === "dropdown") {
-        notifications.value = [];
-      } else {
-        if (pagination.value) {
-          pagination.value = {
-            ...pagination.value,
-            content: [],
-          };
-        }
+      if (target === "center" && pagination.value) {
+        pagination.value = {
+          ...pagination.value,
+          content: [],
+        };
       }
       return null;
     } finally {
@@ -182,18 +188,16 @@ export const useNotificationStore = defineStore("notification", () => {
       );
       if (notification && !notification.read) {
         notification.read = true;
-        notification.isRead = true;
         notification.readAt = updatedNotification.readAt || new Date().toISOString();
         wasUnread = true;
       }
-      // 如果是在通知中心操作，可能需要更新分页对象中的数据
+      // 如果是在通知中心操作，同步更新分页对象中的数据
       if (pagination.value) {
         const notificationInPage = pagination.value.content.find(
           (n) => n.id === notificationId
         );
         if (notificationInPage && !notificationInPage.read) {
           notificationInPage.read = true;
-          notificationInPage.isRead = true;
           notificationInPage.readAt = updatedNotification.readAt || new Date().toISOString();
           wasUnread = true;
         }
@@ -226,11 +230,10 @@ export const useNotificationStore = defineStore("notification", () => {
       console.log(`API 响应: ${markedCount} 条通知已标记为已读`);
 
       // 更新前端状态
-      setUnreadCount(0); // 直接设置为 0
+      setUnreadCount(0);
       notifications.value.forEach((n) => {
         if (!n.read) {
           n.read = true;
-          n.isRead = true;
           n.readAt = new Date().toISOString();
         }
       });
@@ -238,7 +241,6 @@ export const useNotificationStore = defineStore("notification", () => {
         pagination.value.content.forEach((n) => {
           if (!n.read) {
             n.read = true;
-            n.isRead = true;
             n.readAt = new Date().toISOString();
           }
         });

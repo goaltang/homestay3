@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NotificationBroadcastJobRepository extends JpaRepository<NotificationBroadcastJob, Long> {
@@ -21,14 +22,12 @@ public interface NotificationBroadcastJobRepository extends JpaRepository<Notifi
     @Query("SELECT j FROM NotificationBroadcastJob j WHERE j.id = :id")
     Optional<NotificationBroadcastJob> findByIdForUpdate(@Param("id") Long id);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT j FROM NotificationBroadcastJob j WHERE j.initiatedBy = :initiatedBy AND j.status <> :excludedStatus AND j.submittedAt > :submittedAfter ORDER BY j.submittedAt DESC")
     List<NotificationBroadcastJob> findRecentByInitiatedByAndStatusNotAndSubmittedAtAfter(
             @Param("initiatedBy") Long initiatedBy,
             @Param("excludedStatus") NotificationBroadcastJob.Status excludedStatus,
             @Param("submittedAfter") LocalDateTime submittedAfter);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT j FROM NotificationBroadcastJob j WHERE j.status <> :excludedStatus AND j.submittedAt > :submittedAfter ORDER BY j.submittedAt DESC")
     List<NotificationBroadcastJob> findRecentByStatusNotAndSubmittedAtAfter(
             @Param("excludedStatus") NotificationBroadcastJob.Status excludedStatus,

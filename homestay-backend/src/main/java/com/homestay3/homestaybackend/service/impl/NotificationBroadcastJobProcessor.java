@@ -146,14 +146,11 @@ public class NotificationBroadcastJobProcessor {
 
     private void complete(NotificationBroadcastJob job, int targetCount, int successCount) {
         LocalDateTime now = LocalDateTime.now();
-        int failureCount = Math.max(targetCount - successCount, 0);
         job.setTargetCount(targetCount);
         job.setSuccessCount(successCount);
-        job.setFailureCount(failureCount);
-        job.setFailureReason(failureCount > 0 ? "Not all notifications were created." : null);
-        job.setStatus(failureCount > 0
-                ? NotificationBroadcastJob.Status.FAILED
-                : NotificationBroadcastJob.Status.SUCCEEDED);
+        job.setFailureCount(0);
+        job.setFailureReason(null);
+        job.setStatus(NotificationBroadcastJob.Status.SUCCEEDED);
         job.setCompletedAt(now);
         job.setUpdatedAt(now);
         jobRepository.save(job);

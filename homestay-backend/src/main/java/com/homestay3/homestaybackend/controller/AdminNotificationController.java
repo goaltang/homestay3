@@ -28,6 +28,7 @@ import java.util.Map;
 public class AdminNotificationController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminNotificationController.class);
+    private static final int MAX_BROADCAST_CONTENT_LENGTH = 500;
 
     private final NotificationService notificationService;
     private final NotificationBroadcastService notificationBroadcastService;
@@ -50,6 +51,9 @@ public class AdminNotificationController {
         String content = body.get("content");
         if (content == null || content.isBlank()) {
             return ResponseEntity.badRequest().build();
+        }
+        if (content.length() > MAX_BROADCAST_CONTENT_LENGTH) {
+            throw new IllegalArgumentException("Broadcast content exceeds maximum length of " + MAX_BROADCAST_CONTENT_LENGTH + " characters");
         }
         NotificationBroadcastJobDTO job = notificationBroadcastService.submitBroadcast(
                 content.trim(),

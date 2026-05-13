@@ -203,4 +203,4 @@ public class NotificationController {
         log.info("用户 {} 更新通知偏好: domain={}, enabled={}", currentUserId, notificationDomain, enabled);
         return ResponseEntity.ok().build();
     }
-} 
+}
